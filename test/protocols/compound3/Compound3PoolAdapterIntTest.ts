@@ -6,19 +6,21 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
 import {
   Compound3TestUtils,
-  IBorrowResults, IMakeBorrowAndRepayResults,
+  IBorrowResults, IMakeBorrowAndRepayResults, IPrepareBorrowBadPathsParams,
   IPrepareToBorrowResults
 } from "../../baseUT/protocols/compound3/Compound3TestUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IUserBalances} from "../../baseUT/utils/BalanceUtils";
+import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {IBorrowAndRepayBadParams} from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
-import {IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
+import {IComet__factory, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {Misc} from "../../../scripts/utils/Misc";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
 describe("Compound3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -58,9 +60,10 @@ describe("Compound3PoolAdapterIntTest", () => {
     collateralAmountRequired: BigNumber | undefined,
     borrowAsset: string,
     borrowAmountRequired: BigNumber | undefined,
-    targetHealthFactor2?: number,
-    minHealthFactor2?: number
+    p?: IPrepareBorrowBadPathsParams
   ) : Promise<{borrowResults: IBorrowResults, prepareResults: IPrepareToBorrowResults}> {
+    const comet = p?.comet || MaticAddresses.COMPOUND3_COMET_USDC;
+    const cometRewards = p?.cometRewards || MaticAddresses.COMPOUND3_COMET_REWARDS;
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
     const prepareResults = await Compound3TestUtils.prepareToBorrow(
@@ -69,12 +72,19 @@ describe("Compound3PoolAdapterIntTest", () => {
       collateralHolder,
       collateralAmountRequired,
       borrowToken,
-      [MaticAddresses.COMPOUND3_COMET_USDC],
-      MaticAddresses.COMPOUND3_COMET_REWARDS,
-      {targetHealthFactor2, minHealthFactor2,}
+      [comet],
+      cometRewards,
+      p
     )
 
-    const borrowResults = await Compound3TestUtils.makeBorrow(deployer, prepareResults, borrowAmountRequired)
+    const borrowResults = await Compound3TestUtils.makeBorrow(
+      deployer,
+      prepareResults,
+      borrowAmountRequired,
+      {
+        makeOperationAsNotTc: p?.borrowAsNotTetuConverter
+      }
+    )
 
     return {
       borrowResults,
@@ -93,7 +103,7 @@ describe("Compound3PoolAdapterIntTest", () => {
     amountToRepay?: BigNumber,
     initialBorrowAmountOnUserBalance?: BigNumber,
     borrowHolder?: string,
-    badParams?: IBorrowAndRepayBadParams
+    p?: IBorrowAndRepayBadParams
   ) : Promise<IMakeBorrowAndRepayResults> {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
@@ -103,8 +113,8 @@ describe("Compound3PoolAdapterIntTest", () => {
       collateralHolder,
       collateralAmountRequired,
       borrowToken,
-      [MaticAddresses.COMPOUND3_COMET_USDC],
-      MaticAddresses.COMPOUND3_COMET_REWARDS
+      p?.comets || [MaticAddresses.COMPOUND3_COMET_USDC],
+      p?.cometRewards || MaticAddresses.COMPOUND3_COMET_REWARDS
     )
 
     if (initialBorrowAmountOnUserBalance && borrowHolder) {
@@ -132,7 +142,7 @@ describe("Compound3PoolAdapterIntTest", () => {
       await DeployerUtils.startImpersonate(prepareResults.userContract.address)
     );
     if (amountToRepay) {
-      const repayCaller = badParams?.repayAsNotUserAndNotTC
+      const repayCaller = p?.repayAsNotUserAndNotTC
         ? deployer.address // not TC, not user
         : await prepareResults.controller.tetuConverter();
 
@@ -142,8 +152,8 @@ describe("Compound3PoolAdapterIntTest", () => {
       );
 
       // make partial repay
-      const amountBorrowAssetToSendToPoolAdapter = badParams?.wrongAmountToRepayToTransfer
-        ? badParams?.wrongAmountToRepayToTransfer
+      const amountBorrowAssetToSendToPoolAdapter = p?.wrongAmountToRepayToTransfer
+        ? p?.wrongAmountToRepayToTransfer
         : amountToRepay;
 
       await transferAndApprove(
@@ -159,7 +169,7 @@ describe("Compound3PoolAdapterIntTest", () => {
         prepareResults.userContract.address,
         // normally we don't close position here
         // but in bad paths we need to emulate attempts to close the position
-        badParams?.forceToClosePosition || false,
+        p?.forceToClosePosition || false,
         {gasLimit: GAS_LIMIT}
       );
     } else {
@@ -263,10 +273,126 @@ describe("Compound3PoolAdapterIntTest", () => {
         })
       })
     })
+    describe("Bad paths", () => {
+      it("should revert if wrong borrowed balances", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
+        await cometMock2.disableTransferInWithdraw();
+
+        const cometRewardsMock = await MocksHelper.createCometRewardsMock(
+          deployer,
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        );
+
+        await BalanceUtils.getAmountFromHolder(
+          MaticAddresses.USDC,
+          MaticAddresses.HOLDER_USDC,
+          cometMock2.address,
+          parseUnits("1000", 6)
+        );
+
+        await expect(
+          makeBorrow(
+            MaticAddresses.WMATIC,
+            MaticAddresses.HOLDER_WMATIC,
+            parseUnits('2000'),
+            MaticAddresses.USDC,
+            parseUnits('300', 6),
+            {
+              comet: cometMock2.address,
+              cometRewards: cometRewardsMock.address
+            }
+          )
+        ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
+      });
+      it("should revert if not tetu converter", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeBorrow(
+            MaticAddresses.WMATIC,
+            MaticAddresses.HOLDER_WMATIC,
+            parseUnits('2000'),
+            MaticAddresses.USDC,
+            parseUnits('300', 6),
+            {
+              borrowAsNotTetuConverter: true
+            }
+          )
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
+      });
+      it("should revert if sumCollateralSafe <= borrowBase", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
+        // we try to set collateralBase = small value in getStatus
+        // as result, we follow condition will fail: sumCollateralSafe > borrowBase with INCORRECT_RESULT_LIQUIDITY
+        await cometMock2.setTokensBalance(2, 0);
+
+        const cometRewardsMock = await MocksHelper.createCometRewardsMock(
+          deployer,
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        );
+
+        await BalanceUtils.getAmountFromHolder(
+          MaticAddresses.USDC,
+          MaticAddresses.HOLDER_USDC,
+          cometMock2.address,
+          parseUnits("1000", 6)
+        );
+
+        await expect(
+          makeBorrow(
+            MaticAddresses.WMATIC,
+            MaticAddresses.HOLDER_WMATIC,
+            parseUnits('2000'),
+            MaticAddresses.USDC,
+            parseUnits('300', 6),
+            {
+              comet: cometMock2.address,
+              cometRewards: cometRewardsMock.address
+            }
+          )
+        ).revertedWith("TC-23 incorrect liquidity"); // INCORRECT_RESULT_LIQUIDITY
+      });
+    })
   })
 
   describe("Borrow using small health factors", () => {
     describe("health factor is greater than liquidationThreshold18/LTV", () => {
+      it("health factor is less than liquidationThreshold18/LTV", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const targetHealthFactor2 = 103;
+        const minHealthFactor2 = 101;
+
+        const r = await makeBorrow(
+          MaticAddresses.WETH,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('5'),
+          MaticAddresses.USDC,
+          undefined,
+          {
+            targetHealthFactor2,
+            minHealthFactor2
+          }
+        )
+
+        const status = await r.prepareResults.poolAdapter.getStatus();
+        console.log("status", status);
+
+        const comet = IComet__factory.connect(MaticAddresses.COMPOUND3_COMET_USDC, deployer);
+        const assetInfo = await comet.getAssetInfoByAddress(MaticAddresses.WETH);
+        console.log(assetInfo);
+
+        const minHealthFactorAllowedByPlatform = assetInfo.liquidateCollateralFactor.mul(Misc.WEI).div(assetInfo.borrowCollateralFactor);
+        console.log(minHealthFactorAllowedByPlatform);
+
+        expect(status.healthFactor18).approximately(minHealthFactorAllowedByPlatform, 1e9);
+      })
       it("should borrow with specified health factor", async () => {
         if (!await isPolygonForkInUse()) return;
 
@@ -276,11 +402,13 @@ describe("Compound3PoolAdapterIntTest", () => {
         const r = await makeBorrow(
           MaticAddresses.WETH,
           MaticAddresses.HOLDER_WETH,
-          parseUnits('1'),
+          parseUnits('5'),
           MaticAddresses.USDC,
           undefined,
-          targetHealthFactor2,
-          minHealthFactor2
+          {
+            targetHealthFactor2,
+            minHealthFactor2
+          }
         )
 
         const status = await r.prepareResults.poolAdapter.getStatus()
@@ -396,11 +524,41 @@ describe("Compound3PoolAdapterIntTest", () => {
       });
     });
     describe("Bad paths", () => {
-      describe("Transfer amount less than specified amount to repay", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
+      it("should revert if transfer amount less than specified amount to repay", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-          await expect(makeBorrowAndRepay(
+        await expect(makeBorrowAndRepay(
+          MaticAddresses.WETH,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('1'),
+          MaticAddresses.USDC,
+          parseUnits('100', 6),
+          parseUnits('50', 6),
+          undefined,
+          undefined,
+          {wrongAmountToRepayToTransfer: parseUnits('40', 6)}
+        )).revertedWith("ERC20: transfer amount exceeds balance");
+      });
+      it("should revert if try to close position with not zero debt", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(makeBorrowAndRepay(
+          MaticAddresses.WETH,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('1'),
+          MaticAddresses.USDC,
+          parseUnits('100', 6),
+          parseUnits('50', 6),
+          undefined,
+          undefined,
+          {forceToClosePosition: true}
+        )).revertedWith("TC-55 close position not allowed");
+      });
+      it("should revert if not tetu converter", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeBorrowAndRepay(
             MaticAddresses.WETH,
             MaticAddresses.HOLDER_WETH,
             parseUnits('1'),
@@ -409,27 +567,51 @@ describe("Compound3PoolAdapterIntTest", () => {
             parseUnits('50', 6),
             undefined,
             undefined,
-            {wrongAmountToRepayToTransfer: parseUnits('40', 6)}
-          )).revertedWith("ERC20: transfer amount exceeds balance");
-        })
-      })
-      describe("Try to close position with not zero debt", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
+            {
+              repayAsNotUserAndNotTC: true
+            }
+          )
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
+      });
+      it("should revert if some debt still exists after full repay", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-          await expect(makeBorrowAndRepay(
-            MaticAddresses.WETH,
-            MaticAddresses.HOLDER_WETH,
-            parseUnits('1'),
-            MaticAddresses.USDC,
-            parseUnits('100', 6),
-            parseUnits('50', 6),
-            undefined,
-            undefined,
-            {forceToClosePosition: true}
-          )).revertedWith("TC-55 close position not allowed");
-        })
-      })
+        const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
+        // we try to set collateralBase = small value in getStatus
+        // as result, we follow condition will fail: sumCollateralSafe > borrowBase with INCORRECT_RESULT_LIQUIDITY
+        await cometMock2.setTokensBalance(2, 0);
+
+        const cometRewardsMock = await MocksHelper.createCometRewardsMock(
+          deployer,
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        );
+
+        await BalanceUtils.getAmountFromHolder(
+          MaticAddresses.USDC,
+          MaticAddresses.HOLDER_USDC,
+          cometMock2.address,
+          parseUnits("1000", 6)
+        );
+
+        await cometMock2.setTokensBalance(3, parseUnits("1", 18));
+        await cometMock2.setBorrowBalance(3, 1)
+
+        await expect(makeBorrowAndRepay(
+          MaticAddresses.WETH,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('1'),
+          MaticAddresses.USDC,
+          parseUnits('100', 6),
+          undefined, // full repay
+          parseUnits('100', 6),
+          MaticAddresses.HOLDER_USDC,
+          {
+            comets: [cometMock2.address],
+            cometRewards: cometRewardsMock.address,
+          }
+        )).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+      });
     })
   })
 //endregion Integration tests

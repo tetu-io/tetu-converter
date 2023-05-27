@@ -150,7 +150,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       vars.dataProvider = IAaveProtocolDataProvider(vars.addressProvider.getPoolDataProvider());
 
       vars.rc = vars.pool.getReserveData(params.collateralAsset);
-
       if (_isUsable(vars.rc.configuration) &&  _isCollateralUsageAllowed(vars.rc.configuration)) {
         vars.rb = vars.pool.getReserveData(params.borrowAsset);
 

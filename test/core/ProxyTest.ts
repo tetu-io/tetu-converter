@@ -19,6 +19,7 @@ import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {proxy} from "../../typechain/contracts";
+import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 
 /**
  * Most proxy contracts are proxy-contracts, that can be updated by proxy-updater only.
@@ -276,6 +277,69 @@ describe("ProxyTest", () => {
       const proxyUpdater = await controller.proxyUpdater();
       const proxyControlled = ProxyControlled__factory.connect(controller.address, await Misc.impersonate(proxyUpdater));
       expect(await proxyControlled.implementation()).not.eq(Misc.ZERO_ADDRESS);
+    });
+  });
+
+  describe("UpgradeableProxy: _init", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    it("Already inited", async () => {
+      const f = await MocksHelper.createUpgradeableProxyFacade(deployer);
+      const logic = await MocksHelper.createPoolStub(deployer); // we can use any contract
+
+      // first initialization
+      await f.init(logic.address);
+
+      await expect(
+        f.init(logic.address)
+      ).revertedWith("Already inited");
+    });
+  });
+
+  describe("ProxyControlled: initProxy", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    it("Try to init proxy by not-controllable implementation", async () => {
+      // upgrade implementation of the first controller
+      const newImplementation = (await DeployUtils.deployContract(deployer, "PriceOracle", MaticAddresses.AAVE_V3_PRICE_ORACLE)).address;
+
+      // try to use same (already created) implementation for the second controller
+      const newProxy = await ProxyControlled__factory.connect((await DeployUtils.deployContract(deployer, "ProxyControlled")).address, deployer);
+      await expect(
+        newProxy.initProxy(newImplementation)
+      ).reverted;
+    });
+  });
+
+  describe("ControllableV3: __Controllable_init", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    it("try to call __Controllable_init without call initializer", async () => {
+      const controller = await loadFixture(createController);
+
+      const f = await MocksHelper.createControllableV3Facade(deployer);
+
+      await expect(
+        f.init(controller.address)
+      ).revertedWith("Initializable: contract is not initializing");
     });
   });
 //endregion Unit tests

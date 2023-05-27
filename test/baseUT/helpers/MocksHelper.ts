@@ -44,7 +44,18 @@ import {
   PoolAdapterMock2,
   TetuConverterCallbackMock,
   LendingPlatformMock2,
-  Aave3AprLibFacade, AaveTwoAprLibFacade, DForceAprLibFacade, Compound3AprLibFacade
+  Aave3AprLibFacade,
+  AaveTwoAprLibFacade,
+  DForceAprLibFacade,
+  Compound3AprLibFacade,
+  Aave3AggregatorInterfaceMock,
+  CometMock,
+  PriceFeedMock,
+  CometMock2,
+  CometRewardsMock,
+  DForceRewardDistributorMock,
+  UpgradeableProxyFacade,
+  ControllableV3Facade
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -351,13 +362,17 @@ export class MocksHelper {
     borrowRate2: BigNumber
   ) : Promise<DForceInterestRateModelMock> {
     return await DeployUtils.deployContract(
-      signer
-      , "DForceInterestRateModelMock"
-      , cash1
-      , borrowRate1
-      , cash2
-      , borrowRate2
+      signer,
+      "DForceInterestRateModelMock",
+      cash1,
+      borrowRate1,
+      cash2,
+      borrowRate2,
     ) as DForceInterestRateModelMock;
+  }
+
+  public static async createDForceRewardDistributorMock(signer: SignerWithAddress, rewardsDistributor: string) : Promise<DForceRewardDistributorMock> {
+    return await DeployUtils.deployContract(signer,"DForceRewardDistributorMock", rewardsDistributor) as DForceRewardDistributorMock;
   }
 
 //endregion DForce mocks
@@ -584,6 +599,17 @@ export class MocksHelper {
   ) : Promise<PriceOracleMock> {
     return await DeployUtils.deployContract(deployer, "PriceOracleMock", assets, prices) as PriceOracleMock;
   }
+
+  public static async createAave3AggregatorInterfaceMock(
+    signer: SignerWithAddress,
+    price: BigNumber,
+  ): Promise<Aave3AggregatorInterfaceMock> {
+    return (await DeployUtils.deployContract(
+      signer,
+      'Aave3AggregatorInterfaceMock',
+      price,
+    )) as Aave3AggregatorInterfaceMock;
+  }
 //endregion PriceOracle mock
 
 //region Library facades
@@ -607,8 +633,30 @@ export class MocksHelper {
   public static async getCompound3AprLibFacade(deployer: SignerWithAddress) : Promise<Compound3AprLibFacade> {
     return await DeployUtils.deployContract(deployer, "Compound3AprLibFacade") as Compound3AprLibFacade;
   }
-
 //endregion Library facades
 
+//region Compound3 mocks
+  public static async createCometMock(signer: SignerWithAddress): Promise<CometMock> {
+    return (await DeployUtils.deployContract(signer, 'CometMock')) as CometMock;
+  }
+  public static async createCometMock2(signer: SignerWithAddress, comet: string): Promise<CometMock2> {
+    return (await DeployUtils.deployContract(signer, 'CometMock2', comet)) as CometMock2;
+  }
+  public static async createCometRewardsMock(signer: SignerWithAddress, comet: string, cometRewards: string): Promise<CometRewardsMock> {
+    return (await DeployUtils.deployContract(signer, 'CometRewardsMock', comet, cometRewards)) as CometRewardsMock;
+  }
 
+  public static async createPriceFeed(signer: SignerWithAddress): Promise<PriceFeedMock> {
+    return (await DeployUtils.deployContract(signer, 'PriceFeedMock', )) as PriceFeedMock;
+  }
+//endregion Compound3 mocks
+
+//region Proxy
+  public static async createUpgradeableProxyFacade(signer: SignerWithAddress): Promise<UpgradeableProxyFacade> {
+    return (await DeployUtils.deployContract(signer, 'UpgradeableProxyFacade', )) as UpgradeableProxyFacade;
+  }
+  public static async createControllableV3Facade(signer: SignerWithAddress): Promise<ControllableV3Facade> {
+    return (await DeployUtils.deployContract(signer, 'ControllableV3Facade', )) as ControllableV3Facade;
+  }
+//endregion Proxy
 }

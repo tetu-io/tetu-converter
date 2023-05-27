@@ -270,4 +270,6 @@ interface IDForceController {
   function _setRedeemPaused(address _iToken, bool _paused) external;
   function _setBorrowPaused(address _iToken, bool _paused) external;
 
+  function _setBorrowFactor(address _iToken, uint256 newBorrowFactorMantissa_) external;
+
 }

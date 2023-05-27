@@ -128,4 +128,15 @@ export class DForceChangePriceUtils {
     );
     await comptrollerAsOwner._setBorrowPaused(cToken, paused);
   }
+
+  public static async setBorrowFactor(deployer: SignerWithAddress, cToken: string, newBorrowFactorMantissa: BigNumber) {
+    const comptroller = await DForceHelper.getController(deployer);
+    const owner = await comptroller.owner();
+
+    const comptrollerAsOwner = IDForceController__factory.connect(
+      comptroller.address,
+      await DeployerUtils.startImpersonate(owner)
+    );
+    await comptrollerAsOwner._setBorrowFactor(cToken, newBorrowFactorMantissa);
+  }
 }

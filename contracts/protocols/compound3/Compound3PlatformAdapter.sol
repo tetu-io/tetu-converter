@@ -12,6 +12,7 @@ import "../../interfaces/IPoolAdapterInitializerWithRewards.sol";
 import "../../integrations/compound3/IComet.sol";
 import "../../integrations/compound3/ICometRewards.sol";
 import "./Compound3AprLib.sol";
+import "hardhat/console.sol";
 
 contract Compound3PlatformAdapter is IPlatformAdapter {
   //region ----------------------------------------------------- Constants

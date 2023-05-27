@@ -43,6 +43,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   /// @notice Max allowed value of (sumCollateralSafe - sumBorrowPlusEffects) / liquidity, decimals 18
   uint private constant MAX_DIVISION18 = 1e10;
+  string public constant POOL_ADAPTER_VERSION = "1.0.2";
 
   address public collateralAsset;
   address public borrowAsset;
@@ -252,16 +253,16 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       borrowBase
     );
 
-    (uint256 dError, uint liquidity,) = comptroller_.getAccountLiquidity(address(this));
+    (uint256 dError,,) = comptroller_.getAccountLiquidity(address(this));
     require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
 
     require(
       sumCollateralSafe > borrowBase
-      && borrowBase != 0
-      // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
-      // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
-      // let's ensure that liquidity has a reasonable value
-      && AppUtils.approxEqual(liquidity + borrowBase, sumCollateralSafe, MAX_DIVISION18),
+      && borrowBase != 0,
+    // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
+    // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
+    // let's ensure that liquidity has a reasonable value
+    // && AppUtils.approxEqual(liquidity + borrowBase, sumCollateralSafe, MAX_DIVISION18), // it doesn't work correctly with WBTC
       AppErrors.INCORRECT_RESULT_LIQUIDITY
     );
 

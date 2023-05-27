@@ -15,4 +15,12 @@ contract Compound3AprLibFacade {
   function getBorrowRateAfterBorrow(address cometAddress, uint amountToBorrow_) external view returns (uint) {
     return Compound3AprLib.getBorrowRateAfterBorrow(cometAddress, amountToBorrow_);
   }
+
+  function getBorrowRate(address comet, uint utilization) external view returns (uint) {
+    return Compound3AprLib.getBorrowRate(IComet(comet), utilization);
+  }
+
+  function getPrice(address oracle) external view returns (uint) {
+    return Compound3AprLib.getPrice(oracle);
+  }
 }

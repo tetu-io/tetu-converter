@@ -9,18 +9,19 @@ import {
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {DForceAprLibFacade} from "../../../typechain";
+import {DForceAprLibFacade, IDForceCToken__factory, IDForceRewardDistributor__factory} from "../../../typechain";
 import {parseUnits} from "ethers/lib/utils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {Misc} from "../../../scripts/utils/Misc";
 
 describe("DForceHelper unit tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let libFacade: DForceAprLibFacade;
+  let facade: DForceAprLibFacade;
 
 //endregion Global vars for all tests
 
@@ -31,7 +32,7 @@ describe("DForceHelper unit tests", () => {
     const signers = await ethers.getSigners();
     deployer = signers[0];
     if (!await isPolygonForkInUse()) return;
-    libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
+    facade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
   });
 
   after(async function () {
@@ -79,7 +80,7 @@ describe("DForceHelper unit tests", () => {
           const rewardsEarnedActual = BigNumber.from("764823147837685042");
           ///////////////////////////////////////////////////////
 
-          const ret = await libFacade.supplyRewardAmount(
+          const ret = await facade.supplyRewardAmount(
             supplyPoint.blockSupply,
             supplyPoint.beforeSupply.stateIndex,
             supplyPoint.beforeSupply.stateBlock,
@@ -146,7 +147,7 @@ describe("DForceHelper unit tests", () => {
             , cashesAndBorrowRates[3]
           );
 
-          const ret = await libFacade.borrowRewardAmountInternal(
+          const ret = await facade.borrowRewardAmountInternal(
             {
               amountToBorrow: predictData.amountToBorrow,
               accrualBlockNumber: predictData.accrualBlockNumber,
@@ -180,7 +181,7 @@ describe("DForceHelper unit tests", () => {
   describe("getEstimatedSupplyRatePure", () => {
     it("should return zero if totalSupply + amountToSupply is zero", async () => {
       if (!await isPolygonForkInUse()) return;
-      const ret = await libFacade.getEstimatedSupplyRatePure(
+      const ret = await facade.getEstimatedSupplyRatePure(
         BigNumber.from(0),
         BigNumber.from(0),
         parseUnits("2", 18),
@@ -195,7 +196,7 @@ describe("DForceHelper unit tests", () => {
     it("should revert if reserve factor exceeds 1", async () => {
       if (!await isPolygonForkInUse()) return;
       await expect(
-        libFacade.getEstimatedSupplyRatePure(
+        facade.getEstimatedSupplyRatePure(
           parseUnits("2", 18),
           parseUnits("2", 18),
           parseUnits("2", 18),
@@ -218,7 +219,7 @@ describe("DForceHelper unit tests", () => {
       );
       // await priceOracle.setUnderlyingPrice(MaticAddresses.hDAI, 0);
       await expect(
-        libFacade.getPrice(priceOracle.address, MaticAddresses.hDAI)
+        facade.getPrice(priceOracle.address, MaticAddresses.hDAI)
       ).revertedWith("TC-4 zero price"); // ZERO_PRICE
     });
   });
@@ -226,11 +227,11 @@ describe("DForceHelper unit tests", () => {
   describe("getUnderlying", () => {
     it("should return DAI for iDAI", async () => {
       if (!await isPolygonForkInUse()) return;
-      expect(await libFacade.getUnderlying(MaticAddresses.dForce_iDAI), MaticAddresses.DAI);
+      expect(await facade.getUnderlying(MaticAddresses.dForce_iDAI), MaticAddresses.DAI);
     });
     it("should return WMATIC for iMATIC", async () => {
       if (!await isPolygonForkInUse()) return;
-      expect(await libFacade.getUnderlying(MaticAddresses.dForce_iMATIC), MaticAddresses.WMATIC);
+      expect(await facade.getUnderlying(MaticAddresses.dForce_iMATIC), MaticAddresses.WMATIC);
     });
   });
 
@@ -238,7 +239,7 @@ describe("DForceHelper unit tests", () => {
     it("should revert on division by zero", async () => {
       if (!await isPolygonForkInUse()) return;
       await expect(
-        libFacade.rdiv(1, 0)
+        facade.rdiv(1, 0)
       ).revertedWith("TC-34 division by zero"); // DIVISION_BY_ZERO
     });
   });
@@ -247,8 +248,111 @@ describe("DForceHelper unit tests", () => {
     it("should revert on division by zero", async () => {
       if (!await isPolygonForkInUse()) return;
       await expect(
-        libFacade.divup(1, 0)
+        facade.divup(1, 0)
       ).revertedWith("TC-34 division by zero"); // DIVISION_BY_ZERO
+    });
+  });
+
+  describe("getEstimatedBorrowRate", () => {
+    describe("Bad paths", () => {
+      it("should revert if cash < amount-to-borrow", async () => {
+        await expect(
+          facade.getEstimatedBorrowRate(
+            Misc.ZERO_ADDRESS,
+            MaticAddresses.dForce_iDAI,
+            Misc.MAX_UINT // (!) too big amount
+          )
+        ).revertedWith("TC-49 weird overflow"); // WEIRD_OVERFLOW
+      });
+    });
+  });
+
+  describe("getEstimatedExchangeRate", () => {
+    describe("Bad paths", () => {
+      it("should revert if totalReserves_ > cash_ + totalBorrows_ ", async () => {
+        await expect(
+          facade.getEstimatedExchangeRate(
+            1,
+            2,
+            3,
+            1000
+          )
+        ).revertedWith("TC-49 weird overflow"); // WEIRD_OVERFLOW
+      });
+    });
+  });
+
+  describe("borrowRewardAmountInternal", () => {
+    describe("Bad paths", () => {
+      it("should revert if blockNumber < accrualBlockNumber", async () => {
+        await expect(
+          facade.borrowRewardAmountInternal(
+            {
+              blockNumber: 1, // (!)
+              accrualBlockNumber: 2, // (!)
+
+              amountToBorrow: 0,
+              borrowIndex: 0,
+              distributionSpeed: 0,
+              stateBlock: 0,
+              stateIndex: 0,
+              reserveFactor: 0,
+              totalCash: 0,
+              totalReserves: 0,
+              totalBorrows: 0,
+              interestRateModel: Misc.ZERO_ADDRESS
+            },
+            0
+          )
+        ).revertedWith("TC-49 weird overflow"); // WEIRD_OVERFLOW
+      });
+
+      it("should revert if blockToClaimRewards_ < 1 + p_.blockNumber", async () => {
+        const core = await facade.getCore(
+          MaticAddresses.DFORCE_CONTROLLER,
+          MaticAddresses.dForce_iUSDC,
+          MaticAddresses.dForce_iDAI
+        );
+        const {index,  block_} = await IDForceRewardDistributor__factory.connect(core.rd, deployer).distributionBorrowState(core.cTokenBorrow);
+        const cTokenBorrow = await IDForceCToken__factory.connect(core.cTokenBorrow, deployer);
+        await expect(
+          facade.borrowRewardAmountInternal(
+            {
+              blockNumber: (await cTokenBorrow.accrualBlockNumber()).add(1),
+              accrualBlockNumber: await cTokenBorrow.accrualBlockNumber(),
+
+              amountToBorrow: parseUnits("1", 6),
+              borrowIndex: await cTokenBorrow.borrowIndex(),
+              distributionSpeed: 0,
+              stateBlock: block_,
+              stateIndex: index,
+              reserveFactor: await cTokenBorrow.reserveRatio(),
+              totalCash: await cTokenBorrow.getCash(),
+              totalReserves: await cTokenBorrow.totalReserves(),
+              totalBorrows: await cTokenBorrow.totalBorrows(),
+              interestRateModel: await cTokenBorrow.interestRateModel(),
+            },
+            0 // (!)
+          )
+        ).revertedWith("TC-49 weird overflow"); // WEIRD_OVERFLOW
+      });
+    });
+  });
+
+  describe("getRewardAmount", () => {
+    describe("Bad paths", () => {
+      it("should revert if ti < accountIndex_", async () => {
+        await expect(
+          facade.getRewardAmount(
+            0,
+            0,
+            0,
+            1,
+            1000,
+            0
+          )
+        ).revertedWith("TC-49 weird overflow"); // WEIRD_OVERFLOW
+      });
     });
   });
 //endregion Unit tests

@@ -6,7 +6,12 @@ import {
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  DForcePlatformAdapter__factory, DForceAprLibFacade, BorrowManager__factory, DForcePlatformAdapter, ConverterController,
+  DForcePlatformAdapter__factory,
+  DForceAprLibFacade,
+  BorrowManager__factory,
+  DForcePlatformAdapter,
+  ConverterController,
+  IDForceController__factory,
 } from "../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
@@ -118,7 +123,6 @@ describe("DForcePlatformAdapterTest", () => {
     const collateralToken = IDForceCToken__factory.connect(collateralCToken, deployer);
     const borrowToken = IDForceCToken__factory.connect(borrowCToken, deployer);
     const comptroller = await DForceHelper.getController(deployer);
-    const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
     return PredictBrUsesCase.makeTest(
       deployer,
@@ -141,6 +145,8 @@ describe("DForcePlatformAdapterTest", () => {
     incorrectHealthFactor2?: number;
     setMinBorrowCapacity?: boolean;
     setMinSupplyCapacity?: boolean;
+    setZeroBorrowCapacity?: boolean;
+    setZeroSupplyCapacity?: boolean;
     setCollateralMintPaused?: boolean;
     setBorrowPaused?: boolean;
     setRedeemPaused?: boolean;
@@ -213,19 +219,16 @@ describe("DForcePlatformAdapterTest", () => {
     console.log("borrowAssetData", borrowAssetData);
 
     if (badPathsParams?.setMinSupplyCapacity) {
-
-      await DForceChangePriceUtils.setSupplyCapacity(
-        deployer,
-        collateralCToken,
-        collateralAssetData.totalSupply
-      );
+      await DForceChangePriceUtils.setSupplyCapacity(deployer, collateralCToken, collateralAssetData.totalSupply);
+    }
+    if (badPathsParams?.setZeroSupplyCapacity) {
+      await DForceChangePriceUtils.setSupplyCapacity(deployer, collateralCToken, BigNumber.from(0));
     }
     if (badPathsParams?.setMinBorrowCapacity) {
-      await DForceChangePriceUtils.setBorrowCapacity(
-        deployer,
-        borrowCToken,
-        borrowAssetData.totalBorrows
-      );
+      await DForceChangePriceUtils.setBorrowCapacity(deployer, borrowCToken, borrowAssetData.totalBorrows);
+    }
+    if (badPathsParams?.setZeroBorrowCapacity) {
+      await DForceChangePriceUtils.setBorrowCapacity(deployer, borrowCToken, BigNumber.from(0));
     }
     if (badPathsParams?.setCollateralMintPaused) {
       await DForceChangePriceUtils.setMintPaused(deployer, collateralCToken);
@@ -1079,10 +1082,42 @@ describe("DForcePlatformAdapterTest", () => {
             MaticAddresses.USDC,
             MaticAddresses.dForce_iDAI,
             MaticAddresses.dForce_iUSDC,
-            getBigNumberFrom(12345, 18)
+            parseUnits("12345", 18)
           );
           console.log(plan);
           expect(plan.maxAmountToSupply.lt(parseUnits("12345"))).eq(true);
+        });
+        it("should return zero plan if supplyCapacity is zero", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const plan = await tryGetConversionPlan(
+            {setZeroSupplyCapacity: true},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iUSDC,
+            parseUnits("12345", 18)
+          );
+          const market = await IDForceController__factory.connect(MaticAddresses.DFORCE_CONTROLLER, deployer).markets(MaticAddresses.dForce_iDAI);
+          console.log("market", market);
+
+          console.log(plan);
+          expect(plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+        it("should return zero plan if borrowCapacity is zero", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const plan = await tryGetConversionPlan(
+            {setZeroBorrowCapacity: true},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iUSDC,
+            parseUnits("12345", 18)
+          );
+          const market = await IDForceController__factory.connect(MaticAddresses.DFORCE_CONTROLLER, deployer).markets(MaticAddresses.dForce_iDAI);
+          console.log("market", market);
+
+          console.log(plan);
+          expect(plan.converter).eq(Misc.ZERO_ADDRESS);
         });
       });
 
@@ -1119,6 +1154,58 @@ describe("DForcePlatformAdapterTest", () => {
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
           expect(r.plan.collateralAmount.eq(0)).eq(true);
           expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
+
+      describe("Result collateralAmount == 0, amountToBorrow != 0 (edge case, improve coverage)", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.DAI;
+          const borrowAsset = MaticAddresses.USDC;
+          const collateralCToken = MaticAddresses.dForce_iDAI;
+          const borrowCToken = MaticAddresses.dForce_iUSDC;
+          const collateralAmount = getBigNumberFrom(1000, 18);
+
+          const r0 = await preparePlan(
+            controller,
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            collateralCToken,
+            borrowCToken,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // change prices: make priceCollateral very high, priceBorrow very low
+          // as result, exactBorrowOutForMinCollateralIn will return amountToCollateralOut = 0,
+          // and we should hit second condition in borrow-validation section:
+          //    plan.amountToBorrow == 0 || plan.collateralAmount == 0
+          const priceOracle = await DForceChangePriceUtils.setupPriceOracleMock(deployer, true);
+          await priceOracle.setUnderlyingPrice(MaticAddresses.dForce_iDAI, parseUnits("1", 25));
+          await priceOracle.setUnderlyingPrice(MaticAddresses.dForce_iUSDC, parseUnits("1", 2));
+
+          const r1 = await preparePlan(
+            controller,
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            collateralCToken,
+            borrowCToken,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // first plan is successful
+          expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+          expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+          expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+
+          // the plan created after changing the prices is not successful
+          expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r1.plan.collateralAmount.eq(0)).eq(true);
+          expect(r1.plan.amountToBorrow.eq(0)).eq(true);
         });
       });
     });

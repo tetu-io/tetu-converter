@@ -29,6 +29,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   /// @notice We allow to receive less atokens then provided collateral on following value
   /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
   uint constant public ATOKEN_MAX_DELTA = 10;
+  string public constant POOL_ADAPTER_VERSION = "1.0.2";
 
   /// @notice 1 - stable, 2 - variable
   uint constant public RATE_MODE = 2;
