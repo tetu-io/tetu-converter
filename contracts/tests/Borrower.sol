@@ -253,9 +253,11 @@ contract Borrower is ITetuConverterCallback {
     uint borrowBalanceAfterRepay = IERC20(borrowedAsset_).balanceOf(address(this));
     console.log("makeRepayComplete borrowed asset balance after repay", borrowBalanceAfterRepay);
 
-    totalAmountBorrowAssetRepaid += borrowBalanceBeforeRepay - borrowBalanceAfterRepay;
     makeRepayCompleteAmountToRepay = amountToPay;
-    makeRepayCompletePaidAmount = borrowBalanceBeforeRepay - borrowBalanceAfterRepay;
+    makeRepayCompletePaidAmount = borrowBalanceBeforeRepay > borrowBalanceAfterRepay
+      ? borrowBalanceBeforeRepay - borrowBalanceAfterRepay
+      : 0;
+    totalAmountBorrowAssetRepaid += makeRepayCompletePaidAmount;
 
     console.log("makeRepayComplete repay - finish");
     console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));

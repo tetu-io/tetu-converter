@@ -494,6 +494,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
     balanceAfter = IERC20(borrowAsset).balanceOf(user);
 
+
     address[] memory assets = new address[](2);
     assets[0] = borrowAsset;
     assets[1] = collateralAsset;

@@ -24,6 +24,8 @@ import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
 import {GAS_LIMIT} from "../../GasLimit";
+import {AppDataTypes} from "../../../../typechain/contracts/protocols/dforce/DForcePlatformAdapter";
+import {IConversionPlan} from "../../apr/aprDataTypes";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -50,6 +52,8 @@ export interface IPrepareToBorrowResults {
 
   priceCollateral: BigNumber;
   priceBorrow: BigNumber;
+
+  plan: IConversionPlan;
 }
 
 export interface IMarketsInfo {
@@ -242,7 +246,8 @@ export class DForceTestUtils {
       borrowToken,
       collateralToken,
       priceBorrow: await priceOracle.getUnderlyingPrice(borrowCTokenAddress),
-      priceCollateral: await priceOracle.getUnderlyingPrice(collateralCTokenAddress)
+      priceCollateral: await priceOracle.getUnderlyingPrice(collateralCTokenAddress),
+      plan
     }
   }
 

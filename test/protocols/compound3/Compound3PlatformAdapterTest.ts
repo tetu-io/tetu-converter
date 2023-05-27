@@ -10,7 +10,7 @@ import {
   Compound3PlatformAdapter__factory,
   ConverterController,
   IComet,
-  IComet__factory, ICometRewards, ICometRewards__factory, IERC20__factory,
+  IComet__factory, ICometRewards, ICometRewards__factory, ICompound3Configurator__factory, IERC20__factory,
   IERC20Metadata__factory, IPriceFeed__factory
 } from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
@@ -34,6 +34,7 @@ import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/Predict
 import {AppConstants} from "../../baseUT/AppConstants";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -149,6 +150,7 @@ describe("Compound3PlatformAdapterTest", () => {
     cometRewards: ICometRewards;
     converter: string;
     collateralAssetInfo?: ICompound3AssetInfo;
+    frozen?: boolean;
   }
 
   async function preparePlan(
@@ -156,7 +158,7 @@ describe("Compound3PlatformAdapterTest", () => {
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
-    badPathsParams?: IGetConversionPlanBadPaths,
+    p?: IGetConversionPlanBadPaths,
     entryData?: string
   ): Promise<IPreparePlanResults> {
     const countBlocks = (await controller.blocksPerDay()).toNumber();
@@ -193,25 +195,30 @@ describe("Compound3PlatformAdapterTest", () => {
       priceCollateral = (await collateralAssetPriceFeed.latestRoundData()).answer
       priceBorrow36 = priceBorrow.mul(getBigNumberFrom(1, 10));
       priceCollateral36 = priceCollateral.mul(getBigNumberFrom(1, 10));
+      console.log("collateralAssetInfo", collateralAssetInfo);
     }
     // console.log("priceBorrow", priceBorrow.toString());
     // console.log("priceCollateral", priceCollateral.toString());
     // console.log("priceBorrow18", priceBorrow36.toString());
     // console.log("priceCollateral18", priceCollateral36.toString());
 
-    if (badPathsParams?.setSupplyPaused || badPathsParams?.setWithdrawPaused) {
-      await Compound3ChangePriceUtils.setPaused(deployer, comet.address, !!badPathsParams?.setSupplyPaused, !!badPathsParams?.setWithdrawPaused)
+    if (p?.setSupplyPaused || p?.setWithdrawPaused) {
+      await Compound3ChangePriceUtils.setPaused(deployer, comet.address, !!p?.setSupplyPaused, !!p?.setWithdrawPaused)
+    }
+
+    if (p?.frozen) {
+      await platformAdapter.connect(await Misc.impersonate(await controller.governance())).setFrozen(true)
     }
 
     const plan = await platformAdapter.getConversionPlan(
       {
-        collateralAsset: badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
-        amountIn: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
-        borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
-        countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
+        collateralAsset: p?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+        amountIn: p?.zeroCollateralAmount ? 0 : collateralAmount,
+        borrowAsset: p?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+        countBlocks: p?.zeroCountBlocks ? 0 : countBlocks,
         entryData: entryData || "0x"
       },
-      badPathsParams?.incorrectHealthFactor2 || healthFactor2,
+      p?.incorrectHealthFactor2 || healthFactor2,
       {gasLimit: GAS_LIMIT},
     )
 
@@ -731,6 +738,90 @@ describe("Compound3PlatformAdapterTest", () => {
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
           expect(r.plan.collateralAmount.eq(0)).eq(true);
           expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
+      describe("Frozen", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.WMATIC,
+            parseUnits("1000"),
+            MaticAddresses.USDC,
+            {frozen: true},
+            "0x"
+          )
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r.plan.collateralAmount.eq(0)).eq(true);
+          expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
+      describe("supply cap is reached", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          // get normal (not empty) plan
+          const r0 = await preparePlan(
+            controller,
+            MaticAddresses.WMATIC,
+            parseUnits("1000"),
+            MaticAddresses.USDC,
+            undefined,
+            "0x"
+          );
+
+          // supply cap is constant in Compound 3
+          // let's supply big amount to reach supply cap
+          const comet = IComet__factory.connect(MaticAddresses.COMPOUND3_COMET_USDC, deployer);
+          const holders = [
+            MaticAddresses.HOLDER_WMATIC,
+            MaticAddresses.HOLDER_WMATIC_2,
+            MaticAddresses.HOLDER_WMATIC_3,
+            MaticAddresses.HOLDER_WMATIC_4,
+            MaticAddresses.HOLDER_WMATIC_5,
+          ];
+          for (const holder of holders) {
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.WMATIC,
+              parseUnits("1000"),
+              MaticAddresses.USDC,
+              undefined,
+              "0x"
+            );
+            console.log("r0", r.plan);
+            if (r.plan.maxAmountToSupply.eq(0)) {
+              break;
+            }
+            const amount = await IERC20__factory.connect(MaticAddresses.WMATIC, deployer).balanceOf(holder);
+            const amountToSupply = r.plan.maxAmountToSupply.gt(amount)
+              ? amount
+              : r.plan.maxAmountToSupply;
+            await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, holder, deployer.address, amountToSupply);
+            await IERC20__factory.connect(MaticAddresses.WMATIC, deployer).approve(comet.address, amountToSupply);
+            console.log("Supply");
+            await comet.supply(MaticAddresses.WMATIC, amountToSupply);
+          }
+
+          // get empty plan now
+          const r1 = await preparePlan(
+            controller,
+            MaticAddresses.WMATIC,
+            parseUnits("1000"),
+            MaticAddresses.USDC,
+            undefined,
+            "0x"
+          );
+          console.log("r1", r1.plan);
+
+          expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+          expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+          expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+
+          expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r1.plan.collateralAmount.eq(0)).eq(true);
+          expect(r1.plan.amountToBorrow.eq(0)).eq(true);
         });
       });
     })

@@ -49,7 +49,6 @@ import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoCh
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
-import {Aave3TestUtils} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 describe("AaveTwoPoolAdapterUnitTest", () => {
@@ -268,6 +267,17 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
        * We should pay: X < X + delta * payDebtGapPercent / 100 < X + delta
        */
       payDebtGapPercent?: number;
+
+      setPriceOracleMock?: boolean;
+
+      setUserAccountData?: {
+        totalCollateralBase: BigNumber;
+        totalDebtBase: BigNumber;
+        availableBorrowsBase: BigNumber;
+        currentLiquidationThreshold: BigNumber;
+        ltv: BigNumber;
+        healthFactor: BigNumber;
+      }
     }
 
     async function makeFullRepay(
@@ -276,11 +286,14 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       borrowAsset: string,
       borrowHolder: string,
       collateralAmountStr: string,
-      params?: IMakeFullRepayTestParams
+      p?: IMakeFullRepayTestParams
     ): Promise<IMakeFullRepayTestResults> {
+      if (p?.setPriceOracleMock) {
+        await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
+      }
       const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
       const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-      const controller = await loadFixture(createControllerDefaultFixture);
+      const controller = await createControllerDefaultFixture();
 
       const init = await AaveTwoTestUtils.prepareToBorrow(
         deployer,
@@ -291,19 +304,29 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         borrowToken,
         {
           targetHealthFactor2: 200,
-          useAaveTwoPoolMock: params?.usePoolMock,
-          useMockedAavePriceOracle: params?.collateralPriceIsZero
+          useAaveTwoPoolMock: p?.usePoolMock,
+          useMockedAavePriceOracle: p?.collateralPriceIsZero
         }
       );
-      if (params?.usePoolMock) {
-        if (params?.grabAllBorrowAssetFromSenderOnRepay) {
+      if (p?.usePoolMock) {
+        if (p?.grabAllBorrowAssetFromSenderOnRepay) {
           await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setGrabAllBorrowAssetFromSenderOnRepay();
         }
-        if (params?.ignoreRepay) {
+        if (p?.ignoreRepay) {
           await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setIgnoreRepay();
         }
-        if (params?.ignoreWithdraw) {
+        if (p?.ignoreWithdraw) {
           await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setIgnoreWithdraw();
+        }
+        if (p?.setUserAccountData) {
+          await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setUserAccountData(
+            p.setUserAccountData.totalCollateralBase,
+            p.setUserAccountData.totalDebtBase,
+            p.setUserAccountData.availableBorrowsBase,
+            p.setUserAccountData.currentLiquidationThreshold,
+            p.setUserAccountData.ltv,
+            p.setUserAccountData.healthFactor
+          )
         }
       }
       const borrowResults = await AaveTwoTestUtils.makeBorrow(deployer, init, undefined);
@@ -311,26 +334,31 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
       const statusBeforeRepay: IPoolAdapterStatus = await init.aavePoolAdapterAsTC.getStatus();
 
-      const amountToRepay = params?.amountToRepayStr
-        ? parseUnits(params?.amountToRepayStr, borrowToken.decimals)
-        : params?.payDebtGapPercent
-          ? RepayUtils.calcAmountToRepay(statusBeforeRepay.amountToPay, await init.controller.debtGap(), params.payDebtGapPercent)
+      const amountToRepay = p?.amountToRepayStr
+        ? parseUnits(p?.amountToRepayStr, borrowToken.decimals)
+        : p?.payDebtGapPercent
+          ? RepayUtils.calcAmountToRepay(statusBeforeRepay.amountToPay, await init.controller.debtGap(), p.payDebtGapPercent)
           : undefined;
       await AaveTwoTestUtils.putDoubleBorrowAmountOnUserBalance(init, borrowHolder);
 
       const userBorrowAssetBalanceBeforeRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
 
-      if (params?.collateralPriceIsZero) {
+      if (p?.collateralPriceIsZero) {
         await AaveTwoChangePricesUtils.setAssetPrice(deployer, init.collateralToken.address, BigNumber.from(0));
         console.log("Collateral price was set to 0");
+      }
+
+      if (p?.borrowPriceIsZero) {
+        await AaveTwoChangePricesUtils.setAssetPrice(deployer, init.borrowToken.address, BigNumber.from(0));
+        console.log("Borrow price was set to 0");
       }
 
       const makeRepayResults = await AaveTwoTestUtils.makeRepay(
         init,
         amountToRepay,
-        params?.closePosition,
+        p?.closePosition,
         {
-          makeOperationAsNotTc: params?.makeRepayAsNotTc
+          makeOperationAsNotTc: p?.makeRepayAsNotTc
         }
       );
       const userBorrowAssetBalanceAfterRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
@@ -893,6 +921,35 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           )
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
+      it("should fail if borrow price is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeFullRepay(
+            collateralAsset,
+            collateralHolder,
+            borrowAsset,
+            borrowHolder,
+            "1999",
+            {
+              // we cannot use real pool
+              // because getUserAccountData of the real pool returns zero totalDebtBase when borrow price is zero
+              // and we receive ZERO_BALANCE instead of ZERO_PRICE
+              usePoolMock: true,
+              setPriceOracleMock: true,
+              borrowPriceIsZero: true,
+              amountToRepayStr: "1", // we need partial-repay mode in this test to avoid calling getStatus in makeRepayComplete
+              setUserAccountData: {
+                totalCollateralBase: parseUnits("2", 18),
+                totalDebtBase: parseUnits("2", 18),
+                currentLiquidationThreshold: parseUnits("2", 4),
+                ltv: parseUnits("2", 4),
+                healthFactor: parseUnits("2", 18),
+                availableBorrowsBase: parseUnits("2", 18),
+              }
+            }
+          )
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
     });
   });
 
@@ -1178,7 +1235,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             if (!await isPolygonForkInUse()) return;
 
             const r = await loadFixture(makeUsdcUsdtTest);
-            expect(areAlmostEqual(r.userCollateralBalance.result, r.userCollateralBalance.expected)).eq(true);
+            expect(r.userCollateralBalance.result).approximately(r.userCollateralBalance.expected, 10);
           });
         });
       });
@@ -2129,23 +2186,33 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       });
     });
     describe("Bad paths", () => {
+      // it("should revert if collateral price is zero", async () => {
+      //   if (!await isPolygonForkInUse()) return;
+      //   const results = await loadFixture(setupBorrowForTest);
+      //   const priceOracle = await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
+      //   await priceOracle.setPrices([results.init.collateralToken.address], [parseUnits("0")]);
+      //
+      //   const tetuConverterAsUser = ITetuConverter__factory.connect(
+      //     await results.init.controller.tetuConverter(),
+      //     await DeployerUtils.startImpersonate(results.init.userContract.address)
+      //   );
+      //   await expect(
+      //     tetuConverterAsUser.quoteRepay(
+      //       await tetuConverterAsUser.signer.getAddress(),
+      //       results.init.collateralToken.address,
+      //       results.init.borrowToken.address,
+      //       parseUnits("1000") // full repay, close position
+      //     )
+      //   ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      // });
       it("should revert if collateral price is zero", async () => {
         if (!await isPolygonForkInUse()) return;
         const results = await loadFixture(setupBorrowForTest);
         const priceOracle = await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
         await priceOracle.setPrices([results.init.collateralToken.address], [parseUnits("0")]);
 
-        const tetuConverterAsUser = ITetuConverter__factory.connect(
-          await results.init.controller.tetuConverter(),
-          await DeployerUtils.startImpersonate(results.init.userContract.address)
-        );
         await expect(
-          tetuConverterAsUser.quoteRepay(
-            await tetuConverterAsUser.signer.getAddress(),
-            results.init.collateralToken.address,
-            results.init.borrowToken.address,
-            parseUnits("1000") // full repay, close position
-          )
+          results.init.aavePoolAdapterAsTC.getCollateralAmountToReturn(1, true)
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });

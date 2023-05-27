@@ -25,12 +25,12 @@ async function main() {
     });
   }
 
-  const controller = "0x1af41663f309A38Ef097086C6772732Bea912d69"; // "0x63f007c13969352B35d2f2B099F2F0E1d860276a";
+  const controller = "0x2df21e2a115fcB3d850Fbc67237571bBfB566e99"; // v.1.1.14
   const strategies = [
-    "0x3f7684264d2Bf954C44d7B339dB5871c3E00Cd46", // "0x98Ac07aA456B9C2A50BBba9606d80fEaeaEB3843",
-    "0x01907Db606B3b66b5A57d9a2386C95124BEada6f", // "0xA14Dea6E48B3187c5e637C88b84d5Dfc701edeB7"
-    "0x87afc4441583dC32578DC9873d3073241fED9f78"
-  ]; //"0xAe9842896507ba6D926E38BD1E560c3874B9a80c"; // "0x807a528818113a6f65b7667a59a4CaaAc719fc12";
+    "0x05C7D307632a36D31D7eECbE4cC5Aa46D15fA752",
+    "0x29ce0ca8d0A625Ebe1d0A2F94a2aC9Cc0f9948F1",
+    "0xa99478F79A82663f8A7f5D8DD4aD4A46e22Ea540"
+  ];
 
   // const signer = localHardhatIsInUse
   //   ? await DeployerUtils.startImpersonate("TODO governance")

@@ -76,12 +76,14 @@ export class Aave3ChangePricesUtils {
     asset: string,
     newPrice: BigNumber
   ) {
+    console.log("setAssetPrice.begin");
     // change a price of the given asset
     const oracle = Aave3PriceOracleMock__factory.connect(
       (await Aave3Helper.getAavePriceOracle(signer)).address,
       signer
     );
     await oracle.setPrices([asset], [newPrice]);
+    console.log("setAssetPrice.end");
   }
 
   public static async setReservePaused(

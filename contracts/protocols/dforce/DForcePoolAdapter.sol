@@ -29,6 +29,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   uint private constant DELTA = 100;
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   address private constant DFORCE_MATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
+  string public constant POOL_ADAPTER_VERSION = "1.0.2";
 
   //region -----------------------------------------------------  Members and constants
 

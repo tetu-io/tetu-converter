@@ -120,7 +120,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
   //region ----------------------------------------------------- Get conversion plan
 
-  function getConversionPlan (AppDataTypes.InputConversionParams memory params, uint16 healthFactor2_) external view override returns (
+  function getConversionPlan(AppDataTypes.InputConversionParams memory params, uint16 healthFactor2_) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     if (! frozen) {

@@ -11,7 +11,7 @@ import {
   IERC20Metadata__factory,
   IPoolAdapter__factory, ITetuConverter__factory,
   ITokenAddressProvider,
-  TokenAddressProviderMock,
+  TokenAddressProviderMock, IWmatic__factory,
 } from "../../../typechain";
 import { ValueReceivedEventObject } from '../../../typechain/contracts/protocols/dforce/DForcePoolAdapter';
 import {expect} from "chai";
@@ -531,7 +531,7 @@ describe("DForcePoolAdapterUnitTest", () => {
       borrowAsset: string,
       borrowCToken: string,
       borrowHolder: string,
-      params?: IMakeRepayParams
+      p?: IMakeRepayParams
     ): Promise<IMakeFullRepayTestResults> {
       const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
       const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
@@ -547,48 +547,46 @@ describe("DForcePoolAdapterUnitTest", () => {
         borrowCToken,
         {
           targetHealthFactor2: 200,
-          useDForceControllerMock: params?.useDForceControllerMock
+          useDForceControllerMock: p?.useDForceControllerMock
         }
       );
       const borrowResults = await DForceTestUtils.makeBorrow(
         deployer,
         init,
         undefined,
-        {useDForceControllerMock: params?.useDForceControllerMock}
+        {useDForceControllerMock: p?.useDForceControllerMock}
       );
+      console.log("borrowResults", borrowResults);
 
-      const amountToRepay = params?.amountToRepayStr
-        ? parseUnits(params?.amountToRepayStr, borrowToken.decimals)
+      const amountToRepay = p?.amountToRepayStr
+        ? parseUnits(p?.amountToRepayStr, borrowToken.decimals)
         : undefined;
       await DForceTestUtils.putDoubleBorrowAmountOnUserBalance(init, borrowHolder);
 
       const userBorrowAssetBalanceBeforeRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
       const statusBeforeRepay: IPoolAdapterStatus = await init.dfPoolAdapterTC.getStatus();
 
-      if (params?.useDForceControllerMock) {
-        if (params?.returnNotZeroTokenBalanceAfterRedeem) {
-          await params?.useDForceControllerMock.setReturnNotZeroTokenBalanceAfterRedeem();
+      if (p?.useDForceControllerMock) {
+        if (p?.returnNotZeroTokenBalanceAfterRedeem) {
+          await p?.useDForceControllerMock.setReturnNotZeroTokenBalanceAfterRedeem();
         }
-        if (params?.returnNotZeroBorrowBalanceStoredAfterRedeem) {
-          await params?.useDForceControllerMock.setReturnNotZeroBorrowBalanceStoredAfterRedeem();
+        if (p?.returnNotZeroBorrowBalanceStoredAfterRedeem) {
+          await p?.useDForceControllerMock.setReturnNotZeroBorrowBalanceStoredAfterRedeem();
         }
-        if (params?.setBorrowBalance1AfterCallingBorrowBalanceCurrent) {
-          await params?.useDForceControllerMock.setBorrowBalance1AfterCallingBorrowBalanceCurrent(
-            params?.setBorrowBalance1AfterCallingBorrowBalanceCurrent
+        if (p?.setBorrowBalance1AfterCallingBorrowBalanceCurrent) {
+          await p?.useDForceControllerMock.setBorrowBalance1AfterCallingBorrowBalanceCurrent(
+            p?.setBorrowBalance1AfterCallingBorrowBalanceCurrent
           );
         }
-        await params.useDForceControllerMock.setBorrowBalanceCurrentValue(
-          amountToRepay || (await init.dfPoolAdapterTC.getStatus()).amountToPay
-        );
       }
 
       const makeRepayResults = await DForceTestUtils.makeRepay(
         init,
         amountToRepay,
-        params?.closePosition,
+        p?.closePosition,
         {
-          makeOperationAsNotTc: params?.makeRepayAsNotTc,
-          receiver: params?.receiver
+          makeOperationAsNotTc: p?.makeRepayAsNotTc,
+          receiver: p?.receiver
         }
       );
       const userBorrowAssetBalanceAfterRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
@@ -883,10 +881,7 @@ describe("DForcePoolAdapterUnitTest", () => {
         ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
       });
 
-      /**
-       * todo DForceControllerMock requires refactoring and fixing
-       */
-      describe.skip("Use mocked DForce controller", () => {
+      describe("Use mocked DForce controller", () => {
         it("should repay successfully", async () => {
           if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeDForceControllerMock(
@@ -1019,6 +1014,9 @@ describe("DForcePoolAdapterUnitTest", () => {
       makeBorrowToRebalanceAsDeployer?: boolean;
       skipBorrow?: boolean;
       additionalAmountCorrectionFactor?: number;
+
+      useDForceControllerMock?: DForceControllerMock;
+      borrowDontSendBorrowedAmount?: boolean;
     }
     /**
      * Prepare aave3 pool adapter.
@@ -1035,7 +1033,7 @@ describe("DForcePoolAdapterUnitTest", () => {
       borrowToken: TokenDataTypes,
       borrowCTokenAddress: string,
       borrowHolder: string,
-      badPathsParams?: IMakeBorrowToRebalanceBadPathParams
+      p?: IMakeBorrowToRebalanceBadPathParams
     ) : Promise<IMakeBorrowToRebalanceResults>{
       const d = await DForceTestUtils.prepareToBorrow(
         deployer,
@@ -1046,8 +1044,17 @@ describe("DForcePoolAdapterUnitTest", () => {
         collateralAmount,
         borrowToken,
         borrowCTokenAddress,
-        {targetHealthFactor2: targetHealthFactorInitial2}
+        {
+          targetHealthFactor2: targetHealthFactorInitial2,
+          useDForceControllerMock: p?.useDForceControllerMock
+        }
       );
+
+      if (p?.useDForceControllerMock) {
+        if (p?.borrowDontSendBorrowedAmount) {
+          await p?.useDForceControllerMock.setBorrowDontSendBorrowedAmount();
+        }
+      }
 
       // const info = await getMarketsInfo(d, collateralCTokenAddress, borrowCTokenAddress);
 
@@ -1058,7 +1065,7 @@ describe("DForcePoolAdapterUnitTest", () => {
 
       // make borrow
       const amountToBorrow = d.amountToBorrow;
-      if (! badPathsParams?.skipBorrow) {
+      if (! p?.skipBorrow) {
         await transferAndApprove(
           collateralToken.address,
           d.userContract.address,
@@ -1079,14 +1086,14 @@ describe("DForcePoolAdapterUnitTest", () => {
       await d.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
 
       const expectedAdditionalBorrowAmount = amountToBorrow.mul(
-        badPathsParams?.additionalAmountCorrectionFactor
-          ? badPathsParams.additionalAmountCorrectionFactor
+        p?.additionalAmountCorrectionFactor
+          ? p.additionalAmountCorrectionFactor
           : 1
       );
       console.log("expectedAdditionalBorrowAmount", expectedAdditionalBorrowAmount);
 
       // make additional borrow
-      const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
+      const poolAdapterSigner = p?.makeBorrowToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.dfPoolAdapterTC.address, deployer)
         : d.dfPoolAdapterTC;
 
@@ -1305,6 +1312,45 @@ describe("DForcePoolAdapterUnitTest", () => {
           await expect(
             testDaiUSDC({additionalAmountCorrectionFactor: 10})
           ).revertedWith("TC-3 wrong health factor");
+        });
+      });
+      describe("Use mocked DForce controller", () => {
+        it("should revert if borrow() doesn't return borrowed amount", async () => {
+          const collateralAsset = MaticAddresses.DAI;
+          const collateralHolder = MaticAddresses.HOLDER_DAI;
+          const collateralCTokenAddress = MaticAddresses.dForce_iDAI;
+
+          const borrowAsset = MaticAddresses.USDC;
+          const borrowCTokenAddress = MaticAddresses.dForce_iUSDC;
+          const borrowHolder = MaticAddresses.HOLDER_USDC;
+
+          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+          const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+          console.log("collateralToken.decimals", collateralToken.decimals);
+          console.log("borrowToken.decimals", borrowToken.decimals);
+
+          const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+          console.log(collateralAmount, collateralAmount);
+
+          const mocksSet = await initializeDForceControllerMock(
+            collateralAsset,
+            collateralCTokenAddress,
+            borrowAsset,
+            borrowCTokenAddress,
+          );
+
+          await mocksSet.mockedComptroller.setBorrowDontSendBorrowedAmount();
+
+          await expect(makeBorrowToRebalance(
+            collateralToken,
+            collateralHolder,
+            mocksSet.mockedCollateralCToken.address,
+            collateralAmount,
+            borrowToken,
+            mocksSet.mockedBorrowCToken.address,
+            borrowHolder,
+            { useDForceControllerMock: mocksSet.mockedComptroller }
+          )).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
         });
       });
     });
@@ -1997,6 +2043,35 @@ describe("DForcePoolAdapterUnitTest", () => {
       const expected = [true, true, true, true, false].join();
       expect(ret).eq(expected);
     });
+    describe("Use mocked DForce controller", () => {
+      it("should return opened if collateral amount is zero and borrow amount is not zero", async () => {
+        const mocksSet = await initializeDForceControllerMock(
+          MaticAddresses.DAI,
+          MaticAddresses.dForce_iDAI,
+          MaticAddresses.USDC,
+          MaticAddresses.dForce_iUSDC,
+        );
+
+        const results = await makeBorrowTest(
+          MaticAddresses.DAI,
+          mocksSet.mockedCollateralCToken.address,
+          MaticAddresses.HOLDER_DAI,
+          MaticAddresses.USDC,
+          mocksSet.mockedBorrowCToken.address,
+          "1999",
+          {useDForceControllerMock: mocksSet.mockedComptroller}
+        );
+
+        await mocksSet.mockedCollateralCToken.setMockedBalance(0);
+        await mocksSet.mockedBorrowCToken.setMockedBalance(1);
+
+        console.log("get status");
+        const status = await results.init.dfPoolAdapterTC.getStatus();
+
+        // coverate for getStatus(): collateralTokens != 0 || borrowBalance != 0
+        expect(status.opened).eq(true);
+      });
+    });
   });
 
   describe("updateBalance", () => {
@@ -2114,6 +2189,82 @@ describe("DForcePoolAdapterUnitTest", () => {
           true
         ].join();
         expect(ret).eq(expected);
+      });
+      describe("Use mocked rewards distributor", () => {
+        interface IMockClaimRewardsParams {
+          collateralRewardsAmount: number;
+          borrowRewardsAmount: number;
+          redistributorRewardsBalance: number;
+        }
+        interface IMockClaimRewardsResults {
+          receiverRewardsBalance: number;
+        }
+        async function makeMockClaimRewardsTest(p: IMockClaimRewardsParams): Promise<IMockClaimRewardsResults> {
+          const receiver = ethers.Wallet.createRandom().address;
+
+          const mocksSet = await initializeDForceControllerMock(
+            MaticAddresses.DAI,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iUSDC,
+          );
+
+          const r = await makeBorrowTest(
+            MaticAddresses.DAI,
+            mocksSet.mockedCollateralCToken.address,
+            MaticAddresses.HOLDER_DAI,
+            MaticAddresses.USDC,
+            mocksSet.mockedBorrowCToken.address,
+            "1999",
+            {useDForceControllerMock: mocksSet.mockedComptroller}
+          );
+
+          console.log("Set up mocked rd");
+          const comptroller = await DForceHelper.getController(deployer);
+          const rd = IDForceRewardDistributor__factory.connect(await comptroller.rewardDistributor(), deployer);
+
+          const mockedRewardsDistributor = await MocksHelper.createDForceRewardDistributorMock(deployer, rd.address);
+          const mockedRewardToken = await MocksHelper.createMockedCToken(deployer);
+          await mockedRewardsDistributor._setRewardToken(mockedRewardToken.address);
+          await mocksSet.mockedComptroller.setRewardDistributor(mockedRewardsDistributor.address);
+
+          await mockedRewardsDistributor.setRewards(mocksSet.mockedCollateralCToken.address, r.init.dfPoolAdapterTC.address, false, p.collateralRewardsAmount);
+          await mockedRewardsDistributor.setRewards(mocksSet.mockedBorrowCToken.address, r.init.dfPoolAdapterTC.address, true, p.borrowRewardsAmount);
+          await mockedRewardToken.mint(mockedRewardsDistributor.address, p.redistributorRewardsBalance);
+
+          console.log("claimRewards");
+          await r.init.dfPoolAdapterTC.claimRewards(receiver);
+
+          const receiverRewardsBalance = (await mockedRewardToken.balanceOf(receiver)).toNumber();
+          return {receiverRewardsBalance};
+        }
+        describe("Normal case", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const {receiverRewardsBalance} = await makeMockClaimRewardsTest({
+              borrowRewardsAmount: 11,
+              collateralRewardsAmount: 43,
+              redistributorRewardsBalance: 11 + 43
+            })
+
+            expect(receiverRewardsBalance).eq(11 + 43);
+          });
+        });
+        /**
+         * Improve coverage of claimRewards, else branch for "if (balance != 0) {..."
+         */
+        describe("Redistributor has zero balance", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const {receiverRewardsBalance} = await makeMockClaimRewardsTest({
+              borrowRewardsAmount: 11,
+              collateralRewardsAmount: 43,
+              redistributorRewardsBalance: 0
+            })
+
+            expect(receiverRewardsBalance).eq(0);
+          });
+        });
       });
     });
   });
@@ -2257,6 +2408,224 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       it("should revert if not governance", async () => {
         await expect(salvageToken(MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "800", receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
+
+  describe("receive", () => {
+    let init: IPrepareToBorrowResults;
+    before(async () => {
+      const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.DAI);
+      const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
+
+      init = await DForceTestUtils.prepareToBorrow(
+        deployer,
+        controllerInstance,
+        collateralToken,
+        MaticAddresses.HOLDER_DAI,
+        MaticAddresses.dForce_iDAI,
+        parseUnits("1", collateralToken.decimals),
+        borrowToken,
+        MaticAddresses.dForce_iUSDC
+      );
+    })
+
+    describe("Good paths", () => {
+      /**
+       * We have a problem with good-paths tests here:
+       * - method withdraw is reverted with some unknown error
+       *   if a pool adapter created inside TetuConverter (init.dfPoolAdapterTC) is used.
+       *   The reason of the error is unclear. There is no such problem with manually deployed instance of the pool adapter.
+       *   But: we check same functionality in "borrow" unit tests and there are no such problems there.
+       */
+      describe.skip("Use DForce-pool-adapter created inside the app", () => {
+        it("WMATIC should be able to put MATIC on balance of the pool adapter", async () => {
+          const amount = parseUnits("1", 18);
+
+          console.log(await init.dfPoolAdapterTC.POOL_ADAPTER_VERSION());
+          const receiver = await Misc.impersonate(init.dfPoolAdapterTC.address);
+          // const receiver = await Misc.impersonate(ethers.Wallet.createRandom().address);
+
+          await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
+
+          const balanceBefore = await receiver.getBalance();
+          console.log('balanceBefore', balanceBefore);
+
+          console.log("withdraw");
+          const tx = await IWmatic__factory.connect(MaticAddresses.WMATIC, receiver).withdraw(
+            amount,
+            {gasLimit: GAS_LIMIT}
+          );
+          const cr = await tx.wait();
+          console.log("withdraw.2");
+
+          const dfi = DForcePoolAdapter__factory.createInterface();
+          for (const event of (cr.events ?? [])) {
+            if (event.topics[0].toLowerCase() === dfi.getEventTopic('ValueReceived').toLowerCase()) {
+              const log = (dfi.decodeEventLog(
+                dfi.getEvent('ValueReceived'),
+                event.data,
+                event.topics,
+              ) as unknown) as ValueReceivedEventObject;
+              console.log('ValueReceived', log.user, log.amount);
+            }
+          }
+
+          const balanceAfter = await receiver.getBalance();
+          console.log('balanceAfter', balanceAfter);
+        });
+      })
+      describe("Use manually deployed DForce-pool-adapter", () => {
+        it("WMATIC should be able to put MATIC on balance of the pool adapter", async () => {
+          const amount = parseUnits("25", 18);
+
+          // create new instance of DForcePoolAdapter for tests
+          const newInstance = await AdaptersHelper.createDForcePoolAdapter(deployer);
+          console.log(await newInstance.POOL_ADAPTER_VERSION());
+
+          const receiver = await Misc.impersonate(newInstance.address);
+
+          // put some WMATIC on balance of the contract
+          await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
+
+          // check balances of WMATIC and MATIC
+          const balanceBefore = await receiver.getBalance();
+          console.log('balanceBefore of matic', balanceBefore);
+
+          const balanceWMaticBefore = await IERC20__factory.connect(MaticAddresses.WMATIC, deployer).balanceOf(receiver.address);
+          console.log('balanceBefore of wmatic', balanceWMaticBefore);
+
+          // try to withdraw
+          console.log("withdraw");
+          const tx = await IWmatic__factory.connect(MaticAddresses.WMATIC, receiver).withdraw(amount, {gasLimit: GAS_LIMIT});
+          const cr = await tx.wait();
+          console.log("withdraw.2");
+
+          const dfi = DForcePoolAdapter__factory.createInterface();
+          for (const event of (cr.events ?? [])) {
+            if (event.topics[0].toLowerCase() === dfi.getEventTopic('ValueReceived').toLowerCase()) {
+              const log = (dfi.decodeEventLog(
+                dfi.getEvent('ValueReceived'),
+                event.data,
+                event.topics,
+              ) as unknown) as ValueReceivedEventObject;
+              console.log('ValueReceived', log.user, log.amount);
+            }
+          }
+
+          const balanceAfter = await receiver.getBalance();
+          console.log('balanceAfter', balanceAfter);
+        });
+        /**
+         * It doesn't work. Let's use borrow-tests instead.
+         */
+        it.skip("DFORCE-WMATIC should be able to put MATIC on balance of the pool adapter", async () => {
+          const amount = parseUnits("25", 18);
+
+          // create new instance of DForcePoolAdapter for tests
+          const newInstance = await AdaptersHelper.createDForcePoolAdapter(deployer);
+          console.log(await newInstance.POOL_ADAPTER_VERSION());
+
+          const receiver = await Misc.impersonate(newInstance.address);
+
+          // put some WMATIC on balance of the contract
+          // await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
+          // await BalanceUtils.getAmountFromHolder(MaticAddresses.dForce_iMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
+
+          // put some matic on balance of dForce_iMATIC
+          // const maticSource = await Misc.impersonate(ethers.Wallet.createRandom().address);
+          // await web3.eth.sendTransaction({from: maticSource.address, to: MaticAddresses.dForce_iMATIC, value: "100000000000000000000"});
+
+          // check balances of WMATIC and MATIC
+          const balanceBefore = await receiver.getBalance();
+          console.log('balanceBefore of matic', balanceBefore);
+
+          const balanceWMaticBefore = await IERC20__factory.connect(MaticAddresses.dForce_iMATIC, deployer).balanceOf(receiver.address);
+          console.log('balanceBefore of wmatic', balanceWMaticBefore);
+
+          // try to withdraw
+          console.log("withdraw");
+          const tx = await IWmatic__factory.connect(MaticAddresses.dForce_iMATIC, receiver).withdraw(amount, {gasLimit: GAS_LIMIT});
+          const cr = await tx.wait();
+          console.log("withdraw.2");
+
+          const dfi = DForcePoolAdapter__factory.createInterface();
+          for (const event of (cr.events ?? [])) {
+            if (event.topics[0].toLowerCase() === dfi.getEventTopic('ValueReceived').toLowerCase()) {
+              const log = (dfi.decodeEventLog(
+                dfi.getEvent('ValueReceived'),
+                event.data,
+                event.topics,
+              ) as unknown) as ValueReceivedEventObject;
+              console.log('ValueReceived', log.user, log.amount);
+            }
+          }
+
+          const balanceAfter = await receiver.getBalance();
+          console.log('balanceAfter', balanceAfter);
+        });
+      })
+      it.skip("study", async () => {
+        const amount = parseUnits("25", 18);
+
+        // ensure that we use correct contract - DForcePoolAdapter
+        console.log(await init.dfPoolAdapterTC.POOL_ADAPTER_VERSION());
+
+        // send matic to init.dfPoolAdapterTC.address
+        const problemContract = init.dfPoolAdapterTC.address;
+        const maticSource = await Misc.impersonate(ethers.Wallet.createRandom().address);
+        await maticSource.sendTransaction({to: problemContract, value: "1000000000000000000"});
+        await (await Misc.impersonate(MaticAddresses.WMATIC)).sendTransaction({to: problemContract, value: "1000000000000000000"});
+        const balanceMaticProblemContract = (await Misc.impersonate(problemContract)).getBalance(problemContract);
+        console.log('balanceBefore of matic', balanceMaticProblemContract);
+
+        // create new instance of DForcePoolAdapter for tests
+        const newInstance = await AdaptersHelper.createDForcePoolAdapter(deployer);
+        console.log(await newInstance.POOL_ADAPTER_VERSION());
+
+        const receiver = await Misc.impersonate(problemContract);
+        // const receiver = await Misc.impersonate(ethers.Wallet.createRandom().address);
+        // const receiver = await Misc.impersonate(newInstance.address);
+
+        // put some WMATIC on balance of the contract
+        await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
+
+        // check balances of WMATIC and MATIC
+        const balanceBefore = await receiver.getBalance();
+        console.log('balanceBefore of matic', balanceBefore);
+
+        const balanceWMaticBefore = await IERC20__factory.connect(MaticAddresses.WMATIC, deployer).balanceOf(receiver.address);
+        console.log('balanceBefore of wmatic', balanceWMaticBefore);
+
+        // try to withdraw
+        console.log("withdraw");
+        const tx = await IWmatic__factory.connect(MaticAddresses.WMATIC, receiver).withdraw(amount, {gasLimit: GAS_LIMIT});
+        const cr = await tx.wait();
+        console.log("withdraw.2");
+
+        const dfi = DForcePoolAdapter__factory.createInterface();
+        for (const event of (cr.events ?? [])) {
+          if (event.topics[0].toLowerCase() === dfi.getEventTopic('ValueReceived').toLowerCase()) {
+            const log = (dfi.decodeEventLog(
+              dfi.getEvent('ValueReceived'),
+              event.data,
+              event.topics,
+            ) as unknown) as ValueReceivedEventObject;
+            console.log('ValueReceived', log.user, log.amount);
+          }
+        }
+
+        const balanceAfter = await receiver.getBalance();
+        console.log('balanceAfter', balanceAfter);
+      });
+    });
+    describe("Bad paths", () => {
+      it("revert if some other contracts (not WMATIC or DFORCE_MATIC put some MATIC on balance", async () => {
+        const maticSource = await Misc.impersonate(ethers.Wallet.createRandom().address);
+        await expect(
+          maticSource.sendTransaction({to: init.dfPoolAdapterTC.address, value: "1000000000000000000"})
+        ).revertedWith("TC-48 access denied"); // ACCESS_DENIED
+
       });
     });
   });
