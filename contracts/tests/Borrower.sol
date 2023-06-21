@@ -27,7 +27,7 @@ contract Borrower is ITetuConverterCallback {
   uint public totalAmountBorrowAssetRepaid;
   uint private _borrowPeriodInBlocks;
 
-  //-----------------------------------------------------/////////////
+  //-----------------------------------------------------
   // Last results passed to onTransferBorrowedAmount
   uint public onTransferAmountsLength;
   address[] public onTransferAmountsAssets;
@@ -55,6 +55,15 @@ contract Borrower is ITetuConverterCallback {
     uint swappedLeftoverBorrowOut;
   }
   MakeRepayResults public repayResults;
+
+  struct MakeRepayCompleteTwoStepsLocal {
+    uint borrowBalanceBeforeRepay;
+    uint borrowBalanceAfterRepay;
+    uint collateralAmountOut;
+    uint returnedBorrowAmountOut;
+    uint swappedLeftoverCollateralOut;
+    uint swappedLeftoverBorrowOut;
+  }
 
   constructor (
     address controller_,
@@ -212,7 +221,6 @@ contract Borrower is ITetuConverterCallback {
   //-----------------------------------------------------
   ///               Repay
   //-----------------------------------------------------
-  /// @notice Complete repay, see US1.2 in the project scope
   function makeRepayComplete(address collateralAsset_, address borrowedAsset_, address receiver_) external returns (
     uint collateralAmountOut,
     uint returnedBorrowAmountOut,
@@ -270,7 +278,67 @@ contract Borrower is ITetuConverterCallback {
     repayResults.swappedLeftoverCollateralOut = swappedLeftoverCollateralOut;
   }
 
-  /// @notice Partial repay, see US1.3 in the project scope
+  /// @notice Make full-repay using two calls of repay() to be sure that two repays are allowed in a single block
+  function makeRepayCompleteTwoSteps(address collateralAsset_, address borrowedAsset_, address receiver_, uint amountFirstStep) external returns (
+    uint collateralAmountOut,
+    uint returnedBorrowAmountOut,
+    uint swappedLeftoverCollateralOut,
+    uint swappedLeftoverBorrowOut
+  ) {
+    MakeRepayCompleteTwoStepsLocal memory v;
+    console.log("makeRepayCompleteTwoSteps started gasleft", gasleft());
+
+    v.borrowBalanceBeforeRepay = IERC20(borrowedAsset_).balanceOf(address(this));
+    console.log("makeRepayCompleteTwoSteps v.borrowBalanceBeforeRepay.1", v.borrowBalanceBeforeRepay);
+
+    console.log("makeRepayCompleteTwoSteps - repay 1", amountFirstStep);
+    IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountFirstStep);
+    (v.collateralAmountOut,
+      v.returnedBorrowAmountOut,
+      v.swappedLeftoverCollateralOut,
+      v.swappedLeftoverBorrowOut
+    ) = _tc().repay(collateralAsset_, borrowedAsset_, amountFirstStep, receiver_);
+
+    // for full repay we need debts with debt-gap
+    (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, true);
+
+    v.borrowBalanceBeforeRepay = IERC20(borrowedAsset_).balanceOf(address(this));
+    console.log("makeRepayCompleteTwoSteps v.borrowBalanceBeforeRepay.2", v.borrowBalanceBeforeRepay);
+
+    console.log("makeRepayCompleteTwoSteps - repay 2", amountToPay);
+    IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
+    (collateralAmountOut,
+      returnedBorrowAmountOut,
+      swappedLeftoverCollateralOut,
+      swappedLeftoverBorrowOut
+    ) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
+
+    v.borrowBalanceAfterRepay = IERC20(borrowedAsset_).balanceOf(address(this));
+    console.log("makeRepayCompleteTwoSteps borrowed asset balance after repay", v.borrowBalanceAfterRepay);
+
+    makeRepayCompleteAmountToRepay = amountToPay;
+    makeRepayCompletePaidAmount = v.borrowBalanceBeforeRepay > v.borrowBalanceAfterRepay
+      ? v.borrowBalanceBeforeRepay - v.borrowBalanceAfterRepay
+      : 0;
+    totalAmountBorrowAssetRepaid += makeRepayCompletePaidAmount;
+
+    console.log("makeRepayCompleteTwoSteps repay - finish");
+    console.log("makeRepayCompleteTwoSteps borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
+    _tc().claimRewards(address(this));
+
+    console.log("makeRepayCompleteTwoSteps done gasleft", gasleft(), collateralAmountOut, returnedBorrowAmountOut);
+    repayResults.collateralAmountOut = collateralAmountOut + v.collateralAmountOut;
+    repayResults.returnedBorrowAmountOut = returnedBorrowAmountOut + v.returnedBorrowAmountOut;
+    repayResults.swappedLeftoverBorrowOut = swappedLeftoverBorrowOut + v.swappedLeftoverCollateralOut;
+    repayResults.swappedLeftoverCollateralOut = swappedLeftoverCollateralOut + v.swappedLeftoverBorrowOut;
+    return (
+      repayResults.collateralAmountOut,
+      repayResults.returnedBorrowAmountOut,
+      repayResults.swappedLeftoverBorrowOut,
+      repayResults.swappedLeftoverCollateralOut
+    );
+  }
+
   function makeRepayPartial(
     address collateralAsset_,
     address borrowedAsset_,
