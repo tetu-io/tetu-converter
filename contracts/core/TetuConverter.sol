@@ -33,7 +33,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
-  string public constant TETU_CONVERTER_VERSION = "1.0.0";
+  string public constant TETU_CONVERTER_VERSION = "1.0.1";
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
@@ -93,6 +93,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     controllerOut = IConverterController(controller());
     require(controllerOut.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
   }
+
   function _getControllerGovernanceOnly() internal view returns (IConverterController controllerOut) {
     controllerOut = IConverterController(controller());
     require(msg.sender == controllerOut.governance(), AppErrors.GOVERNANCE_ONLY);
@@ -323,6 +324,12 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       v.pa.updateStatus();
 
       (, v.totalDebtForPoolAdapter,,,, v.debtGapRequired) = v.pa.getStatus();
+
+      if (v.totalDebtForPoolAdapter == 0) {
+        // remove empty adapters
+        IDebtMonitor(v.controller.debtMonitor()).closeLiquidatedPosition(v.poolAdapters[i]);
+        continue;
+      }
 
       if (v.debtGapRequired) {
         // we assume here, that amountToRepay_ includes all required dept-gaps
@@ -570,7 +577,6 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     );
     collateralAmountOut = collateralAmount_ + collateralAmount;
   }
-
 
   /// @inheritdoc ITetuConverter
   function estimateRepay(address user_, address collateralAsset_, uint collateralAmountToRedeem_, address borrowAsset_) external view override returns (
