@@ -48,6 +48,8 @@ const argv = require('yargs/yargs')()
 
 task("deploy1", "Deploy contract", async function (args, hre, runSuper) {
   const [signer] = await hre.ethers.getSigners();
+// tslint:disable-next-line:ban-ts-ignore
+  // @ts-ignore
   const name = args.name;
   await deployContract(hre, signer, name)
 }).addPositionalParam("name", "Name of the smart contract to deploy");

@@ -112,6 +112,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
       await IERC20__factory.connect(collateralAsset, signer).balanceOf(this.borrower.address));
 
     await this.borrower.borrowMaxAmount(
+      "0x",
       collateralAsset,
       collateralAmount,
       borrowAsset,

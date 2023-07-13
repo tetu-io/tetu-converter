@@ -33,7 +33,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
-  string public constant TETU_CONVERTER_VERSION = "1.0.1";
+  string public constant TETU_CONVERTER_VERSION = "1.0.2";
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
@@ -353,8 +353,9 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       // getConverter requires the source amount be approved to TetuConverter, but a contract doesn't need to approve itself
       (address converter,) = ISwapManager(v.controller.swapManager()).getConverter(address(this), borrowAsset_, amountToRepay_, collateralAsset_);
 
-      if (converter == address(0)) {
+      if (converter == address(0) || amountToRepay_ < 1000) {
         // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
+        // or the amount is too small to be swapped
         // let's return this amount back to the {receiver_}
         returnedBorrowAmountOut = amountToRepay_;
         IERC20(borrowAsset_).safeTransfer(receiver_, amountToRepay_);

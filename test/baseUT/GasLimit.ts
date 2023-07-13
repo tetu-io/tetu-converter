@@ -21,7 +21,7 @@ export const GAS_LIMIT_REPAY_DFORCE = 940_876;
 
 export const GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE = 277_000;
 export const GAS_TC_BORROW = 1_179_000;
-export const GAS_TC_REPAY = 337_000;
+export const GAS_TC_REPAY = 338_000;
 export const GAS_TC_QUOTE_REPAY = 60_000;
 export const GAS_TC_SAFE_LIQUIDATE = 187_000;
 
