@@ -353,8 +353,9 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       // getConverter requires the source amount be approved to TetuConverter, but a contract doesn't need to approve itself
       (address converter,) = ISwapManager(v.controller.swapManager()).getConverter(address(this), borrowAsset_, amountToRepay_, collateralAsset_);
 
-      if (converter == address(0)) {
+      if (converter == address(0) || amountToRepay_ < 1000) {
         // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
+        // or the amount is too small to be swapped
         // let's return this amount back to the {receiver_}
         returnedBorrowAmountOut = amountToRepay_;
         IERC20(borrowAsset_).safeTransfer(receiver_, amountToRepay_);
