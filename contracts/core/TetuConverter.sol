@@ -33,7 +33,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
-  string public constant TETU_CONVERTER_VERSION = "1.0.2";
+  string public constant TETU_CONVERTER_VERSION = "1.0.3";
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
@@ -357,7 +357,12 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
         // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
         // or the amount is too small to be swapped
         // let's return this amount back to the {receiver_}
-        returnedBorrowAmountOut = amountToRepay_;
+
+        // SCB-710: returnedBorrowAmountOut should not take into account dust amounts
+        //          to avoid revert in _closePositionExact
+        if (amountToRepay_ >= 1000) {
+          returnedBorrowAmountOut = amountToRepay_;
+        }
         IERC20(borrowAsset_).safeTransfer(receiver_, amountToRepay_);
         emit OnRepayReturn(borrowAsset_, receiver_, amountToRepay_);
       } else {
