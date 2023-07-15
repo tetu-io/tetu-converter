@@ -357,7 +357,12 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
         // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
         // or the amount is too small to be swapped
         // let's return this amount back to the {receiver_}
-        returnedBorrowAmountOut = amountToRepay_;
+
+        // SCB-710: returnedBorrowAmountOut should not take into account dust amounts
+        //          to avoid revert in _closePositionExact
+        if (amountToRepay_ >= 1000) {
+          returnedBorrowAmountOut = amountToRepay_;
+        }
         IERC20(borrowAsset_).safeTransfer(receiver_, amountToRepay_);
         emit OnRepayReturn(borrowAsset_, receiver_, amountToRepay_);
       } else {
