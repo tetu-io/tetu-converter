@@ -33,7 +33,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
-  string public constant TETU_CONVERTER_VERSION = "1.0.2";
+  string public constant TETU_CONVERTER_VERSION = "1.0.3";
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
