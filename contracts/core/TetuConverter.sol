@@ -33,7 +33,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
-  string public constant TETU_CONVERTER_VERSION = "1.0.3";
+  string public constant TETU_CONVERTER_VERSION = "1.0.4";
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
@@ -530,7 +530,8 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   //region ----------------------------------------------------- Get debt/repay info
 
   /// @inheritdoc ITetuConverter
-  function getDebtAmountCurrent(address user_, address collateralAsset_, address borrowAsset_, bool useDebtGap_) external override nonReentrant returns (
+  /// @dev nonReentrant is not used because: requireRepay(nonReentrant) => ... => getDebtAmountCurrent(), see SCB-746
+  function getDebtAmountCurrent(address user_, address collateralAsset_, address borrowAsset_, bool useDebtGap_) external override /* nonReentrant */ returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
