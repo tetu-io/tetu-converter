@@ -500,7 +500,8 @@ describe("DebtsMonitor", () => {
   interface IMakeClosePositionTestParams {
     manuallyMakePoolAdapterAsDirtyBeforeClosing?: boolean;
     callCloseLiquidatedPositionAsNotTetuConverter?: boolean;
-    callCloseLiquidatedPositionHavingNotZeroCollateral?: boolean;
+    /** amount of collateral tokens */
+    callCloseLiquidatedPositionHavingNotZeroCollateral?: number;
   }
 
   /**
@@ -589,8 +590,8 @@ describe("DebtsMonitor", () => {
       // let's imitate complete liquidation
       await PoolAdapterStub__factory.connect(poolAdapter, deployer).setManualStatus(
         params?.callCloseLiquidatedPositionHavingNotZeroCollateral
-          ? parseUnits("1", sourceDecimals) // (!) not zero collateral
-          : parseUnits("0"), // collateral amount is zero - full liquidation happens
+          ? BigNumber.from(params?.callCloseLiquidatedPositionHavingNotZeroCollateral)
+          : parseUnits("0", sourceDecimals),
         parseUnits("1", targetDecimals),
         parseUnits("0.4"), // health factor is less than 1
         true,
@@ -1236,13 +1237,20 @@ describe("DebtsMonitor", () => {
           )
         ).revertedWith("TC-8 tetu converter only");
       });
-      it("should revert if collateral is not zero", async () => {
+      it("should revert if collateral is greater than the gap", async () => {
         await expect(
           makeClosePositionTest(
             true,
-            {callCloseLiquidatedPositionHavingNotZeroCollateral: true}
+            {callCloseLiquidatedPositionHavingNotZeroCollateral: 101} // DebtMonitor.CLOSE_POSITION_GAP_TOKENS == 100
           )
         ).revertedWith("TC-47 cannot close live pos"); // CANNOT_CLOSE_LIVE_POSITION
+      });
+      it("should close position if collateral is less than the gap", async () => {
+        const ret = await makeClosePositionTest(
+          true,
+          {callCloseLiquidatedPositionHavingNotZeroCollateral: 99} // DebtMonitor.CLOSE_POSITION_GAP_TOKENS == 100
+        );
+        expect(ret.afterClose.countPositions).eq(0);
       });
     });
   });

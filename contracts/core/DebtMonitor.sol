@@ -27,7 +27,10 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
   }
 
   //region ---------------------------------------------- Constants
-  string public constant DEBT_MONITOR_VERSION = "1.0.0";
+  string public constant DEBT_MONITOR_VERSION = "1.0.1";
+  /// @notice Allow {closeLiquidatedPosition} to close position with collateral amount less than given value
+  /// @dev For simplicity, this value is same for all assets (with any decimals).
+  uint public constant CLOSE_POSITION_GAP_TOKENS = 100;
   //endregion ---------------------------------------------- Constants
 
   //region ---------------------------------------------- Variables. Don't change names or ordering!
@@ -142,7 +145,7 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
     require(msg.sender == IConverterController(controller()).tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
 
     (uint collateralAmount, uint amountToPay,,,,) = IPoolAdapter(poolAdapter_).getStatus();
-    require(collateralAmount == 0, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
+    require(collateralAmount < CLOSE_POSITION_GAP_TOKENS, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
     _closePosition(poolAdapter_, true);
 
     emit OnCloseLiquidatedPosition(poolAdapter_, amountToPay);
