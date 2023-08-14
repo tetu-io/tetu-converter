@@ -61,7 +61,7 @@ function getPlatformAdapterName(platformKind: number): string {
  */
 async function main() {
   const INITIAL_BLOCK = undefined;
-  const HISTORY_LEN = 5;
+  const HISTORY_LEN = 0;
   const HISTORY_INTERVAL = 4000; // 1 hour ~ 60-70 blocks
 
   const converterController = "0x2df21e2a115fcB3d850Fbc67237571bBfB566e99";
@@ -145,10 +145,11 @@ async function main() {
       };
       positions.push(position);
       console.log(position);
-    }
 
+    }
     current_block -= HISTORY_INTERVAL;
     history_counter++;
+
   }
   // ----------------------------  write statistics to CSV columns
   const headers = [

@@ -48,3 +48,13 @@ Twitter: https://twitter.com/tetu_io
 #### Compound3
     Platform adapter: 0x16f31FdbB251844624886EeC1bCaA452Cde4a135
     Converters: 0x2F0978500bB292923f707e4f8E8Be3E9830d653f
+
+## How to whitelist a user
+ConverterController.setWhitelistValues([USER_ADDRESS], true)
+  
+governance only 
+
+## How to freeze a platform adapter
+IPlatformAdapter([PLATFORM_ADAPTER_ADDRESS]).setFrozen(true)
+
+governance only
