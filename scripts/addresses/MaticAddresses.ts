@@ -27,6 +27,8 @@ export class MaticAddresses {
   public static miMATIC = "0xa3Fa99A148fA48D14Ed51d610c367C61876997F1";
   public static stMATIC = "0x3A58a54C066FdC0f2D55FC9C89F0415C92eBf3C4";
   public static MaticX = "0xfa68FB4628DFF1028CFEc22b4162FCcd0d45efb6";
+  public static wstETH = "0x03b54A6e9a984069379fae1a4fC4dBAE93B3bCCD";
+
 // AAVE
   public static agEUR = "0xE0B52e49357Fd4DAf2c15e02058DCE6BC0057db4";
   public static EURS = "0xe111178a87a3bff0c8d18decba5798827539ae99";
@@ -64,6 +66,8 @@ export class MaticAddresses {
   public static HOLDER_WMATIC_3 = "0x0aff6665bb45bf349489b20e225a6c5d78e2280f";
   public static HOLDER_WMATIC_2 = "0x6e7a5fafcec6bb1e78bae2a1f0b612012bf14827";
   public static HOLDER_WMATIC = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
+  public static HOLDER_WMATIC_4 = "0xa374094527e1673a86de625aa59517c5de346d32";
+  public static HOLDER_WMATIC_5 = "0x167384319b41f7094e62f7506409eb38079abff8";
 
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
   public static HOLDER_EURS_2 = "0x1bee4f735062cd00841d6997964f187f5f5f5ac9";
@@ -200,9 +204,10 @@ export class MaticAddresses {
 
 //endregion dForce
 
-//region Compound3
+//region Compound3, see https://docs.compound.finance/#networks
   public static COMPOUND3_COMET_USDC = "0xF25212E676D1F7F89Cd72fFEe66158f541246445";
   public static COMPOUND3_COMET_REWARDS = "0x45939657d1CA34A8FA39A924B71D28Fe8431e581";
+  public static COMPOUND3_CONFIGURATOR = "0x83E0F742cAcBE66349E3701B171eE2487a26e738";
 //endregion Compound3
 
 //region liquidity pools

@@ -42,6 +42,9 @@ export interface IBorrowAndRepayBadParams {
   forceToClosePosition?: boolean;
 
   repayAsNotUserAndNotTC?: boolean;
+
+  comets?: string[];
+  cometRewards?: string;
 }
 
 /**
@@ -153,7 +156,7 @@ export class AaveMakeBorrowAndRepayUtils {
 
     const collateralAmount = useMaxAvailableCollateral
       ? undefined
-      : getBigNumberFrom(100_000, collateralToken.decimals);
+      : getBigNumberFrom(1_000, collateralToken.decimals);
     const borrowAmount = useMaxAvailableCollateral
       ? undefined
       : getBigNumberFrom(10, borrowToken.decimals);

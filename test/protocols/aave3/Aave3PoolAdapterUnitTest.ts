@@ -373,7 +373,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         await Aave3ChangePricesUtils.setAssetPrice(deployer, init.collateralToken.address, BigNumber.from(0));
         console.log("Collateral price was set to 0");
       }
-      console.log("status", await init.aavePoolAdapterAsTC.getStatus());
+
       if (p?.borrowPriceIsZero) {
         await Aave3ChangePricesUtils.setAssetPrice(deployer, init.borrowToken.address, BigNumber.from(0));
         console.log("Borrow price was set to 0");
@@ -2236,10 +2236,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
         await priceOracle.setPrices([results.init.collateralToken.address], [parseUnits("0")]);
 
-        const tetuConverterAsUser = ITetuConverter__factory.connect(
-          await results.init.controller.tetuConverter(),
-          await DeployerUtils.startImpersonate(results.init.userContract.address)
-        );
         await expect(
           results.init.aavePoolAdapterAsTC.getCollateralAmountToReturn(1, true)
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE

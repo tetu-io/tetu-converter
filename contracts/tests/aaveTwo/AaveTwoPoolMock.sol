@@ -13,6 +13,16 @@ import "hardhat/console.sol";
 contract AaveTwoPoolMock is IAaveTwoPool {
   using SafeERC20 for IERC20;
 
+  struct UserAccountData {
+    bool initialized;
+    uint256 totalCollateralETH;
+    uint256 totalDebtETH;
+    uint256 availableBorrowsETH;
+    uint256 currentLiquidationThreshold;
+    uint256 ltv;
+    uint256 healthFactor;
+  }
+
   IAaveTwoPool public aavePool;
   bool public ignoreSupply;
   bool public ignoreRepay;
@@ -20,6 +30,7 @@ contract AaveTwoPoolMock is IAaveTwoPool {
   bool public ignoreBorrow;
   bool public skipSendingATokens;
   bool public grabAllBorrowAssetFromSenderOnRepay;
+  UserAccountData internal userAccountData;
 
   constructor (
     address aavePool_,
@@ -32,9 +43,7 @@ contract AaveTwoPoolMock is IAaveTwoPool {
     console.log("AaveTwoPoolMock is used instead of real aave pool", address(this), aavePool_);
   }
 
-  //-----------------------------------------------------//////////
-  ///       Config the mock
-  //-----------------------------------------------------//////////
+  //region ----------------------------------------------------- Config the mock
   function setIgnoreSupply() external {
     console.log("setIgnoreSupply");
     ignoreSupply = true;
@@ -59,11 +68,27 @@ contract AaveTwoPoolMock is IAaveTwoPool {
     console.log("setGrabAllBorrowAssetFromSenderOnRepay");
     grabAllBorrowAssetFromSenderOnRepay = true;
   }
+  function setUserAccountData(
+    uint256 totalCollateralETH,
+    uint256 totalDebtETH,
+    uint256 availableBorrowsETH,
+    uint256 currentLiquidationThreshold,
+    uint256 ltv,
+    uint256 healthFactor
+  ) external {
+    userAccountData = UserAccountData({
+      initialized: true,
+      totalCollateralETH: totalCollateralETH,
+      totalDebtETH: totalDebtETH,
+      availableBorrowsETH: availableBorrowsETH,
+      currentLiquidationThreshold: currentLiquidationThreshold,
+      ltv: ltv,
+      healthFactor: healthFactor
+    });
+  }
+  //endregion ----------------------------------------------------- Config the mock
 
-  //-----------------------------------------------------//////////
-  ///       IAaveTwoPool facade
-  ///       All functions required by AaveTwoPoolAdapter
-  //-----------------------------------------------------//////////
+  //region ----------------------------------------------------- IAaveTwoPool facade. All functions required by AaveTwoPoolAdapter
   function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf) external override {
     if (ignoreBorrow) {
       console.log("AaveTwoPoolMock.borrow.ignored");
@@ -107,11 +132,22 @@ contract AaveTwoPoolMock is IAaveTwoPool {
     uint256 ltv,
     uint256 healthFactor
   ) {
-    return aavePool.getUserAccountData(
-        user == msg.sender
-        ? address(this)
-        : user
-    );
+    if (userAccountData.initialized) {
+      return (
+        userAccountData.totalCollateralETH,
+        userAccountData.totalDebtETH,
+        userAccountData.availableBorrowsETH,
+        userAccountData.currentLiquidationThreshold,
+        userAccountData.ltv,
+        userAccountData.healthFactor
+      );
+    } else {
+      return aavePool.getUserAccountData(
+          user == msg.sender
+          ? address(this)
+          : user
+      );
+    }
   }
   function getUserConfiguration(address user) external view override returns (DataTypes.ReserveConfigurationMap memory) {
     return aavePool.getUserConfiguration(user);
@@ -251,4 +287,5 @@ contract AaveTwoPoolMock is IAaveTwoPool {
   function swapBorrowRateMode(address asset, uint256 rateMode) external override {
     aavePool.swapBorrowRateMode(asset, rateMode);
   }
+  //endregion ----------------------------------------------------- IAaveTwoPool facade. All functions required by AaveTwoPoolAdapter
 }

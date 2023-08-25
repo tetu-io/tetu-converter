@@ -23,6 +23,7 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 
 
 describe("DForcePoolAdapterIntTest", () => {
@@ -296,10 +297,13 @@ describe("DForcePoolAdapterIntTest", () => {
     }
     describe("Good paths", () => {
       describe("health factor is less than liquidationThreshold18/LTV", () => {
-        /** TODO: we need to modify borrowFactorMantissa manually to make minHealthFactorAllowedByPlatform > 1 */
-        it.skip("should borrow with health factor = liquidationThreshold18/LTV", async () => {
-          const targetHealthFactor2 = 103;
-          const minHealthFactor2 = 101;
+        /**
+         * Coverage for the following condition, else case:
+         *    DForcePlatformAdapter.getConversionPlan:
+         *       if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) { ... }
+         */
+        it("should borrow with health factor = liquidationThreshold18/LTV", async () => {
+          const targetHealthFactor2 = 101;
 
           const collateralAsset = MaticAddresses.USDC;
           const collateralCToken = MaticAddresses.dForce_iUSDC;
@@ -307,33 +311,36 @@ describe("DForcePoolAdapterIntTest", () => {
           const borrowAsset = MaticAddresses.DAI;
           const borrowCToken = MaticAddresses.dForce_iDAI;
 
-          const r = await makeTestSmallHealthFactor(
-            collateralAsset,
+          // we need to modify borrowFactorMantissa manually to make minHealthFactorAllowedByPlatform > 1
+          await DForceChangePriceUtils.setBorrowFactor(
+            deployer,
+            MaticAddresses.dForce_iDAI,
+            parseUnits("0.95", 18)
+          );
+
+          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+          const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+          const collateralAmount = parseUnits("20000", 6);
+
+          const d = await DForceTestUtils.prepareToBorrow(
+            deployer,
+            controllerInstance,
+            collateralToken,
             collateralHolder,
             collateralCToken,
-            borrowAsset,
+            collateralAmount,
+            borrowToken,
             borrowCToken,
-            targetHealthFactor2,
-            minHealthFactor2
+            {
+              targetHealthFactor2
+            }
           );
-          const collateralInfo = await DForceHelper.getCTokenData(
-            deployer,
-            await DForceHelper.getController(deployer),
-            IDForceCToken__factory.connect(collateralCToken, deployer)
-          );
-          const minHealthFactorAllowedByPlatform = +formatUnits(collateralInfo.borrowFactorMantissa,18);
-          const healthFactor = +formatUnits(r.resultHealthFactor18, 18);
-          console.log("healthFactor", healthFactor);
-          console.log("minHealthFactorAllowedByPlatform", minHealthFactorAllowedByPlatform);
 
-          const ret = [
-            targetHealthFactor2 < minHealthFactorAllowedByPlatform * 100,
-            healthFactor >= minHealthFactorAllowedByPlatform - 1,
-            healthFactor <= minHealthFactorAllowedByPlatform + 1
-          ].join();
-          const expected = [true, true, true].join();
+          const healthFactor = +formatUnits(d.plan.amountCollateralInBorrowAsset36.div(d.plan.amountToBorrow), 18);
+          const expectedHealthFactor = 1 / (+formatUnits(d.plan.liquidationThreshold18, 18) * 0.95);
 
-          expect(ret).eq(expected);
+          expect(healthFactor).to.equal(expectedHealthFactor);
         });
       });
       describe("health factor is greater than liquidationThreshold18/LTV", () => {

@@ -21,13 +21,14 @@ import "hardhat/console.sol";
 contract Borrower is ITetuConverterCallback {
   using SafeERC20 for IERC20;
 
+  //region--------------------------------------------- Data types and variables
   IConverterController immutable private _controller;
 
   uint public totalBorrowedAmount;
   uint public totalAmountBorrowAssetRepaid;
   uint private _borrowPeriodInBlocks;
 
-  //-----------------------------------------------------/////////////
+  //-----------------------------------------------------
   // Last results passed to onTransferBorrowedAmount
   uint public onTransferAmountsLength;
   address[] public onTransferAmountsAssets;
@@ -56,6 +57,17 @@ contract Borrower is ITetuConverterCallback {
   }
   MakeRepayResults public repayResults;
 
+  struct MakeRepayCompleteTwoStepsLocal {
+    uint borrowBalanceBeforeRepay;
+    uint borrowBalanceAfterRepay;
+    uint collateralAmountOut;
+    uint returnedBorrowAmountOut;
+    uint swappedLeftoverCollateralOut;
+    uint swappedLeftoverBorrowOut;
+  }
+  //endregion--------------------------------------------- Data types and variables
+
+  //region--------------------------------------------- Initialization and setup
   constructor (
     address controller_,
     uint borrowPeriodInBlocks_
@@ -71,10 +83,9 @@ contract Borrower is ITetuConverterCallback {
   function setBorrowPeriodInBlocks(uint borrowPeriodInBlocks_) external {
     _borrowPeriodInBlocks = borrowPeriodInBlocks_;
   }
+  //endregion--------------------------------------------- Initialization and setup
 
-  //-----------------------------------------------------
-  ///               Borrow
-  //-----------------------------------------------------
+  //region--------------------------------------------- Borrow
   /// @notice Borrow MAX allowed amount
   function borrowMaxAmount(
     bytes memory entryData_,
@@ -208,11 +219,9 @@ contract Borrower is ITetuConverterCallback {
 
     totalBorrowedAmount += amountToBorrow_;
   }
+  //endregion--------------------------------------------- Borrow
 
-  //-----------------------------------------------------
-  ///               Repay
-  //-----------------------------------------------------
-  /// @notice Complete repay, see US1.2 in the project scope
+  //region--------------------------------------------- Repay
   function makeRepayComplete(address collateralAsset_, address borrowedAsset_, address receiver_) external returns (
     uint collateralAmountOut,
     uint returnedBorrowAmountOut,
@@ -270,7 +279,6 @@ contract Borrower is ITetuConverterCallback {
     repayResults.swappedLeftoverCollateralOut = swappedLeftoverCollateralOut;
   }
 
-  /// @notice Partial repay, see US1.3 in the project scope
   function makeRepayPartial(
     address collateralAsset_,
     address borrowedAsset_,
@@ -310,12 +318,7 @@ contract Borrower is ITetuConverterCallback {
     repayResults.swappedLeftoverBorrowOut = swappedLeftoverBorrowOut;
   }
 
-  //-----------------------------------------------------
-  ///  Direct repay for unit tests only
-  ///  The contract uses interface IPoolAdapter directly,
-  ///  real strategy never does it
-  //-----------------------------------------------------
-
+  /// @notice  Direct repay for tests only. The contract uses interface IPoolAdapter directly, real strategy never does it
   function makeRepayComplete_firstPositionOnly(
     address collateralAsset_,
     address borrowedAsset_,
@@ -349,10 +352,104 @@ contract Borrower is ITetuConverterCallback {
     console.log("makeRepayComplete_firstPositionOnly done gasleft", gasleft(), collateralAmountOut);
     return collateralAmountOut;
   }
+  //endregion--------------------------------------------- Repay
 
-  //-----------------------------------------------------
-  ///                   IBorrower impl
-  //-----------------------------------------------------
+  //region--------------------------------------------- Two actions per single block
+
+  /// @notice Make full-repay using two calls of repay() to be sure that two repays are allowed in a single block
+  function makeRepayRepay(address collateralAsset_, address borrowedAsset_, address receiver_, uint amountFirstStep) external returns (
+    uint collateralAmountOut,
+    uint returnedBorrowAmountOut
+  ) {
+    console.log("makeRepayBorrow.balance.0.borrowAsset", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayBorrow.balance.0.collateralAsset", IERC20(collateralAsset_).balanceOf(address(this)));
+    MakeRepayCompleteTwoStepsLocal memory v;
+
+    console.log("makeRepayRepay - repay 1", amountFirstStep);
+    IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountFirstStep);
+    (v.collateralAmountOut, v.returnedBorrowAmountOut,,) = _tc().repay(collateralAsset_, borrowedAsset_, amountFirstStep, receiver_);
+
+    // for full repay we need debts with debt-gap
+    (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, true);
+
+    console.log("makeRepayBorrow.balance.after repay.borrowAsset", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayBorrow.balance.after repay.collateralAsset", IERC20(collateralAsset_).balanceOf(address(this)));
+
+    console.log("makeRepayRepay - repay 2", amountToPay);
+    IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
+    (collateralAmountOut, returnedBorrowAmountOut,,) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
+
+    v.borrowBalanceAfterRepay = IERC20(borrowedAsset_).balanceOf(address(this));
+    console.log("makeRepayBorrow.balance.after repay2.borrowAsset", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayBorrow.balance.after repay2.collateralAsset", IERC20(collateralAsset_).balanceOf(address(this)));
+
+    return (collateralAmountOut + v.collateralAmountOut, returnedBorrowAmountOut + v.returnedBorrowAmountOut);
+  }
+
+  /// @notice Make repay, then borrow same amount to be sure that repay-borrow are allowed in a single block
+  function makeRepayBorrow(address collateralAsset_, address borrowedAsset_, address receiver_, uint amount) external returns (
+    uint collateralAmountOut,
+    uint borrowAmountOut
+  ) {
+    // we assume here, that there is 1 opened borrow position
+    address[] memory activePositions = _tc().getPositions(address(this), collateralAsset_, borrowedAsset_);
+    console.log("makeRepayBorrow.activePositions.count", activePositions.length);
+    console.log("makeRepayBorrow.activePositions.converter", activePositions[0]);
+
+    (address converter,,,) = IPoolAdapter(activePositions[0]).getConfig();
+
+    console.log("makeRepayBorrow.balance.0.borrowAsset", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayBorrow.balance.0.collateralAsset", IERC20(collateralAsset_).balanceOf(address(this)));
+
+    // repay the {amount}
+    console.log("makeRepayRepay repay, amount=", amount);
+    IERC20(borrowedAsset_).safeTransfer(address(_tc()), amount);
+    (collateralAmountOut,,,) = _tc().repay(collateralAsset_, borrowedAsset_, amount, receiver_);
+
+    console.log("makeRepayBorrow.balance.after repay.borrowAsset", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayBorrow.balance.after repay.collateralAsset", IERC20(collateralAsset_).balanceOf(address(this)));
+
+    // borrow the {amount} back
+    IERC20(collateralAsset_).safeApprove(_controller.tetuConverter(), collateralAmountOut);
+    borrowAmountOut = _tc().borrow(converter, collateralAsset_, collateralAmountOut, borrowedAsset_, amount, address(this));
+
+    console.log("makeRepayBorrow.balance.after borrow.borrowAsset", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayBorrow.balance.after borrow.collateralAsset", IERC20(collateralAsset_).balanceOf(address(this)));
+
+    return (collateralAmountOut, borrowAmountOut);
+  }
+
+  /// @notice Borrow {amount}, then repay the same amount to be sure that borrow-repay are allowed in a single block
+  function makeBorrowRepay(address collateralAsset_, address borrowedAsset_, address receiver_, uint sourceAmount_) external returns (
+    uint collateralAmount,
+    uint amountToBorrow
+  ) {
+    address converter;
+    (converter, collateralAmount, amountToBorrow,) = _tc().findConversionStrategy("", collateralAsset_, sourceAmount_, borrowedAsset_, 1);
+
+    console.log("makeRepayBorrow.balance.0.borrowAsset", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayBorrow.balance.0.collateralAsset", IERC20(collateralAsset_).balanceOf(address(this)));
+
+    // borrow
+    IERC20(collateralAsset_).safeApprove(_controller.tetuConverter(), collateralAmount);
+    _tc().borrow(converter, collateralAsset_, collateralAmount / 2, borrowedAsset_, amountToBorrow / 2, address(this));
+    _tc().borrow(converter, collateralAsset_, collateralAmount / 2, borrowedAsset_, amountToBorrow / 2, address(this));
+
+    console.log("makeRepayBorrow.balance.after borrow.borrowAsset", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayBorrow.balance.after borrow.collateralAsset", IERC20(collateralAsset_).balanceOf(address(this)));
+
+    // repay the {amountToBorrow} back
+    IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToBorrow);
+    _tc().repay(collateralAsset_, borrowedAsset_, amountToBorrow / 2, receiver_);
+    console.log("makeRepayBorrow.balance.after repay.borrowAsset", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayBorrow.balance.after repay.collateralAsset", IERC20(collateralAsset_).balanceOf(address(this)));
+
+    return (collateralAmount, amountToBorrow);
+  }
+  
+  //endregion--------------------------------------------- Two actions per single block
+
+  //region--------------------------------------------- IBorrower impl
 
   /// @notice Set up behavior of requireAmountBack()
   function setUpRequireAmountBack(uint amount_) external {
@@ -383,90 +480,9 @@ contract Borrower is ITetuConverterCallback {
   function getOnTransferAmountsResults() external view returns (address[] memory assets_, uint[] memory amounts_) {
     return (onTransferAmountsAssets, onTransferAmountsAmounts);
   }
+  //endregion--------------------------------------------- IBorrower impl
 
-//  function requireRepay(
-//    address collateralAsset_,
-//    address borrowAsset_,
-//    uint amountToRepay_,
-//    address converter_
-//  ) external override returns (Status) {
-////    console.log("requireRepay start poolAdapter, gasleft", poolAdapter, gasleft());
-//
-//    collateralAsset_;
-//    borrowAsset_;
-//    amountToRepay_;
-//    converter_;
-//
-//    ITetuConverter tc = _tc();
-//
-//    // TODO refactoring
-////    IPoolAdapter pa = IPoolAdapter(poolAdapter);
-////
-////    // get amount to pay
-////    (,uint amountToPay,,) = pa.getStatus();
-////    (,,, address borrowAsset) = pa.getConfig();
-////    console.log("requireRepay amountToPay=", amountToPay);
-////    console.log("requireRepay borrowAsset=", borrowAsset);
-////
-////    // transfer borrowed amount directly to the Pool Adapter
-////    pa.syncBalance(false);
-////    require(IERC20(borrowAsset).balanceOf(address(this)) >= amountToPay, "not enough balance of borrow asset");
-////    IERC20(borrowAsset).safeTransfer(poolAdapter, amountToPay);
-////
-////    console.log("requireRepay end gasleft", gasleft());
-//    return Status.DONE_1;
-//  }
-//
-//  function recommendBorrow(
-//    address collateralAsset_,
-//    address borrowAsset_,
-//    uint amountToBorrow_,
-//    address converter_
-//  ) external override returns (Status) {
-//    //TODO refactoring
-//    collateralAsset_;
-//    borrowAsset_;
-//    amountToBorrow_;
-//    converter_;
-//
-//    ITetuConverter tc = _tc();
-//
-//    return Status.IGNORED_2;
-//  }
-//
-//  function requireReconversion(
-//    address poolAdapter
-//  ) external override returns (Status) {
-//    console.log("requireReconversion start poolAdapter, gasleft", poolAdapter, gasleft());
-//    IPoolAdapter pa = IPoolAdapter(poolAdapter);
-//
-//    // get amount to pay
-//    (,uint amountToPay,,) = pa.getStatus();
-//    (,,, address borrowAsset) = pa.getConfig();
-//    console.log("requireReconversion amountToPay=", amountToPay);
-//    console.log("requireReconversion borrowAsset=", borrowAsset);
-//
-//    // In reality: make some actions and return required amount back to our balance
-//    // we need to receive borrow amount back to the receiver
-//    address receiver = address(this);
-//
-//    // transfer borrowed amount directly to the Pool Adapter
-//    pa.syncBalance(false);
-//    require(IERC20(borrowAsset).balanceOf(address(this)) >= amountToPay, "not enough balance of borrow asset");
-//    IERC20(borrowAsset).safeTransfer(poolAdapter, amountToPay);
-//
-//    //reconvert
-//    console.log("reconvert poolAdapter, period", poolAdapter, _borrowPeriodInBlocks);
-//    _tc().reconvert(poolAdapter, _borrowPeriodInBlocks, receiver);
-//    console.log("requireReconversion end gasleft", gasleft());
-//
-//    return Status.DONE_1;
-//  }
-
-  //-----------------------------------------------------
-  ///                   View status
-  //-----------------------------------------------------
-
+  //region--------------------------------------------- View and util functions
   function getBorrows(
     address collateralAsset_,
     address borrowedAsset_
@@ -478,13 +494,11 @@ contract Borrower is ITetuConverterCallback {
     console.log("getBorrows end gasleft", gasleft());
   }
 
-  //-----------------------------------------------------
-  ///       Inline utils
-  //-----------------------------------------------------
   function _tc() internal view returns (ITetuConverter) {
     return ITetuConverter(_controller.tetuConverter());
   }
   function _debtMonitor() internal view returns (IDebtMonitor) {
     return IDebtMonitor(_controller.debtMonitor());
   }
+  //endregion--------------------------------------------- View and util functions
 }

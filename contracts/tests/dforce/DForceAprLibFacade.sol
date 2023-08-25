@@ -57,6 +57,15 @@ contract DForceAprLibFacade {
     );
   }
 
+  function getEstimatedExchangeRate(
+    uint totalSupply_,
+    uint cash_,
+    uint totalBorrows_,
+    uint totalReserves_
+  ) external pure returns (uint) {
+    return DForceAprLib.getEstimatedExchangeRate(totalSupply_, cash_, totalBorrows_, totalReserves_);
+  }
+
   function getRawCostAndIncomes(
     DForceAprLib.DForceCore memory core,
     uint collateralAmount_,

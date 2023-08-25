@@ -13,13 +13,15 @@ import "hardhat-tracer";
 // import "hardhat-etherscan-abi";
 import "solidity-coverage"
 import "hardhat-abi-exporter"
+import {task} from "hardhat/config";
+import {deployContract} from "./scripts/deploy/DeployContract";
 
 dotEnvConfig();
 
 // tslint:disable-next-line:no-var-requires
 const argv = require('yargs/yargs')()
-    .env('TETU')
-    .options({
+  .env('TETU')
+  .options({
     hardhatChainId: {
       type: 'number',
       default: 137,
@@ -42,7 +44,15 @@ const argv = require('yargs/yargs')()
       type: 'boolean',
       default: false,
     },
-}).argv;
+  }).argv;
+
+task("deploy1", "Deploy contract", async function (args, hre, runSuper) {
+  const [signer] = await hre.ethers.getSigners();
+// tslint:disable-next-line:ban-ts-ignore
+  // @ts-ignore
+  const name = args.name;
+  await deployContract(hre, signer, name)
+}).addPositionalParam("name", "Name of the smart contract to deploy");
 
 export default {
   defaultNetwork: "hardhat",
@@ -57,13 +67,11 @@ export default {
           9_000_000,
       forking: argv.hardhatChainId !== 31337 ? {
         url:
-          argv.hardhatChainId === 1 ? argv.ethRpcUrl :
-            argv.hardhatChainId === 137 ? argv.maticRpcUrl :
-              undefined,
+          argv.hardhatChainId === 137 ? argv.maticRpcUrl :
+            undefined,
         blockNumber:
-          argv.hardhatChainId === 1 ? argv.ethForkBlock !== 0 ? argv.ethForkBlock : undefined :
-            argv.hardhatChainId === 137 ? argv.maticForkBlock !== 0 ? argv.maticForkBlock : undefined :
-              undefined,
+          argv.hardhatChainId === 137 ? argv.maticForkBlock !== 0 ? argv.maticForkBlock : undefined :
+            undefined,
       } : undefined,
       accounts: {
         mnemonic: 'test test test test test test test test test test test junk',
@@ -74,11 +82,7 @@ export default {
     },
     matic: {
       url: argv.maticRpcUrl || '',
-      timeout: 99999,
       chainId: 137,
-      gas: 12_000_000,
-      // gasPrice: 50_000_000_000,
-      // gasMultiplier: 1.3,
       accounts: [argv.privateKey],
     },
     eth: {

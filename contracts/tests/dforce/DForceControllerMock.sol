@@ -28,12 +28,13 @@ contract DForceControllerMock is IDForceController {
   address public assetCollateral;
 
   bool public ignoreBorrow;
+  bool public borrowDontSendBorrowedAmount;
   bool public ignoreBorrowBalanceStored;
   uint public returnNotZeroTokenBalanceAfterRedeem;
   uint public returnNotZeroBorrowBalanceStoredAfterRedeem;
   /// @notice 0 - disabled, 1 - return increased borrow, N > 1: decrease this value with each call of borrowBalanceCurrent
   uint public borrowBalance1AfterCallingBorrowBalanceCurrent;
-  uint public borrowBalanceCurrentValue;
+  address internal _rewardDistributor;
 
   constructor (
     address comptroller_,
@@ -83,9 +84,12 @@ contract DForceControllerMock is IDForceController {
     console.log("Set setBorrowBalance1AfterCallingBorrowBalanceCurrent", initialValue);
     borrowBalance1AfterCallingBorrowBalanceCurrent = initialValue;
   }
-  function setBorrowBalanceCurrentValue(uint value) external {
-    console.log("Set setBorrowBalanceCurrentValue", value);
-    borrowBalanceCurrentValue = value;
+  function setBorrowDontSendBorrowedAmount() external {
+    console.log("Set borrowDontSendBorrowedAmount");
+    borrowDontSendBorrowedAmount = true;
+  }
+  function setRewardDistributor(address rd) external {
+    _rewardDistributor = rd;
   }
 
   //-----------------------------------------------------
@@ -113,7 +117,9 @@ contract DForceControllerMock is IDForceController {
       console.log("DForceControllerMock.borrow", address(cToken), _borrowAmount);
       cToken.borrow(_borrowAmount);
       console.log("DForceControllerMock.borrow.done, received", IERC20(assetBorrow).balanceOf(address(this)));
-      IERC20(assetBorrow).safeTransfer(msg.sender, _borrowAmount);
+      if (! borrowDontSendBorrowedAmount) {
+        IERC20(assetBorrow).safeTransfer(msg.sender, _borrowAmount);
+      }
     }
   }
   function balanceOf(IDForceCToken cToken, address a) external view returns (uint256) {
@@ -142,7 +148,9 @@ contract DForceControllerMock is IDForceController {
       // next calls of borrowBalanceStored should return not zero value
       returnNotZeroBorrowBalanceStoredAfterRedeem = 2;
     }
+    console.log("DForceControllerMock.end", amount);
   }
+
   function borrowBalanceStored(IDForceCToken cToken, address _account) external view returns (uint256) {
     uint balance;
     if (ignoreBorrowBalanceStored) {
@@ -165,25 +173,17 @@ contract DForceControllerMock is IDForceController {
   function repayBorrow(IDForceCToken cToken, uint256 _repayAmount) external {
     console.log("DForceControllerMock.repayBorrow", _repayAmount);
     IERC20(cToken.underlying()).safeTransferFrom(msg.sender, address(this), _repayAmount);
-    console.log("DForceControllerMock.balance", address(this), IERC20(cToken.underlying()).balanceOf(address(this)));
-    console.log("DForceControllerMock.borrowBalanceCurrentValue", borrowBalanceCurrentValue);
-    console.log("DForceControllerMock._repayAmount", _repayAmount);
-    if (borrowBalanceCurrentValue >= _repayAmount) {
-      borrowBalanceCurrentValue -= _repayAmount;
-    }
-    console.log("DForceControllerMock.borrowBalanceCurrentValue", borrowBalanceCurrentValue);
-    return cToken.repayBorrow(_repayAmount);
+    cToken.repayBorrow(_repayAmount);
   }
-  function borrowBalanceCurrent(IDForceCToken cToken, address _account) external returns (uint256) {
-    console.log("DForceControllerMock.borrowBalanceCurrent", _account);
+
+  function borrowBalanceCurrent(IDForceCToken cToken, address /*_account*/) external returns (uint256) {
+    console.log("DForceControllerMock.borrowBalanceCurrent.this", address(this));
     if (borrowBalance1AfterCallingBorrowBalanceCurrent > 1) {
       borrowBalance1AfterCallingBorrowBalanceCurrent -= 1;
       console.log("setBorrowBalance1AfterCallingBorrowBalanceCurrent", borrowBalance1AfterCallingBorrowBalanceCurrent);
     }
     
-    uint ret = borrowBalanceCurrentValue == 0
-      ? cToken.borrowBalanceCurrent(_account)
-      : borrowBalanceCurrentValue;
+    uint ret = cToken.borrowBalanceCurrent(address(this));
     console.log("DForceControllerMock.borrowBalanceCurrent.ret", ret);
     return ret;
   }
@@ -224,6 +224,10 @@ contract DForceControllerMock is IDForceController {
   }
 
   function rewardDistributor() external view override returns (address) {
+    console.log("rewardDistributor");
+    if (_rewardDistributor != address(0)) {
+      return _rewardDistributor;
+    }
     return comptroller.rewardDistributor();
   }
 
@@ -393,5 +397,8 @@ contract DForceControllerMock is IDForceController {
   }
   function _setBorrowPaused(address _iToken, bool _paused) external override {
     comptroller._setBorrowPaused(_iToken, _paused);
+  }
+  function _setBorrowFactor(address iToken_, uint256 newBorrowFactorMantissa_) external override {
+    comptroller._setBorrowFactor(iToken_, newBorrowFactorMantissa_);
   }
 }

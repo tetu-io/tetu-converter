@@ -43,6 +43,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   /// @notice Max allowed value of (sumCollateralSafe - sumBorrowPlusEffects) / liquidity, decimals 18
   uint private constant MAX_DIVISION18 = 1e10;
+  string public constant POOL_ADAPTER_VERSION = "1.0.2";
 
   address public collateralAsset;
   address public borrowAsset;

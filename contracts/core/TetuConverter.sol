@@ -33,7 +33,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
-  string public constant TETU_CONVERTER_VERSION = "1.0.0";
+  string public constant TETU_CONVERTER_VERSION = "1.0.4";
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
@@ -93,6 +93,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     controllerOut = IConverterController(controller());
     require(controllerOut.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
   }
+
   function _getControllerGovernanceOnly() internal view returns (IConverterController controllerOut) {
     controllerOut = IConverterController(controller());
     require(msg.sender == controllerOut.governance(), AppErrors.GOVERNANCE_ONLY);
@@ -324,6 +325,12 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
 
       (, v.totalDebtForPoolAdapter,,,, v.debtGapRequired) = v.pa.getStatus();
 
+      if (v.totalDebtForPoolAdapter == 0) {
+        // remove empty adapters
+        IDebtMonitor(v.controller.debtMonitor()).closeLiquidatedPosition(v.poolAdapters[i]);
+        continue;
+      }
+
       if (v.debtGapRequired) {
         // we assume here, that amountToRepay_ includes all required dept-gaps
         v.totalDebtForPoolAdapter = getAmountWithDebtGap(v.totalDebtForPoolAdapter, v.debtGap);
@@ -346,10 +353,16 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       // getConverter requires the source amount be approved to TetuConverter, but a contract doesn't need to approve itself
       (address converter,) = ISwapManager(v.controller.swapManager()).getConverter(address(this), borrowAsset_, amountToRepay_, collateralAsset_);
 
-      if (converter == address(0)) {
+      if (converter == address(0) || amountToRepay_ < 1000) {
         // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
+        // or the amount is too small to be swapped
         // let's return this amount back to the {receiver_}
-        returnedBorrowAmountOut = amountToRepay_;
+
+        // SCB-710: returnedBorrowAmountOut should not take into account dust amounts
+        //          to avoid revert in _closePositionExact
+        if (amountToRepay_ >= 1000) {
+          returnedBorrowAmountOut = amountToRepay_;
+        }
         IERC20(borrowAsset_).safeTransfer(receiver_, amountToRepay_);
         emit OnRepayReturn(borrowAsset_, receiver_, amountToRepay_);
       } else {
@@ -517,7 +530,8 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   //region ----------------------------------------------------- Get debt/repay info
 
   /// @inheritdoc ITetuConverter
-  function getDebtAmountCurrent(address user_, address collateralAsset_, address borrowAsset_, bool useDebtGap_) external override nonReentrant returns (
+  /// @dev nonReentrant is not used because: requireRepay(nonReentrant) => ... => getDebtAmountCurrent(), see SCB-746
+  function getDebtAmountCurrent(address user_, address collateralAsset_, address borrowAsset_, bool useDebtGap_) external override /* nonReentrant */ returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
@@ -570,7 +584,6 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     );
     collateralAmountOut = collateralAmount_ + collateralAmount;
   }
-
 
   /// @inheritdoc ITetuConverter
   function estimateRepay(address user_, address collateralAsset_, uint collateralAmountToRedeem_, address borrowAsset_) external view override returns (

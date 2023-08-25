@@ -15,6 +15,9 @@ contract DForceCTokenMock is IDForceCToken {
   address public underlyingAsset;
   IDForceCToken cToken;
 
+  bool internal useMockedBalance;
+  uint internal mockedBalanceValue;
+
   function init(
     address mockedComptroller_,
     address underlying_,
@@ -27,11 +30,18 @@ contract DForceCTokenMock is IDForceCToken {
     IERC20(underlying_).safeApprove(mockedComptroller_, type(uint).max);
   }
 
-  //-----------------------------------------------------//////////
+  //region ----------------------------------------------------- Settings
+  function setMockedBalance(uint value) external {
+    useMockedBalance = true;
+    mockedBalanceValue = value;
+  }
+  //endregion -----------------------------------------------------  Settings
+
+  //-----------------------------------------------------
   ///       IDForceCToken facade
   ///       All functions required by DForcePoolAdapter
   ///       Replace mocked-cTokens by real one on the fly
-  //-----------------------------------------------------//////////
+  //-----------------------------------------------------
   function mint(address _recipient, uint256 _mintAmount) external override {
     console.log("DForceCTokenMock.mint", address(this), _mintAmount);
     IERC20(underlyingAsset).safeTransferFrom(msg.sender, address(this), _mintAmount);
@@ -47,12 +57,18 @@ contract DForceCTokenMock is IDForceCToken {
   }
   function balanceOf(address a) external override view returns (uint256) {
     console.log("DForceCTokenMock.balanceOf", a);
+    if (useMockedBalance) {
+      return mockedBalanceValue;
+    }
     return mockedComptroller.balanceOf(cToken, a == msg.sender ? address(this) : a);
   }
   function redeem(address _from, uint256 _redeemiToken) external override {
+    console.log("DForceCTokenMock.redeem from token", _from, _redeemiToken);
     mockedComptroller.redeem(cToken, _from, _redeemiToken);
     uint amount = IERC20(underlyingAsset).balanceOf(address(this));
+    console.log("DForceCTokenMock.redeem.amount", amount);
     IERC20(underlyingAsset).safeTransfer(msg.sender, amount);
+    console.log("DForceCTokenMock.redeem.end");
   }
   function borrowBalanceStored(address _account) external override view returns (uint256) {
     console.log("DForceCTokenMock.borrowBalanceStored", _account);
@@ -61,11 +77,14 @@ contract DForceCTokenMock is IDForceCToken {
   function repayBorrow(uint256 _repayAmount) external override {
     console.log("DForceCTokenMock.repayBorrow", _repayAmount);
     IERC20(underlyingAsset).safeTransferFrom(msg.sender, address(this), _repayAmount);
-    console.log("DForceCTokenMock.balance", address(this), IERC20(underlyingAsset).balanceOf(address(this)));
-    return mockedComptroller.repayBorrow(cToken, _repayAmount);
+    console.log("DForceCTokenMock.repayBorrow.balance.before", address(this), IERC20(underlyingAsset).balanceOf(address(this)));
+    mockedComptroller.repayBorrow(cToken, _repayAmount);
+    console.log("DForceCTokenMock.repayBorrow.balance.after", address(this), IERC20(underlyingAsset).balanceOf(address(this)));
   }
-  function borrowBalanceCurrent(address _account) external override returns (uint256) {
-    return mockedComptroller.borrowBalanceCurrent(cToken, _account);
+  function borrowBalanceCurrent(address /*_account*/) external override returns (uint256) {
+    uint ret = mockedComptroller.borrowBalanceCurrent(cToken, address(this));
+    console.log("DForceCTokenMock.borrowBalanceCurrent", ret, address(this));
+    return ret;
   }
 
   //-----------------------------------------------------//////////
@@ -87,8 +106,8 @@ contract DForceCTokenMock is IDForceCToken {
   function approve(address spender, uint256 amount) external override returns (bool) {
     return cToken.approve(spender, amount);
   }
-  function balanceOfUnderlying(address _account) external override returns (uint256) {
-    return cToken.balanceOfUnderlying(_account);
+  function balanceOfUnderlying(address /*_account*/) external override returns (uint256) {
+    return cToken.balanceOfUnderlying(address(this));
   }
 
   function borrowIndex() external override view returns (uint256) {
@@ -97,8 +116,8 @@ contract DForceCTokenMock is IDForceCToken {
   function borrowRatePerBlock() external override view returns (uint256) {
     return cToken.borrowRatePerBlock();
   }
-  function borrowSnapshot(address _account) external override view returns (uint256 principal, uint256 interestIndex) {
-    return cToken.borrowSnapshot(_account);
+  function borrowSnapshot(address /*_account*/) external override view returns (uint256 principal, uint256 interestIndex) {
+    return cToken.borrowSnapshot(address(this));
   }
   function controller() external override view returns (address) {
     return cToken.controller();

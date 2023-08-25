@@ -16,6 +16,8 @@ import "./Compound3AprLib.sol";
 contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithRewards, Initializable {
   using SafeERC20 for IERC20;
 
+  string public constant POOL_ADAPTER_VERSION = "1.0.3";
+
   //region ----------------------------------------------------- Variables
 
   address public collateralAsset;
@@ -81,8 +83,8 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
-    IERC20(collateralAsset_).safeApprove(comet_, 2**255); // 2*255 is more gas-efficient than type(uint).max
-    IERC20(borrowAsset_).safeApprove(comet_, 2**255);
+    IERC20(collateralAsset_).safeApprove(comet_, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
+    IERC20(borrowAsset_).safeApprove(comet_, 2 ** 255);
 
     emit OnInitialized(controller_, comet_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
@@ -125,11 +127,11 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     bool debtGapRequired
   ) {
     (
-    uint tokenBalanceOut,
-    uint borrowBalanceOut,
-    uint collateralAmountBase,
-    uint sumBorrowBase,,,
-    uint liquidateCollateralFactor
+      uint tokenBalanceOut,
+      uint borrowBalanceOut,
+      uint collateralAmountBase,
+      uint sumBorrowBase,,,
+      uint liquidateCollateralFactor
     ) = _getStatus();
 
     (, healthFactor18) = _getHealthFactor(liquidateCollateralFactor, collateralAmountBase, sumBorrowBase);
@@ -247,11 +249,11 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     IERC20(vars.assetCollateral).safeTransfer(receiver_, collateralAmountOut);
 
     (
-    uint collateralBalance,
-    uint borrowBalance,
-    uint collateralBase,
-    uint borrowBase,,,
-    uint liquidateCollateralFactor
+      uint collateralBalance,
+      uint borrowBalance,
+      uint collateralBase,
+      uint borrowBase,,,
+      uint liquidateCollateralFactor
     ) = _getStatus();
 
     uint healthFactor18;
@@ -260,7 +262,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     } else {
       require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
 
-      (,healthFactor18) = _getHealthFactor(liquidateCollateralFactor, collateralBase, borrowBase);
+      (, healthFactor18) = _getHealthFactor(liquidateCollateralFactor, collateralBase, borrowBase);
       _validateHealthFactor(vars.c, healthFactor18);
     }
 
@@ -298,13 +300,13 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     }
 
     (
-    uint collateralBalance,,
-    uint collateralBase,
-    uint borrowBase,,,
-    uint liquidateCollateralFactor
+      uint collateralBalance,,
+      uint collateralBase,
+      uint borrowBase,,,
+      uint liquidateCollateralFactor
     ) = _getStatus();
 
-    (,resultHealthFactor18) = _getHealthFactor(liquidateCollateralFactor, collateralBase, borrowBase);
+    (, resultHealthFactor18) = _getHealthFactor(liquidateCollateralFactor, collateralBase, borrowBase);
     _validateHealthFactor(c, resultHealthFactor18);
 
     require(collateralBalance >= collateralBalanceBefore, AppErrors.WEIRD_OVERFLOW);
@@ -315,11 +317,12 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
 
   function claimRewards(address receiver_) external returns (address rewardToken, uint amount) {
     _onlyTetuConverter(controller);
+    IComet _comet = comet;
 
-    ICometRewards.RewardConfig memory config = cometRewards.rewardConfig(address(comet));
+    ICometRewards.RewardConfig memory config = cometRewards.rewardConfig(address(_comet));
     rewardToken = config.token;
 
-    cometRewards.claim(address(comet), address(this), true);
+    cometRewards.claim(address(_comet), address(this), true);
     amount = IERC20(rewardToken).balanceOf(address(this));
     if (amount != 0) {
       IERC20(rewardToken).safeTransfer(receiver_, amount);
@@ -336,23 +339,24 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     address assetCollateral_,
     uint collateralAmount_
   ) internal returns (uint) {
-    uint tokenBalanceBefore = comet.userCollateral(address(this), assetCollateral_).balance;
-    comet.supply(assetCollateral_, collateralAmount_);
+    IComet _comet = comet;
+    uint tokenBalanceBefore = _comet.userCollateral(address(this), assetCollateral_).balance;
+    _comet.supply(assetCollateral_, collateralAmount_);
     return tokenBalanceBefore;
   }
 
   /// @return (Health factor, decimal 18; collateral-token-balance)
   function _validateHealthStatusAfterBorrow(IConverterController controller_) internal view returns (uint, uint) {
     (
-    uint tokenBalance,,
-    uint collateralBase,
-    uint borrowBase,,,
-    uint liquidateCollateralFactor
+      uint tokenBalance,,
+      uint collateralBase,
+      uint borrowBase,,,
+      uint liquidateCollateralFactor
     ) = _getStatus();
 
     (
-    uint sumCollateralSafe,
-    uint healthFactor18
+      uint sumCollateralSafe,
+      uint healthFactor18
     ) = _getHealthFactor(liquidateCollateralFactor, collateralBase, borrowBase);
 
     require(sumCollateralSafe > borrowBase && borrowBase != 0, AppErrors.INCORRECT_RESULT_LIQUIDITY);
@@ -362,7 +366,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   }
 
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
-    require(hf18 > uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+    require(hf18 > uint(controller_.minHealthFactor2()) * 10 ** (18 - 2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
   /// @return tokenBalanceOut Count of collateral tokens on balance
@@ -384,7 +388,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     collateralAssetPrice = Compound3AprLib.getPrice(assetInfo.priceFeed);
     collateralAmountBase = tokenBalanceOut * collateralAssetPrice / 10 ** IERC20Metadata(collateralAsset).decimals();
     borrowBalanceOut = _comet.borrowBalanceOf(address(this));
-    borrowAssetPrice = Compound3AprLib.getPrice(comet.baseTokenPriceFeed());
+    borrowAssetPrice = Compound3AprLib.getPrice(_comet.baseTokenPriceFeed());
     sumBorrowBase = borrowBalanceOut * borrowAssetPrice / 10 ** IERC20Metadata(borrowAsset).decimals();
     liquidateCollateralFactor = assetInfo.liquidateCollateralFactor;
   }

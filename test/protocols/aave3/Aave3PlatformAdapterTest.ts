@@ -334,7 +334,8 @@ describe("Aave3PlatformAdapterTest", () => {
       isolationModeEnabled: boolean,
       countBlocks: number = 10,
       badPathsParams?: IGetConversionPlanBadPaths,
-      entryData?: string
+      entryData?: string,
+      expectEmptyPlan: boolean = false
     ) : Promise<{sret: string, sexpected: string}> {
       const d = await preparePlan(
         collateralAsset,
@@ -421,37 +422,48 @@ describe("Aave3PlatformAdapterTest", () => {
       const expectedMaxAmountToBorrow = await Aave3Utils.getMaxAmountToBorrow(d.borrowAssetData, d.collateralAssetData);
       const expectedMaxAmountToSupply = await Aave3Utils.getMaxAmountToSupply(deployer, d.collateralAssetData);
 
-      const sexpected = [
-        predictedBorrowCostInBorrowAssetRay,
-        predictedSupplyIncomeInBorrowAssetRay,
-        0,
+      const emptyPlan = expectEmptyPlan
+        && !d.collateralAssetData.data.debtCeiling.eq(0)
+        && d.collateralAssetData.data.debtCeiling.lt(d.collateralAssetData.data.isolationModeTotalDebt);
 
-        // ltv18
-        BigNumber.from(
-          highEfficientModeEnabled
-            ? d.collateralAssetData.category?.ltv
-            : d.collateralAssetData.data.ltv
-        ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
+      // if vars.rcDebtCeiling < vars.rc.isolationModeTotalDebt in isolation mode,
+      // the borrow is not possible. Currently, there is such situation with EURO. It can be changed later.
+      // The test handles both cases (it's not good, we need two different tests, but it's too hard to reproduce
+      // required situations in test)
+      const sexpected = (emptyPlan
+        ? [0, 0, 0, 0, 0, 0, 0, false, false, 0, 0, false, true]
+        : [
+          predictedBorrowCostInBorrowAssetRay,
+          predictedSupplyIncomeInBorrowAssetRay,
+          0,
 
-        // liquidationThreshold18
-        BigNumber.from(
-          highEfficientModeEnabled
-            ? d.collateralAssetData.category?.liquidationThreshold
-            : d.collateralAssetData.data.liquidationThreshold
-        ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
+          // ltv18
+          BigNumber.from(
+            highEfficientModeEnabled
+              ? d.collateralAssetData.category?.ltv
+              : d.collateralAssetData.data.ltv
+          ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
 
-        expectedMaxAmountToBorrow,
-        expectedMaxAmountToSupply,
+          // liquidationThreshold18
+          BigNumber.from(
+            highEfficientModeEnabled
+              ? d.collateralAssetData.category?.liquidationThreshold
+              : d.collateralAssetData.data.liquidationThreshold
+          ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
 
-        true, // borrow APR is not 0
-        true, // supply APR is not 0
+          expectedMaxAmountToBorrow,
+          expectedMaxAmountToSupply,
 
-        borrowAmount,
-        collateralAmount,
+          true, // borrow APR is not 0
+          true, // supply APR is not 0
 
-        true,
-        true,
-      ].map(x => BalanceUtils.toString(x)) .join("\n");
+          borrowAmount,
+          collateralAmount,
+
+          true,
+          true,
+        ]
+    ).map(x => BalanceUtils.toString(x)) .join("\n");
 
       return {sret, sexpected};
     }
@@ -541,10 +553,9 @@ describe("Aave3PlatformAdapterTest", () => {
       });
       describe("Isolation mode is enabled for collateral, borrow token is borrowable in isolation mode", () => {
         /**
-         * Currently vars.rcDebtCeiling < vars.rc.isolationModeTotalDebt,
-         * so new borrows are not possible
+         * Currently vars.rcDebtCeiling < vars.rc.isolationModeTotalDebt, so new borrows are not possible
          */
-        describe.skip("STASIS EURS-2 : Tether USD", () => {
+        describe("STASIS EURS-2 : Tether USD", () => {
           it("should return expected values", async () =>{
             if (!await isPolygonForkInUse()) return;
 
@@ -557,7 +568,16 @@ describe("Aave3PlatformAdapterTest", () => {
               collateralAmount,
               borrowAsset,
               true,
-              false
+              false,
+              10,
+              undefined,
+              "0x",
+
+              // Currently vars.rcDebtCeiling < vars.rc.isolationModeTotalDebt, so new borrows are not possible
+              // we expect to receive empty plan. It depends on block. The situation can change in the future
+              // and it will be necessary to reproduce the situation {vars.rcDebtCeiling < vars.rc.isolationModeTotalDebt}
+              // manually. SO this is potentially blinking test. But we need this test to improve the coverage.
+              true
             );
 
             expect(r.sret).eq(r.sexpected);
@@ -1038,6 +1058,96 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
           expect(r.plan.collateralAmount.eq(0)).eq(true);
           expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
+
+      describe("Result collateralAmount == 0, amountToBorrow != 0 (edge case, improve coverage)", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const borrowAsset = MaticAddresses.USDT;
+          const collateralAmount = parseUnits("1", 6);
+
+          const r0 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // change prices: make priceCollateral very high, priceBorrow very low
+          // as result, exactBorrowOutForMinCollateralIn will return amountToCollateralOut = 0,
+          // and we should hit second condition in borrow-validation section:
+          //    plan.amountToBorrow == 0 || plan.collateralAmount == 0
+
+          const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+          await priceOracle.setPrices(
+            [MaticAddresses.USDC, MaticAddresses.USDT],
+            [parseUnits("1", 15), parseUnits("1", 5)]
+          );
+
+          const r1 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // first plan is successful
+          expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+          expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+          expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+
+          // the plan created after changing the prices is not successful
+          expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r1.plan.collateralAmount.eq(0)).eq(true);
+          expect(r1.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
+
+      describe("supplyCap < totalSupply (edge case, improve coverage)", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const borrowAsset = MaticAddresses.USDT;
+          const collateralAmount = parseUnits("1", 6);
+
+          const r0 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // set very small supplyCap
+          await Aave3ChangePricesUtils.setSupplyCap(deployer, MaticAddresses.USDC, parseUnits("1", 6));
+
+          const r1 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // first plan is successful
+          expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+          expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+          expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+
+          // the plan created after changing the prices is not successful
+          expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r1.plan.collateralAmount.eq(0)).eq(true);
+          expect(r1.plan.amountToBorrow.eq(0)).eq(true);
         });
       });
     });
