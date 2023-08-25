@@ -26,6 +26,7 @@ import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../integrations/tetu/ITetuLiquidator.sol";
 import "../proxy/ControllableV3.sol";
+import "../libs/ConverterLogicLib.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -33,7 +34,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
-  string public constant TETU_CONVERTER_VERSION = "1.0.4";
+  string public constant TETU_CONVERTER_VERSION = "1.0.5";
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
@@ -428,7 +429,8 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     uint requiredCollateralAmount_,
     address poolAdapter_
   ) external nonReentrant override {
-    require(IConverterController(controller()).keeper() == msg.sender, AppErrors.KEEPER_ONLY);
+    IConverterController _controller = IConverterController(controller());
+    require(_controller.keeper() == msg.sender, AppErrors.KEEPER_ONLY);
     require(requiredBorrowedAmount_ != 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
@@ -446,27 +448,93 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       // we assume here, that requiredBorrowedAmount_ should be less than amountToPay even if it includes the debt-gap
       require(amountToPay != 0 && requiredBorrowedAmount_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
-      // for borrowers it's much easier to return collateral asset than borrow asset
-      // so ask the borrower to send us collateral asset
-      uint balanceBefore = IERC20(collateralAsset).balanceOf(address(this));
-      ITetuConverterCallback(user).requirePayAmountBack(collateralAsset, requiredCollateralAmount_);
-      uint balanceAfter = IERC20(collateralAsset).balanceOf(address(this));
-
-      // ensure that we have received any amount .. and use it for repayment
-      // probably we've received less then expected - it's ok, just let's use as much as possible
-      // DebtMonitor will ask to make rebalancing once more if necessary
-      require(
-        balanceAfter > balanceBefore // smth is wrong
-        && balanceAfter - balanceBefore <= requiredCollateralAmount_, // we can receive less amount (partial rebalancing)
-        AppErrors.WRONG_AMOUNT_RECEIVED
+      // for definiteness ask the user to send us collateral asset
+      (bool skipRepay, uint amount) = _requirePayAmountBack(
+        ITetuConverterCallback(user),
+        pa,
+        collateralAsset,
+        requiredCollateralAmount_,
+        IBorrowManager(_controller.borrowManager()),
+        uint(_controller.minHealthFactor2()) * 10 ** (18 - 2)
       );
-      uint amount = balanceAfter - balanceBefore;
-      // replaced by infinity approve: IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
 
-      uint resultHealthFactor18 = pa.repayToRebalance(amount, true);
-      emit OnRequireRepayRebalancing(address(pa), amount, true, amountToPay, resultHealthFactor18);
+      if (! skipRepay) {
+        uint resultHealthFactor18 = pa.repayToRebalance(amount, true);
+        emit OnRequireRepayRebalancing(address(pa), amount, true, amountToPay, resultHealthFactor18);
+      }
     }
   }
+
+  /// @notice Ask user (a strategy) to transfer {amount_} of {asset_} to balance of the converter
+  /// @dev Call user_.requirePayAmountBack one or two times
+  /// @param user_ The strategy - owner of the {pa_}
+  /// @param pa_ Pool adapter with the debt that should be rebalanced
+  /// @param asset_ Collateral asset of pa
+  /// @param amount_ Amount required by {pa_} to rebalance the debt
+  function _requirePayAmountBack(
+    ITetuConverterCallback user_,
+    IPoolAdapter pa_,
+    address asset_,
+    uint amount_,
+    IBorrowManager borrowManager_,
+    uint healthFactorThreshold18
+  ) internal returns (
+    bool skipRepay,
+    uint amountToPay
+  ) {
+    (uint amountReturnedByUser, uint amountReceivedOnBalance) = _callRequirePayAmountBack(user_, asset_, amount_);
+
+    // The results of calling requirePayAmountBack depend on whether the required amount is on the user's balance:
+    // 1. The {amount_} exists on the balance
+    //    User sends the amount to TetuConverter, returns {amount_}
+    // 2. The {amount_} doesn't exist on the balance.
+    //    User tries to receive {amount_} and sends {amount_*} (it's probably less than original {amount_}
+    //    that converter can claims by next call of requirePayAmountBack
+    if (amountReceivedOnBalance == 0) {
+      // case 2: the amount_ didn't exist on balance. We should claim amountReturnedByUser by second call
+
+      // strategy cas received some amount on balance
+      // it means that it probably has closed some debts
+      // there is a chance that {pa_} doesn't require rebalancing anymore or require less amount
+      // check what amount is required by {pa_} now
+      (, uint requiredCollateralToPay) = ConverterLogicLib.checkPositionHealth(pa_, borrowManager_, healthFactorThreshold18);
+
+      if (requiredCollateralToPay == 0) {
+        skipRepay = true;
+      } else {
+        require(amountReturnedByUser != 0, AppErrors.ZERO_AMOUNT); // user has any assets to send to converter
+        (amountReturnedByUser, amountReceivedOnBalance) = _callRequirePayAmountBack(
+          user_,
+          asset_,
+          Math.min(amountReturnedByUser, requiredCollateralToPay)
+        );
+      }
+    }
+
+    // ensure that we have received any amount .. and use it for repayment
+    // probably we've received less then expected - it's ok, just let's use as much as possible
+    // DebtMonitor will ask to make rebalancing once more if necessary
+    require(
+      (skipRepay || amountReceivedOnBalance != 0) // user didn't send promised assets
+      && (amountReceivedOnBalance <= amount_), // we can receive less amount (partial rebalancing)
+      AppErrors.WRONG_AMOUNT_RECEIVED
+    );
+
+    return (skipRepay, amountReceivedOnBalance);
+  }
+
+  function _callRequirePayAmountBack(ITetuConverterCallback user_, address asset_, uint amount_) internal returns (
+    uint amountReturnedByUser,
+    uint amountReceivedOnBalance
+  ) {
+    uint balanceBefore = IERC20(asset_).balanceOf(address(this));
+    amountReturnedByUser = user_.requirePayAmountBack(asset_, amount_);
+    uint balanceAfter = IERC20(asset_).balanceOf(address(this));
+
+    require(balanceAfter >= balanceBefore, AppErrors.WEIRD_OVERFLOW);
+    amountReceivedOnBalance = balanceAfter - balanceBefore;
+  }
+
   //endregion ----------------------------------------------------- IKeeperCallback
 
   //region ----------------------------------------------------- Close borrow forcibly by governance
