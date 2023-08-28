@@ -110,7 +110,7 @@ library TetuConverterLogicLib {
     //    User tries to receive {amount_} and sends {amount_*} (it's probably less than original {amount_}
     //    that converter can claims by next call of requirePayAmountBack
     if (amountReceivedOnBalance == 0) {
-      // case 2: the amount_ didn't exist on balance. We should claim amountReturnedByUser by second call
+      // case 2: the {amount_} didn't exist on balance. We should claim amountReturnedByUser by second call
 
       // strategy cas received some amount on balance
       // it means that it probably has closed some debts

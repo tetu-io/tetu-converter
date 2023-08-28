@@ -95,6 +95,15 @@ contract PoolAdapterMock is IPoolAdapter {
     _debtGapRequired = debtGapRequired_;
   }
 
+  /// @notice Imitate closing the debt by resetting collateral and borrow amounts
+  function resetTheDebtForcibly() external {
+    _borrowedAmounts = 0;
+    uint balance = _cTokenMock.balanceOf(address(this));
+    if (balance != 0) {
+      _cTokenMock.burn(address(this), balance);
+    }
+  }
+
   //-----------------------------------------------------
   ///           Initialization
   ///  Constructor is not applicable, because this contract
@@ -168,8 +177,10 @@ contract PoolAdapterMock is IPoolAdapter {
     uint8 decimalsCollateral = IERC20Metadata(_collateralAsset).decimals();
     uint8 decimalsBorrow = IERC20Metadata(_borrowAsset).decimals();
 
-    console.log("amountToPay = %d", amountToPay);
-    console.log("priceBorrowedUSD = %d", priceBorrowedUSD);
+    console.log("_getStatus.this", address(this));
+    console.log("_getStatus.collateralAmount = %d", collateralAmount);
+    console.log("_getStatus.amountToPay = %d", amountToPay);
+    console.log("_getStatus.priceBorrowedUSD = %d", priceBorrowedUSD);
 
     healthFactor18 = amountToPay == 0
         ? type(uint).max
@@ -238,6 +249,11 @@ contract PoolAdapterMock is IPoolAdapter {
       / 1e18;
 
     uint claimedAmount = borrowAmount_.toMantissa(IERC20Metadata(_borrowAsset).decimals(), 18) * priceBorrowedUSD / 1e18;
+    console.log("claimedAmount", claimedAmount);
+    console.log("maxAmountToBorrowUSD", maxAmountToBorrowUSD);
+    console.log("_collateralFactor", _collateralFactor);
+    console.log("collateralAmount_", collateralAmount_);
+
     require(maxAmountToBorrowUSD >= claimedAmount, "borrow amount is too big");
 
     // send the borrow amount to the receiver
@@ -342,6 +358,7 @@ contract PoolAdapterMock is IPoolAdapter {
   ) external override returns (
     uint resultHealthFactor18
   ) {
+    console.log("repayToRebalance.amount", amount_);
     require(amount_ > 0, "nothing to transfer");
     // add debts to the borrowed amount
     _accumulateDebt(0);
