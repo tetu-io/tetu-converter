@@ -3,34 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {
-  IERC20__factory,
-  MockERC20,
-  MockERC20__factory,
-  TetuConverter,
-  Borrower,
-  PoolAdapterMock__factory,
-  LendingPlatformMock__factory,
-  BorrowManager__factory,
-  IPoolAdapter__factory,
-  PoolAdapterMock,
-  ITetuConverter__factory,
-  TetuConverter__factory,
-  TetuLiquidatorMock__factory,
-  SwapManagerMock,
-  ConverterUnknownKind,
-  DebtMonitorMock,
-  ConverterController,
-  PoolAdapterStub__factory,
-  IPoolAdapter,
-  DebtMonitorMock__factory,
-  SwapManagerMock__factory,
-  PriceOracleMock__factory,
-  PoolAdapterMock2__factory,
-  IConverterController__factory,
-  IERC20Metadata__factory,
-  CTokenMock, SwapManager__factory
-} from "../../typechain";
+import {IERC20__factory, MockERC20, MockERC20__factory, TetuConverter, Borrower, PoolAdapterMock__factory, LendingPlatformMock__factory, BorrowManager__factory, IPoolAdapter__factory, PoolAdapterMock, ITetuConverter__factory, TetuConverter__factory, TetuLiquidatorMock__factory, SwapManagerMock, ConverterUnknownKind, DebtMonitorMock, ConverterController, PoolAdapterStub__factory, IPoolAdapter, DebtMonitorMock__factory, SwapManagerMock__factory, PriceOracleMock__factory, PoolAdapterMock2__factory, IERC20Metadata__factory, CTokenMock} from "../../typechain";
 import {
   IBorrowInputParams,
   BorrowManagerHelper,
@@ -55,7 +28,6 @@ import {
 import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {getSum} from "../baseUT/utils/CommonUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {boolean} from "hardhat/internal/core/params/argumentTypes";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -4253,13 +4225,15 @@ describe("TetuConverterTest", () => {
             false,
           );
 
+          const libAbi = await ethers.getContractAt("TetuConverterLogicLib", core.tc.address, deployer);
+
           await expect(
             tcAsKeeper.requireRepay(
               parseUnits("1", await init.targetToken.decimals()),
               parseUnits("0", await init.sourceToken.decimals()),
               init.poolAdapters[0],
             )
-          ).to.emit(core.tc, "OnRequireRepayCloseLiquidatedPosition").withArgs(
+          ).to.emit(libAbi, "OnRequireRepayCloseLiquidatedPosition").withArgs(
             init.poolAdapters[0],
             parseUnits("207", await init.targetToken.decimals()),
           );

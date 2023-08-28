@@ -5,7 +5,7 @@ pragma solidity 0.8.17;
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPoolAdapter.sol";
 
-/// @notice TetuConverter logic-related utils
+/// @notice TetuConverter-app logic-related utils
 library ConverterLogicLib {
   function checkPositionHealth(IPoolAdapter pa, IBorrowManager borrowManager, uint healthFactorThreshold18) internal view returns (
     uint requiredBorrowAssetAmount,

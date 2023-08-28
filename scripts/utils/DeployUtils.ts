@@ -15,6 +15,7 @@ const log: Logger<unknown> = new Logger(logSettings);
 
 const libraries = new Map<string, string>([
   ['Compound3AprLibFacade', 'Compound3AprLib'],
+  ['TetuConverter', 'TetuConverterLogicLib'],
 ]);
 // tslint:disable-next-line:no-var-requires
 const hre = require("hardhat");
