@@ -58,6 +58,7 @@ contract Borrower is ITetuConverterCallback {
 
     address poolAdapterAddress;
     uint amountToSendToPoolAdapterAtFirstCall;
+    address amountProvider;
     bool closeTheDebtAtFistCall;
   }
   RequireAmountBackParams public requireAmountBackParams;
@@ -485,6 +486,7 @@ contract Borrower is ITetuConverterCallback {
     uint amountToTransfer2_,
     address poolAdapterAddress_,
     uint amountToSendToPoolAdapterAtFirstCall_,
+    address amountProvider_,
     bool closeTheDebtAtFistCall_
   ) external {
     requireAmountBackParams = RequireAmountBackParams({
@@ -499,6 +501,7 @@ contract Borrower is ITetuConverterCallback {
 
       poolAdapterAddress: poolAdapterAddress_,
       amountToSendToPoolAdapterAtFirstCall: amountToSendToPoolAdapterAtFirstCall_,
+      amountProvider: amountProvider_,
       closeTheDebtAtFistCall: closeTheDebtAtFistCall_
     });
   }
@@ -532,6 +535,7 @@ contract Borrower is ITetuConverterCallback {
           require(requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall <= balance, "setUpRequireAmountBack:5");
           console.log("requirePayAmountBack.3.balance", balance);
           console.log("requirePayAmountBack.amountToSendToPoolAdapterAtFirstCall", requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall);
+          IERC20(asset_).transferFrom(requireAmountBackParams.amountProvider, address(this), requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall);
           IERC20(asset_).approve(requireAmountBackParams.poolAdapterAddress, requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall);
           PoolAdapterMock(requireAmountBackParams.poolAdapterAddress).repayToRebalance(
             requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall,
@@ -545,11 +549,11 @@ contract Borrower is ITetuConverterCallback {
         }
       }
 
+      console.log("requirePayAmountBack.return", amountToReturn);
       return amountToReturn;
     } else {
       requireAmountBackParams.amountPassedToRequireRepayAtSecondCall = amount_;
 
-      requireAmountBackParams.amountPassedToRequireRepayAtFirstCall = amount_;
       uint amountToReturn = requireAmountBackParams.amountToReturn2 == type(uint).max
         ? amount_
         : requireAmountBackParams.amountToReturn2;
@@ -563,6 +567,7 @@ contract Borrower is ITetuConverterCallback {
       require(amountToTransfer <= balance, "setUpRequireAmountBack:4");
 
       IERC20(asset_).transfer(address(_tc()), amountToTransfer);
+      console.log("requirePayAmountBack.return.2", amountToReturn);
       return amountToReturn;
     }
   }

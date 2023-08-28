@@ -26,7 +26,7 @@ library TetuConverterLogicLib {
   /// @dev Absolute value of debt-gap-addon for any token
   /// @notice A value of the debt gap, calculate using debt-gap percent, cannot be less than the following
   uint internal constant MIN_DEBT_GAP_ADDON = 10;
-//#region ------------------------------------------------- Constants
+//#endregion ------------------------------------------------- Constants
 
 //#region ------------------------------------------------- Events
   event OnRequireRepayCloseLiquidatedPosition(address poolAdapter, uint statusAmountToPay);
@@ -102,6 +102,7 @@ library TetuConverterLogicLib {
     uint amountToPay
   ) {
     (uint amountReturnedByUser, uint amountReceivedOnBalance) = _callRequirePayAmountBack(user_, asset_, amount_);
+    console.log("_requirePayAmountBack.amountReturnedByUser", amountReturnedByUser);
 
     // The results of calling requirePayAmountBack depend on whether the required amount is on the user's balance:
     // 1. The {amount_} exists on the balance
@@ -117,16 +118,20 @@ library TetuConverterLogicLib {
       // there is a chance that {pa_} doesn't require rebalancing anymore or require less amount
       // check what amount is required by {pa_} now
       (, uint requiredCollateralToPay) = ConverterLogicLib.checkPositionHealth(pa_, borrowManager_, healthFactorThreshold18);
+      console.log("_requirePayAmountBack.requiredCollateralToPay", requiredCollateralToPay);
 
       if (requiredCollateralToPay == 0) {
         skipRepay = true;
       } else {
         require(amountReturnedByUser != 0, AppErrors.ZERO_AMOUNT); // user has any assets to send to converter
+        console.log("_requirePayAmountBack.amountReceivedOnBalance", amountReceivedOnBalance);
+        console.log("_requirePayAmountBack.Math.min(amountReturnedByUser, requiredCollateralToPay)", Math.min(amountReturnedByUser, requiredCollateralToPay));
         (amountReturnedByUser, amountReceivedOnBalance) = _callRequirePayAmountBack(
           user_,
           asset_,
           Math.min(amountReturnedByUser, requiredCollateralToPay)
         );
+        console.log("_requirePayAmountBack.amountReturnedByUser", amountReturnedByUser);
       }
     }
 

@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPoolAdapter.sol";
+import "hardhat/console.sol";
 
 /// @notice TetuConverter-app logic-related utils
 library ConverterLogicLib {
@@ -30,6 +31,13 @@ library ConverterLogicLib {
       requiredCollateralAssetAmount = (collateralAmount * healthFactorTarget18 / healthFactor18 - collateralAmount);
     }
 
+    console.log("checkPositionHealth.amountToPay", amountToPay);
+    console.log("checkPositionHealth.collateralAmount * healthFactorTarget18 / healthFactor18", collateralAmount * healthFactorTarget18 / healthFactor18);
+    console.log("checkPositionHealth.healthFactor18", healthFactor18);
+    console.log("checkPositionHealth.healthFactorTarget18", healthFactorTarget18);
+    console.log("checkPositionHealth.healthFactorThreshold18", healthFactorThreshold18);
+    console.log("checkPositionHealth.requiredBorrowAssetAmount", requiredBorrowAssetAmount);
+    console.log("checkPositionHealth.requiredCollateralAssetAmount", requiredCollateralAssetAmount);
     return (requiredBorrowAssetAmount, requiredCollateralAssetAmount);
   }
 }

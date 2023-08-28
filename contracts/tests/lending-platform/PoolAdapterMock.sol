@@ -181,6 +181,7 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("_getStatus.collateralAmount = %d", collateralAmount);
     console.log("_getStatus.amountToPay = %d", amountToPay);
     console.log("_getStatus.priceBorrowedUSD = %d", priceBorrowedUSD);
+    console.log("_getStatus.priceCollateral = %d", priceCollateral);
 
     healthFactor18 = amountToPay == 0
         ? type(uint).max
@@ -188,10 +189,9 @@ contract PoolAdapterMock is IPoolAdapter {
       * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
       / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
 
-    console.log("getStatus:");
-    console.log("collateralAmount=%d", collateralAmount);
-    console.log("amountToPay=%d", amountToPay);
-    console.log("healthFactor18=%d", healthFactor18);
+    console.log("getStatus.collateralAmount=%d", collateralAmount);
+    console.log("getStatus.amountToPay=%d", amountToPay);
+    console.log("getStatus.healthFactor18=%d", healthFactor18);
 
     return (
       collateralAmount,
@@ -359,6 +359,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint resultHealthFactor18
   ) {
     console.log("repayToRebalance.amount", amount_);
+    console.log("repayToRebalance.ctoken.balance", _cTokenMock.balanceOf(address(this)));
     require(amount_ > 0, "nothing to transfer");
     // add debts to the borrowed amount
     _accumulateDebt(0);
@@ -371,6 +372,7 @@ contract PoolAdapterMock is IPoolAdapter {
       uint amountCTokens = amount_; //TODO: exchange rate 1:1, it's not always true
       _cTokenMock.mint(address(this), amountCTokens);
       console.log("mint ctokens %s amount=%d to=%s", address(_cTokenMock), amountCTokens, address(this));
+      console.log("repayToRebalance.ctoken.balance", _cTokenMock.balanceOf(address(this)));
     } else {
       IERC20(_borrowAsset).safeTransferFrom(msg.sender, address(this), amount_);
       IERC20(_borrowAsset).transfer(_pool, amount_);
@@ -406,11 +408,11 @@ contract PoolAdapterMock is IPoolAdapter {
   //-----------------------------------------------------
 
   function getPrice18(address asset) internal view returns (uint) {
-    console.log("getPrice18");
+    // console.log("getPrice18");
     IPriceOracle p = IPriceOracle(priceOracle);
 
     uint price18 = p.getAssetPrice(asset);
-    console.log("getPrice18 %d", price18);
+    // console.log("getPrice18 %d", price18);
     return price18;
   }
 

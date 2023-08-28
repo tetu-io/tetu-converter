@@ -34,7 +34,7 @@ contract PriceOracleMock is IPriceOracle {
 
   /// @notice Return asset price in USD, decimals 18
   function getAssetPrice(address asset) external view override returns (uint256) {
-    console.log("PriceOracleMock.getAssetPrice", asset, prices[asset]);
+    // console.log("PriceOracleMock.getAssetPrice", asset, prices[asset]);
     return prices[asset];
   }
 }

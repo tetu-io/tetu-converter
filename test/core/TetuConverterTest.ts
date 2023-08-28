@@ -82,6 +82,11 @@ describe("TetuConverterTest", () => {
     usePoolAdapterMock2?: boolean;
     skipWhitelistUser?: boolean;
     tetuAppSetupParams?: IPrepareContractsSetupParams,
+
+    initialCollateralAmount?: string; // 100_000_000_000 by default
+    targetDecimals?: number; // 6;
+    sourceDecimals?: number; // 17;
+    collateralFactor?: number; // 0.5,
   }
 
   /**
@@ -171,12 +176,11 @@ describe("TetuConverterTest", () => {
     countPlatforms: number,
     p?: IPrepareContractsParams
   ): Promise<ISetupResults> {
-    const targetDecimals = 6;
-    const sourceDecimals = 17;
-    const sourceAmountNumber = 100_000_000_000;
+    const targetDecimals = p?.targetDecimals ?? 6;
+    const sourceDecimals = p?.sourceDecimals ?? 17;
     const availableBorrowLiquidityNumber = 100_000_000_000;
     const tt: IBorrowInputParams = {
-      collateralFactor: 0.5,
+      collateralFactor: p?.collateralFactor ?? 0.5,
       priceSourceUSD: 1,
       priceTargetUSD: 1, // let's make prices equal for simplicity of health factor calculations in the tests...
       sourceDecimals,
@@ -189,7 +193,7 @@ describe("TetuConverterTest", () => {
       )
     };
 
-    const initialCollateralAmount = parseUnits(sourceAmountNumber.toString(), sourceDecimals);
+    const initialCollateralAmount = parseUnits(p?.initialCollateralAmount || "100000000000", sourceDecimals);
     const availableBorrowLiquidityPerPool = parseUnits(availableBorrowLiquidityNumber.toString(), targetDecimals);
 
     const r = await prepareContracts(core, tt, p);
@@ -202,8 +206,7 @@ describe("TetuConverterTest", () => {
 
     // put a lot of borrow assets to pool-stubs
     for (const pi of r.poolInstances) {
-      await MockERC20__factory.connect(r.targetToken.address, deployer)
-        .mint(pi.pool, availableBorrowLiquidityPerPool);
+      await MockERC20__factory.connect(r.targetToken.address, deployer).mint(pi.pool, availableBorrowLiquidityPerPool);
     }
 
     return {
@@ -3788,6 +3791,7 @@ describe("TetuConverterTest", () => {
             0,
             Misc.ZERO_ADDRESS,
             0,
+            Misc.ZERO_ADDRESS,
             false
           );
 
@@ -5185,7 +5189,7 @@ describe("TetuConverterTest", () => {
     interface IHealthFactorParams {
       minHealthFactor2: number;
       targetHealthFactor2: number;
-      maxHealthFactor2: number;
+      maxHealthFactor2?: number;
     }
 
     interface IRepayAmounts {
@@ -5224,7 +5228,6 @@ describe("TetuConverterTest", () => {
       openedPositions: string[];
       totalDebtAmountOut: number;
       totalCollateralAmountOut: number;
-      init: ISetupResults;
       poolAdapterStatusBefore: IPoolAdapterStatusNum;
       poolAdapterStatusAfter: IPoolAdapterStatusNum;
 
@@ -5234,13 +5237,26 @@ describe("TetuConverterTest", () => {
 
       initialUserCollateralBalance: number;
       finalUserCollateralBalance: number;
+
+      finalConverterBalanceBorrowAsset: number;
+      finalConverterBalanceCollateral: number;
     }
 
     async function makeRequireRepay(p: IRequireRepayParams): Promise<IRequireRepayResults> {
       const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(core, p.collateralAmounts.length);
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(
+        core,
+        p.collateralAmounts.length,
+        {
+          sourceDecimals: 6,
+          targetDecimals: 6,
+          collateralFactor: 1 // for simplicity of calculations
+        }
+      );
       const decimalsBorrow = await init.targetToken.decimals();
       const decimalsCollateral = await init.sourceToken.decimals();
+      console.log("decimalsCollateral", decimalsCollateral);
+      console.log("decimalsBorrow", decimalsBorrow);
 
       // set up initial balances
       if (p?.initialConverterBalanceCollateral) {
@@ -5252,7 +5268,7 @@ describe("TetuConverterTest", () => {
 
       // set up health factors before borrowing
       if (p.healthFactorsBeforeBorrow) {
-        await init.core.controller.setMaxHealthFactor2(p.healthFactorsBeforeBorrow.maxHealthFactor2);
+        await init.core.controller.setMaxHealthFactor2(p.healthFactorsBeforeBorrow.maxHealthFactor2 || p.healthFactorsBeforeBorrow.targetHealthFactor2 * 10);
         await init.core.controller.setTargetHealthFactor2(p.healthFactorsBeforeBorrow.targetHealthFactor2);
         await init.core.controller.setMinHealthFactor2(p.healthFactorsBeforeBorrow.minHealthFactor2);
       }
@@ -5269,7 +5285,7 @@ describe("TetuConverterTest", () => {
       );
 
       if (p.healthFactorsBeforeRepay) {
-        await init.core.controller.setMaxHealthFactor2(p.healthFactorsBeforeRepay.maxHealthFactor2);
+        await init.core.controller.setMaxHealthFactor2(p.healthFactorsBeforeRepay.maxHealthFactor2 || p.healthFactorsBeforeRepay.targetHealthFactor2 * 10);
         await init.core.controller.setTargetHealthFactor2(p.healthFactorsBeforeRepay.targetHealthFactor2);
         await init.core.controller.setMinHealthFactor2(p.healthFactorsBeforeRepay.minHealthFactor2);
       }
@@ -5292,6 +5308,15 @@ describe("TetuConverterTest", () => {
 
       await init.sourceToken.mint(init.userContract.address, parseUnits(p.initialUserBalance, decimalsCollateral));
       const initialUserCollateralBalance = await init.sourceToken.balanceOf(init.userContract.address);
+      console.log("initialUserCollateralBalance", initialUserCollateralBalance);
+
+      const amountProvider = ethers.Wallet.createRandom().address;
+      if (p.amountToSendToPoolAdapterAtFirstCall) {
+        await init.sourceToken.mint(amountProvider, parseUnits(p.amountToSendToPoolAdapterAtFirstCall, decimalsCollateral));
+        await init.sourceToken.connect(
+          await DeployerUtils.startImpersonate(amountProvider)
+        ).approve(init.userContract.address, parseUnits(p.amountToSendToPoolAdapterAtFirstCall, decimalsCollateral));
+      }
 
       await init.userContract.setUpRequireAmountBack(
         p.amountToReturn1 === "" ? Misc.MAX_UINT : parseUnits(p.amountToReturn1, decimalsCollateral),
@@ -5304,6 +5329,7 @@ describe("TetuConverterTest", () => {
         p.amountToSendToPoolAdapterAtFirstCall
           ? parseUnits(p.amountToSendToPoolAdapterAtFirstCall, decimalsCollateral)
           : 0,
+        amountProvider,
         p.closeDebtAtFirstCall ?? false
       );
 
@@ -5338,7 +5364,6 @@ describe("TetuConverterTest", () => {
         openedPositions,
         totalDebtAmountOut: +formatUnits(totalDebtAmountOut, decimalsBorrow),
         totalCollateralAmountOut: +formatUnits(totalCollateralAmountOut, decimalsCollateral),
-        init,
         poolAdapterStatusBefore: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(poolAdapterStatusBefore, decimalsCollateral, decimalsBorrow),
         poolAdapterStatusAfter: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(poolAdapterStatusAfter, decimalsCollateral, decimalsBorrow),
         countCallsOfRequirePayAmountBack: requireAmountBackParams.countCalls.toNumber(),
@@ -5347,22 +5372,15 @@ describe("TetuConverterTest", () => {
 
         initialUserCollateralBalance: +formatUnits(initialUserCollateralBalance, decimalsCollateral),
         finalUserCollateralBalance: +formatUnits(finalUserCollateralBalance, decimalsCollateral),
+
+        finalConverterBalanceCollateral: +formatUnits(await init.sourceToken.balanceOf(init.core.tc.address), decimalsCollateral),
+        finalConverterBalanceBorrowAsset: +formatUnits(await init.targetToken.balanceOf(init.core.tc.address), decimalsCollateral),
+
       }
     }
 
     describe("Good paths", () => {
       describe("Repay using collateral asset", () => {
-        const minHealthFactor2 = 400;
-        const targetHealthFactor2 = 500;
-        const maxHealthFactor2 = 1000;
-        const healthFactorMultiplier = 2;
-
-        // const collateralFactor = 0.5; // it's set inside makeRequireRepay...
-        // const selectedPoolAdapterCollateral = 3.2;
-        // const selectedPoolAdapterBorrow = selectedPoolAdapterCollateral * collateralFactor / targetHealthFactor2 * 100; // 3.2 * 0.5 / 5 = 0.32
-        // const amountCollateralNum = (selectedPoolAdapterCollateral * (healthFactorMultiplier - 1)).toString();
-        // const amountBorrowNum = (-selectedPoolAdapterBorrow * (1 / healthFactorMultiplier - 1)).toString()
-
         describe("User has enough amount to make full payment", () => {
           describe("Requested amount to repay is already on the balance of the user, single call of requirePayAmountBack", () => {
             let snapshotLocal: string;
@@ -5379,12 +5397,8 @@ describe("TetuConverterTest", () => {
                 borrowAmounts: ["1.1", "1.5", "32"],
                 repayAmounts: {amountCollateralNum: "32", amountBorrowNum: "16"},
                 indexPoolAdapter: 2,
-                healthFactorsBeforeBorrow: {minHealthFactor2, maxHealthFactor2, targetHealthFactor2},
-                healthFactorsBeforeRepay: {
-                  minHealthFactor2: minHealthFactor2 * healthFactorMultiplier,
-                  maxHealthFactor2: maxHealthFactor2 * healthFactorMultiplier,
-                  targetHealthFactor2: targetHealthFactor2 * healthFactorMultiplier
-                },
+                healthFactorsBeforeBorrow: {minHealthFactor2: 400, targetHealthFactor2: 500},
+                healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
                 amountToReturn1: "32",
                 amountToTransfer1: "32",
                 amountToReturn2: "0",
@@ -5440,24 +5454,29 @@ describe("TetuConverterTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
 
+            /**
+             * target health factor: 5
+             *
+             * Collateral amount: 160
+             * borrowed amount: 80
+             * health factor: 2
+             * Required borrowing amount: 80*2/5=32
+             * Required collateral amount: 160*5/2-160 = 240
+             */
             async function makeRequireRepayTest(): Promise<IRequireRepayResults> {
               return makeRequireRepay({
-                collateralAmounts: ["110", "150", "320"],
-                borrowAmounts: ["1.1", "1.5", "32"],
-                repayAmounts: {amountCollateralNum: "32", amountBorrowNum: "16"},
+                collateralAmounts: ["110", "150", "160"],
+                borrowAmounts: ["1.1", "1.5", "80"],
+                repayAmounts: {amountCollateralNum: "240", amountBorrowNum: "32"},
                 indexPoolAdapter: 2,
-                healthFactorsBeforeBorrow: {minHealthFactor2, maxHealthFactor2, targetHealthFactor2},
-                healthFactorsBeforeRepay: {
-                  minHealthFactor2: minHealthFactor2 * healthFactorMultiplier,
-                  maxHealthFactor2: maxHealthFactor2 * healthFactorMultiplier,
-                  targetHealthFactor2: targetHealthFactor2 * healthFactorMultiplier
-                },
-                amountToReturn1: "32", // amount is prepared
+                healthFactorsBeforeBorrow: {minHealthFactor2: 400, targetHealthFactor2: 500},
+                // healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
+                amountToReturn1: "240", // amount is prepared
                 amountToTransfer1: "0",  // ...but was not sent at the first call
                 amountToReturn2: "0",
-                amountToTransfer2: "32", // the amount is sent on the
+                amountToTransfer2: "240", // the amount is sent on the
                 initialConverterBalanceBorrowAsset: "0",
-                initialUserBalance: "64", // 32 + 32
+                initialUserBalance: "1000",
               });
             }
 
@@ -5467,23 +5486,23 @@ describe("TetuConverterTest", () => {
             });
             it("should not change total debt", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.totalDebtAmountOut).eq(1.1 + 1.5 + 32);
+              expect(r.totalDebtAmountOut).eq(1.1 + 1.5 + 80);
             });
             it("should update total collateral", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.totalCollateralAmountOut).eq(110 + 150 + 320 + 32);
+              expect(r.totalCollateralAmountOut).eq(110 + 150 + 160 + 240);
             });
             it("should return expected initial status of the pool adapter", async () => {
               const r = await loadFixture(makeRequireRepayTest);
               expect(r.poolAdapterStatusBefore.opened).eq(true);
-              expect(r.poolAdapterStatusBefore.collateralAmount).eq(320);
-              expect(r.poolAdapterStatusBefore.amountToPay).eq(32);
+              expect(r.poolAdapterStatusBefore.collateralAmount).eq(160);
+              expect(r.poolAdapterStatusBefore.amountToPay).eq(80);
             });
             it("should return expected final status of the pool adapter", async () => {
               const r = await loadFixture(makeRequireRepayTest);
               expect(r.poolAdapterStatusAfter.opened).eq(true);
-              expect(r.poolAdapterStatusAfter.collateralAmount).eq(320 + 32);
-              expect(r.poolAdapterStatusAfter.amountToPay).eq(32);
+              expect(r.poolAdapterStatusAfter.collateralAmount).eq(160 + 240);
+              expect(r.poolAdapterStatusAfter.amountToPay).eq(80);
             });
             it("should make expected count of calls of requirePayAmountBack", async () => {
               const r = await loadFixture(makeRequireRepayTest);
@@ -5491,15 +5510,15 @@ describe("TetuConverterTest", () => {
             });
             it("should send expected amount at first call of requireRepay", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.amountPassedToRequireRepayAtFirstCall).eq(32);
+              expect(r.amountPassedToRequireRepayAtFirstCall).eq(240);
             });
             it("should send expected amount at second call of requireRepay", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.amountPassedToRequireRepayAtSecondCall).eq(32);
+              expect(r.amountPassedToRequireRepayAtSecondCall).eq(240);
             });
-            it("should change balance of collateral asset of the user exectedly", async () => {
+            it("should change balance of collateral asset of the user expectedly", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.initialUserCollateralBalance - r.finalUserCollateralBalance).eq(32);
+              expect(r.initialUserCollateralBalance - r.finalUserCollateralBalance).eq(240);
             });
           });
         });
@@ -5519,12 +5538,8 @@ describe("TetuConverterTest", () => {
                 borrowAmounts: ["1.1", "1.5", "32"],
                 repayAmounts: {amountCollateralNum: "32", amountBorrowNum: "16"},
                 indexPoolAdapter: 2,
-                healthFactorsBeforeBorrow: {minHealthFactor2, maxHealthFactor2, targetHealthFactor2},
-                healthFactorsBeforeRepay: {
-                  minHealthFactor2: minHealthFactor2 * healthFactorMultiplier,
-                  maxHealthFactor2: maxHealthFactor2 * healthFactorMultiplier,
-                  targetHealthFactor2: targetHealthFactor2 * healthFactorMultiplier
-                },
+                healthFactorsBeforeBorrow: {minHealthFactor2: 400, targetHealthFactor2: 500},
+                healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
                 amountToReturn1: "31",
                 amountToTransfer1: "31",
                 amountToReturn2: "0",
@@ -5576,24 +5591,29 @@ describe("TetuConverterTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
 
+            /**
+             * target health factor: 5
+             *
+             * Collateral amount: 160
+             * borrowed amount: 80
+             * health factor: 2
+             * Required borrowing amount: 80*2/5=32
+             * Required collateral amount: 160*5/2-160 = 240
+             */
             async function makeRequireRepayTest(): Promise<IRequireRepayResults> {
               return makeRequireRepay({
-                collateralAmounts: ["110", "150", "320"],
-                borrowAmounts: ["1.1", "1.5", "32"],
-                repayAmounts: {amountCollateralNum: "32", amountBorrowNum: "16"},
+                collateralAmounts: ["110", "150", "160"],
+                borrowAmounts: ["1.1", "1.5", "80"],
+                repayAmounts: {amountCollateralNum: "240", amountBorrowNum: "32"},
                 indexPoolAdapter: 2,
-                healthFactorsBeforeBorrow: {minHealthFactor2, maxHealthFactor2, targetHealthFactor2},
-                healthFactorsBeforeRepay: {
-                  minHealthFactor2: minHealthFactor2 * healthFactorMultiplier,
-                  maxHealthFactor2: maxHealthFactor2 * healthFactorMultiplier,
-                  targetHealthFactor2: targetHealthFactor2 * healthFactorMultiplier
-                },
-                amountToReturn1: "31", // amount is prepared
+                healthFactorsBeforeBorrow: {minHealthFactor2: 400, targetHealthFactor2: 500},
+                // healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
+                amountToReturn1: "180", // amount is prepared
                 amountToTransfer1: "0",  // ...but was not sent at the first call
                 amountToReturn2: "0",
-                amountToTransfer2: "31", // the amount is sent on the
+                amountToTransfer2: "180",
                 initialConverterBalanceBorrowAsset: "0",
-                initialUserBalance: "63" // 32 + 31
+                initialUserBalance: "1000",
               });
             }
 
@@ -5603,23 +5623,23 @@ describe("TetuConverterTest", () => {
             });
             it("should not change total debt", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.totalDebtAmountOut).eq(1.1 + 1.5 + 32);
+              expect(r.totalDebtAmountOut).eq(1.1 + 1.5 + 80);
             });
             it("should update total collateral", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.totalCollateralAmountOut).eq(110 + 150 + 320 + 31);
+              expect(r.totalCollateralAmountOut).eq(110 + 150 + 160 + 180);
             });
             it("should return expected initial status of the pool adapter", async () => {
               const r = await loadFixture(makeRequireRepayTest);
               expect(r.poolAdapterStatusBefore.opened).eq(true);
-              expect(r.poolAdapterStatusBefore.collateralAmount).eq(320);
-              expect(r.poolAdapterStatusBefore.amountToPay).eq(32);
+              expect(r.poolAdapterStatusBefore.collateralAmount).eq(160);
+              expect(r.poolAdapterStatusBefore.amountToPay).eq(80);
             });
             it("should return expected final status of the pool adapter", async () => {
               const r = await loadFixture(makeRequireRepayTest);
               expect(r.poolAdapterStatusAfter.opened).eq(true);
-              expect(r.poolAdapterStatusAfter.collateralAmount).eq(320 + 31);
-              expect(r.poolAdapterStatusAfter.amountToPay).eq(32);
+              expect(r.poolAdapterStatusAfter.collateralAmount).eq(160 + 180);
+              expect(r.poolAdapterStatusAfter.amountToPay).eq(80);
             });
             it("should make expected count of calls of requirePayAmountBack", async () => {
               const r = await loadFixture(makeRequireRepayTest);
@@ -5627,15 +5647,15 @@ describe("TetuConverterTest", () => {
             });
             it("should send expected amount at first call of requireRepay", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.amountPassedToRequireRepayAtFirstCall).eq(32);
+              expect(r.amountPassedToRequireRepayAtFirstCall).eq(240);
             });
             it("should send expected amount at second call of requireRepay", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.amountPassedToRequireRepayAtSecondCall).eq(31);
+              expect(r.amountPassedToRequireRepayAtSecondCall).eq(180);
             });
-            it("should change balance of collateral asset of the user exectedly", async () => {
+            it("should change balance of collateral asset of the user expectedly", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.initialUserCollateralBalance - r.finalUserCollateralBalance).eq(31);
+              expect(r.initialUserCollateralBalance - r.finalUserCollateralBalance).eq(180);
             });
           });
         });
@@ -5655,12 +5675,8 @@ describe("TetuConverterTest", () => {
                 borrowAmounts: ["1.1", "1.5", "32"],
                 repayAmounts: {amountCollateralNum: "32", amountBorrowNum: "16"},
                 indexPoolAdapter: 2,
-                healthFactorsBeforeBorrow: {minHealthFactor2, maxHealthFactor2, targetHealthFactor2},
-                healthFactorsBeforeRepay: {
-                  minHealthFactor2: minHealthFactor2 * healthFactorMultiplier,
-                  maxHealthFactor2: maxHealthFactor2 * healthFactorMultiplier,
-                  targetHealthFactor2: targetHealthFactor2 * healthFactorMultiplier
-                },
+                healthFactorsBeforeBorrow: {minHealthFactor2: 400, targetHealthFactor2: 500},
+                healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
                 amountToReturn1: "31", // amount is prepared
                 amountToTransfer1: "0",  // ...but was not sent at the first call
                 amountToReturn2: "0",
@@ -5720,51 +5736,62 @@ describe("TetuConverterTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
 
+            /**
+             * target health factor: 5
+             *
+             * Collateral amount: 160
+             * borrowed amount: 80
+             * health factor: 2
+             * Required borrowing amount: 80*2/5=32
+             * Required collateral amount: 160*5/2-160 = 240
+             *
+             * Amount added to the collateral: 120
+             * Collateral amount: 280
+             * health factor: 280/80=3.5
+             * Required collateral amount: 280*5/3.5-280 = 120
+             */
             async function makeRequireRepayTest(): Promise<IRequireRepayResults> {
               return makeRequireRepay({
-                collateralAmounts: ["110", "150", "320"],
-                borrowAmounts: ["1.1", "1.5", "32"],
-                repayAmounts: {amountCollateralNum: "32", amountBorrowNum: "16"},
+                collateralAmounts: ["110", "150", "160"],
+                borrowAmounts: ["1.1", "1.5", "80"],
+                repayAmounts: {amountCollateralNum: "240", amountBorrowNum: "32"},
                 indexPoolAdapter: 2,
-                healthFactorsBeforeBorrow: {minHealthFactor2, maxHealthFactor2, targetHealthFactor2},
-                healthFactorsBeforeRepay: {
-                  minHealthFactor2: minHealthFactor2 * healthFactorMultiplier,
-                  maxHealthFactor2: maxHealthFactor2 * healthFactorMultiplier,
-                  targetHealthFactor2: targetHealthFactor2 * healthFactorMultiplier
-                },
-                amountToReturn1: "", // requested amount is prepared
+                healthFactorsBeforeBorrow: {minHealthFactor2: 400, targetHealthFactor2: 500},
+                // healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
+                amountToReturn1: "240", // requested amount is prepared
                 amountToTransfer1: "0",  // ...but was not sent at the first call
                 amountToReturn2: "0",
                 amountToTransfer2: "", // transfer requested amount
                 initialConverterBalanceBorrowAsset: "0",
-                initialUserBalance: "76", // 32 + 32 + 160
-                amountToSendToPoolAdapterAtFirstCall: "16", // let's reduce amount-to-pay twice at the first call of requirePayAmountBack
+                initialUserBalance: "1000",
+                amountToSendToPoolAdapterAtFirstCall: "120",
               });
             }
 
             it("should keep all positions opened", async () => {
               const r = await loadFixture(makeRequireRepayTest);
+              console.log(r);
               expect(r.openedPositions.length).eq(3);
             });
             it("should not change total debt", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.totalDebtAmountOut).eq(1.1 + 1.5 + 32);
+              expect(r.totalDebtAmountOut).eq(1.1 + 1.5 + 80);
             });
             it("should update total collateral", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.totalCollateralAmountOut).eq(110 + 150 + 320);
+              expect(r.totalCollateralAmountOut).eq(110 + 150 + 160 + 120 + 120);
             });
             it("should return expected initial status of the pool adapter", async () => {
               const r = await loadFixture(makeRequireRepayTest);
               expect(r.poolAdapterStatusBefore.opened).eq(true);
-              expect(r.poolAdapterStatusBefore.collateralAmount).eq(320);
-              expect(r.poolAdapterStatusBefore.amountToPay).eq(32);
+              expect(r.poolAdapterStatusBefore.collateralAmount).eq(160);
+              expect(r.poolAdapterStatusBefore.amountToPay).eq(80);
             });
-            it("the debt should not be closed on completion", async () => {
+            it("should return expected final status of the pool adapter", async () => {
               const r = await loadFixture(makeRequireRepayTest);
               expect(r.poolAdapterStatusAfter.opened).eq(true);
-              expect(r.poolAdapterStatusAfter.collateralAmount).eq(0);
-              expect(r.poolAdapterStatusAfter.amountToPay).eq(0);
+              expect(r.poolAdapterStatusAfter.collateralAmount).eq(400);
+              expect(r.poolAdapterStatusAfter.amountToPay).eq(80);
             });
             it("should make two calls of requirePayAmountBack", async () => {
               const r = await loadFixture(makeRequireRepayTest);
@@ -5772,172 +5799,140 @@ describe("TetuConverterTest", () => {
             });
             it("should send expected amount at first call of requireRepay", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.amountPassedToRequireRepayAtFirstCall).eq(32);
+              expect(r.amountPassedToRequireRepayAtFirstCall).eq(240);
             });
-            it("should not change balance of collateral asset of the user", async () => {
+            it("should reduce balance of the user on expecgted amount of collateral asset", async () => {
               const r = await loadFixture(makeRequireRepayTest);
-              expect(r.initialUserCollateralBalance).eq(r.finalUserCollateralBalance);
+              expect(r.initialUserCollateralBalance - r.finalUserCollateralBalance).eq(120);
             });
           });
         });
       });
-      // describe("Repay with zero collateral repay-amount", () => {
-      //   it("should call DebtMonitor.closeLiquidatedPosition", async () => {
-      //     const core = await CoreContracts.build(
-      //       await TetuConverterApp.createController(
-      //         deployer,
-      //         {
-      //           debtMonitorFabric: {deploy: async () => (await MocksHelper.createDebtMonitorMock(deployer)).address}
-      //         }
-      //       )
-      //     );
-      //     const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, {usePoolAdapterStub: true});
-      //     const poolAdapter = PoolAdapterStub__factory.connect(init.poolAdapters[0], deployer);
-      //
-      //     const tcAsKeeper = TetuConverter__factory.connect(
-      //       core.tc.address,
-      //       await DeployerUtils.startImpersonate(await core.controller.keeper())
-      //     );
-      //
-      //     await tcAsKeeper.requireRepay(
-      //       parseUnits("1", init.borrowInputParams.targetDecimals),
-      //       BigNumber.from(0), // (!) liquidation happens, there is no collateral on user's balance in the pool
-      //       poolAdapter.address
-      //     );
-      //
-      //     const debtMonitorMock = DebtMonitorMock__factory.connect(core.dm.address, deployer);
-      //     const ret = await debtMonitorMock.closeLiquidatedPositionLastCalledParam();
-      //     const expected = poolAdapter.address;
-      //
-      //     expect(ret).eq(expected);
+    });
+    describe("Bad paths", () => {
+      describe("Not keeper", () => {
+        it("should revert", async () => {
+          await expect(
+            makeRequireRepay({
+              collateralAmounts: ["110", "150", "320"],
+              borrowAmounts: ["1.1", "1.5", "32"],
+              repayAmounts: {amountCollateralNum: "32", amountBorrowNum: "16"},
+              indexPoolAdapter: 2,
+              healthFactorsBeforeBorrow: {minHealthFactor2: 400, targetHealthFactor2: 500},
+              healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
+              amountToReturn1: "32",
+              amountToTransfer1: "32",
+              amountToReturn2: "0",
+              amountToTransfer2: "0",
+              initialConverterBalanceBorrowAsset: "0",
+              initialUserBalance: "64",
+              notKeeper: true
+            })
+          ).revertedWith("TC-42 keeper only"); // KEEPER_ONLY
+        });
+      });
+      describe("Try to make full repay", () => {
+        it("should revert", async () => {
+          await expect(
+            makeRequireRepay({
+              collateralAmounts: ["110", "150", "160"],
+              borrowAmounts: ["1.1", "1.5", "80"],
+              repayAmounts: {
+                amountCollateralNum: "160", // full repay
+                amountBorrowNum: "80" // full repay
+              },
+              indexPoolAdapter: 2,
+              healthFactorsBeforeBorrow: {minHealthFactor2: 100, targetHealthFactor2: 200},
+              // healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
+              amountToReturn1: "240", // amount is prepared
+              amountToTransfer1: "0",  // ...but was not sent at the first call
+              amountToReturn2: "0",
+              amountToTransfer2: "240", // the amount is sent on the
+              initialConverterBalanceBorrowAsset: "0",
+              initialUserBalance: "1000",
+            })
+          ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+        });
+      });
+      describe("Try to repay too much", () => {
+        it("should revert", async () => {
+          await expect(
+            makeRequireRepay({
+              collateralAmounts: ["110", "150", "160"],
+              borrowAmounts: ["1.1", "1.5", "80"],
+              repayAmounts: {
+                amountCollateralNum: "1600", // too much
+                amountBorrowNum: "800" // too much
+              },
+              indexPoolAdapter: 2,
+              healthFactorsBeforeBorrow: {minHealthFactor2: 100, targetHealthFactor2: 200},
+              // healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
+              amountToReturn1: "240", // amount is prepared
+              amountToTransfer1: "0",  // ...but was not sent at the first call
+              amountToReturn2: "0",
+              amountToTransfer2: "240", // the amount is sent on the
+              initialConverterBalanceBorrowAsset: "0",
+              initialUserBalance: "1000",
+            })
+          ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+        });
+      });
+      describe("Try to require zero amount of borrow asset", () => {
+        it("should revert", async () => {
+          await expect(
+            makeRequireRepay({
+              collateralAmounts: ["110", "150", "320"],
+              borrowAmounts: ["1.1", "1.5", "32"],
+              repayAmounts: {
+                amountCollateralNum: "10",
+                amountBorrowNum: "0" // (!) error
+              },
+              indexPoolAdapter: 2,
+              healthFactorsBeforeBorrow: {minHealthFactor2: 400, targetHealthFactor2: 500},
+              healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
+              amountToReturn1: "32",
+              amountToTransfer1: "32",
+              amountToReturn2: "0",
+              amountToTransfer2: "0",
+              initialConverterBalanceBorrowAsset: "0",
+              initialUserBalance: "64" // 32 + 32
+            })
+          ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+        });
+      });
+      // todo
+      // describe("Result health factor is too big", () => {
+      //   it("should NOT revert", async () => {
+      //     await tryToRepayWrongAmount(180_000); // no revert for simplicity
       //   });
       // });
+      // describe("Result health factor is too small", () => {
+      //   it("should NOT revert", async () => {
+      //     await tryToRepayWrongAmount(100_000); // no revert because partial rebalance is allowed
+      //   });
+      // });
+      describe("Not zero amount was put on balance of TetuConverter", () => {
+        it("should not change balances of the Tetu converter", async () => {
+          const ret = await makeRequireRepay({
+            collateralAmounts: ["110", "150", "320"],
+            borrowAmounts: ["1.1", "1.5", "32"],
+            repayAmounts: {amountCollateralNum: "32", amountBorrowNum: "16"},
+            indexPoolAdapter: 2,
+            healthFactorsBeforeBorrow: {minHealthFactor2: 400, targetHealthFactor2: 500},
+            healthFactorsBeforeRepay: {minHealthFactor2: 800, targetHealthFactor2: 1000},
+            amountToReturn1: "32",
+            amountToTransfer1: "32",
+            amountToReturn2: "0",
+            amountToTransfer2: "0",
+            initialUserBalance: "64",
+            initialConverterBalanceCollateral: "2000",
+            initialConverterBalanceBorrowAsset: "1000",
+          })
+          expect(ret.finalConverterBalanceCollateral).eq(2000);
+          expect(ret.finalConverterBalanceBorrowAsset).eq(1000);
+        });
+      });
     });
-    // describe("Bad paths", () => {
-    //   const selectedPoolAdapterBorrow = 250_000; // 2_000_000 * 0.5 / 4
-    //   const correctAmountToRepay = 150_000;
-    //
-    //   async function tryToRepayWrongAmount(
-    //     amountToRepay: number,
-    //     repayBadPathParams?: IRequireRepayParams,
-    //   ) {
-    //     const selectedPoolAdapterCollateral = 2_000_000;
-    //
-    //     const collateralAmounts = [1_000_000, 1_500_000, selectedPoolAdapterCollateral];
-    //     const exactBorrowAmounts = [100, 200, selectedPoolAdapterBorrow];
-    //     const poolAdapterIndex = 2;
-    //
-    //     const minHealthFactor2 = 400;
-    //     const targetHealthFactor2 = 500;
-    //     const maxHealthFactor2 = 1000;
-    //
-    //     await makeRequireRepay(
-    //       collateralAmounts,
-    //       exactBorrowAmounts,
-    //       {
-    //         amountBorrowNum: amountToRepay,
-    //         amountCollateralNum: amountToRepay
-    //       },
-    //       poolAdapterIndex,
-    //       repayBadPathParams,
-    //       {
-    //         minHealthFactor2,
-    //         maxHealthFactor2,
-    //         targetHealthFactor2
-    //       },
-    //       {
-    //         minHealthFactor2: minHealthFactor2 * 2,
-    //         maxHealthFactor2: maxHealthFactor2 * 2,
-    //         targetHealthFactor2: targetHealthFactor2 * 2
-    //       }
-    //     );
-    //   }
-    //
-    //   describe("Not keeper", () => {
-    //     it("should revert", async () => {
-    //       await expect(
-    //         tryToRepayWrongAmount(
-    //           correctAmountToRepay,
-    //           {notKeeper: true}
-    //         )
-    //       ).revertedWith("TC-42 keeper only"); // KEEPER_ONLY
-    //     });
-    //   });
-    //   describe("Try to make full repay", () => {
-    //     it("should revert", async () => {
-    //       await expect(
-    //         tryToRepayWrongAmount(selectedPoolAdapterBorrow) // full repay
-    //       ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
-    //     });
-    //   });
-    //   describe("Try to repay too much", () => {
-    //     it("should revert", async () => {
-    //       await expect(
-    //         tryToRepayWrongAmount(2 * selectedPoolAdapterBorrow)
-    //       ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
-    //     });
-    //   });
-    //   describe("Try to require zero amount of borrow asset", () => {
-    //     it("should revert", async () => {
-    //       await expect(
-    //         tryToRepayWrongAmount(0)
-    //       ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
-    //     });
-    //   });
-    //   describe("Send incorrect amount-to-repay to TetuConverter", () => {
-    //     describe("Send to high amount-to-repay to TetuConverter", () => {
-    //       it("should revert", async () => {
-    //         await expect(
-    //           tryToRepayWrongAmount(
-    //             correctAmountToRepay,
-    //             {
-    //               sendIncorrectAmountToTetuConverter: {
-    //                 numerator: 2,
-    //                 denominator: 1
-    //               }
-    //             }
-    //           )
-    //         ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
-    //       });
-    //     });
-    //     describe("Send to small amount-to-repay to TetuConverter", () => {
-    //       it("should NOT revert", async () => {
-    //         await tryToRepayWrongAmount(
-    //           correctAmountToRepay,
-    //           {
-    //             sendIncorrectAmountToTetuConverter: {
-    //               numerator: 1,
-    //               denominator: 2
-    //             }
-    //           }
-    //         );
-    //
-    //         // nothing to check - no revert
-    //       });
-    //     });
-    //   });
-    //   describe("Result health factor is too big", () => {
-    //     it("should NOT revert", async () => {
-    //       await tryToRepayWrongAmount(180_000); // no revert for simplicity
-    //     });
-    //   });
-    //   describe("Result health factor is too small", () => {
-    //     it("should NOT revert", async () => {
-    //       await tryToRepayWrongAmount(100_000); // no revert because partial rebalance is allowed
-    //     });
-    //   });
-    //   describe("Not zero amount was put on balance of TetuConverter", () => {
-    //     it("should return expected values", async () => {
-    //       const {ret, expected, r} = await makeRequireRepayTest({
-    //         initialConverterBalanceBorrowAsset: "500000",
-    //         initialConverterBalanceCollateral: "200000"
-    //       });
-    //       expect(ret).eq(expected);
-    //       expect(+formatUnits(await r.init.sourceToken.balanceOf(r.init.core.tc.address), await r.init.sourceToken.decimals())).eq(200_000);
-    //       expect(+formatUnits(await r.init.targetToken.balanceOf(r.init.core.tc.address), await r.init.targetToken.decimals())).eq(500_000);
-    //     });
-    //   });
-    // });
   });
 
 //endregion Unit tests
