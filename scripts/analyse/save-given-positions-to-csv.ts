@@ -52,20 +52,16 @@ function getPlatformAdapterName(platformKind: number): string {
 
 /**
  *
- * Save all active positions in TetuConverter to csv
- * - for initial block
- * - for HISTORY_LEN previous blocks with interval HISTORY_INTERVAL
- *
+ * Save all positions in TetuConverter for the given block to csv
+
  * run one of the following commands to run the script:
- *      npx hardhat run scripts/analyse/save-active-positions-to-csv.ts
+ *      npx hardhat run scripts/analyse/save-given-positions-to-csv.ts
  */
 async function main() {
-  const INITIAL_BLOCK = undefined;
-  const HISTORY_LEN = 0;
-  const HISTORY_INTERVAL = 4000; // 1 hour ~ 60-70 blocks
+  const BLOCKS = [46689307];
 
   const converterController = "0x2df21e2a115fcB3d850Fbc67237571bBfB566e99";
-  const pathOut = "./tmp/active-positions.csv";
+  const pathOut = "./tmp/given-positions.csv";
 
   const net = await ethers.provider.getNetwork();
   console.log(net, `network name="${network.name}"`);
@@ -77,21 +73,17 @@ async function main() {
   const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
   // ----------------------------  collect statistics for current block and history
-  let history_counter = 0;
-  let current_block: number = 0;
   const positions: IPositionInfo[] = [];
   const currentTimestamp = getCurrentTimestamp();
 
-  while (history_counter <= HISTORY_LEN) {
+  for (const block of BLOCKS) {
     await network.provider.request({
       method: "hardhat_reset",
       params: [
         {
           forking: {
             jsonRpcUrl: process.env.TETU_MATIC_RPC_URL,
-            blockNumber: current_block === 0
-              ? INITIAL_BLOCK
-              : current_block
+            blockNumber: block
           },
         },
       ],
@@ -99,7 +91,7 @@ async function main() {
 
     const countPositions = (await debtMonitor.getCountPositions()).toNumber();
 
-    current_block = await ethers.provider.getBlockNumber();
+    const current_block = await ethers.provider.getBlockNumber();
     const blockInfo = await ethers.provider.getBlock(current_block);
 
     console.log("current block", current_block);
@@ -147,9 +139,6 @@ async function main() {
       console.log(position);
 
     }
-    current_block -= HISTORY_INTERVAL;
-    history_counter++;
-
   }
   // ----------------------------  write statistics to CSV columns
   const headers = [
