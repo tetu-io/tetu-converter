@@ -42,7 +42,6 @@ import {
   EntryKindsFacade,
   SwapLibFacade,
   PoolAdapterMock2,
-  TetuConverterCallbackMock,
   LendingPlatformMock2,
   Aave3AprLibFacade,
   AaveTwoAprLibFacade,
@@ -84,10 +83,6 @@ export class MocksHelper {
 
   public static async createPoolAdapterMock2(signer: SignerWithAddress) : Promise<PoolAdapterMock2> {
     return (await DeployUtils.deployContract(signer, "PoolAdapterMock2")) as PoolAdapterMock2;
-  }
-
-  public static async createTetuConverterCallbackMock(signer: SignerWithAddress) : Promise<TetuConverterCallbackMock> {
-    return (await DeployUtils.deployContract(signer, "TetuConverterCallbackMock")) as TetuConverterCallbackMock;
   }
 
   public static async createLendingPlatformMock2(signer: SignerWithAddress) : Promise<LendingPlatformMock2> {

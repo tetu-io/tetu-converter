@@ -211,8 +211,8 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
         userBorrowBalanceBefore,
         userBorrowBalanceAfter,
         p,
-        onTransferAmountsAssets: onTransferAmountsResults.assets_,
-        onTransferAmountsAmounts: onTransferAmountsResults.amounts_
+        onTransferAmountsAssets: onTransferAmountsResults.assets,
+        onTransferAmountsAmounts: onTransferAmountsResults.amounts
       }
     }
 

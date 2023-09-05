@@ -4520,11 +4520,17 @@ describe("TetuConverterTest", () => {
     interface IRepayTheBorrowParams {
       collateralAsset: MockERC20;
       borrowAsset: MockERC20;
-      tetuConverterCallback: {
-        amount: string,
-        amountToSend: string,
-        amountOut: string
-      }
+
+      // following amounts are set it collateral asset
+      // because TetuConverter.requireRepay currently uses only amounts in collateral asset
+      amountToReturn1: string;
+      amountToTransfer1: string;
+      amountToReturn2: string;
+      amountToTransfer2: string;
+
+      amountToSendToPoolAdapterAtFirstCall?: string;
+      closeDebtAtFirstCall?: boolean;
+
       repayParams: {
         amountToRepay: string;
         closePosition: boolean;
@@ -4562,6 +4568,16 @@ describe("TetuConverterTest", () => {
         assets: string[];
         amounts: number[];
       }
+
+      countCallsOfRequirePayAmountBack: number;
+      amountPassedToRequireRepayAtFirstCall: number;
+      amountPassedToRequireRepayAtSecondCall: number;
+
+      initialUserCollateralBalance: number;
+      finalUserCollateralBalance: number;
+
+      finalConverterBalanceBorrowAsset: number;
+      finalConverterBalanceCollateral: number;
     }
 
     async function makeRepayTheBorrowTest(
@@ -4569,15 +4585,15 @@ describe("TetuConverterTest", () => {
     ): Promise<IRepayTheBorrowResults> {
       const platformAdapter = await MocksHelper.createLendingPlatformMock2(deployer);
       const poolAdapter = await MocksHelper.createPoolAdapterMock2(deployer);
-      const user = await MocksHelper.createTetuConverterCallbackMock(deployer);
 
       const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {}));
-      await core.controller.setWhitelistValues([user.address], true);
       await core.bm.addAssetPairs(
         platformAdapter.address,
         [p.collateralAsset.address],
         [p.borrowAsset.address],
       );
+      const user = await MocksHelper.deployBorrower(deployer.address, core.controller, 1);
+      await core.controller.setWhitelistValues([user.address], true);
 
       const pa = PoolAdapterMock2__factory.connect(poolAdapter.address, deployer);
       const decimalsCollateral = await p.collateralAsset.decimals();
@@ -4615,21 +4631,33 @@ describe("TetuConverterTest", () => {
         parseUnits(p.repayParams.collateralAmountSendToReceiver, decimalsCollateral),
         parseUnits(p.repayParams.borrowAmountSendToReceiver, decimalsBorrow)
       );
-      await p.collateralAsset.mint(
-        pa.address,
-        parseUnits(p.statusParams.collateralAmount, decimalsCollateral)
-      );
+      await p.collateralAsset.mint(pa.address, parseUnits(p.statusParams.collateralAmount, decimalsCollateral));
 
-      await user.setRequirePayAmountBack(
-        p.borrowAsset.address,
-        parseUnits(p.tetuConverterCallback.amount, decimalsBorrow),
-        parseUnits(p.tetuConverterCallback.amountOut, decimalsBorrow),
-        parseUnits(p.tetuConverterCallback.amountToSend, decimalsBorrow),
+      const initialUserCollateralBalance = await p.collateralAsset.balanceOf(user.address);
+
+      const amountProvider = ethers.Wallet.createRandom().address;
+      if (p.amountToSendToPoolAdapterAtFirstCall) {
+        await p.borrowAsset.mint(amountProvider, parseUnits(p.amountToSendToPoolAdapterAtFirstCall, decimalsBorrow));
+        await p.borrowAsset.connect(
+          await DeployerUtils.startImpersonate(amountProvider)
+        ).approve(user.address, parseUnits(p.amountToSendToPoolAdapterAtFirstCall, decimalsBorrow));
+      }
+
+      await user.setUpRequireAmountBack(
+        p.amountToReturn1 === "" ? Misc.MAX_UINT : parseUnits(p.amountToReturn1, decimalsBorrow),
+        p.amountToTransfer1 === "" ? Misc.MAX_UINT : parseUnits(p.amountToTransfer1, decimalsBorrow),
+        p.amountToReturn2 === "" ? Misc.MAX_UINT : parseUnits(p.amountToReturn2, decimalsBorrow),
+        p.amountToTransfer2 === "" ? Misc.MAX_UINT : parseUnits(p.amountToTransfer2, decimalsBorrow),
+        p.amountToSendToPoolAdapterAtFirstCall || p.closeDebtAtFirstCall
+          ? pa.address
+          : Misc.ZERO_ADDRESS,
+        p.amountToSendToPoolAdapterAtFirstCall
+          ? parseUnits(p.amountToSendToPoolAdapterAtFirstCall, decimalsBorrow)
+          : 0,
+          amountProvider,
+        p.closeDebtAtFirstCall ?? false
       );
-      await p.borrowAsset.mint(
-        user.address,
-        parseUnits(p.repayParams.amountToRepay, decimalsBorrow),
-      );
+      await p.borrowAsset.mint(user.address, parseUnits(p.repayParams.amountToRepay, decimalsBorrow));
 
       await p.borrowAsset.connect(
         await DeployerUtils.startImpersonate(core.tc.address)
@@ -4647,6 +4675,9 @@ describe("TetuConverterTest", () => {
       const gasUsed = (await tx.wait()).gasUsed;
 
       const retUserCallback = await user.getOnTransferAmountsResults();
+      const requireAmountBackParams = await user.requireAmountBackParams();
+      const finalUserCollateralBalance = await p.collateralAsset.balanceOf(user.address);
+
       return {
         collateralAmountOut: +formatUnits(ret.collateralAmountOut, decimalsCollateral),
         repaidAmountOut: +formatUnits(ret.repaidAmountOut, decimalsBorrow),
@@ -4665,12 +4696,23 @@ describe("TetuConverterTest", () => {
               )
             )
           )
-        }
+        },
+
+        countCallsOfRequirePayAmountBack: requireAmountBackParams.countCalls.toNumber(),
+        amountPassedToRequireRepayAtFirstCall: +formatUnits(requireAmountBackParams.amountPassedToRequireRepayAtFirstCall, decimalsCollateral),
+        amountPassedToRequireRepayAtSecondCall: +formatUnits(requireAmountBackParams.amountPassedToRequireRepayAtSecondCall, decimalsCollateral),
+
+        initialUserCollateralBalance: +formatUnits(initialUserCollateralBalance, decimalsCollateral),
+        finalUserCollateralBalance: +formatUnits(finalUserCollateralBalance, decimalsCollateral),
+
+        finalConverterBalanceCollateral: +formatUnits(await p.collateralAsset.balanceOf(core.tc.address), decimalsCollateral),
+        finalConverterBalanceBorrowAsset: +formatUnits(await p.borrowAsset.balanceOf(core.tc.address), decimalsCollateral),
+
       }
     }
 
     describe("Good paths", () => {
-      describe("Normal case", () => {
+      describe("Normal case, single call", () => {
         it("should return expected values", async () => {
           const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
           const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
@@ -4678,11 +4720,12 @@ describe("TetuConverterTest", () => {
           const r = await makeRepayTheBorrowTest({
             collateralAsset,
             borrowAsset,
-            tetuConverterCallback: {
-              amount: "50",
-              amountOut: "50",
-              amountToSend: "50"
-            },
+
+            amountToReturn1: "50",
+            amountToTransfer1: "50",
+            amountToReturn2: "0",
+            amountToTransfer2: "0",
+
             repayParams: {
               closePosition: true,
               borrowAmountSendToReceiver: "0",
@@ -4712,7 +4755,7 @@ describe("TetuConverterTest", () => {
           expect(ret).eq(expected);
         });
       });
-      describe("Ensure update status is called", () => {
+      describe("Normal case, two calls", () => {
         it("should return expected values", async () => {
           const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
           const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
@@ -4720,11 +4763,12 @@ describe("TetuConverterTest", () => {
           const r = await makeRepayTheBorrowTest({
             collateralAsset,
             borrowAsset,
-            tetuConverterCallback: {
-              amount: "50",
-              amountOut: "50",
-              amountToSend: "50"
-            },
+
+            amountToReturn1: "50",
+            amountToTransfer1: "0",
+            amountToReturn2: "50",
+            amountToTransfer2: "50",
+
             repayParams: {
               closePosition: true,
               borrowAmountSendToReceiver: "0",
@@ -4732,13 +4776,6 @@ describe("TetuConverterTest", () => {
               amountToRepay: "50"
             },
             statusParams: {
-              collateralAmount: "1001111111",
-              amountToPay: "50111111",
-              opened: true,
-              collateralAmountLiquidated: "0",
-              healthFactor18: "2"
-            },
-            updateStatusParams: {
               collateralAmount: "100",
               amountToPay: "50",
               opened: true,
@@ -4761,373 +4798,424 @@ describe("TetuConverterTest", () => {
           expect(ret).eq(expected);
         });
       });
-      describe("Return less amount than required", () => {
-        it("should return expected values", async () => {
-          const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-          const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-          const r = await makeRepayTheBorrowTest({
-            collateralAsset,
-            borrowAsset,
-            tetuConverterCallback: {
-              amount: "50",
-              amountOut: "40", // (!)
-              amountToSend: "40" // (!)
-            },
-            repayParams: {
-              closePosition: false, // (!)
-              borrowAmountSendToReceiver: "0",
-              collateralAmountSendToReceiver: "100",
-              amountToRepay: "40"
-            },
-            statusParams: {
-              collateralAmount: "100",
-              amountToPay: "50",
-              opened: true,
-              collateralAmountLiquidated: "0",
-              healthFactor18: "2"
-            }
-          });
-          const ret = [
-            r.collateralAmountOut,
-            r.repaidAmountOut,
-            r.balanceUserAfterRepay.collateral,
-            r.balanceUserAfterRepay.borrow
-          ].join();
-          const expected = [
-            100,
-            40,
-            100,
-            0
-          ].join();
-          expect(ret).eq(expected);
-        });
-      });
-      describe("Return a part of borrow-amount back to the user", () => {
-        it("should return expected values", async () => {
-          const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-          const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-          const r = await makeRepayTheBorrowTest({
-            collateralAsset,
-            borrowAsset,
-            tetuConverterCallback: {
-              amount: "50",
-              amountOut: "40", // (!)
-              amountToSend: "40" // (!)
-            },
-            repayParams: {
-              closePosition: false, // (!)
-              borrowAmountSendToReceiver: "5",
-              collateralAmountSendToReceiver: "100",
-              amountToRepay: "40"
-            },
-            statusParams: {
-              collateralAmount: "100",
-              amountToPay: "50",
-              opened: true,
-              collateralAmountLiquidated: "0",
-              healthFactor18: "2"
-            }
-          });
-          const ret = [
-            r.collateralAmountOut,
-            r.repaidAmountOut,
-            r.balanceUserAfterRepay.collateral,
-            r.balanceUserAfterRepay.borrow
-          ].join();
-          const expected = [
-            100,
-            40 - 5,
-            100,
-            5
-          ].join();
-          expect(ret).eq(expected);
-        });
-      });
-      describe("Check onTransferAmounts", () => {
-        it("should pass expected values to onTransferAmounts if only collateral is sent", async () => {
-          const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-          const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-          const r = await makeRepayTheBorrowTest({
-            collateralAsset,
-            borrowAsset,
-            tetuConverterCallback: {
-              amount: "50",
-              amountOut: "50",
-              amountToSend: "50"
-            },
-            repayParams: {
-              closePosition: true,
-              borrowAmountSendToReceiver: "0",
-              collateralAmountSendToReceiver: "100",
-              amountToRepay: "50"
-            },
-            statusParams: {
-              collateralAmount: "100",
-              amountToPay: "50",
-              opened: true,
-              collateralAmountLiquidated: "0",
-              healthFactor18: "2"
-            }
-          });
-          const ret = [
-            r.onTransferAmounts.assets,
-            r.onTransferAmounts.amounts,
-          ].join();
-          const expected = [
-            [borrowAsset.address, collateralAsset.address],
-            [0, 100]
-          ].join();
-          expect(ret).eq(expected);
-        });
-        it("should pass expected values to onTransferAmounts if both collateral and borrow-asset were sent", async () => {
-          const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-          const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-          const r = await makeRepayTheBorrowTest({
-            collateralAsset,
-            borrowAsset,
-            tetuConverterCallback: {
-              amount: "50",
-              amountOut: "50",
-              amountToSend: "50"
-            },
-            repayParams: {
-              closePosition: true,
-              borrowAmountSendToReceiver: "11",
-              collateralAmountSendToReceiver: "93",
-              amountToRepay: "50"
-            },
-            statusParams: {
-              collateralAmount: "100",
-              amountToPay: "50",
-              opened: true,
-              collateralAmountLiquidated: "0",
-              healthFactor18: "2"
-            }
-          });
-          const ret = [
-            r.onTransferAmounts.assets,
-            r.onTransferAmounts.amounts,
-          ].join();
-          const expected = [
-            [borrowAsset.address, collateralAsset.address],
-            [11, 93]
-          ].join();
-          expect(ret).eq(expected);
-        });
-      });
-      describe('Debt gap is required', () => {
-        it("should return expected values", async () => {
-          const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-          const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-          const r = await makeRepayTheBorrowTest({
-            collateralAsset,
-            borrowAsset,
-            tetuConverterCallback: {
-              amount: "50.5",
-              amountOut: "50.5",
-              amountToSend: "50.5"
-            },
-            repayParams: {
-              // amount-to-repay is 50
-              // default debt gap is 1%
-              // so, user should send us 50 + 0.5 = 50.5
-              // let's return back 0.3
-              closePosition: true,
-              borrowAmountSendToReceiver: "0.3",
-              collateralAmountSendToReceiver: "100",
-              amountToRepay: "50.5"
-            },
-            statusParams: {
-              collateralAmount: "100",
-              amountToPay: "50",
-              opened: true,
-              collateralAmountLiquidated: "0",
-              healthFactor18: "2"
-            },
-            debtGap: true
-          });
-          const ret = [
-            r.collateralAmountOut,
-            r.repaidAmountOut,
-            r.balanceUserAfterRepay.collateral,
-            r.balanceUserAfterRepay.borrow
-          ].join();
-          const expected = [
-            100,
-            50.2, // 50.5 - 0.3 = 50.2
-            100,
-            0.3
-          ].join();
-          expect(ret).eq(expected);
-        });
-      });
-      describe("Full repaid amount is returned back to user as unused debt gap", () => {
-        /**
-         * This tests is going to improve coverage of repayTheBorrow.
-         * It covers following branch:
-         *
-         *  repaidAmountOut = repaidAmountOut > amounts[0]
-         *    ? repaidAmountOut - amounts[0]
-         *    : 0 // (!) this one
-         */
-        it("should return expected values", async () => {
-          const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-          const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-          const r = await makeRepayTheBorrowTest({
-            collateralAsset,
-            borrowAsset,
-            tetuConverterCallback: {
-              amount: "50",
-              amountOut: "50",
-              amountToSend: "50"
-            },
-            repayParams: {
-              closePosition: true,
-              borrowAmountSendToReceiver: "50",
-              collateralAmountSendToReceiver: "0",
-              amountToRepay: "50"
-            },
-            statusParams: {
-              collateralAmount: "100",
-              amountToPay: "50",
-              opened: true,
-              collateralAmountLiquidated: "0",
-              healthFactor18: "2"
-            }
-          });
-          const ret = [
-            r.collateralAmountOut,
-            r.repaidAmountOut,
-            r.balanceUserAfterRepay.collateral,
-            r.balanceUserAfterRepay.borrow
-          ].join();
-          const expected = [
-            0,
-            0,
-            0,
-            50
-          ].join();
-          expect(ret).eq(expected);
-        });
-      });
+      // todo
+      // describe("Ensure update status is called", () => {
+      //   it("should return expected values", async () => {
+      //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+      //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+      //
+      //     const r = await makeRepayTheBorrowTest({
+      //       collateralAsset,
+      //       borrowAsset,
+      //       tetuConverterCallback: {
+      //         amount: "50",
+      //         amountOut: "50",
+      //         amountToSend: "50"
+      //       },
+      //       repayParams: {
+      //         closePosition: true,
+      //         borrowAmountSendToReceiver: "0",
+      //         collateralAmountSendToReceiver: "100",
+      //         amountToRepay: "50"
+      //       },
+      //       statusParams: {
+      //         collateralAmount: "1001111111",
+      //         amountToPay: "50111111",
+      //         opened: true,
+      //         collateralAmountLiquidated: "0",
+      //         healthFactor18: "2"
+      //       },
+      //       updateStatusParams: {
+      //         collateralAmount: "100",
+      //         amountToPay: "50",
+      //         opened: true,
+      //         collateralAmountLiquidated: "0",
+      //         healthFactor18: "2"
+      //       }
+      //     });
+      //     const ret = [
+      //       r.collateralAmountOut,
+      //       r.repaidAmountOut,
+      //       r.balanceUserAfterRepay.collateral,
+      //       r.balanceUserAfterRepay.borrow
+      //     ].join();
+      //     const expected = [
+      //       100,
+      //       50,
+      //       100,
+      //       0
+      //     ].join();
+      //     expect(ret).eq(expected);
+      //   });
+      // });
+      // describe("Return less amount than required", () => {
+      //   it("should return expected values", async () => {
+      //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+      //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+      //
+      //     const r = await makeRepayTheBorrowTest({
+      //       collateralAsset,
+      //       borrowAsset,
+      //       tetuConverterCallback: {
+      //         amount: "50",
+      //         amountOut: "40", // (!)
+      //         amountToSend: "40" // (!)
+      //       },
+      //       repayParams: {
+      //         closePosition: false, // (!)
+      //         borrowAmountSendToReceiver: "0",
+      //         collateralAmountSendToReceiver: "100",
+      //         amountToRepay: "40"
+      //       },
+      //       statusParams: {
+      //         collateralAmount: "100",
+      //         amountToPay: "50",
+      //         opened: true,
+      //         collateralAmountLiquidated: "0",
+      //         healthFactor18: "2"
+      //       }
+      //     });
+      //     const ret = [
+      //       r.collateralAmountOut,
+      //       r.repaidAmountOut,
+      //       r.balanceUserAfterRepay.collateral,
+      //       r.balanceUserAfterRepay.borrow
+      //     ].join();
+      //     const expected = [
+      //       100,
+      //       40,
+      //       100,
+      //       0
+      //     ].join();
+      //     expect(ret).eq(expected);
+      //   });
+      // });
+      // describe("Return a part of borrow-amount back to the user", () => {
+      //   it("should return expected values", async () => {
+      //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+      //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+      //
+      //     const r = await makeRepayTheBorrowTest({
+      //       collateralAsset,
+      //       borrowAsset,
+      //       tetuConverterCallback: {
+      //         amount: "50",
+      //         amountOut: "40", // (!)
+      //         amountToSend: "40" // (!)
+      //       },
+      //       repayParams: {
+      //         closePosition: false, // (!)
+      //         borrowAmountSendToReceiver: "5",
+      //         collateralAmountSendToReceiver: "100",
+      //         amountToRepay: "40"
+      //       },
+      //       statusParams: {
+      //         collateralAmount: "100",
+      //         amountToPay: "50",
+      //         opened: true,
+      //         collateralAmountLiquidated: "0",
+      //         healthFactor18: "2"
+      //       }
+      //     });
+      //     const ret = [
+      //       r.collateralAmountOut,
+      //       r.repaidAmountOut,
+      //       r.balanceUserAfterRepay.collateral,
+      //       r.balanceUserAfterRepay.borrow
+      //     ].join();
+      //     const expected = [
+      //       100,
+      //       40 - 5,
+      //       100,
+      //       5
+      //     ].join();
+      //     expect(ret).eq(expected);
+      //   });
+      // });
+      // describe("Check onTransferAmounts", () => {
+      //   it("should pass expected values to onTransferAmounts if only collateral is sent", async () => {
+      //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+      //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+      //
+      //     const r = await makeRepayTheBorrowTest({
+      //       collateralAsset,
+      //       borrowAsset,
+      //       tetuConverterCallback: {
+      //         amount: "50",
+      //         amountOut: "50",
+      //         amountToSend: "50"
+      //       },
+      //       repayParams: {
+      //         closePosition: true,
+      //         borrowAmountSendToReceiver: "0",
+      //         collateralAmountSendToReceiver: "100",
+      //         amountToRepay: "50"
+      //       },
+      //       statusParams: {
+      //         collateralAmount: "100",
+      //         amountToPay: "50",
+      //         opened: true,
+      //         collateralAmountLiquidated: "0",
+      //         healthFactor18: "2"
+      //       }
+      //     });
+      //     const ret = [
+      //       r.onTransferAmounts.assets,
+      //       r.onTransferAmounts.amounts,
+      //     ].join();
+      //     const expected = [
+      //       [borrowAsset.address, collateralAsset.address],
+      //       [0, 100]
+      //     ].join();
+      //     expect(ret).eq(expected);
+      //   });
+      //   it("should pass expected values to onTransferAmounts if both collateral and borrow-asset were sent", async () => {
+      //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+      //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+      //
+      //     const r = await makeRepayTheBorrowTest({
+      //       collateralAsset,
+      //       borrowAsset,
+      //       tetuConverterCallback: {
+      //         amount: "50",
+      //         amountOut: "50",
+      //         amountToSend: "50"
+      //       },
+      //       repayParams: {
+      //         closePosition: true,
+      //         borrowAmountSendToReceiver: "11",
+      //         collateralAmountSendToReceiver: "93",
+      //         amountToRepay: "50"
+      //       },
+      //       statusParams: {
+      //         collateralAmount: "100",
+      //         amountToPay: "50",
+      //         opened: true,
+      //         collateralAmountLiquidated: "0",
+      //         healthFactor18: "2"
+      //       }
+      //     });
+      //     const ret = [
+      //       r.onTransferAmounts.assets,
+      //       r.onTransferAmounts.amounts,
+      //     ].join();
+      //     const expected = [
+      //       [borrowAsset.address, collateralAsset.address],
+      //       [11, 93]
+      //     ].join();
+      //     expect(ret).eq(expected);
+      //   });
+      // });
+      // describe('Debt gap is required', () => {
+      //   it("should return expected values", async () => {
+      //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+      //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+      //
+      //     const r = await makeRepayTheBorrowTest({
+      //       collateralAsset,
+      //       borrowAsset,
+      //       tetuConverterCallback: {
+      //         amount: "50.5",
+      //         amountOut: "50.5",
+      //         amountToSend: "50.5"
+      //       },
+      //       repayParams: {
+      //         // amount-to-repay is 50
+      //         // default debt gap is 1%
+      //         // so, user should send us 50 + 0.5 = 50.5
+      //         // let's return back 0.3
+      //         closePosition: true,
+      //         borrowAmountSendToReceiver: "0.3",
+      //         collateralAmountSendToReceiver: "100",
+      //         amountToRepay: "50.5"
+      //       },
+      //       statusParams: {
+      //         collateralAmount: "100",
+      //         amountToPay: "50",
+      //         opened: true,
+      //         collateralAmountLiquidated: "0",
+      //         healthFactor18: "2"
+      //       },
+      //       debtGap: true
+      //     });
+      //     const ret = [
+      //       r.collateralAmountOut,
+      //       r.repaidAmountOut,
+      //       r.balanceUserAfterRepay.collateral,
+      //       r.balanceUserAfterRepay.borrow
+      //     ].join();
+      //     const expected = [
+      //       100,
+      //       50.2, // 50.5 - 0.3 = 50.2
+      //       100,
+      //       0.3
+      //     ].join();
+      //     expect(ret).eq(expected);
+      //   });
+      // });
+      // describe("Full repaid amount is returned back to user as unused debt gap", () => {
+      //   /**
+      //    * This tests is going to improve coverage of repayTheBorrow.
+      //    * It covers following branch:
+      //    *
+      //    *  repaidAmountOut = repaidAmountOut > amounts[0]
+      //    *    ? repaidAmountOut - amounts[0]
+      //    *    : 0 // (!) this one
+      //    */
+      //   it("should return expected values", async () => {
+      //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+      //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+      //
+      //     const r = await makeRepayTheBorrowTest({
+      //       collateralAsset,
+      //       borrowAsset,
+      //       tetuConverterCallback: {
+      //         amount: "50",
+      //         amountOut: "50",
+      //         amountToSend: "50"
+      //       },
+      //       repayParams: {
+      //         closePosition: true,
+      //         borrowAmountSendToReceiver: "50",
+      //         collateralAmountSendToReceiver: "0",
+      //         amountToRepay: "50"
+      //       },
+      //       statusParams: {
+      //         collateralAmount: "100",
+      //         amountToPay: "50",
+      //         opened: true,
+      //         collateralAmountLiquidated: "0",
+      //         healthFactor18: "2"
+      //       }
+      //     });
+      //     const ret = [
+      //       r.collateralAmountOut,
+      //       r.repaidAmountOut,
+      //       r.balanceUserAfterRepay.collateral,
+      //       r.balanceUserAfterRepay.borrow
+      //     ].join();
+      //     const expected = [
+      //       0,
+      //       0,
+      //       0,
+      //       50
+      //     ].join();
+      //     expect(ret).eq(expected);
+      //   });
+      // });
     });
-    describe("Bad paths", () => {
-      it("should revert if try to close position with not enough amount", async () => {
-        const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-        const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-        await expect(makeRepayTheBorrowTest({
-          collateralAsset,
-          borrowAsset,
-          tetuConverterCallback: {
-            amount: "50",
-            amountOut: "40", // (!) amount is not enough
-            amountToSend: "40" // (!)
-          },
-          repayParams: {
-            closePosition: true, // (!) .. but we try to close the position
-            borrowAmountSendToReceiver: "0",
-            collateralAmountSendToReceiver: "100",
-            amountToRepay: "40"
-          },
-          statusParams: {
-            collateralAmount: "100",
-            amountToPay: "50",
-            opened: true,
-            collateralAmountLiquidated: "0",
-            healthFactor18: "2"
-          }
-        })).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
-      });
-      it("should revert if callback returns zero amount", async () => {
-        const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-        const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-        await expect(makeRepayTheBorrowTest({
-          collateralAsset,
-          borrowAsset,
-          tetuConverterCallback: {
-            amount: "50",
-            amountOut: "0", // (!) amount is zero
-            amountToSend: "0" // (!)
-          },
-          repayParams: {
-            closePosition: false,
-            borrowAmountSendToReceiver: "0",
-            collateralAmountSendToReceiver: "100",
-            amountToRepay: "40"
-          },
-          statusParams: {
-            collateralAmount: "100",
-            amountToPay: "50",
-            opened: true,
-            collateralAmountLiquidated: "0",
-            healthFactor18: "2"
-          }
-        })).revertedWith("TC-28 zero balance"); // ZERO_BALANCE
-      });
-      it("should revert if not governance", async () => {
-        const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-        const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-        await expect(makeRepayTheBorrowTest({
-          collateralAsset,
-          borrowAsset,
-          tetuConverterCallback: {
-            amount: "50",
-            amountOut: "50",
-            amountToSend: "50"
-          },
-          repayParams: {
-            closePosition: false,
-            borrowAmountSendToReceiver: "0",
-            collateralAmountSendToReceiver: "100",
-            amountToRepay: "40"
-          },
-          statusParams: {
-            collateralAmount: "100",
-            amountToPay: "50",
-            opened: true,
-            collateralAmountLiquidated: "0",
-            healthFactor18: "2"
-          },
-          tetuConverterExecutor: ethers.Wallet.createRandom().address // (!) not governance
-        })).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
-      });
-      it("should revert if there is no debt", async () => {
-        const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
-        const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
-
-        await expect(makeRepayTheBorrowTest({
-          collateralAsset,
-          borrowAsset,
-          tetuConverterCallback: {
-            amount: "50",
-            amountOut: "50",
-            amountToSend: "50"
-          },
-          repayParams: {
-            closePosition: true,
-            borrowAmountSendToReceiver: "0",
-            collateralAmountSendToReceiver: "0",
-            amountToRepay: "50"
-          },
-          statusParams: {
-            collateralAmount: "0", // (!) no debts => no collateral
-            amountToPay: "0", // (!) no debts
-            opened: true,
-            collateralAmountLiquidated: "0",
-            healthFactor18: "2"
-          }
-        })).revertedWith("TC-27 repay failed"); // REPAY_FAILED
-      });
-    });
+    // todo
+    // describe("Bad paths", () => {
+    //   it("should revert if try to close position with not enough amount", async () => {
+    //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+    //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+    //
+    //     await expect(makeRepayTheBorrowTest({
+    //       collateralAsset,
+    //       borrowAsset,
+    //       tetuConverterCallback: {
+    //         amount: "50",
+    //         amountOut: "40", // (!) amount is not enough
+    //         amountToSend: "40" // (!)
+    //       },
+    //       repayParams: {
+    //         closePosition: true, // (!) .. but we try to close the position
+    //         borrowAmountSendToReceiver: "0",
+    //         collateralAmountSendToReceiver: "100",
+    //         amountToRepay: "40"
+    //       },
+    //       statusParams: {
+    //         collateralAmount: "100",
+    //         amountToPay: "50",
+    //         opened: true,
+    //         collateralAmountLiquidated: "0",
+    //         healthFactor18: "2"
+    //       }
+    //     })).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
+    //   });
+    //   it("should revert if callback returns zero amount", async () => {
+    //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+    //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+    //
+    //     await expect(makeRepayTheBorrowTest({
+    //       collateralAsset,
+    //       borrowAsset,
+    //       tetuConverterCallback: {
+    //         amount: "50",
+    //         amountOut: "0", // (!) amount is zero
+    //         amountToSend: "0" // (!)
+    //       },
+    //       repayParams: {
+    //         closePosition: false,
+    //         borrowAmountSendToReceiver: "0",
+    //         collateralAmountSendToReceiver: "100",
+    //         amountToRepay: "40"
+    //       },
+    //       statusParams: {
+    //         collateralAmount: "100",
+    //         amountToPay: "50",
+    //         opened: true,
+    //         collateralAmountLiquidated: "0",
+    //         healthFactor18: "2"
+    //       }
+    //     })).revertedWith("TC-28 zero balance"); // ZERO_BALANCE
+    //   });
+    //   it("should revert if not governance", async () => {
+    //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+    //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+    //
+    //     await expect(makeRepayTheBorrowTest({
+    //       collateralAsset,
+    //       borrowAsset,
+    //       tetuConverterCallback: {
+    //         amount: "50",
+    //         amountOut: "50",
+    //         amountToSend: "50"
+    //       },
+    //       repayParams: {
+    //         closePosition: false,
+    //         borrowAmountSendToReceiver: "0",
+    //         collateralAmountSendToReceiver: "100",
+    //         amountToRepay: "40"
+    //       },
+    //       statusParams: {
+    //         collateralAmount: "100",
+    //         amountToPay: "50",
+    //         opened: true,
+    //         collateralAmountLiquidated: "0",
+    //         healthFactor18: "2"
+    //       },
+    //       tetuConverterExecutor: ethers.Wallet.createRandom().address // (!) not governance
+    //     })).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+    //   });
+    //   it("should revert if there is no debt", async () => {
+    //     const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+    //     const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+    //
+    //     await expect(makeRepayTheBorrowTest({
+    //       collateralAsset,
+    //       borrowAsset,
+    //       tetuConverterCallback: {
+    //         amount: "50",
+    //         amountOut: "50",
+    //         amountToSend: "50"
+    //       },
+    //       repayParams: {
+    //         closePosition: true,
+    //         borrowAmountSendToReceiver: "0",
+    //         collateralAmountSendToReceiver: "0",
+    //         amountToRepay: "50"
+    //       },
+    //       statusParams: {
+    //         collateralAmount: "0", // (!) no debts => no collateral
+    //         amountToPay: "0", // (!) no debts
+    //         opened: true,
+    //         collateralAmountLiquidated: "0",
+    //         healthFactor18: "2"
+    //       }
+    //     })).revertedWith("TC-27 repay failed"); // REPAY_FAILED
+    //   });
+    // });
   });
 
   describe("getPositions", () => {

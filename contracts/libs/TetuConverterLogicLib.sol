@@ -179,6 +179,7 @@ library TetuConverterLogicLib {
     uint collateralAmountOut,
     uint repaidAmountOut
   ) {
+    console.log("repayTheBorrow.closePosition", closePosition);
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
@@ -187,47 +188,71 @@ library TetuConverterLogicLib {
     // add debt gap if necessary
     bool debtGapRequired;
     (collateralAmountOut, repaidAmountOut,,,, debtGapRequired) = pa.getStatus();
+    console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
+    console.log("repayTheBorrow.repaidAmountOut", repaidAmountOut);
+    console.log("repayTheBorrow.debtGapRequired", debtGapRequired);
     if (debtGapRequired) {
       repaidAmountOut = getAmountWithDebtGap(repaidAmountOut, controller_.debtGap());
+      console.log("repayTheBorrow.repaidAmountOut.fixed", repaidAmountOut);
     }
     require(collateralAmountOut != 0 && repaidAmountOut != 0, AppErrors.REPAY_FAILED);
 
     // ask the user for the amount-to-repay; use exist balance for safety, normally it should be 0
     uint balanceBefore = IERC20(borrowAsset).balanceOf(address(this));
-    ITetuConverterCallback(user).requirePayAmountBack(borrowAsset, repaidAmountOut - balanceBefore);
-    uint balanceAfter = IERC20(borrowAsset).balanceOf(address(this));
+    console.log("repayTheBorrow.balanceBefore", balanceBefore);
 
-    // ensure that we have received required amount fully or partially
-    if (closePosition) {
-      require(balanceAfter >= balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
+    // for definiteness ask the user to send us collateral asset
+    (bool skipRepay, uint amount) = _requirePayAmountBack(
+      ITetuConverterCallback(user),
+      pa,
+      borrowAsset,
+      repaidAmountOut - balanceBefore,
+      IBorrowManager(controller_.borrowManager()),
+      uint(controller_.minHealthFactor2()) * 10 ** (18 - 2)
+    );
+
+    if (! skipRepay) {
+      uint balanceAfter = IERC20(borrowAsset).balanceOf(address(this));
+      console.log("repayTheBorrow.balanceAfter", balanceAfter);
+
+      // ensure that we have received required amount fully or partially
+      if (closePosition) {
+        require(balanceAfter >= balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
+      } else {
+        require(balanceAfter > balanceBefore, AppErrors.ZERO_BALANCE);
+        repaidAmountOut = balanceAfter - balanceBefore;
+      }
+
+      // make full repay and close the position
+      balanceBefore = IERC20(borrowAsset).balanceOf(user);
+      console.log("repayTheBorrow.balanceBefore.user", balanceBefore);
+      collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
+      console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
+      emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
+      balanceAfter = IERC20(borrowAsset).balanceOf(user);
+      console.log("repayTheBorrow.balanceBefore.user.final", balanceBefore);
+
+      address[] memory assets = new address[](2);
+      assets[0] = borrowAsset;
+      assets[1] = collateralAsset;
+
+      uint[] memory amounts = new uint[](2);
+      // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
+      amounts[0] = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0;
+      if (amounts[0] > 0) { // exclude returned part of the debt gap from repaidAmountOut
+        repaidAmountOut = repaidAmountOut > amounts[0]
+          ? repaidAmountOut - amounts[0]
+          : 0;
+      }
+      amounts[1] = collateralAmountOut;
+      ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
+
+      console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
+      console.log("repayTheBorrow.repaidAmountOut", repaidAmountOut);
+      return (collateralAmountOut, repaidAmountOut);
     } else {
-      require(balanceAfter > balanceBefore, AppErrors.ZERO_BALANCE);
-      repaidAmountOut = balanceAfter - balanceBefore;
+      return (0, 0);
     }
-
-    // make full repay and close the position
-    balanceBefore = IERC20(borrowAsset).balanceOf(user);
-    collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
-    emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
-    balanceAfter = IERC20(borrowAsset).balanceOf(user);
-
-
-    address[] memory assets = new address[](2);
-    assets[0] = borrowAsset;
-    assets[1] = collateralAsset;
-
-    uint[] memory amounts = new uint[](2);
-    // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
-    amounts[0] = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0;
-    if (amounts[0] > 0) { // exclude returned part of the debt gap from repaidAmountOut
-      repaidAmountOut = repaidAmountOut > amounts[0]
-        ? repaidAmountOut - amounts[0]
-        : 0;
-    }
-    amounts[1] = collateralAmountOut;
-    ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
-
-    return (collateralAmountOut, repaidAmountOut);
   }
 
 //#endregion ------------------------------------------------- repayTheBorrow

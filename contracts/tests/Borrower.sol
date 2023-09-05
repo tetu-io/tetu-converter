@@ -577,7 +577,7 @@ contract Borrower is ITetuConverterCallback {
     onTransferAmountsAssets = assets_;
     onTransferAmountsAmounts = amounts_;
   }
-  function getOnTransferAmountsResults() external view returns (address[] memory assets_, uint[] memory amounts_) {
+  function getOnTransferAmountsResults() external view returns (address[] memory assets, uint[] memory amounts) {
     return (onTransferAmountsAssets, onTransferAmountsAmounts);
   }
   //endregion--------------------------------------------- IBorrower impl
