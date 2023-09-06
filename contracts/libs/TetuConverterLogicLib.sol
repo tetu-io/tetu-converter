@@ -28,6 +28,20 @@ library TetuConverterLogicLib {
   uint internal constant MIN_DEBT_GAP_ADDON = 10;
 //#endregion ------------------------------------------------- Constants
 
+//#region ------------------------------------------------- Data types
+  struct RepayTheBorrowParams {
+    IPoolAdapter pa;
+    uint balanceBefore;
+    bool skipRepay;
+    address[] assets;
+    uint[] amounts;
+    address user;
+    address collateralAsset;
+    address borrowAsset;
+  }
+
+//#endregion ------------------------------------------------- Data types
+
 //#region ------------------------------------------------- Events
   event OnRequireRepayCloseLiquidatedPosition(address poolAdapter, uint statusAmountToPay);
   event OnRequireRepayRebalancing(address poolAdapter, uint amount, bool isCollateral, uint statusAmountToPay, uint healthFactorAfterRepay18);
@@ -68,7 +82,7 @@ library TetuConverterLogicLib {
       require(amountToPay != 0 && requiredBorrowedAmount_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
       // for definiteness ask the user to send us collateral asset
-      (bool skipRepay, uint amount) = _requirePayAmountBack(
+      (bool skipRepay, uint amount) = _requirePayAmountBackToRebalance(
         ITetuConverterCallback(user),
         pa,
         collateralAsset,
@@ -84,13 +98,17 @@ library TetuConverterLogicLib {
     }
   }
 
-  /// @notice Ask user (a strategy) to transfer {amount_} of {asset_} to balance of the converter
+  /// @notice Ask user (a strategy) to transfer {amount_} of {asset_} on the converter balance to restore health status of {pa}
   /// @dev Call user_.requirePayAmountBack one or two times
   /// @param user_ The strategy - owner of the {pa_}
   /// @param pa_ Pool adapter with the debt that should be rebalanced
   /// @param asset_ Collateral asset of pa
   /// @param amount_ Amount required by {pa_} to rebalance the debt
-  function _requirePayAmountBack(
+  /// @return skipRepay Repay is not required anymore because the borrow was closed
+  ///                   (or its health factor was restored to healthy value)
+  ///                   during receiving requested amount on the user's side
+  /// @return amountToPay What amount of collateral was received from the user
+  function _requirePayAmountBackToRebalance(
     ITetuConverterCallback user_,
     IPoolAdapter pa_,
     address asset_,
@@ -103,6 +121,7 @@ library TetuConverterLogicLib {
   ) {
     (uint amountReturnedByUser, uint amountReceivedOnBalance) = _callRequirePayAmountBack(user_, asset_, amount_);
     console.log("_requirePayAmountBack.amountReturnedByUser", amountReturnedByUser);
+    console.log("_requirePayAmountBack.amountReceivedOnBalance", amountReceivedOnBalance);
 
     // The results of calling requirePayAmountBack depend on whether the required amount is on the user's balance:
     // 1. The {amount_} exists on the balance
@@ -179,73 +198,80 @@ library TetuConverterLogicLib {
     uint collateralAmountOut,
     uint repaidAmountOut
   ) {
+    RepayTheBorrowParams memory v;
+
     console.log("repayTheBorrow.closePosition", closePosition);
     // update internal debts and get actual amount to repay
-    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
-    pa.updateStatus();
+    v.pa = IPoolAdapter(poolAdapter_);
+    (,v.user, v.collateralAsset, v.borrowAsset) = v.pa.getConfig();
+    v.pa.updateStatus();
+    console.log("repayTheBorrow.collateralAsset", v.collateralAsset);
+    console.log("repayTheBorrow.borrowAsset", v.borrowAsset);
 
     // add debt gap if necessary
-    bool debtGapRequired;
-    (collateralAmountOut, repaidAmountOut,,,, debtGapRequired) = pa.getStatus();
-    console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
-    console.log("repayTheBorrow.repaidAmountOut", repaidAmountOut);
-    console.log("repayTheBorrow.debtGapRequired", debtGapRequired);
-    if (debtGapRequired) {
-      repaidAmountOut = getAmountWithDebtGap(repaidAmountOut, controller_.debtGap());
-      console.log("repayTheBorrow.repaidAmountOut.fixed", repaidAmountOut);
+    {
+      bool debtGapRequired;
+      (collateralAmountOut, repaidAmountOut,,,, debtGapRequired) = v.pa.getStatus();
+      console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
+      console.log("repayTheBorrow.repaidAmountOut", repaidAmountOut);
+      console.log("repayTheBorrow.debtGapRequired", debtGapRequired);
+      if (debtGapRequired) {
+        repaidAmountOut = getAmountWithDebtGap(repaidAmountOut, controller_.debtGap());
+        console.log("repayTheBorrow.repaidAmountOut.fixed", repaidAmountOut);
+      }
     }
     require(collateralAmountOut != 0 && repaidAmountOut != 0, AppErrors.REPAY_FAILED);
 
     // ask the user for the amount-to-repay; use exist balance for safety, normally it should be 0
-    uint balanceBefore = IERC20(borrowAsset).balanceOf(address(this));
-    console.log("repayTheBorrow.balanceBefore", balanceBefore);
+    v.balanceBefore = IERC20(v.borrowAsset).balanceOf(address(this));
+    console.log("repayTheBorrow.balanceBefore",v.balanceBefore);
 
     // for definiteness ask the user to send us collateral asset
-    (bool skipRepay, uint amount) = _requirePayAmountBack(
-      ITetuConverterCallback(user),
-      pa,
-      borrowAsset,
-      repaidAmountOut - balanceBefore,
-      IBorrowManager(controller_.borrowManager()),
-      uint(controller_.minHealthFactor2()) * 10 ** (18 - 2)
+    (v.skipRepay, repaidAmountOut) = _requirePayAmountBackToClosePosition(
+      ITetuConverterCallback(v.user),
+      v.pa,
+      v.borrowAsset,
+      repaidAmountOut - v.balanceBefore,
+      controller_.debtGap()
     );
+    console.log("repayTheBorrow.skipRepay",v.skipRepay);
+    console.log("repayTheBorrow.amount",repaidAmountOut);
 
-    if (! skipRepay) {
-      uint balanceAfter = IERC20(borrowAsset).balanceOf(address(this));
+    if (! v.skipRepay) {
+      uint balanceAfter = IERC20(v.borrowAsset).balanceOf(address(this));
       console.log("repayTheBorrow.balanceAfter", balanceAfter);
 
       // ensure that we have received required amount fully or partially
       if (closePosition) {
-        require(balanceAfter >= balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
+        require(balanceAfter >= v.balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
       } else {
-        require(balanceAfter > balanceBefore, AppErrors.ZERO_BALANCE);
-        repaidAmountOut = balanceAfter - balanceBefore;
+        require(balanceAfter > v.balanceBefore, AppErrors.ZERO_BALANCE);
+        repaidAmountOut = balanceAfter - v.balanceBefore;
       }
 
       // make full repay and close the position
-      balanceBefore = IERC20(borrowAsset).balanceOf(user);
-      console.log("repayTheBorrow.balanceBefore.user", balanceBefore);
-      collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
+      v.balanceBefore = IERC20(v.borrowAsset).balanceOf(v.user);
+      console.log("repayTheBorrow.balanceBefore.user", v.balanceBefore);
+      collateralAmountOut = v.pa.repay(repaidAmountOut, v.user, closePosition);
       console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
       emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
-      balanceAfter = IERC20(borrowAsset).balanceOf(user);
-      console.log("repayTheBorrow.balanceBefore.user.final", balanceBefore);
+      balanceAfter = IERC20(v.borrowAsset).balanceOf(v.user);
+      console.log("repayTheBorrow.balanceBefore.user.final", v.balanceBefore);
 
-      address[] memory assets = new address[](2);
-      assets[0] = borrowAsset;
-      assets[1] = collateralAsset;
+      v.assets = new address[](2);
+      v.assets[0] = v.borrowAsset;
+      v.assets[1] = v.collateralAsset;
 
-      uint[] memory amounts = new uint[](2);
+      v.amounts = new uint[](2);
       // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
-      amounts[0] = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0;
-      if (amounts[0] > 0) { // exclude returned part of the debt gap from repaidAmountOut
-        repaidAmountOut = repaidAmountOut > amounts[0]
-          ? repaidAmountOut - amounts[0]
+      v.amounts[0] = balanceAfter > v.balanceBefore ? balanceAfter - v.balanceBefore : 0;
+      if (v.amounts[0] > 0) { // exclude returned part of the debt gap from repaidAmountOut
+        repaidAmountOut = repaidAmountOut > v.amounts[0]
+          ? repaidAmountOut - v.amounts[0]
           : 0;
       }
-      amounts[1] = collateralAmountOut;
-      ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
+      v.amounts[1] = collateralAmountOut;
+      ITetuConverterCallback(v.user).onTransferAmounts(v.assets, v.amounts);
 
       console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
       console.log("repayTheBorrow.repaidAmountOut", repaidAmountOut);
@@ -255,6 +281,77 @@ library TetuConverterLogicLib {
     }
   }
 
+  /// @notice Ask user (a strategy) to transfer {amount_} of {asset_} on converter balance
+  ///         to be able to close the position
+  /// @dev Call user_.requirePayAmountBack one or two times
+  /// @param user_ The strategy - owner of the {pa_}
+  /// @param pa_ Pool adapter which debt should be closed
+  /// @param asset_ Borrowed asset of the {pa}
+  /// @param amount_ Amount required by {pa_} to rebalance the debt
+  /// @return skipRepay Repay is not required anymore because the borrow was completely closed
+  ///                   during receiving requested amount on the user's side
+  ///                   or because it was liquidated (collateral amount is zero)
+  /// @return amountToPay What amount of borrow asset was received from the user
+  function _requirePayAmountBackToClosePosition(
+    ITetuConverterCallback user_,
+    IPoolAdapter pa_,
+    address asset_,
+    uint amount_,
+    uint debtGap
+  ) internal returns (
+    bool skipRepay,
+    uint amountToPay
+  ) {
+    (uint amountReturnedByUser, uint amountReceivedOnBalance) = _callRequirePayAmountBack(user_, asset_, amount_);
+    console.log("_requirePayAmountBackToClosePosition.amountReturnedByUser", amountReturnedByUser);
+    console.log("_requirePayAmountBackToClosePosition.amountReceivedOnBalance", amountReceivedOnBalance);
+
+    // The results of calling requirePayAmountBack depend on whether the required amount is on the user's balance:
+    // 1. The {amount_} exists on the balance
+    //    User sends the amount to TetuConverter, returns {amount_}
+    // 2. The {amount_} doesn't exist on the balance.
+    //    User tries to receive {amount_} and sends {amount_*} (it's probably less than original {amount_}
+    //    that converter can claims by next call of requirePayAmountBack
+    if (amountReceivedOnBalance == 0) {
+      // case 2: the {amount_} didn't exist on balance. We should claim amountReturnedByUser by second call
+
+      // strategy cas received some amount on balance
+      // it means that it probably has closed some debts
+      // there is a chance that {pa_} doesn't require rebalancing anymore or require less amount
+      // check what amount is required by {pa_} now
+      (uint collateralAmount, uint debtAmount,,,, bool debtGapRequired) = pa_.getStatus();
+      console.log("_requirePayAmountBackToClosePosition.collateralAmount", collateralAmount);
+      console.log("_requirePayAmountBackToClosePosition.debtAmount", debtAmount);
+      if (debtGapRequired) {
+        debtAmount = getAmountWithDebtGap(debtAmount, debtGap);
+        console.log("_requirePayAmountBackToClosePosition.debtAmount.fixed", debtAmount);
+      }
+
+      if (collateralAmount == 0) {
+        skipRepay = true; // debt is closed or liquidated
+      } else {
+        require(amountReturnedByUser != 0, AppErrors.ZERO_AMOUNT); // user has any assets to send to converter
+        console.log("_requirePayAmountBackToClosePosition.amountReceivedOnBalance", amountReceivedOnBalance);
+        (, amountReceivedOnBalance) = _callRequirePayAmountBack(
+          user_,
+          asset_,
+          Math.min(amountReturnedByUser, debtAmount)
+        );
+        console.log("_requirePayAmountBackToClosePosition.amountReceivedOnBalance", amountReceivedOnBalance);
+      }
+    }
+
+    // ensure that we have received any amount .. and use it for repayment
+    // probably we've received less then expected - it's ok, just let's use as much as possible
+    // DebtMonitor will ask to make rebalancing once more if necessary
+    require(
+      (skipRepay || amountReceivedOnBalance != 0) // user didn't send promised assets
+      && (amountReceivedOnBalance <= amount_), // we can receive less amount (partial rebalancing)
+      AppErrors.WRONG_AMOUNT_RECEIVED
+    );
+
+    return (skipRepay, amountReceivedOnBalance);
+  }
 //#endregion ------------------------------------------------- repayTheBorrow
 
 //#region ------------------------------------------------- Safe liquidation

@@ -54,7 +54,7 @@ import {
   CometRewardsMock,
   DForceRewardDistributorMock,
   UpgradeableProxyFacade,
-  ControllableV3Facade
+  ControllableV3Facade, TetuConverterCallbackMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -83,6 +83,10 @@ export class MocksHelper {
 
   public static async createPoolAdapterMock2(signer: SignerWithAddress) : Promise<PoolAdapterMock2> {
     return (await DeployUtils.deployContract(signer, "PoolAdapterMock2")) as PoolAdapterMock2;
+  }
+
+  public static async createTetuConverterCallbackMock(signer: SignerWithAddress) : Promise<TetuConverterCallbackMock> {
+    return (await DeployUtils.deployContract(signer, "TetuConverterCallbackMock")) as TetuConverterCallbackMock;
   }
 
   public static async createLendingPlatformMock2(signer: SignerWithAddress) : Promise<LendingPlatformMock2> {
