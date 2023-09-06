@@ -95,6 +95,15 @@ contract PoolAdapterMock is IPoolAdapter {
     _debtGapRequired = debtGapRequired_;
   }
 
+  /// @notice Imitate closing the debt by resetting collateral and borrow amounts
+  function resetTheDebtForcibly() external {
+    _borrowedAmounts = 0;
+    uint balance = _cTokenMock.balanceOf(address(this));
+    if (balance != 0) {
+      _cTokenMock.burn(address(this), balance);
+    }
+  }
+
   //-----------------------------------------------------
   ///           Initialization
   ///  Constructor is not applicable, because this contract
@@ -168,8 +177,11 @@ contract PoolAdapterMock is IPoolAdapter {
     uint8 decimalsCollateral = IERC20Metadata(_collateralAsset).decimals();
     uint8 decimalsBorrow = IERC20Metadata(_borrowAsset).decimals();
 
-    console.log("amountToPay = %d", amountToPay);
-    console.log("priceBorrowedUSD = %d", priceBorrowedUSD);
+    console.log("_getStatus.this", address(this));
+    console.log("_getStatus.collateralAmount = %d", collateralAmount);
+    console.log("_getStatus.amountToPay = %d", amountToPay);
+    console.log("_getStatus.priceBorrowedUSD = %d", priceBorrowedUSD);
+    console.log("_getStatus.priceCollateral = %d", priceCollateral);
 
     healthFactor18 = amountToPay == 0
         ? type(uint).max
@@ -177,10 +189,9 @@ contract PoolAdapterMock is IPoolAdapter {
       * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
       / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
 
-    console.log("getStatus:");
-    console.log("collateralAmount=%d", collateralAmount);
-    console.log("amountToPay=%d", amountToPay);
-    console.log("healthFactor18=%d", healthFactor18);
+    console.log("getStatus.collateralAmount=%d", collateralAmount);
+    console.log("getStatus.amountToPay=%d", amountToPay);
+    console.log("getStatus.healthFactor18=%d", healthFactor18);
 
     return (
       collateralAmount,
@@ -238,6 +249,11 @@ contract PoolAdapterMock is IPoolAdapter {
       / 1e18;
 
     uint claimedAmount = borrowAmount_.toMantissa(IERC20Metadata(_borrowAsset).decimals(), 18) * priceBorrowedUSD / 1e18;
+    console.log("claimedAmount", claimedAmount);
+    console.log("maxAmountToBorrowUSD", maxAmountToBorrowUSD);
+    console.log("_collateralFactor", _collateralFactor);
+    console.log("collateralAmount_", collateralAmount_);
+
     require(maxAmountToBorrowUSD >= claimedAmount, "borrow amount is too big");
 
     // send the borrow amount to the receiver
@@ -342,6 +358,8 @@ contract PoolAdapterMock is IPoolAdapter {
   ) external override returns (
     uint resultHealthFactor18
   ) {
+    console.log("repayToRebalance.amount", amount_);
+    console.log("repayToRebalance.ctoken.balance", _cTokenMock.balanceOf(address(this)));
     require(amount_ > 0, "nothing to transfer");
     // add debts to the borrowed amount
     _accumulateDebt(0);
@@ -354,6 +372,7 @@ contract PoolAdapterMock is IPoolAdapter {
       uint amountCTokens = amount_; //TODO: exchange rate 1:1, it's not always true
       _cTokenMock.mint(address(this), amountCTokens);
       console.log("mint ctokens %s amount=%d to=%s", address(_cTokenMock), amountCTokens, address(this));
+      console.log("repayToRebalance.ctoken.balance", _cTokenMock.balanceOf(address(this)));
     } else {
       IERC20(_borrowAsset).safeTransferFrom(msg.sender, address(this), amount_);
       IERC20(_borrowAsset).transfer(_pool, amount_);
@@ -389,11 +408,11 @@ contract PoolAdapterMock is IPoolAdapter {
   //-----------------------------------------------------
 
   function getPrice18(address asset) internal view returns (uint) {
-    console.log("getPrice18");
+    // console.log("getPrice18");
     IPriceOracle p = IPriceOracle(priceOracle);
 
     uint price18 = p.getAssetPrice(asset);
-    console.log("getPrice18 %d", price18);
+    // console.log("getPrice18 %d", price18);
     return price18;
   }
 

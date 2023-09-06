@@ -44,4 +44,13 @@ export interface IPoolAdapterStatus {
   collateralAmountLiquidated: BigNumber;
   debtGapRequired: boolean;
 }
+
+export interface IPoolAdapterStatusNum {
+  collateralAmount: number;
+  amountToPay: number;
+  healthFactor18: number;
+  opened: boolean;
+  collateralAmountLiquidated: number;
+  debtGapRequired: boolean;
+}
 //endregion Data types
