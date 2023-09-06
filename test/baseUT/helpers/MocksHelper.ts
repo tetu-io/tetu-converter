@@ -54,7 +54,8 @@ import {
   CometRewardsMock,
   DForceRewardDistributorMock,
   UpgradeableProxyFacade,
-  ControllableV3Facade, TetuConverterCallbackMock
+  ControllableV3Facade,
+  TetuConverterCallbackMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
