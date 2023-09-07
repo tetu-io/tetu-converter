@@ -212,7 +212,6 @@ contract Aave3PoolMock is IAavePool {
       );
 
       if (healthFactorAddonAfterRepay != 0) {
-        console.log("healthFactorAddonAfterRepay"); console.logInt(healthFactorAddonAfterRepay);
         // get actual user account data, save it to userAccountData and add {addon} to the healthFactor
         (
           uint256 totalCollateralBase,

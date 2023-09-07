@@ -32,6 +32,9 @@ contract AaveTwoPoolMock is IAaveTwoPool {
   bool public grabAllBorrowAssetFromSenderOnRepay;
   UserAccountData internal userAccountData;
 
+  /// @notice After repay get actual user account data, save it to userAccountData and add {addon} to the healthFactor
+  int internal healthFactorAddonAfterRepay;
+
   constructor (
     address aavePool_,
     address collateralAsset_,
@@ -85,6 +88,10 @@ contract AaveTwoPoolMock is IAaveTwoPool {
       ltv: ltv,
       healthFactor: healthFactor
     });
+  }
+  /// @notice After repay get actual user account data, save it to userAccountData and add {addon} to the healthFactor
+  function setHealthFactorAddonAfterRepay(int addon) external {
+    healthFactorAddonAfterRepay = addon;
   }
   //endregion ----------------------------------------------------- Config the mock
 
@@ -149,9 +156,15 @@ contract AaveTwoPoolMock is IAaveTwoPool {
       );
     }
   }
+
   function getUserConfiguration(address user) external view override returns (DataTypes.ReserveConfigurationMap memory) {
-    return aavePool.getUserConfiguration(user);
+    return aavePool.getUserConfiguration(
+      user == msg.sender
+        ? address(this)
+        : user
+    );
   }
+
   function repay(address asset, uint256 amount, uint256 rateMode, address onBehalfOf) external override returns (uint256) {
     if (! ignoreRepay) {
       console.log("AaveTwoPoolMock.repay", asset, amount, onBehalfOf);
@@ -161,7 +174,7 @@ contract AaveTwoPoolMock is IAaveTwoPool {
         address(this),
         IERC20(asset).balanceOf(msg.sender) // the amount can be equal to max(uint) ..
       );
-      return aavePool.repay(
+      uint dest = aavePool.repay(
         asset,
         amount,
         rateMode,
@@ -169,6 +182,31 @@ contract AaveTwoPoolMock is IAaveTwoPool {
         ? address(this)
         : onBehalfOf
       );
+
+      if (healthFactorAddonAfterRepay != 0) {
+        // get actual user account data, save it to userAccountData and add {addon} to the healthFactor
+        (
+          uint256 totalCollateralETH,
+          uint256 totalDebtETH,
+          uint256 availableBorrowsETH,
+          uint256 currentLiquidationThreshold,
+          uint256 ltv,
+          uint256 healthFactor
+        ) = aavePool.getUserAccountData(address(this));
+        console.log("healthFactorAddonAfterRepay.healthFactor", healthFactor);
+        console.log("healthFactorAddonAfterRepay.healthFactor.fixed", uint(int(healthFactor) + healthFactorAddonAfterRepay));
+        userAccountData = UserAccountData({
+          initialized: true,
+          totalCollateralETH: totalCollateralETH,
+          totalDebtETH: totalDebtETH,
+          availableBorrowsETH: availableBorrowsETH,
+          currentLiquidationThreshold: currentLiquidationThreshold,
+          ltv: ltv,
+          healthFactor: uint(int(healthFactor) + healthFactorAddonAfterRepay)
+        });
+      }
+
+      return dest;
 //      uint balance = IERC20(asset).balanceOf(address(this));
 //      if (grabAllBorrowAssetFromSenderOnRepay) {
 //        console.log("Repay: don't return unused borrow-asset-amount back to sender", balance);

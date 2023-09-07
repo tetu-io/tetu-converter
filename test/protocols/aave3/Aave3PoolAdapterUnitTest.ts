@@ -374,7 +374,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
       const userBorrowAssetBalanceBeforeRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
 
-      console.log("set prices");
       if (p.collateralPriceIsZero) {
         await Aave3ChangePricesUtils.setAssetPrice(deployer, init.collateralToken.address, BigNumber.from(0));
         console.log("Collateral price was set to 0");
@@ -831,7 +830,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           const results = await loadFixture(makePartialRepayTest);
           expect(results.statusAfterRepay.opened).eq(true);
         });
-      })
+      });
     });
     describe("Bad paths", () => {
       const collateralAsset = MaticAddresses.DAI;
