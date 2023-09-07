@@ -63,9 +63,6 @@ library TetuConverterLogicLib {
     uint requiredCollateralAmount_,
     address poolAdapter_
   ) external {
-    require(controller_.keeper() == msg.sender, AppErrors.KEEPER_ONLY);
-    require(requiredBorrowedAmount_ != 0, AppErrors.INCORRECT_VALUE);
-
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset,) = pa.getConfig();
     pa.updateStatus();
