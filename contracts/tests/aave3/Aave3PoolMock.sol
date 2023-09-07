@@ -32,6 +32,8 @@ contract Aave3PoolMock is IAavePool {
   bool public grabAllBorrowAssetFromSenderOnRepay;
   UserAccountData internal userAccountData;
 
+  /// @notice After repay get actual user account data, save it to userAccountData and add {addon} to the healthFactor
+  int internal healthFactorAddonAfterRepay;
 
   constructor (
     address aavePool_,
@@ -44,9 +46,7 @@ contract Aave3PoolMock is IAavePool {
     console.log("Aave3PoolMock is used instead of real aave pool", address(this), aavePool_);
   }
 
-  //-----------------------------------------------------//////////
-  ///       Config the mock
-  //-----------------------------------------------------//////////
+  //region ------------------------------------- Config the mock
   function setIgnoreSupply() external {
     ignoreSupply = true;
   }
@@ -83,11 +83,13 @@ contract Aave3PoolMock is IAavePool {
       healthFactor: healthFactor
     });
   }
+  /// @notice After repay get actual user account data, save it to userAccountData and add {addon} to the healthFactor
+  function setHealthFactorAddonAfterRepay(int addon) external {
+    healthFactorAddonAfterRepay = addon;
+  }
+  //endregion ------------------------------ Config the mock
 
-  //-----------------------------------------------------//////////
-  ///       IAavePool facade
-  ///       All functions required by Aave3PoolAdapterBase
-  //-----------------------------------------------------//////////
+  //region --------------------------------- IAavePool facade. All functions required by Aave3PoolAdapterBase
 
   function ADDRESSES_PROVIDER() external view override returns (address) {
     return aavePool.ADDRESSES_PROVIDER();
@@ -153,11 +155,20 @@ contract Aave3PoolMock is IAavePool {
         userAccountData.healthFactor
       );
     } else {
-      return aavePool.getUserAccountData(
+      (
+        totalCollateralBase,
+        totalDebtBase,
+        availableBorrowsBase,
+        currentLiquidationThreshold,
+        ltv,
+        healthFactor
+      ) = aavePool.getUserAccountData(
         user == msg.sender
           ? address(this)
           : user
       );
+      console.log("getUserAccountData.healthFactor", healthFactor);
+      return (totalCollateralBase, totalDebtBase, availableBorrowsBase, currentLiquidationThreshold, ltv, healthFactor);
     }
   }
 
@@ -177,7 +188,12 @@ contract Aave3PoolMock is IAavePool {
     );
   }
 
-  function repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf) external override returns (uint256) {
+  function repay(
+    address asset,
+    uint256 amount,
+    uint256 interestRateMode,
+    address onBehalfOf
+  ) external override returns (uint256) {
     if (! ignoreRepay) {
       console.log("Aave3PoolMock.repay", asset, amount, onBehalfOf);
       console.log("Balance of sender", IERC20(asset).balanceOf(msg.sender));
@@ -186,7 +202,7 @@ contract Aave3PoolMock is IAavePool {
         address(this),
         IERC20(asset).balanceOf(msg.sender) // the amount can be equal to max(uint) ..
       );
-      return aavePool.repay(
+      uint dest = aavePool.repay(
         asset,
         amount,
         interestRateMode,
@@ -194,6 +210,32 @@ contract Aave3PoolMock is IAavePool {
           ? address(this)
           : onBehalfOf
       );
+
+      if (healthFactorAddonAfterRepay != 0) {
+        console.log("healthFactorAddonAfterRepay"); console.logInt(healthFactorAddonAfterRepay);
+        // get actual user account data, save it to userAccountData and add {addon} to the healthFactor
+        (
+          uint256 totalCollateralBase,
+          uint256 totalDebtBase,
+          uint256 availableBorrowsBase,
+          uint256 currentLiquidationThreshold,
+          uint256 ltv,
+          uint256 healthFactor
+        ) = aavePool.getUserAccountData(address(this));
+        console.log("healthFactorAddonAfterRepay.healthFactor", healthFactor);
+        console.log("healthFactorAddonAfterRepay.healthFactor.fixed", uint(int(healthFactor) + healthFactorAddonAfterRepay));
+        userAccountData = UserAccountData({
+          initialized: true,
+          totalCollateralBase: totalCollateralBase,
+          totalDebtBase: totalDebtBase,
+          availableBorrowsBase: availableBorrowsBase,
+          currentLiquidationThreshold: currentLiquidationThreshold,
+          ltv: ltv,
+          healthFactor: uint(int(healthFactor) + healthFactorAddonAfterRepay)
+        });
+      }
+
+      return dest;
 //      uint balance = IERC20(asset).balanceOf(address(this));
 //      if (grabAllBorrowAssetFromSenderOnRepay) {
 //        console.log("Repay: don't return unused borrow-asset-amount back to sender", balance);
@@ -261,10 +303,9 @@ contract Aave3PoolMock is IAavePool {
     }
     return 0;
   }
+  //endregion --------------------------------- IAavePool facade. All functions required by Aave3PoolAdapterBase
 
-  //-----------------------------------------------------//////////
-  ///       IAavePool - all other functions
-  //-----------------------------------------------------//////////
+  //region --------------------------------- IAavePool - all other functions
   function BRIDGE_PROTOCOL_FEE() external view override returns (uint256) {
     return aavePool.BRIDGE_PROTOCOL_FEE();
   }
@@ -455,4 +496,6 @@ contract Aave3PoolMock is IAavePool {
   function deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external override {
     aavePool.deposit(asset, amount, onBehalfOf, referralCode);
   }
+  //endregion --------------------------------- IAavePool - all other functions
+
 }

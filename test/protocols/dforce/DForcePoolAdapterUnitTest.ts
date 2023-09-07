@@ -1311,7 +1311,7 @@ describe("DForcePoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({additionalAmountCorrectionFactor: 10})
-          ).revertedWith("TC-3 wrong health factor");
+          ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
         });
       });
       describe("Use mocked DForce controller", () => {
@@ -1735,7 +1735,7 @@ describe("DForcePoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorDiv: 100})
-          ).revertedWith("TC-3 wrong health factor");
+          ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
         });
       });
       describe("Try to repay amount greater then the debt", () => {

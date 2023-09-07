@@ -17,6 +17,7 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -25,16 +26,21 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
 
-  //region ----------------------------------------------------- Members and constants
+  //region ----------------------------------------------------- Constants
   /// @notice We allow to receive less atokens then provided collateral on following value
   /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
   uint constant public ATOKEN_MAX_DELTA = 10;
-  string public constant POOL_ADAPTER_VERSION = "1.0.2";
+  string public constant POOL_ADAPTER_VERSION = "1.0.3";
 
   /// @notice 1 - stable, 2 - variable
   uint constant public RATE_MODE = 2;
   uint constant public SECONDS_PER_YEAR = 31536000;
 
+  /// @notice repay allows to reduce health factor of following value (decimals 18):
+  uint constant public MAX_ALLOWED_HEALTH_FACTOR_REDUCTION = 1e13; // 0.001%
+  //endregion ----------------------------------------------------- Constants
+
+  //region ----------------------------------------------------- Variables
   address public collateralAsset;
   address public borrowAsset;
   address public user;
@@ -46,7 +52,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in ATokens
   uint public collateralBalanceATokens;
-  //endregion ----------------------------------------------------- Members and constants
+  //endregion ----------------------------------------------------- Variables
 
   //region ----------------------------------------------------- Events
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
@@ -70,7 +76,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ) override external
     // Borrow Manager creates a pool adapter using minimal proxy pattern, adds it the the set of known pool adapters
     // and initializes it immediately. We should ensure only that the re-initialization is not possible
-    initializer
+  initializer
   {
     require(
       controller_ != address(0)
@@ -92,8 +98,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
-    IERC20(collateralAsset_).safeApprove(pool_, 2**255); // 2*255 is more gas-efficient than type(uint).max
-    IERC20(borrowAsset_).safeApprove(pool_, 2**255);
+    IERC20(collateralAsset_).safeApprove(pool_, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
+    IERC20(borrowAsset_).safeApprove(pool_, 2 ** 255);
 
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
@@ -167,7 +173,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // ensure that current health factor is greater than min allowed
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
-    _validateHealthFactor(c, healthFactor);
+    _validateHealthFactor(c, healthFactor, 0);
 
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor, newCollateralBalanceATokens);
     return borrowAmount_;
@@ -233,7 +239,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // ensure that current health factor is greater than min allowed
     (,,,,, resultHealthFactor18) = pool.getUserAccountData(address(this));
-    _validateHealthFactor(c, resultHealthFactor18);
+    _validateHealthFactor(c, resultHealthFactor18, 0);
 
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
@@ -264,14 +270,14 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint aTokensBalanceBeforeRepay = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
     // how much collateral we are going to return
-    uint amountCollateralToWithdraw = _getCollateralAmountToReturn(
-        pool,
-        amountToRepay_,
-        assetCollateral,
-        assetBorrow,
-        closePosition_,
-        rc.configuration.getDecimals(),
-        IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle())
+    (uint amountCollateralToWithdraw, uint healthFactorBefore) = _getCollateralAmountToReturn(
+      pool,
+      amountToRepay_,
+      assetCollateral,
+      assetBorrow,
+      closePosition_,
+      rc.configuration.getDecimals(),
+      IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle())
     );
 
     // transfer borrow amount back to the pool, infinity approve is assumed
@@ -293,17 +299,17 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     }
 
     // close position in debt monitor / validate result health factor
-    uint healthFactor;
+    uint healthFactorAfter;
     {
       uint totalCollateralBase;
       uint totalDebtBase;
-      (totalCollateralBase, totalDebtBase,,,, healthFactor) = pool.getUserAccountData(address(this));
+      (totalCollateralBase, totalDebtBase,,,, healthFactorAfter) = pool.getUserAccountData(address(this));
 
       if (totalCollateralBase == 0 && totalDebtBase == 0) {
         IDebtMonitor(c.debtMonitor()).onClosePosition();
       } else {
         require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
-        _validateHealthFactor(c, healthFactor);
+        _validateHealthFactor(c, healthFactorAfter, healthFactorBefore);
       }
     }
 
@@ -331,14 +337,16 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       : localCollateralBalanceATokens - (aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
     collateralBalanceATokens = localCollateralBalanceATokens;
 
-    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor, localCollateralBalanceATokens);
+    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactorAfter, localCollateralBalanceATokens);
     return amountCollateralToWithdraw;
   }
 
   /// @notice Get a part of collateral safe to return after repaying {amountToRepay_}
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
-  /// @return Amount of collateral [in collateral tokens] to be returned in exchange of {borrowedAmount_}
+  /// @return amountCollateralToWithdraw Amount of collateral [in collateral tokens]
+  ///         to be returned in exchange of {borrowedAmount_}
   ///         Return type(uint).max if it's full repay and the position should be closed
+  /// @return healthFactor18 Current value of the health factor
   function _getCollateralAmountToReturn(
     IAavePool pool_,
     uint amountToRepay_,
@@ -347,12 +355,17 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     bool closePosition_,
     uint collateralDecimals,
     IAavePriceOracle priceOracle_
-  ) internal view returns (uint) {
+  ) internal view returns (
+    uint amountCollateralToWithdraw,
+    uint healthFactor18
+  ) {
     // ensure that we really have a debt
-    (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = pool_.getUserAccountData(address(this));
+    uint256 totalCollateralBase;
+    uint256 totalDebtBase;
+    (totalCollateralBase, totalDebtBase,,,, healthFactor18) = pool_.getUserAccountData(address(this));
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
 
-    uint borrowPrice =  priceOracle_.getAssetPrice(assetBorrow_);
+    uint borrowPrice = priceOracle_.getAssetPrice(assetBorrow_);
     require(borrowPrice != 0, AppErrors.ZERO_PRICE);
 
     uint amountToRepayBase = amountToRepay_ * borrowPrice / (10 ** IERC20Metadata(assetBorrow_).decimals());
@@ -360,7 +373,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     if (closePosition_) {
       // we cannot close position and pay the debt only partly
       require(totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_PARTIAL);
-      return type(uint).max;
+      return (type(uint).max, healthFactor18);
     } else {
       // the assets prices in the base currency
       uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
@@ -370,12 +383,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         ? 1e18
         : 1e18 * amountToRepayBase / totalDebtBase;
 
-      return
-        // == totalCollateral * amountToRepay / totalDebt
-        totalCollateralBase
-        * (10 ** collateralDecimals)
-        * part / 1e18
-        / collateralPrice;
+      return (
+      // == totalCollateral * amountToRepay / totalDebt
+        totalCollateralBase * (10 ** collateralDecimals) * part / 1e18 / collateralPrice,
+        healthFactor18
+      );
     }
   }
 
@@ -395,6 +407,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     IAavePool pool = _pool;
     IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle());
 
+    (,uint256 totalDebtBase0,,,, uint healthFactorBefore) = pool.getUserAccountData(address(this));
     uint newCollateralBalanceATokens = collateralBalanceATokens;
     if (isCollateral_) {
       newCollateralBalanceATokens = _supply(pool, collateralAsset, amount_) + newCollateralBalanceATokens;
@@ -402,7 +415,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
-      (,uint256 totalDebtBase0,,,,) = pool.getUserAccountData(address(this));
       uint priceBorrowAsset = priceOracle.getAssetPrice(assetBorrow);
       uint totalAmountToPay = totalDebtBase0 == 0
         ? 0
@@ -418,11 +430,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     }
 
     // validate result health factor
-    (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
-    _validateHealthFactor(controller, healthFactor);
+    (,,,,, uint256 healthFactorAfter) = pool.getUserAccountData(address(this));
+    _validateHealthFactor(controller, healthFactorAfter, healthFactorBefore);
 
-    emit OnRepayToRebalance(amount_, isCollateral_, healthFactor, newCollateralBalanceATokens);
-    return healthFactor;
+    emit OnRepayToRebalance(amount_, isCollateral_, healthFactorAfter, newCollateralBalanceATokens);
+    return healthFactorAfter;
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
@@ -440,7 +452,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       return totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice;
     } else { // partial repay
       Aave3DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
-      return _getCollateralAmountToReturn(
+      (uint amountCollateralToWithdraw,) = _getCollateralAmountToReturn(
         pool,
         amountToRepay_,
         assetCollateral,
@@ -449,6 +461,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         rc.configuration.getDecimals(),
         priceOracle
       );
+      return amountCollateralToWithdraw;
     }
   }
   //endregion ----------------------------------------------------- Repay logic
@@ -509,7 +522,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       totalDebtBase == 0
         ? 0
         : (totalDebtBase * (10 ** __pool.getConfiguration(assetBorrow).getDecimals())) / borrowPrice,
-      // Current health factor, decimals 18
+    // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,
       collateralAmountLiquidated,
@@ -525,8 +538,31 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   //endregion ----------------------------------------------------- View current status
 
   //region ----------------------------------------------------- Utils
-  function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
-    require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+
+  /// @notice Validate that result health factor is correct
+  ///         1) If we make a borrow the health factor is correct if it's greater than the min allowed threshold.
+  ///         2) If we make repaying, the health factor is correct if
+  ///                   it's greater than the min allowed threshold
+  ///                   or it wasn't reduced too much
+  /// @param healthFactorAfter Value of health factor after the operation - the value to check
+  /// @param healthFactorBefore Value of health factor before the operation. 0 if borrow.
+  function _validateHealthFactor(
+    IConverterController controller_,
+    uint healthFactorAfter,
+    uint healthFactorBefore
+  ) internal view {
+    uint threshold = uint(controller_.minHealthFactor2()) * 10 ** (18 - 2);
+    console.log("_validateHealthFactor.hf18", healthFactorAfter);
+    console.log("_validateHealthFactor.healthFactorBefore", healthFactorBefore);
+    console.log("_validateHealthFactor.min health factor", threshold);
+    uint reduction = healthFactorBefore > healthFactorAfter
+      ? healthFactorBefore - healthFactorAfter
+      : 0;
+    require(
+      healthFactorAfter >= threshold
+      || (healthFactorBefore != 0 && reduction < MAX_ALLOWED_HEALTH_FACTOR_REDUCTION),
+      AppErrors.WRONG_HEALTH_FACTOR
+    );
   }
   //endregion ----------------------------------------------------- Utils
 

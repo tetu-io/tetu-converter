@@ -1284,7 +1284,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorDiv: 100})
-          ).revertedWith("TC-3 wrong health factor");
+          ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
         });
       });
       describe("Try to repay amount greater then the debt", () => {
@@ -1480,7 +1480,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiWMatic({additionalAmountCorrectionFactor: 10})
-          ).revertedWith("TC-3 wrong health factor");
+          ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
         });
       });
       describe("Dont transfer borrowed amount after borrow with WRONG_BORROWED_BALANCE", () => {
