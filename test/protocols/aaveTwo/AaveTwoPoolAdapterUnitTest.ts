@@ -1201,6 +1201,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     describe("Good paths", () => {
       describe("Repay using borrow asset", () => {
         describe("Dai:WMatic", () => {
+          let snapshotLocal: string;
+          before(async function () {snapshotLocal = await TimeUtils.snapshot();});
+          after(async function () {await TimeUtils.rollback(snapshotLocal);});
+
           async function makeDaiWMaticTest(): Promise<IAaveMakeRepayToRebalanceResults> {
             return AaveRepayToRebalanceUtils.daiWMatic(
               deployer,
@@ -1232,6 +1236,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           });
         });
         describe("USDC:USDT", () => {
+          let snapshotLocal: string;
+          before(async function () {snapshotLocal = await TimeUtils.snapshot();});
+          after(async function () {await TimeUtils.rollback(snapshotLocal);});
+
           async function makeUsdcUsdtTest(): Promise<IAaveMakeRepayToRebalanceResults> {
             return AaveRepayToRebalanceUtils.usdcUsdt(
               deployer,
@@ -1265,6 +1273,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       });
       describe("Repay using collateral asset", () => {
         describe("Dai:WMatic", () => {
+          let snapshotLocal: string;
+          before(async function () {snapshotLocal = await TimeUtils.snapshot();});
+          after(async function () {await TimeUtils.rollback(snapshotLocal);});
+
           async function makeDaiWMaticTest(): Promise<IAaveMakeRepayToRebalanceResults> {
             return AaveRepayToRebalanceUtils.daiWMatic(
               deployer,
@@ -1296,6 +1308,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           });
         });
         describe("USDC:USDT", () => {
+          let snapshotLocal: string;
+          before(async function () {snapshotLocal = await TimeUtils.snapshot();});
+          after(async function () {await TimeUtils.rollback(snapshotLocal);});
+
           async function makeUsdcUsdtTest(): Promise<IAaveMakeRepayToRebalanceResults> {
             return AaveRepayToRebalanceUtils.usdcUsdt(
               deployer,

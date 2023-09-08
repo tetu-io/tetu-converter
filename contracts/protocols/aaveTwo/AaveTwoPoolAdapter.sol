@@ -580,7 +580,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
   //region ----------------------------------------------------- Utils
 
-  /// @notice Validate that result health factor is correct
+  /// @notice Validate that result health factor is correct, SCB-794
   ///         1) If we make a borrow the health factor is correct if it's greater than the min allowed threshold.
   ///         2) If we make repaying, the health factor is correct if
   ///                   it's greater than the min allowed threshold

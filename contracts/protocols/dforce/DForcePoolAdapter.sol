@@ -642,6 +642,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     return (sumCollateralSafe36, healthFactor18);
   }
 
+  /// @notice Check that results health factor exceeds threshold
+  /// @dev TODO SCB-794 should be fixed in same way as it was fixed in AAVE3, AAVETwo
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 > uint(controller_.minHealthFactor2()) * 10 ** (18 - 2), AppErrors.WRONG_HEALTH_FACTOR);
   }
