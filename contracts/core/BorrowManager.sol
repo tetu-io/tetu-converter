@@ -18,6 +18,7 @@ import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
 import "../proxy/ControllableV3.sol";
+import "../interfaces/IPoolAdapter.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager, ControllableV3 {
@@ -289,31 +290,105 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     uint[] memory amountsToBorrowOut,
     int[] memory aprs18Out
   ) {
+
+    address user; // todo pass user here
     // get all platform adapters that support required pair of assets
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.collateralAsset, p_.borrowAsset)];
+    // try to find exist pool adapter for the pas
 
-    address[] memory converters;
-    uint[] memory collateralAmounts;
-    uint[] memory amountsToBorrow;
-    int[] memory aprs18;
-    uint countFoundItems;
-    if (pas.length() != 0) {
-      (converters, collateralAmounts, amountsToBorrow, aprs18, countFoundItems) = _findPool(
-        pas,
+    (address poolAdapter, address platformAdapter) = getExistPoolAdapter(pas, user, p_.collateralAsset, p_.borrowAsset);
+
+    if (poolAdapter != address(0)) {
+      uint indexPlatformAdapter = 0; // todo
+
+      (convertersOut, collateralAmountsOut, amountsToBorrowOut, aprs18Out) = _findPoolsForExistDebt(
+        IPoolAdapter(poolAdapter),
+        IPlatformAdapter(existPoolAdapter),
         p_,
         getTargetHealthFactor2(p_.collateralAsset)
       );
     }
 
-    if (countFoundItems > 0) {
-      // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
-      return AppUtils.shrinkAndOrder(countFoundItems, converters, collateralAmounts, amountsToBorrow, aprs18);
-    } else {
-      return (convertersOut, collateralAmountsOut, amountsToBorrowOut, aprs18Out);
+
+    // there is no exist debt OR the pool adapter is not suitable for new borrow
+    // todo OR selected lending platform is not able to provide all required amount and we need additional borrows
+    {
+      address[] memory converters;
+      uint[] memory collateralAmounts;
+      uint[] memory amountsToBorrow;
+      int[] memory aprs18;
+
+      uint countFoundItems;
+      if (pas.length() != 0) {
+        (converters, collateralAmounts, amountsToBorrow, aprs18, countFoundItems) = _findPoolsForNewDebt(
+          pas,
+          p_,
+          getTargetHealthFactor2(p_.collateralAsset)
+        );
+      }
+
+      if (countFoundItems > 0) {
+        // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
+        return AppUtils.shrinkAndOrder(countFoundItems, converters, collateralAmounts, amountsToBorrow, aprs18);
+      } else {
+        return (convertersOut, collateralAmountsOut, amountsToBorrowOut, aprs18Out);
+      }
     }
   }
 
+  function getExistPoolAdapter(
+    EnumerableSet.AddressSet storage pas,
+    address user_,
+    address collateralAsset_,
+    address borrowAsset_
+  ) internal view returns (
+    address poolAdapter,
+    address platformAdapter
+  ) {
+    uint lenPools = platformAdapters_.length();
+    for (uint i; i < lenPools; i = i.uncheckedInc()) {
+      IPlatformAdapter pa = IPlatformAdapter(platformAdapters_.at(i));
+      address[] memory converters = pa.converters();
+      uint lenConverters = converters.length;
+      for (uint j; j < lenConverters; j = j.uncheckedInc()) {
+        poolAdapter = _getPoolAdapter(converters[j], user_, collateralAsset_, borrowAsset_);
+        if (poolAdapter != address(0)) {
+          // todo: ensure that existPoolAdapter is not dirty
+          return (poolAdapter, platformAdapter);
+        }
+      }
+    }
+
+    return (0, 0);
+  }
+
+  function _findPoolsForExistDebt(
+    IPoolAdapter poolAdapter_,
+    IPlatformAdapter platformAdapter_,
+    AppDataTypes.InputConversionParams memory p_,
+    uint16 healthFactor2_
+  ) internal view returns (
+    address[] memory converters,
+    uint[] memory collateralAmountsOut,
+    uint[] memory amountsToBorrowOut,
+    int[] memory aprs18,
+    uint countFoundItems
+  ) {
+    // the user already has a debt with same collateral+borrow assets
+    // so, we should use same pool adapter for new borrow AND rebalance exist debt in both directions if necessary
+    // there is a chance, that selected lending platform doesn't have enough amount to borrow
+    // in this case, we should add all other available lending platforms
+    // Already used lending platform should be always put on first place.
+    // There is a case when we cannot make full rebalance of exist debt
+    // (i.e. new collateral amount is too small). Partial rebalance should be made in this case.
+    return (converters, collateralAmountsOut, amountsToBorrowOut, aprs18, countFoundItems);
+  }
+
+
   /// @notice Enumerate all pools suitable for borrowing and enough liquidity.
+  /// Assume, that currently the user doesn't have any debts with same collateral+borrow assets pair.
+  /// So, the function just finds all available possibilities.
+  ///
   /// General explanation how max-target-amount is calculated in all pool adapters:
   /// Health factor = HF [-], Collateral amount = C [USD]
   /// Source amount that can be used for the collateral = SA [SA], Borrow amount = BS [USD]
@@ -328,7 +403,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
   /// @return converters All found converters without ordering.
   ///                    The size of array is always equal to the count of available lending platforms.
   ///                    The array is sparse, unused items are zero.
-  function _findPool(
+  function _findPoolsForNewDebt(
     EnumerableSet.AddressSet storage platformAdapters_,
     AppDataTypes.InputConversionParams memory p_,
     uint16 healthFactor2_
@@ -459,6 +534,16 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     address collateral_,
     address borrowToken_
   ) external view override returns (address) {
+    return _getPoolAdapter(converter_, user_, collateral_, borrowToken_);
+  }
+
+  /// @notice Get pool adapter or 0 if the pool adapter is not registered
+  function _getPoolAdapter(
+    address converter_,
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) internal view returns (address) {
     (bool found, address dest) = _poolAdapters[user_].tryGet(getPoolAdapterKey(converter_, collateral_, borrowToken_));
     return found ? dest : address(0);
   }

@@ -121,7 +121,13 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
         p.borrowSourceAmounts,
         p.borrowTargetAmounts,
         p.borrowAprs18
-      ) = IBorrowManager(_controller.borrowManager()).findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
+      ) = IBorrowManager(_controller.borrowManager()).findConverter(
+        entryData_,
+        sourceToken_,
+        targetToken_,
+        amountIn_,
+        periodInBlocks_
+      );
 
       (p.swapConverter,
         p.swapSourceAmount,
@@ -163,7 +169,13 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     IConverterController _controller = IConverterController(controller());
     return _controller.paused()
       ? (converters, collateralAmountsOut, amountToBorrowsOut, aprs18) // no conversion is available
-      : IBorrowManager(_controller.borrowManager()).findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
+      : IBorrowManager(_controller.borrowManager()).findConverter(
+        entryData_,
+        sourceToken_,
+        targetToken_,
+        amountIn_,
+        periodInBlocks_
+      );
   }
 
   /// @inheritdoc ITetuConverter
