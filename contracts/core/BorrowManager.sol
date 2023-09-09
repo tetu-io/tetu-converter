@@ -44,6 +44,13 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     address assetLeft;
     address assetRight;
   }
+
+  struct BorrowCandidate {
+    address converter;
+    uint collateralAmounts;
+    uint amountsToBorrow;
+    int aprs18;
+  }
   //endregion ----------------------------------------------------- Data types
 
   //region ----------------------------------------------------- Variables. Don't change names or ordering!
@@ -244,20 +251,10 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
 
   //region ----------------------------------------------------- Find best pool for borrowing
 
-  /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
-  ///         Results are ordered in ascending order of APR, so the best available converter is first one.
-  /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
-  ///                  See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
-  /// @param amountIn_ The meaning depends on entryData kind, see EntryKinds library for details.
-  ///         For entry kind = 0: Amount of {sourceToken} to be converted to {targetToken}
-  ///         For entry kind = 1: Available amount of {sourceToken}
-  ///         For entry kind = 2: Amount of {targetToken} that should be received after conversion
-  /// @return convertersOut Result template-pool-adapters
-  /// @return collateralAmountsOut Amounts that should be provided as a collateral
-  /// @return amountsToBorrowOut Amounts that should be borrowed
-  /// @return aprs18Out Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
+  /// @inheritdoc
   function findConverter(
     bytes memory entryData_,
+    address user_,
     address sourceToken_,
     address targetToken_,
     uint amountIn_,
@@ -273,7 +270,8 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     borrowAsset: targetToken_,
     amountIn: amountIn_,
     countBlocks: periodInBlocks_,
-    entryData: entryData_
+    entryData: entryData_,
+    user: user_
     });
     return _findConverter(params);
   }
@@ -290,28 +288,41 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     uint[] memory amountsToBorrowOut,
     int[] memory aprs18Out
   ) {
-
-    address user; // todo pass user here
     // get all platform adapters that support required pair of assets
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.collateralAsset, p_.borrowAsset)];
-    // try to find exist pool adapter for the pas
 
-    (address poolAdapter, address platformAdapter) = getExistPoolAdapter(pas, user, p_.collateralAsset, p_.borrowAsset);
+    uint len = platformAdapters_.length();
+    address[] memory platformAdapters = new address[](len);
+    BorrowCandidate[] memory candidates = new BorrowCandidate[](len);
+    uint countCandidates = 0;
 
-    if (poolAdapter != address(0)) {
-      uint indexPlatformAdapter = 0; // todo
-
-      (convertersOut, collateralAmountsOut, amountsToBorrowOut, aprs18Out) = _findPoolsForExistDebt(
-        IPoolAdapter(poolAdapter),
-        IPlatformAdapter(existPoolAdapter),
-        p_,
-        getTargetHealthFactor2(p_.collateralAsset)
-      );
+    for (uint i; i < len; i = i.uncheckedInc()) {
+      platformAdapters[i] = IPlatformAdapter(pas.at(i));
     }
 
+    // find all exist valid debts and calculate how to make new borrow with rebalancing of the exist debt
+    // add BorrowCandidate to {candidates} for such debts and clear up corresponded items in {platformAdapters}
+    uint index = 0;
+    while (index < len) {
+      address poolAdapter;
+      (poolAdapter, index) = getExistPoolAdapter(platformAdapters, index, p.user, p_.collateralAsset, p_.borrowAsset);
 
-    // there is no exist debt OR the pool adapter is not suitable for new borrow
-    // todo OR selected lending platform is not able to provide all required amount and we need additional borrows
+      if (index < len && poolAdapter != address(0)) {
+        BorrowCandidate c = _findPoolsForExistDebt(
+          IPoolAdapter(poolAdapter),
+          IPlatformAdapter(platformAdapters[index]),
+          p_,
+          getTargetHealthFactor2(p_.collateralAsset)
+        );
+        if (c.converter != address(0)) {
+          candidates[countCandidates] = c;
+          platformAdapters[countCandidates++] = address(0);
+        }
+      }
+    }
+
+    // find borrow-candidates for all other platform adapters
+    // the list of such candidates should be ordered by APR
     {
       address[] memory converters;
       uint[] memory collateralAmounts;
@@ -327,6 +338,8 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
         );
       }
 
+      // {candidates} => result arrays
+
       if (countFoundItems > 0) {
         // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
         return AppUtils.shrinkAndOrder(countFoundItems, converters, collateralAmounts, amountsToBorrow, aprs18);
@@ -336,16 +349,24 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     }
   }
 
-  function getExistPoolAdapter(
-    EnumerableSet.AddressSet storage pas,
+  /// @notice Try to find exist borrow for the given user
+  /// @param pas All currently active platform adapters
+  /// @param user_ The user who tries to borrow {borrowAsset_} under {collateralAsset_}
+  /// @return poolAdapter First exist valid pool adapter found for the user-borrowAsset-collateralAsset
+  ///                     "valid" means that the pool adapter is not dirty and can be use for new borrows
+  /// @return indexPlatformAdapter Index of the platform adapter to which the {poolAdapter} belongs.
+  ///                              The index indicates position of the platform adapter in {platformAdapters}
+  function getExistValidPoolAdapter(
+    address[] memory platformAdapters,
     address user_,
     address collateralAsset_,
     address borrowAsset_
   ) internal view returns (
     address poolAdapter,
-    address platformAdapter
+    uint indexPlatformAdapter
   ) {
     uint lenPools = platformAdapters_.length();
+
     for (uint i; i < lenPools; i = i.uncheckedInc()) {
       IPlatformAdapter pa = IPlatformAdapter(platformAdapters_.at(i));
       address[] memory converters = pa.converters();
@@ -354,12 +375,12 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
         poolAdapter = _getPoolAdapter(converters[j], user_, collateralAsset_, borrowAsset_);
         if (poolAdapter != address(0)) {
           // todo: ensure that existPoolAdapter is not dirty
-          return (poolAdapter, platformAdapter);
+          return (poolAdapter, i);
         }
       }
     }
 
-    return (0, 0);
+    return (address(0), lenPools);
   }
 
   function _findPoolsForExistDebt(
