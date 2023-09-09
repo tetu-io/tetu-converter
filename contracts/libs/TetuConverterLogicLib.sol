@@ -40,6 +40,15 @@ library TetuConverterLogicLib {
     address borrowAsset;
   }
 
+  /// @dev We need to combine local params to struct to avoid stack too deep in coverage
+  struct RequireRepayParams {
+    address user;
+    address collateralAsset;
+    uint amountToPay;
+    bool skipRepay;
+    uint amount;
+  }
+
 //#endregion ------------------------------------------------- Data types
 
 //#region ------------------------------------------------- Events
@@ -63,34 +72,36 @@ library TetuConverterLogicLib {
     uint requiredCollateralAmount_,
     address poolAdapter_
   ) external {
+    RequireRepayParams memory p;
+
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset,) = pa.getConfig();
+    (, p.user, p.collateralAsset,) = pa.getConfig();
     pa.updateStatus();
-    (, uint amountToPay,,,,) = pa.getStatus();
+    (, p.amountToPay,,,,) = pa.getStatus();
 
     if (requiredCollateralAmount_ == 0) {
       // Full liquidation happens, we have lost all collateral amount
       // We need to close the position as is and drop away the pool adapter without paying any debt
       IDebtMonitor(IConverterController(controller_).debtMonitor()).closeLiquidatedPosition(address(pa));
-      emit OnRequireRepayCloseLiquidatedPosition(address(pa), amountToPay);
+      emit OnRequireRepayCloseLiquidatedPosition(address(pa), p.amountToPay);
     } else {
       // rebalancing
       // we assume here, that requiredBorrowedAmount_ should be less than amountToPay even if it includes the debt-gap
-      require(amountToPay != 0 && requiredBorrowedAmount_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+      require(p.amountToPay != 0 && requiredBorrowedAmount_ < p.amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
       // for definiteness ask the user to send us collateral asset
-      (bool skipRepay, uint amount) = _requirePayAmountBackToRebalance(
-        ITetuConverterCallback(user),
+      (p.skipRepay, p.amount) = _requirePayAmountBackToRebalance(
+        ITetuConverterCallback(p.user),
         pa,
-        collateralAsset,
+        p.collateralAsset,
         requiredCollateralAmount_,
         IBorrowManager(controller_.borrowManager()),
         uint(controller_.minHealthFactor2()) * 10 ** (18 - 2)
       );
 
-      if (! skipRepay) {
-        uint resultHealthFactor18 = pa.repayToRebalance(amount, true);
-        emit OnRequireRepayRebalancing(address(pa), amount, true, amountToPay, resultHealthFactor18);
+      if (! p.skipRepay) {
+        uint resultHealthFactor18 = pa.repayToRebalance(p.amount, true);
+        emit OnRequireRepayRebalancing(address(pa), p.amount, true, p.amountToPay, resultHealthFactor18);
       }
     }
   }
