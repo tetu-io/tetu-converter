@@ -282,7 +282,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       require(converter_ == _controller.swapManager(), AppErrors.INCORRECT_CONVERTER_TO_SWAP);
       borrowedAmountOut = _makeSwap(converter_, collateralAsset_, collateralAmount_, borrowAsset_, receiver_);
     } else {
-      revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
+      revert(AppErrors.UNSUPPORTED_VALUE);
     }
   }
 
