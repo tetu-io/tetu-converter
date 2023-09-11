@@ -13,12 +13,13 @@ import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
-import "../interfaces/IController.sol";
 import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
 import "../proxy/ControllableV3.sol";
 import "../interfaces/IPoolAdapter.sol";
+import "../libs/ConverterLogicLib.sol";
+import "../libs/EntryKinds.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager, ControllableV3 {
@@ -47,9 +48,17 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
 
   struct BorrowCandidate {
     address converter;
-    uint collateralAmounts;
-    uint amountsToBorrow;
-    int aprs18;
+    uint collateralAmount;
+    uint amountToBorrow;
+    int apr18;
+  }
+
+  struct FindConverterLocal {
+    uint len;
+    IPlatformAdapter[] platformAdapters;
+    uint countCandidates;
+    bool needMore;
+    uint totalCandidates;
   }
   //endregion ----------------------------------------------------- Data types
 
@@ -251,7 +260,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
 
   //region ----------------------------------------------------- Find best pool for borrowing
 
-  /// @inheritdoc
+  /// @inheritdoc IBorrowManager
   function findConverter(
     bytes memory entryData_,
     address user_,
@@ -288,124 +297,239 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     uint[] memory amountsToBorrowOut,
     int[] memory aprs18Out
   ) {
+    FindConverterLocal memory v;
+
     // get all platform adapters that support required pair of assets
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.collateralAsset, p_.borrowAsset)];
-
-    uint len = platformAdapters_.length();
-    address[] memory platformAdapters = new address[](len);
-    BorrowCandidate[] memory candidates = new BorrowCandidate[](len);
-    uint countCandidates = 0;
-
-    for (uint i; i < len; i = i.uncheckedInc()) {
-      platformAdapters[i] = IPlatformAdapter(pas.at(i));
+    v.len = pas.length();
+    v.platformAdapters = new IPlatformAdapter[](v.len);
+    for (uint i; i < v.len; i = i.uncheckedInc()) {
+      v.platformAdapters[i] = IPlatformAdapter(pas.at(i));
     }
+
+    BorrowCandidate[] memory candidates = new BorrowCandidate[](v.len);
 
     // find all exist valid debts and calculate how to make new borrow with rebalancing of the exist debt
     // add BorrowCandidate to {candidates} for such debts and clear up corresponded items in {platformAdapters}
-    uint index = 0;
+    (v.countCandidates, v.needMore) = findExistDebtsToRebalance(v.platformAdapters, p_, candidates);
+    v.totalCandidates = (v.needMore && v.len != 0)
+      // find borrow-candidates for all other platform adapters
+      ? _findPoolsForNewDebt(
+        v.platformAdapters,
+        v.countCandidates,
+        p_,
+        getTargetHealthFactor2(p_.collateralAsset),
+        candidates
+      )
+      : v.countCandidates;
+
+    return prepareFindConverterResults(v.countCandidates, v.totalCandidates, candidates);
+  }
+
+  /// @notice Copy {data_} to output arrays
+  ///         First {countDebts_} contain data for exist debts, they are copied as is
+  ///         Other part of {data_} is at first ordered by apr and then the data are copied to output arrays
+  /// @param countDebts_ Count items of {data_} corresponded to the exist debts
+  /// @param count_ Total count of valid items in {data_}
+  /// @param convertersOut Array with size equal to {count_}
+  ///                      First {countDebts_} contains data for the exist debts
+  ///                      All other items contains data for new positions that can be opened. These items are ordered by APR.
+  function prepareFindConverterResults(uint countDebts_, uint count_, BorrowCandidate[] memory data_) internal view returns (
+    address[] memory convertersOut,
+    uint[] memory collateralAmountsOut,
+    uint[] memory amountsToBorrowOut,
+    int[] memory aprs18Out
+  ) {
+    if (count_ != 0) {
+      // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
+      convertersOut = new address[](count_);
+      collateralAmountsOut = new uint[](count_);
+      amountsToBorrowOut = new uint[](count_);
+      aprs18Out = new int[](count_);
+
+      uint countNewPos = count_ - countDebts_;
+      int[] memory aprs = new int[](countNewPos);
+      for (uint i = 0; i < countNewPos; i = AppUtils.uncheckedInc(i)) {
+        aprs[i] = data_[countDebts_ + i].apr18;
+      }
+      uint[] memory indices = AppUtils._sortAsc(countNewPos, aprs);
+
+      for (uint i = 0; i < count_; i = AppUtils.uncheckedInc(i)) {
+        bool existDebt = i < countDebts_;
+        convertersOut[i] = data_[existDebt ? i : indices[i - countDebts_]].converter;
+        collateralAmountsOut[i] = data_[existDebt ? i : indices[i - countDebts_]].collateralAmount;
+        amountsToBorrowOut[i] = data_[existDebt ? i : indices[i - countDebts_]].amountToBorrow;
+        aprs18Out[i] = data_[existDebt ? i : indices[i - countDebts_]].apr18;
+      }
+    }
+
+    return (convertersOut, collateralAmountsOut, amountsToBorrowOut, aprs18Out);
+  }
+  //endregion ----------------------------------------------------- Find best pool for borrowing
+
+  //region ----------------------------------------------------- Find exist pool adapter to rebalance
+
+  /// @notice Enumerate {platformAdapters}, try to find exist pool adapters, calculate plans for new borrow.
+  ///         Each plan should make full/partial rebalance of the debt. Save results to {dest}.
+  ///         Reset to zero addresses of platform adapters for all found debts in {platformAdapters}.
+  /// @return count Total count of found pool adapters = count of plans saved to {dest}
+  /// @return needMore True if all found pool adapters are not able to use whole provided collateral,
+  ///                  so new lending platforms should be used in addition
+  function findExistDebtsToRebalance(
+    IPlatformAdapter[] memory platformAdapters,
+    AppDataTypes.InputConversionParams memory p_,
+    BorrowCandidate[] memory dest
+  ) internal view returns (
+    uint count,
+    bool needMore
+  ) {
+    needMore = true;
+    uint len = platformAdapters.length;
+    uint index;
+    uint usedAmountIn;
+    uint16 targetHealthFactor2 = getTargetHealthFactor2(p_.collateralAsset);
     while (index < len) {
       address poolAdapter;
-      (poolAdapter, index) = getExistPoolAdapter(platformAdapters, index, p.user, p_.collateralAsset, p_.borrowAsset);
-
-      if (index < len && poolAdapter != address(0)) {
-        BorrowCandidate c = _findPoolsForExistDebt(
+      (index, poolAdapter) = getExistValidPoolAdapter(platformAdapters, index, p_.user, p_.collateralAsset, p_.borrowAsset);
+      if (poolAdapter != address(0)) {
+        BorrowCandidate memory c;
+        (c, usedAmountIn) = _findPoolsForExistDebt(
           IPoolAdapter(poolAdapter),
-          IPlatformAdapter(platformAdapters[index]),
+          platformAdapters[index],
           p_,
-          getTargetHealthFactor2(p_.collateralAsset)
+          targetHealthFactor2,
+          usedAmountIn
         );
         if (c.converter != address(0)) {
-          candidates[countCandidates] = c;
-          platformAdapters[countCandidates++] = address(0);
+          dest[count++] = c;
+          platformAdapters[index] = IPlatformAdapter(address(0));
+          if (usedAmountIn >= p_.amountIn) break;
         }
       }
+
+      index++;
     }
 
-    // find borrow-candidates for all other platform adapters
-    // the list of such candidates should be ordered by APR
-    {
-      address[] memory converters;
-      uint[] memory collateralAmounts;
-      uint[] memory amountsToBorrow;
-      int[] memory aprs18;
-
-      uint countFoundItems;
-      if (pas.length() != 0) {
-        (converters, collateralAmounts, amountsToBorrow, aprs18, countFoundItems) = _findPoolsForNewDebt(
-          pas,
-          p_,
-          getTargetHealthFactor2(p_.collateralAsset)
-        );
-      }
-
-      // {candidates} => result arrays
-
-      if (countFoundItems > 0) {
-        // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
-        return AppUtils.shrinkAndOrder(countFoundItems, converters, collateralAmounts, amountsToBorrow, aprs18);
-      } else {
-        return (convertersOut, collateralAmountsOut, amountsToBorrowOut, aprs18Out);
-      }
-    }
+    return (count, needMore);
   }
 
   /// @notice Try to find exist borrow for the given user
-  /// @param pas All currently active platform adapters
+  /// @param platformAdapters_ All currently active platform adapters
+  /// @param index0_ Start to search from the item of {platformAdapters} with the given index
   /// @param user_ The user who tries to borrow {borrowAsset_} under {collateralAsset_}
+  /// @return indexPlatformAdapter Index of the platform adapter to which the {poolAdapter} belongs.
+  ///                              The index indicates position of the platform adapter in {platformAdapters}.
+  ///                              Return platformAdapters.len if the pool adapter wasn't found.
   /// @return poolAdapter First exist valid pool adapter found for the user-borrowAsset-collateralAsset
   ///                     "valid" means that the pool adapter is not dirty and can be use for new borrows
-  /// @return indexPlatformAdapter Index of the platform adapter to which the {poolAdapter} belongs.
-  ///                              The index indicates position of the platform adapter in {platformAdapters}
   function getExistValidPoolAdapter(
-    address[] memory platformAdapters,
+    IPlatformAdapter[] memory platformAdapters_,
+    uint index0_,
     address user_,
     address collateralAsset_,
     address borrowAsset_
   ) internal view returns (
-    address poolAdapter,
-    uint indexPlatformAdapter
+    uint indexPlatformAdapter,
+    address poolAdapter
   ) {
-    uint lenPools = platformAdapters_.length();
+    IConverterController _controller = IConverterController(controller());
+    uint lenPools = platformAdapters_.length;
 
-    for (uint i; i < lenPools; i = i.uncheckedInc()) {
-      IPlatformAdapter pa = IPlatformAdapter(platformAdapters_.at(i));
+    for (uint i = index0_; i < lenPools; i = i.uncheckedInc()) {
+      IPlatformAdapter pa = platformAdapters_[i];
       address[] memory converters = pa.converters();
       uint lenConverters = converters.length;
       for (uint j; j < lenConverters; j = j.uncheckedInc()) {
         poolAdapter = _getPoolAdapter(converters[j], user_, collateralAsset_, borrowAsset_);
         if (poolAdapter != address(0)) {
-          // todo: ensure that existPoolAdapter is not dirty
-          return (poolAdapter, i);
+          ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(
+            IPoolAdapter(poolAdapter),
+            _controller.minHealthFactor2()
+          );
+          // todo process REBALANCE_REQUIRED_2, put the pool adapter on the first place in dest
+
+          if (status != ConverterLogicLib.HealthStatus.DIRTY_1) {
+            return (i, poolAdapter); // health factor > 1
+          } // we are inside a view function, so just skip dirty pool adapters
         }
       }
     }
 
-    return (address(0), lenPools);
+    return (lenPools, address(0));
   }
 
   function _findPoolsForExistDebt(
     IPoolAdapter poolAdapter_,
     IPlatformAdapter platformAdapter_,
     AppDataTypes.InputConversionParams memory p_,
-    uint16 healthFactor2_
+    uint16 targetHealthFactor2_,
+    uint usedAmountIn0
   ) internal view returns (
-    address[] memory converters,
-    uint[] memory collateralAmountsOut,
-    uint[] memory amountsToBorrowOut,
-    int[] memory aprs18,
-    uint countFoundItems
+    BorrowCandidate memory dest,
+    uint usedAmountInFinal
   ) {
+    (uint collateralAmount, uint amountToPay, uint healthFactor18,,,) = poolAdapter_.getStatus();
+
+    (
+      int requiredBorrowAssetAmount,
+      int requiredCollateralAssetAmount
+    ) = ConverterLogicLib.getRebalanceAmounts(targetHealthFactor2_ * 1e16, collateralAmount, amountToPay, healthFactor18);
+
+
     // the user already has a debt with same collateral+borrow assets
     // so, we should use same pool adapter for new borrow AND rebalance exist debt in both directions if necessary
-    // there is a chance, that selected lending platform doesn't have enough amount to borrow
-    // in this case, we should add all other available lending platforms
-    // Already used lending platform should be always put on first place.
+    // There is a chance, that selected platform doesn't have enough amount to borrow, the collateral will be used partially.
     // There is a case when we cannot make full rebalance of exist debt
-    // (i.e. new collateral amount is too small). Partial rebalance should be made in this case.
-    return (converters, collateralAmountsOut, amountsToBorrowOut, aprs18, countFoundItems);
+    // (i.e. new borrow amount is too small). Partial rebalance should be made in this case.
+    AppDataTypes.ConversionPlan memory plan = getPlanWithRebalancing(
+      platformAdapter_,
+      p_,
+      targetHealthFactor2_,
+      requiredCollateralAssetAmount,
+      requiredBorrowAssetAmount
+    );
+
+    // take only the pool with enough liquidity
+    if (plan.converter != address(0) && plan.maxAmountToBorrow > plan.amountToBorrow) {
+      return (
+        BorrowCandidate({
+          converter: plan.converter,
+          amountToBorrow: plan.amountToBorrow,
+          collateralAmount: plan.collateralAmount,
+          apr18: _getApr18(plan, rewardsFactor) // todo cache rewardsFactor
+        }),
+        ((EntryKinds.getEntryKind(p_.entryData) == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2)
+          ? plan.amountToBorrow
+          : plan.collateralAmount
+        ) + usedAmountIn0 // todo what about case entryKind = 1???
+      );
+    } else {
+      return (dest, 0);
+    }
   }
 
+  function getPlanWithRebalancing(
+    IPlatformAdapter platformAdapter_,
+    AppDataTypes.InputConversionParams memory p_,
+    uint16 targetHealthFactor2_,
+    int requiredCollateralAssetAmount,
+    int requiredBorrowAssetAmount
+  ) internal view returns (
+    AppDataTypes.ConversionPlan memory plan
+  ) {
+    AppDataTypes.InputConversionParams memory input = AppDataTypes.InputConversionParams({
+      collateralAsset: p_.collateralAsset,
+      borrowAsset: p_.borrowAsset,
+      user: p_.user,
+      entryData: p_.entryData,
+      countBlocks: p_.countBlocks,
+      amountIn: p_.amountIn // todo
+    });
+    plan = platformAdapter_.getConversionPlan(p_, targetHealthFactor2_);
+  }
+  //endregion ----------------------------------------------------- Find exist pool adapter to rebalance
 
+  //region ----------------------------------------------------- Find new lending platforms to borrow
   /// @notice Enumerate all pools suitable for borrowing and enough liquidity.
   /// Assume, that currently the user doesn't have any debts with same collateral+borrow assets pair.
   /// So, the function just finds all available possibilities.
@@ -421,65 +545,40 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
   /// Max target amount capable to be borrowed: ResultTA = BS / PT [TA].
   /// We can use the pool only if ResultTA >= PTA >= required-target-amount
   /// @dev We cannot make this function public because storage-param is used
-  /// @return converters All found converters without ordering.
-  ///                    The size of array is always equal to the count of available lending platforms.
-  ///                    The array is sparse, unused items are zero.
+  /// @param platformAdapters_ List of available platform adapters.
+  ///                         {startDestIndex} items are 0 in this list, they will be skipped.
+  /// @param startDestIndex_ Index of first available position in {dest_}
+  /// @param dest_ New position should be saved here starting from {startDestIndex} position
+  ///              The length of array is equal to the length of platformAdapters
+  /// @return totalCount Count of valid items in dest_, it must be >= startDestIndex
   function _findPoolsForNewDebt(
-    EnumerableSet.AddressSet storage platformAdapters_,
+    IPlatformAdapter[] memory platformAdapters_,
+    uint startDestIndex_,
     AppDataTypes.InputConversionParams memory p_,
-    uint16 healthFactor2_
+    uint16 healthFactor2_,
+    BorrowCandidate[] memory dest_
   ) internal view returns (
-    address[] memory converters,
-    uint[] memory collateralAmountsOut,
-    uint[] memory amountsToBorrowOut,
-    int[] memory aprs18,
-    uint countFoundItems
+    uint totalCount
   ) {
-    uint lenPools = platformAdapters_.length();
+    totalCount = startDestIndex_;
 
-    converters = new address[](lenPools);
-    collateralAmountsOut = new uint[](lenPools);
-    amountsToBorrowOut = new uint[](lenPools);
-    aprs18 = new int[](lenPools);
+    uint len = platformAdapters_.length;
+    uint _rewardsFactor = rewardsFactor; // todo move to params
 
-    for (uint i; i < lenPools; i = i.uncheckedInc()) {
-      AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
-        p_,
-        healthFactor2_
-      );
+    for (uint i; i < len; i = i.uncheckedInc()) {
+      AppDataTypes.ConversionPlan memory plan = platformAdapters_[i].getConversionPlan(p_, healthFactor2_);
 
-      if (
-        plan.converter != address(0)
-        // check if we are able to supply required collateral
-        && plan.maxAmountToSupply > p_.amountIn
-      ) {
-        // combine all costs and incomes and calculate result APR. Rewards are taken with the given weight.
-        // Positive value means cost, negative - income
-        // APR = (cost - income) / collateralAmount, decimals 18, all amounts are given in terms of borrow asset.
-        int planApr18 = (
-          int(plan.borrowCost36)
-          - int(plan.supplyIncomeInBorrowAsset36)
-          - int(plan.rewardsAmountInBorrowAsset36 * rewardsFactor / REWARDS_FACTOR_DENOMINATOR_18)
-        )
-        * int(1e18)
-        / int(plan.amountCollateralInBorrowAsset36);
-
-        if (
-          // take only the pool with enough liquidity
-          plan.maxAmountToBorrow >= plan.amountToBorrow
-        ) {
-          converters[countFoundItems] = plan.converter;
-          amountsToBorrowOut[countFoundItems] = plan.amountToBorrow;
-          collateralAmountsOut[countFoundItems] = plan.collateralAmount;
-          aprs18[countFoundItems] = planApr18;
-          ++countFoundItems;
-        }
+      if (plan.converter != address(0)) {
+        dest_[totalCount++] = BorrowCandidate({
+          apr18: _getApr18(plan, _rewardsFactor),
+          amountToBorrow: plan.amountToBorrow,
+          collateralAmount: plan.collateralAmount,
+          converter: plan.converter
+        });
       }
     }
-
-    return (converters, collateralAmountsOut, amountsToBorrowOut, aprs18, countFoundItems);
   }
-  //endregion ----------------------------------------------------- Find best pool for borrowing
+  //endregion ----------------------------------------------------- Find new lending platforms to borrow
 
   //region ----------------------------------------------------- Minimal proxy creation
 
@@ -638,4 +737,19 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     return listPoolAdapters.length;
   }
   //endregion ----------------------------------------------------- Access to arrays
+
+  //region ----------------------------------------------------- Utils
+  function _getApr18(AppDataTypes.ConversionPlan memory plan_, uint rewardsFactor_) public pure returns (int) {
+    // combine all costs and incomes and calculate result APR. Rewards are taken with the given weight.
+    // Positive value means cost, negative - income
+    // APR = (cost - income) / collateralAmount, decimals 18, all amounts are given in terms of borrow asset.
+    return (
+      int(plan_.borrowCost36)
+      - int(plan_.supplyIncomeInBorrowAsset36)
+      - int(plan_.rewardsAmountInBorrowAsset36 * rewardsFactor_ / REWARDS_FACTOR_DENOMINATOR_18)
+    ) * int(1e18)
+      / int(plan_.amountCollateralInBorrowAsset36);
+  }
+
+  //endregion ----------------------------------------------------- Utils
 }

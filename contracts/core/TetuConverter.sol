@@ -123,6 +123,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
         p.borrowAprs18
       ) = IBorrowManager(_controller.borrowManager()).findConverter(
         entryData_,
+        msg.sender,
         sourceToken_,
         targetToken_,
         amountIn_,
@@ -171,6 +172,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       ? (converters, collateralAmountsOut, amountToBorrowsOut, aprs18) // no conversion is available
       : IBorrowManager(_controller.borrowManager()).findConverter(
         entryData_,
+        msg.sender,
         sourceToken_,
         targetToken_,
         amountIn_,
@@ -253,19 +255,14 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       address poolAdapter = borrowManager.getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
 
       if (poolAdapter != address(0)) {
-        // the pool adapter can have three possible states:
-        // - healthy (normal), it's ok to make new borrow using the pool adapter
-        // - unhealthy, health factor is less 1. It means that liquidation happens and the pool adapter is not usable.
-        // - unhealthy, health factor is greater 1 but it's less min-allowed-value. It means, that rebalance wasn't made
-        (,, uint healthFactor18,,,) = IPoolAdapter(poolAdapter).getStatus();
-        if (healthFactor18 < 1e18) {
+        ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(
+          IPoolAdapter(poolAdapter),
+          _controller.minHealthFactor2()
+        );
+        if (status == ConverterLogicLib.HealthStatus.DIRTY_1) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
           borrowManager.markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
           poolAdapter = address(0);
-        } else if (healthFactor18 <= (uint(_controller.minHealthFactor2()) * 10 ** (18 - 2))) {
-          // this is not normal situation
-          // keeper doesn't work? it's too risky to make new borrow
-          revert(AppErrors.REBALANCING_IS_REQUIRED);
         }
       }
 

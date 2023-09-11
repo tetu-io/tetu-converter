@@ -97,7 +97,7 @@ library AppUtils {
     }
   }
 
-  /// @notice Insertion sorting algorithm for using with arrays fewer than 10 elements, isert in ascending order.
+  /// @notice Insertion sorting algorithm for using with arrays fewer than 10 elements, insert in ascending order.
   ///         Take into account only first {length_} items of the {items_} array
   /// @dev Based on https://medium.com/coinmonks/sorting-in-solidity-without-comparison-4eb47e04ff0d
   /// @return indices Ordered list of indices of the {items_}, size = {length}
