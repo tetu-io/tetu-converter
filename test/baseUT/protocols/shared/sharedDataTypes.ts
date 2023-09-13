@@ -1,6 +1,5 @@
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
-import {HfComptrollerMock} from "../../../../typechain";
 
 export interface IAmountToRepay {
   useCollateral: boolean;
@@ -13,8 +12,20 @@ export interface IMakeRepayRebalanceBadPathParams {
   skipBorrow?: boolean;
   additionalAmountCorrectionFactorMul?: number;
   additionalAmountCorrectionFactorDiv?: number;
-  useHfComptrollerMock?: HfComptrollerMock;
   repayBorrowFails?: boolean;
+
+  useAavePoolMock?: boolean;
+  /**
+   * After call of repay() get current user status, save it and add given value to the saved health factor.
+   * So, next call of the status will return modified health factor.
+   */
+  addToHealthFactorAfterRepay?: string;
+
+  /**
+   * Don't modify health factor after borrow.
+   * As result, we call repayRebalance in valid state (health factor is already ok)
+   */
+  skipHealthFactors2?: boolean;
 }
 
 export interface IMakeRepayToRebalanceInputParams {

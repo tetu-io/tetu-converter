@@ -656,6 +656,23 @@ describe("BorrowManager", () => {
           expect(ret).equal(expected);
         });
       });
+      describe("Clear custom target health factor", () => {
+        it("should allow to clear health factor for the given asset", async () => {
+          const asset = ethers.Wallet.createRandom().address;
+          const healthFactor = 400;
+
+          const controller = await createController();
+          const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
+
+          const before = await borrowManager.targetHealthFactorsForAssets(asset);
+          await borrowManager.setTargetHealthFactors([asset], [healthFactor]);
+          const middle = await borrowManager.targetHealthFactorsForAssets(asset);
+          await borrowManager.setTargetHealthFactors([asset], [0]);
+          const after = await borrowManager.targetHealthFactorsForAssets(asset);
+
+          expect([before, middle, after].join()).eq([0, healthFactor, 0].join());
+        });
+      });
     });
     describe("Bad paths", () => {
       describe("Health factor is less then min value", () => {

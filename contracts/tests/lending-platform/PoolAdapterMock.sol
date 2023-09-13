@@ -14,11 +14,25 @@ import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../openzeppelin/SafeERC20.sol";
 
-/// @notice Deprecated. It's rather emulator, not mock. Use PoolAdapterMock2
+/// @notice It's rather emulator, not mock. Use PoolAdapterMock2 for mock tests
 contract PoolAdapterMock is IPoolAdapter {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
+  //#region ----------------------------------------------------- Data types
+  struct RewardsForUser {
+    address rewardToken;
+    uint rewardAmount;
+  }
+
+  struct BorrowParamsLog {
+    uint collateralAmount;
+    uint borrowAmount;
+    address receiver;
+  }
+  //#endregion ----------------------------------------------------- Data types
+
+  //#region ----------------------------------------------------- Variables
   address public controller;
   address private _pool;
   address private _user;
@@ -26,7 +40,7 @@ contract PoolAdapterMock is IPoolAdapter {
   address private _borrowAsset;
 
   MockERC20 private _cTokenMock;
-  /** Collateral factor (liquidation threshold) of the collateral asset */
+  /// @notice Collateral factor (liquidation threshold) of the collateral asset
   uint private _collateralFactor;
 
   uint private _borrowedAmounts;
@@ -34,33 +48,16 @@ contract PoolAdapterMock is IPoolAdapter {
   uint public borrowRate;
   address public priceOracle;
 
-  /// @dev block.number is a number of blocks passed since last borrow/repay
-  ///      we set it manually
+  /// @dev block.number is a number of blocks passed since last borrow/repay; we set it manually
   uint private _passedBlocks;
-
   address public originConverter;
-
   bool internal _debtGapRequired;
 
-  struct RewardsForUser {
-    address rewardToken;
-    uint rewardAmount;
-  }
   mapping(address => RewardsForUser) public rewardsForUsers;
-
-  //-----------------------------------------------------
-  struct BorrowParamsLog {
-    uint collateralAmount;
-    uint borrowAmount;
-    address receiver;
-  }
   BorrowParamsLog public borrowParamsLog;
+  //#endregion ----------------------------------------------------- Variables
 
-
-
-  //-----------------------------------------------------
-  ///           Setup mock behavior
-  //-----------------------------------------------------
+  //#region ----------------------------------------------------- Setup mock behavior
   function setPassedBlocks(uint countPassedBlocks_) external {
     console.log("PoolAdapterMock.setPassedBlocks", _passedBlocks, countPassedBlocks_);
     _passedBlocks = countPassedBlocks_;
@@ -95,8 +92,17 @@ contract PoolAdapterMock is IPoolAdapter {
     _debtGapRequired = debtGapRequired_;
   }
 
-  //-----------------------------------------------------
-  ///           Initialization
+  /// @notice Imitate closing the debt by resetting collateral and borrow amounts
+  function resetTheDebtForcibly() external {
+    _borrowedAmounts = 0;
+    uint balance = _cTokenMock.balanceOf(address(this));
+    if (balance != 0) {
+      _cTokenMock.burn(address(this), balance);
+    }
+  }
+  //#endregion ----------------------------------------------------- Setup mock behavior
+
+  //#region ----------------------------------------------------- Initialization
   ///  Constructor is not applicable, because this contract
   ///  is created using minimal-proxy pattern
   //-----------------------------------------------------
@@ -126,10 +132,9 @@ contract PoolAdapterMock is IPoolAdapter {
     priceOracle = priceOracle_;
     originConverter = originConverter_;
   }
+  //#endregion ----------------------------------------------------- Initialization
 
-  //-----------------------------------------------------
-  //           Getters
-  //-----------------------------------------------------
+  //#region ----------------------------------------------------- Getters
 
   function getConfig() external view override returns (
     address origin,
@@ -168,8 +173,11 @@ contract PoolAdapterMock is IPoolAdapter {
     uint8 decimalsCollateral = IERC20Metadata(_collateralAsset).decimals();
     uint8 decimalsBorrow = IERC20Metadata(_borrowAsset).decimals();
 
-    console.log("amountToPay = %d", amountToPay);
-    console.log("priceBorrowedUSD = %d", priceBorrowedUSD);
+    console.log("_getStatus.this", address(this));
+    console.log("_getStatus.collateralAmount = %d", collateralAmount);
+    console.log("_getStatus.amountToPay = %d", amountToPay);
+    console.log("_getStatus.priceBorrowedUSD = %d", priceBorrowedUSD);
+    console.log("_getStatus.priceCollateral = %d", priceCollateral);
 
     healthFactor18 = amountToPay == 0
         ? type(uint).max
@@ -177,10 +185,9 @@ contract PoolAdapterMock is IPoolAdapter {
       * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
       / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
 
-    console.log("getStatus:");
-    console.log("collateralAmount=%d", collateralAmount);
-    console.log("amountToPay=%d", amountToPay);
-    console.log("healthFactor18=%d", healthFactor18);
+    console.log("getStatus.collateralAmount=%d", collateralAmount);
+    console.log("getStatus.amountToPay=%d", amountToPay);
+    console.log("getStatus.healthFactor18=%d", healthFactor18);
 
     return (
       collateralAmount,
@@ -199,10 +206,9 @@ contract PoolAdapterMock is IPoolAdapter {
   function updateStatus() external override {
     //_accumulateDebt(_getAmountToRepay() - _borrowedAmounts);
   }
+  //#endregion ----------------------------------------------------- Getters
 
-  //-----------------------------------------------------
-  ///           Borrow emulation
-  //-----------------------------------------------------
+  //#region ----------------------------------------------------- Borrow emulation
 
   function borrow(
     uint collateralAmount_,
@@ -238,6 +244,11 @@ contract PoolAdapterMock is IPoolAdapter {
       / 1e18;
 
     uint claimedAmount = borrowAmount_.toMantissa(IERC20Metadata(_borrowAsset).decimals(), 18) * priceBorrowedUSD / 1e18;
+    console.log("claimedAmount", claimedAmount);
+    console.log("maxAmountToBorrowUSD", maxAmountToBorrowUSD);
+    console.log("_collateralFactor", _collateralFactor);
+    console.log("collateralAmount_", collateralAmount_);
+
     require(maxAmountToBorrowUSD >= claimedAmount, "borrow amount is too big");
 
     // send the borrow amount to the receiver
@@ -286,10 +297,9 @@ contract PoolAdapterMock is IPoolAdapter {
     _borrowedAmounts = _getAmountToRepay() + borrowedAmount_;
     _passedBlocks = 0;
   }
+  //#endregion ----------------------------------------------------- Borrow emulation
 
-  //-----------------------------------------------------
-  ///           Repay emulation
-  //-----------------------------------------------------
+  //#region ----------------------------------------------------- Repay emulation
 
   function repay(
     uint amountToRepay_,
@@ -298,6 +308,7 @@ contract PoolAdapterMock is IPoolAdapter {
   ) external override returns (uint) {
     console.log("repay", amountToRepay_, _borrowedAmounts);
     require(amountToRepay_ > 0, "nothing to repay");
+
     // add debts to the borrowed amount
     _accumulateDebt(0);
     require(_borrowedAmounts >= amountToRepay_, "try to repay too much");
@@ -342,6 +353,8 @@ contract PoolAdapterMock is IPoolAdapter {
   ) external override returns (
     uint resultHealthFactor18
   ) {
+    console.log("repayToRebalance.amount", amount_);
+    console.log("repayToRebalance.ctoken.balance", _cTokenMock.balanceOf(address(this)));
     require(amount_ > 0, "nothing to transfer");
     // add debts to the borrowed amount
     _accumulateDebt(0);
@@ -354,6 +367,7 @@ contract PoolAdapterMock is IPoolAdapter {
       uint amountCTokens = amount_; //TODO: exchange rate 1:1, it's not always true
       _cTokenMock.mint(address(this), amountCTokens);
       console.log("mint ctokens %s amount=%d to=%s", address(_cTokenMock), amountCTokens, address(this));
+      console.log("repayToRebalance.ctoken.balance", _cTokenMock.balanceOf(address(this)));
     } else {
       IERC20(_borrowAsset).safeTransferFrom(msg.sender, address(this), amount_);
       IERC20(_borrowAsset).transfer(_pool, amount_);
@@ -373,27 +387,25 @@ contract PoolAdapterMock is IPoolAdapter {
       ? collateralBalance
       : collateralBalance * amountToRepay_ / _borrowedAmounts;
   }
+  //#endregion ----------------------------------------------------- Repay emulation
 
-  //-----------------------------------------------------
-  ///           Get-state functions
-  //-----------------------------------------------------
+  //#region ----------------------------------------------------- Get-state functions
 
   function _getAmountToRepay() internal view returns (uint) {
     console.log("_getAmountToRepay _borrowedAmounts=%d _borrowRates=%d _passedBlocks=%d", _borrowedAmounts, borrowRate, _passedBlocks);
     return _borrowedAmounts + borrowRate * _passedBlocks;
   }
+  //#endregion ----------------------------------------------------- Get-state functions
 
 
-  //-----------------------------------------------------
-  ///           Utils
-  //-----------------------------------------------------
+  //#region ----------------------------------------------------- Utils
 
   function getPrice18(address asset) internal view returns (uint) {
-    console.log("getPrice18");
+    // console.log("getPrice18");
     IPriceOracle p = IPriceOracle(priceOracle);
 
     uint price18 = p.getAssetPrice(asset);
-    console.log("getPrice18 %d", price18);
+    // console.log("getPrice18 %d", price18);
     return price18;
   }
 
@@ -404,10 +416,9 @@ contract PoolAdapterMock is IPoolAdapter {
 //    console.log("APR18 =", borrowRate);
 //    return int(borrowRate * 10**18 / IERC20Metadata(_borrowAsset).decimals());
 //  }
+  //#endregion ----------------------------------------------------- Utils
 
-  //-----------------------------------------------------
-  ///                 Rewards
-  //-----------------------------------------------------
+  //#region ----------------------------------------------------- Rewards
   function claimRewards(address receiver_) external override returns (
     address rewardTokenOut,
     uint amountOut
@@ -428,4 +439,6 @@ contract PoolAdapterMock is IPoolAdapter {
       rewardsForUsers[_user].rewardAmount
     );
   }
+  //#endregion ----------------------------------------------------- Rewards
+
 }

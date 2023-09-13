@@ -134,7 +134,10 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     require(countItems == healthFactors2_.length, AppErrors.WRONG_LENGTHS);
 
     for (uint i = 0; i < countItems; i = i.uncheckedInc()) {
-      require(healthFactors2_[i] >= IConverterController(controller()).minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+      require(
+        healthFactors2_[i] == 0 || healthFactors2_[i] >= IConverterController(controller()).minHealthFactor2(),
+        AppErrors.WRONG_HEALTH_FACTOR
+      );
       targetHealthFactorsForAssets[assets_[i]] = healthFactors2_[i];
     }
 

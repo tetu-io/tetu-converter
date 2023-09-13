@@ -42,7 +42,6 @@ import {
   EntryKindsFacade,
   SwapLibFacade,
   PoolAdapterMock2,
-  TetuConverterCallbackMock,
   LendingPlatformMock2,
   Aave3AprLibFacade,
   AaveTwoAprLibFacade,
@@ -55,7 +54,8 @@ import {
   CometRewardsMock,
   DForceRewardDistributorMock,
   UpgradeableProxyFacade,
-  ControllableV3Facade
+  ControllableV3Facade,
+  TetuConverterCallbackMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";

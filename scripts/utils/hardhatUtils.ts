@@ -33,7 +33,7 @@ export function controlGasLimitsEx(
   f: (gasUsed: BigNumber, gasLimit: number) => void
 ) {
   console.log("process.env.APP_DISABLE_GAS_LIMITS_CONTROL", process.env.APP_DISABLE_GAS_LIMITS_CONTROL)
-  if (process.env.APP_DISABLE_GAS_LIMITS_CONTROL === "1") {
+  if (process.env.TETU_DISABLE_GAS_LIMITS_CONTROL === "1") {
     console.log(`Gas control is skipped: used=${gasUsed.toNumber()} limit=${gasLimit}}`);
   } else {
     f(gasUsed, gasLimit);

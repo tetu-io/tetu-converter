@@ -13,6 +13,7 @@ import "../interfaces/IPriceOracle.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../proxy/ControllableV3.sol";
+import "../libs/ConverterLogicLib.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor, ControllableV3 {
@@ -27,7 +28,10 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
   }
 
   //region ---------------------------------------------- Constants
-  string public constant DEBT_MONITOR_VERSION = "1.0.0";
+  string public constant DEBT_MONITOR_VERSION = "1.0.2";
+  /// @notice Allow {closeLiquidatedPosition} to close position with collateral amount less than given value
+  /// @dev For simplicity, this value is same for all assets (with any decimals).
+  uint public constant CLOSE_POSITION_GAP_TOKENS = 100;
   //endregion ---------------------------------------------- Constants
 
   //region ---------------------------------------------- Variables. Don't change names or ordering!
@@ -142,7 +146,7 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
     require(msg.sender == IConverterController(controller()).tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
 
     (uint collateralAmount, uint amountToPay,,,,) = IPoolAdapter(poolAdapter_).getStatus();
-    require(collateralAmount == 0, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
+    require(collateralAmount < CLOSE_POSITION_GAP_TOKENS, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
     _closePosition(poolAdapter_, true);
 
     emit OnCloseLiquidatedPosition(poolAdapter_, amountToPay);
@@ -209,21 +213,14 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
       // check if we need to make reconversion because the health factor is too low/high
       IPoolAdapter pa = IPoolAdapter(positions[p.startIndex0 + i]);
 
-      (uint collateralAmount, uint amountToPay, uint healthFactor18,,,) = pa.getStatus();
-      // If full liquidation happens we will have collateralAmount = 0 and amountToPay > 0
-      // In this case the open position should be just closed (we lost all collateral)
-      // We cannot do it here because it's read-only function.
-      // We should call a IKeeperCallback in the same way as for rebalancing, but with requiredAmountCollateralAsset=0
+      (uint requiredBorrowAssetAmount,
+       uint requiredCollateralAssetAmount
+      ) = ConverterLogicLib.checkPositionHealth(pa, borrowManager, p.healthFactorThreshold18);
 
-      (,,address collateralAsset,) = pa.getConfig();
-      uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(collateralAsset)) * 10 ** (18 - 2);
-      if (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) {// unhealthy
+      if (requiredBorrowAssetAmount != 0 || requiredCollateralAssetAmount != 0) {
         outPoolAdapters[countFoundItems] = positions[p.startIndex0 + i];
-        // Health Factor = Collateral Factor * CollateralAmount * Price_collateral / (BorrowAmount * Price_borrow)
-        // => requiredAmountBorrowAsset = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
-        // => requiredAmountCollateralAsset = CollateralAmount * (HealthFactorTarget/HealthFactorCurrent - 1)
-        outAmountBorrowAsset[countFoundItems] = (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18);
-        outAmountCollateralAsset[countFoundItems] = (collateralAmount * healthFactorTarget18 / healthFactor18 - collateralAmount);
+        outAmountBorrowAsset[countFoundItems] = requiredBorrowAssetAmount;
+        outAmountCollateralAsset[countFoundItems] = requiredCollateralAssetAmount;
 
         countFoundItems += 1;
 
