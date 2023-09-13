@@ -29,7 +29,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
   using EnumerableMap for EnumerableMap.UintToAddressMap;
 
   //region ----------------------------------------------------- Constants
-  string public constant BORROW_MANAGER_VERSION = "1.0.0";
+  string public constant BORROW_MANAGER_VERSION = "1.0.1";
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
   uint constant public REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
