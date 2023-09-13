@@ -17,6 +17,7 @@ import "../../integrations/aave3/IAaveProtocolDataProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "../../integrations/aave3/IAaveToken.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -41,7 +42,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     IAavePool pool;
     IAaveAddressesProvider addressProvider;
     IAavePriceOracle priceOracle;
-    IAaveProtocolDataProvider dataProvider;
     IConverterController controller;
     Aave3DataTypes.ReserveData rc;
     Aave3DataTypes.ReserveData rb;
@@ -147,7 +147,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       vars.pool = pool;
       vars.addressProvider = IAaveAddressesProvider(vars.pool.ADDRESSES_PROVIDER());
       vars.priceOracle = IAavePriceOracle(vars.addressProvider.getPriceOracle());
-      vars.dataProvider = IAaveProtocolDataProvider(vars.addressProvider.getPoolDataProvider());
 
       vars.rc = vars.pool.getReserveData(params.collateralAsset);
       if (_isUsable(vars.rc.configuration) &&  _isCollateralUsageAllowed(vars.rc.configuration)) {
@@ -164,11 +163,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
             //-------------------------------- Calculate maxAmountToSupply and maxAmountToBorrow
             // by default, we can borrow all available cache
-            (,,
-            vars.totalAToken,
-            vars.totalStableDebt,
-            vars.totalVariableDebt
-            ,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
+            (vars.totalAToken, vars.totalStableDebt, vars.totalVariableDebt) = _getReserveData(vars.rb);
 
             plan.maxAmountToBorrow = vars.totalAToken > vars.totalStableDebt + vars.totalVariableDebt
               ? vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt
@@ -320,8 +315,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                     vars.rb,
                     params.borrowAsset,
                     plan.amountToBorrow,
-                    vars.totalStableDebt,
-                    vars.totalVariableDebt
+                    vars.totalStableDebt, // assume, that it still contains value for the borrow asset
+                    vars.totalVariableDebt // assume, that it still contains value for the borrow asset
                   ),
                   params.countBlocks,
                   vars.blocksPerDay,
@@ -332,11 +327,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 / pd.rb10powDec;
 
                 // calculate supply-APR, see detailed explanation in Aave3AprLib
-                (,,
-                vars.totalAToken,
-                vars.totalStableDebt,
-                vars.totalVariableDebt
-                ,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
+                (vars.totalAToken, vars.totalStableDebt, vars.totalVariableDebt) = _getReserveData(vars.rc);
 
                 plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
                   AaveSharedLib.State({
@@ -379,6 +370,21 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       return plan;
     }
   }
+
+  /// @notice Get total amounts for the given asset
+  /// @dev We don't use dataProvider.getReserveData, because it returns 13 variables and we have stack-too-deep problem
+  ///      on coverage if include this file to converter.sol in tetu-v2-strategies, see SCB-799
+  function _getReserveData(Aave3DataTypes.ReserveData memory reserve) internal view returns (
+    uint totalAToken,
+    uint totalStableDebt,
+    uint totalVariableDebt
+  ) {
+    // see aave-v3-core, AaveProtocolDataProvider.sol, getReserveData implementation
+    totalAToken = IERC20(reserve.aTokenAddress).totalSupply();
+    totalStableDebt = IERC20(reserve.stableDebtTokenAddress).totalSupply();
+    totalVariableDebt = IERC20(reserve.variableDebtTokenAddress).totalSupply();
+  }
+
   //endregion ----------------------------------------------------- Get conversion plan
 
   //region ----------------------------------------------------- Utils
