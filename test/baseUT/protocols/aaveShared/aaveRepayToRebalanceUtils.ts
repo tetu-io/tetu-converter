@@ -70,7 +70,7 @@ export class AaveRepayToRebalanceUtils {
     deployer: SignerWithAddress,
     controller: ConverterController,
     makeRepayToRebalanceFunc: MakeRepayToRebalanceFunc,
-    targetHealthFactorInitial2: number,
+    targetHealthFactorInitial2: number, // todo: remove
     targetHealthFactorUpdated2: number,
     useCollateralAssetToRepay: boolean,
     badPathsParams?: IMakeRepayRebalanceBadPathParams

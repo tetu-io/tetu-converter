@@ -1,6 +1,5 @@
 import {ethers, network} from "hardhat";
-import {DeployerUtils} from "../utils/DeployerUtils";
-import {ConverterController__factory, IConverterController__factory} from "../../typechain";
+import {ConverterController__factory} from "../../typechain";
 import {RunHelper} from "../utils/RunHelper";
 
 /**

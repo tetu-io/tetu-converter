@@ -1450,7 +1450,7 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({additionalAmountCorrectionFactor: 3})
-          ).revertedWith("TC-3 wrong health factor");
+          ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
         });
       });
       describe("Use mocked HfComptroller", () => {
@@ -1560,6 +1560,10 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       expectedCollateralAssetAmountToRepay: BigNumber;
     }
 
+    interface IHfMakeRepayToRebalanceInputParamsWithCTokens extends IMakeRepayToRebalanceInputParamsWithCTokens {
+      useHfComptrollerMock?: HfComptrollerMock;
+    }
+
     /**
      * Prepare HundredFinance pool adapter.
      * Set low health factors.
@@ -1568,7 +1572,7 @@ describe.skip("HfPoolAdapterUnitTest", () => {
      * Make repay to rebalance.
      */
     async function makeRepayToRebalance (
-      p: IMakeRepayToRebalanceInputParamsWithCTokens
+      p: IHfMakeRepayToRebalanceInputParamsWithCTokens
     ) : Promise<IMakeRepayToRebalanceResults>{
       const d = await HundredFinanceTestUtils.prepareToBorrow(
         deployer,
@@ -1580,7 +1584,7 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         p.borrowCTokenAddress,
         {
           targetHealthFactor2: targetHealthFactorInitial2,
-          useHfComptrollerMock: p.badPathsParams?.useHfComptrollerMock
+          useHfComptrollerMock: p?.useHfComptrollerMock
         }
       );
       const collateralAssetData = await HundredFinanceHelper.getCTokenData(
@@ -1661,8 +1665,8 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         await d.controller.tetuConverter()
       );
 
-      if (p.badPathsParams?.useHfComptrollerMock && p.badPathsParams?.repayBorrowFails) {
-        p.badPathsParams?.useHfComptrollerMock.setRepayBorrowFails();
+      if (p?.useHfComptrollerMock && p.badPathsParams?.repayBorrowFails) {
+        p?.useHfComptrollerMock.setRepayBorrowFails();
       }
 
       await poolAdapterSigner.repayToRebalance(
@@ -1696,7 +1700,8 @@ describe.skip("HfPoolAdapterUnitTest", () => {
     async function makeRepayToRebalanceTest(
       assets: IAssetsInputParamsWithCTokens,
       useCollateralAssetToRepay: boolean,
-      badPathsParams?: IMakeRepayRebalanceBadPathParams
+      badPathsParams?: IMakeRepayRebalanceBadPathParams,
+      useHfComptrollerMock?: HfComptrollerMock
     ) : Promise<{ret: string, expected: string}> {
 
       const collateralToken = await TokenDataTypes.Build(deployer, assets.collateralAsset);
@@ -1716,7 +1721,8 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         badPathsParams,
         useCollateralAssetToRepay,
         collateralCTokenAddress: assets.collateralCTokenAddress,
-        borrowCTokenAddress: assets.borrowCTokenAddress
+        borrowCTokenAddress: assets.borrowCTokenAddress,
+        useHfComptrollerMock
       });
 
       console.log(r);
@@ -1932,7 +1938,7 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorDiv: 100})
-          ).revertedWith("TC-3 wrong health factor");
+          ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
         });
       });
       describe("Try to repay amount greater then the debt", () => {
@@ -1982,9 +1988,10 @@ describe.skip("HfPoolAdapterUnitTest", () => {
               },
               false, // repay using borrow asset
               {
-                useHfComptrollerMock: mocksSet.mockedComptroller,
                 repayBorrowFails: true
-              })
+              },
+              mocksSet.mockedComptroller
+            )
           ).revertedWith("TC-27 repay failed"); // REPAY_FAILED
         });
       });

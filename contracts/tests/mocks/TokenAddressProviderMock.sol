@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../interfaces/ITokenAddressProvider.sol";
+import "../../interfaces/ITokenAddressProvider.sol";
 
 contract TokenAddressProviderMock is ITokenAddressProvider {
   address public cToken1Value;

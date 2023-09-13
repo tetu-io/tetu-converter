@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.17;
 
-import "../interfaces/ISwapManager.sol";
-import "../interfaces/ISwapConverter.sol";
+import "../../interfaces/ISwapManager.sol";
+import "../../interfaces/ISwapConverter.sol";
 import "hardhat/console.sol";
 
 contract SwapManagerMock is ISwapManager, ISwapConverter {

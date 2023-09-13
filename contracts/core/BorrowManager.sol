@@ -29,7 +29,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
   using EnumerableMap for EnumerableMap.UintToAddressMap;
 
   //region ----------------------------------------------------- Constants
-  string public constant BORROW_MANAGER_VERSION = "1.0.0";
+  string public constant BORROW_MANAGER_VERSION = "1.0.1";
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
   uint constant public REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
@@ -134,7 +134,10 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     require(countItems == healthFactors2_.length, AppErrors.WRONG_LENGTHS);
 
     for (uint i = 0; i < countItems; i = i.uncheckedInc()) {
-      require(healthFactors2_[i] >= IConverterController(controller()).minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+      require(
+        healthFactors2_[i] == 0 || healthFactors2_[i] >= IConverterController(controller()).minHealthFactor2(),
+        AppErrors.WRONG_HEALTH_FACTOR
+      );
       targetHealthFactorsForAssets[assets_[i]] = healthFactors2_[i];
     }
 

@@ -39,6 +39,12 @@ export interface IMakeRepayBadPathsParams {
   borrowPriceIsZero?: boolean;
   ignoreRepay?: boolean;
   ignoreWithdraw?: boolean;
+
+  /**
+   * After call of repay() get current user status, save it and add given value to the saved health factor.
+   * So, next call of the status will return modified health factor.
+   */
+  addToHealthFactorAfterRepay?: string;
 }
 
 export class AaveBorrowUtils {
