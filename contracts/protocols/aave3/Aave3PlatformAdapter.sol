@@ -17,7 +17,6 @@ import "../../integrations/aave3/IAaveProtocolDataProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "../../integrations/aave3/IAaveToken.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -32,7 +31,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice We allow to borrow only 90% of max allowed amount, see the code below for explanation
   uint public constant MAX_BORROW_AMOUNT_FACTOR = 90;
   uint constant public MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR = 100;
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.3";
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types

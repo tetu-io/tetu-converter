@@ -17,7 +17,6 @@ import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoReserveInterestRateStrategy.sol";
 import "./AaveTwoAprLib.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v2-protocol, see https://docs.aave.com/hub/
 contract AaveTwoPlatformAdapter is IPlatformAdapter {
@@ -25,7 +24,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   //region ----------------------------------------------------- Constants
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.3";
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
