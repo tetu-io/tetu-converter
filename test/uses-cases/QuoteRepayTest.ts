@@ -8,7 +8,6 @@ import {
   BorrowRepayUsesCase,
   IQuoteRepayResults
 } from "../baseUT/uses-cases/BorrowRepayUsesCase";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
 import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
@@ -22,7 +21,7 @@ import {
   GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE_WITH_SWAP,
   GAS_LIMIT_QUOTE_REPAY_AAVE_TWO_WITH_SWAP
 } from "../baseUT/GasLimit";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
@@ -37,6 +36,8 @@ describe("QuoteRepayTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -45,7 +46,6 @@ describe("QuoteRepayTest", () => {
     // and some tests don't pass
     deployer = signers[1];
 
-    if (!await isPolygonForkInUse()) return;
     // We need to replace DForce price oracle by custom one
     // because when we run all tests
     // DForce-prices deprecate before DForce tests are run
@@ -88,7 +88,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new Aave3PlatformFabric()],
@@ -117,7 +116,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected value", async () => {
-              if (!await isPolygonForkInUse()) return;
               const collateralReceivedByUser = results.userBalances[1].collateral.sub(results.userBalances[0].collateral);
               console.log(`Received collateral=${collateralReceivedByUser.toString()} quote=${results.quoteRepayResultCollateralAmount}`);
               console.log(`Balance0 ${results.ucBalanceCollateral0.toString()}`);
@@ -133,7 +131,6 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE3, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -143,7 +140,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new AaveTwoPlatformFabric()],
@@ -172,7 +168,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected value", async () => {
-              if (!await isPolygonForkInUse()) return;
               const collateralReceivedByUser = results.userBalances[1].collateral.sub(results.userBalances[0].collateral);
               console.log(`Received collateral=${collateralReceivedByUser.toString()} quote=${results.quoteRepayResultCollateralAmount}`);
               console.log(`Balance0 ${results.ucBalanceCollateral0.toString()}`);
@@ -184,7 +179,6 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -194,7 +188,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new DForcePlatformFabric()],
@@ -223,7 +216,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected value", async () => {
-              if (!await isPolygonForkInUse()) return;
               const collateralReceivedByUser = results.userBalances[1].collateral.sub(results.userBalances[0].collateral);
               console.log(`Received collateral=${collateralReceivedByUser.toString()} quote=${results.quoteRepayResultCollateralAmount}`);
               console.log(`Balance0 ${results.ucBalanceCollateral0.toString()}`);
@@ -234,7 +226,6 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -244,7 +235,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new HundredFinancePlatformFabric()],
@@ -273,7 +263,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected value", async () => {
-              if (!await isPolygonForkInUse()) return;
               const collateralReceivedByUser = results.userBalances[1].collateral.sub(results.userBalances[0].collateral);
               console.log(`Received collateral=${collateralReceivedByUser.toString()} quote=${results.quoteRepayResultCollateralAmount}`);
               console.log(`Balance0 ${results.ucBalanceCollateral0.toString()}`);
@@ -284,7 +273,6 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -307,7 +295,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new Aave3PlatformFabric()],
@@ -336,7 +323,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected value", async () => {
-              if (!await isPolygonForkInUse()) return;
               const collateralReceivedByUser = results.userBalances[1].collateral.sub(results.userBalances[0].collateral);
               console.log(`Received collateral=${collateralReceivedByUser.toString()} quote=${results.quoteRepayResultCollateralAmount}`);
               console.log(`Balance0 ${results.ucBalanceCollateral0.toString()}`);
@@ -352,7 +338,6 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE3, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -362,7 +347,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new AaveTwoPlatformFabric()],
@@ -391,7 +375,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected value", async () => {
-              if (!await isPolygonForkInUse()) return;
               const collateralReceivedByUser = results.userBalances[1].collateral.sub(results.userBalances[0].collateral);
               console.log(`Received collateral=${collateralReceivedByUser.toString()} quote=${results.quoteRepayResultCollateralAmount}`);
               console.log(`Balance0 ${results.ucBalanceCollateral0.toString()}`);
@@ -403,7 +386,6 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -413,7 +395,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new DForcePlatformFabric()],
@@ -442,7 +423,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected value", async () => {
-              if (!await isPolygonForkInUse()) return;
               const collateralReceivedByUser = results.userBalances[1].collateral.sub(results.userBalances[0].collateral);
               console.log(`Received collateral=${collateralReceivedByUser.toString()} quote=${results.quoteRepayResultCollateralAmount}`);
               console.log(`Balance0 ${results.ucBalanceCollateral0.toString()}`);
@@ -453,7 +433,6 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -463,7 +442,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new HundredFinancePlatformFabric()],
@@ -492,7 +470,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected value", async () => {
-              if (!await isPolygonForkInUse()) return;
               const collateralReceivedByUser = results.userBalances[1].collateral.sub(results.userBalances[0].collateral);
               console.log(`Received collateral=${collateralReceivedByUser.toString()} quote=${results.quoteRepayResultCollateralAmount}`);
               console.log(`Balance0 ${results.ucBalanceCollateral0.toString()}`);
@@ -503,7 +480,6 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -529,7 +505,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new Aave3PlatformFabric()],
@@ -560,7 +535,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE3_WITH_SWAP, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -570,7 +544,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new AaveTwoPlatformFabric()],
@@ -601,7 +574,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE_TWO_WITH_SWAP, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -611,7 +583,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new DForcePlatformFabric()],
@@ -642,7 +613,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_DFORCE_WITH_SWAP, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -652,7 +622,6 @@ describe("QuoteRepayTest", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new HundredFinancePlatformFabric()],
@@ -683,7 +652,6 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE_WITH_SWAP, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });

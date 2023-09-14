@@ -9,6 +9,7 @@ import {
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 const parseUnits = ethers.utils.parseUnits;
 
 describe("TetuLiquidatorMock", () => {
@@ -31,6 +32,8 @@ describe("TetuLiquidatorMock", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

@@ -11,7 +11,6 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
@@ -24,6 +23,7 @@ import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 
 describe("DForcePoolAdapterIntTest", () => {
@@ -36,6 +36,7 @@ describe("DForcePoolAdapterIntTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -219,14 +220,12 @@ describe("DForcePoolAdapterIntTest", () => {
       describe("Borrow small fixed amount", () => {
         describe("DAI-18 : usdc-6", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await testBorrowDaiUsdc(100_000, 10);
             expect(r.ret).eq(r.expected);
           });
         });
         describe("WBTC : Matic", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await testBorrowWbtcMatic(1, 10);
             expect(r.ret).eq(r.expected);
           });
@@ -235,14 +234,12 @@ describe("DForcePoolAdapterIntTest", () => {
       describe("Borrow max available amount using all available collateral", () => {
         describe("DAI-18 : usdc-6", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await testBorrowDaiUsdc(undefined, undefined);
             expect(r.ret).eq(r.expected);
           });
         });
         describe("Matic-18 : ETH-18", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await testBorrowMaticEth(undefined, undefined);
             expect(r.ret).eq(r.expected);
           });
@@ -770,24 +767,18 @@ describe("DForcePoolAdapterIntTest", () => {
         describe("Partial repay of borrowed amount", () => {
           describe("DAI => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await daiUSDC(false, false);
               expect(r.ret).eq(r.expected);
             });
           });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await daiWMatic(false, false);
               expect(r.ret).eq(r.expected);
             });
           });
           describe("USDT => WETH", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await usdtWETH(
                 false,
                 false,
@@ -799,8 +790,6 @@ describe("DForcePoolAdapterIntTest", () => {
         describe("Full repay of borrowed amount", () => {
           describe("DAI => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await daiUSDC(
                 false,
@@ -812,8 +801,6 @@ describe("DForcePoolAdapterIntTest", () => {
           });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await daiWMatic(
                 false,
@@ -829,16 +816,12 @@ describe("DForcePoolAdapterIntTest", () => {
         describe("Partial repay of borrowed amount", () => {
           describe("DAI => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await daiUSDC(false, false);
               expect(r.ret).eq(r.expected);
             });
           });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await daiWMatic(false, false);
               expect(r.ret).eq(r.expected);
             });
@@ -847,8 +830,6 @@ describe("DForcePoolAdapterIntTest", () => {
         describe("Full repay of borrowed amount", () => {
           describe("DAI => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await daiUSDC(
                 false,
@@ -860,8 +841,6 @@ describe("DForcePoolAdapterIntTest", () => {
           });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await daiWMatic(
                 false,
@@ -873,8 +852,6 @@ describe("DForcePoolAdapterIntTest", () => {
           });
           describe("USDT => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await usdtUSDC(
                 false,
@@ -890,8 +867,6 @@ describe("DForcePoolAdapterIntTest", () => {
     describe("Bad paths", () => {
       describe("Not user, not TC", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           await expect(
             daiUSDC(
               false,
@@ -906,8 +881,6 @@ describe("DForcePoolAdapterIntTest", () => {
       });
       describe("Transfer amount less than specified amount to repay", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const usdcDecimals = await IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer).decimals();
           await expect(
             daiUSDC(
@@ -924,7 +897,6 @@ describe("DForcePoolAdapterIntTest", () => {
       });
       describe("Try to repay not opened position", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           const initialBorrowAmountOnUserBalanceNumber = 1000;
           await expect(
             daiUSDC(
@@ -938,7 +910,6 @@ describe("DForcePoolAdapterIntTest", () => {
       });
       describe("Try to close position with not zero debt", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiUSDC(
               false,

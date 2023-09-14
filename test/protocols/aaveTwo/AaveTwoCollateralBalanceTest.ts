@@ -4,7 +4,6 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
@@ -13,6 +12,7 @@ import {AaveTwoTestUtils, IInitialBorrowResults} from "../../baseUT/protocols/aa
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {ConverterController} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("AaveTwoCollateralBalanceTest", () => {
 //region Constants
@@ -34,12 +34,12 @@ describe("AaveTwoCollateralBalanceTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
 
-    if (!await isPolygonForkInUse()) return;
     controllerInstance = await TetuConverterApp.createController(deployer);
     init = await makeInitialBorrow();
   });
@@ -93,8 +93,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
   describe("Check collateralBalanceATokens and status.collateralAmountLiquidated", () => {
     describe("Make second borrow", () => {
       it("should return expected collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await AaveTwoTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await AaveTwoTestUtils.makeBorrow(deployer, init.d, undefined);
         const stateAfterSecondBorrow = await AaveTwoTestUtils.getState(init.d);
@@ -114,8 +112,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await AaveTwoTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await AaveTwoTestUtils.makeBorrow(deployer, init.d, undefined);
         await AaveTwoTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
@@ -141,8 +137,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
     });
     describe("Make partial repay", () => {
       it("should return expected collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await AaveTwoTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await AaveTwoTestUtils.makeRepay(
           init.d,
@@ -165,8 +159,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await AaveTwoTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await AaveTwoTestUtils.makeBorrow(deployer, init.d, undefined);
 
@@ -198,8 +190,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
     });
     describe("Make repay to rebalance using collateral asset", () => {
       it("add collateral, should return updated collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.collateralAmount.mul(2).div(3);
@@ -237,7 +227,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.collateralAmount.mul(2).div(3);
@@ -281,7 +270,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
     });
     describe("Make repay to rebalance using borrow asset", () => {
       it("add borrow, should not change internal collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
 
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
@@ -315,7 +303,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
 
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
@@ -352,8 +339,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
     });
     describe("Make liquidation", () => {
       it("should return not-zero collateralAmountLiquidated", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         // reduce price of collateral to reduce health factor below 1
         await AaveTwoChangePricesUtils.changeAssetPrice(deployer, init.d.collateralToken.address, false, 10);
 
@@ -378,8 +363,6 @@ describe("AaveTwoCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it.skip("try to make full repay, aave reverts", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const stateAfterLiquidation = await AaveTwoTestUtils.getState(init.d);
 

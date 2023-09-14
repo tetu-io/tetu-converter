@@ -7,8 +7,8 @@ import {PriceOracle} from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {parseUnits} from "ethers/lib/utils";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {Misc} from "../../scripts/utils/Misc";
+import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 
 describe("Price oracle tests", () => {
 //region Global vars for all tests
@@ -20,6 +20,8 @@ describe("Price oracle tests", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -59,39 +61,31 @@ describe("Price oracle tests", () => {
   describe("getAssetPrice", () => {
     describe("Good paths", () => {
       it("should return almost 1e18 for USDC", async () => {
-        if (!await isPolygonForkInUse()) return;
         const price = await priceOracle.getAssetPrice(MaticAddresses.USDC);
         const ret = areAlmostEqual(price, parseUnits("1", 18), 3);
         expect(ret).eq(true);
       });
       it("should return not zero for DAI", async () => {
-        if (!await isPolygonForkInUse()) return;
         expect((await priceOracle.getAssetPrice(MaticAddresses.DAI)).eq(0)).eq(false);
       });
       it("should return not zero for USDT", async () => {
-        if (!await isPolygonForkInUse()) return;
         expect((await priceOracle.getAssetPrice(MaticAddresses.USDT)).eq(0)).eq(false);
       });
       it("should return not zero for WETH", async () => {
-        if (!await isPolygonForkInUse()) return;
         expect((await priceOracle.getAssetPrice(MaticAddresses.WETH)).eq(0)).eq(false);
       });
       it("should return not zero for WBTC", async () => {
-        if (!await isPolygonForkInUse()) return;
         expect((await priceOracle.getAssetPrice(MaticAddresses.WBTC)).eq(0)).eq(false);
       });
       it("should return not zero for WMATIC", async () => {
-        if (!await isPolygonForkInUse()) return;
         expect((await priceOracle.getAssetPrice(MaticAddresses.WMATIC)).eq(0)).eq(false);
       });
       it("should return not zero for EURS", async () => {
-        if (!await isPolygonForkInUse()) return;
         expect((await priceOracle.getAssetPrice(MaticAddresses.EURS)).eq(0)).eq(false);
       });
     });
     describe("Bad paths", () => {
       it("should return 0 if the asset is unknown", async () => {
-        if (!await isPolygonForkInUse()) return;
         const ret = await priceOracle.getAssetPrice(ethers.Wallet.createRandom().address);
         expect(ret.eq(0)).eq(true);
       });

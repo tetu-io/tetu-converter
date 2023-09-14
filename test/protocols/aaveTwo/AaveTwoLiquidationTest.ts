@@ -3,12 +3,12 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {AaveTwoTestUtils, IPrepareToLiquidationResults} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -33,12 +33,12 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
 
-    if (!await isPolygonForkInUse()) return;
     init = await AaveTwoTestUtils.prepareToLiquidation(
       deployer,
       collateralAsset,
@@ -65,15 +65,11 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
 //region Unit tests
   describe("Make borrow, change prices, make health factor < 1", () => {
     it("health factor is less 1 before liquidation", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
       expect(healthFactorNum).below(1);
     });
 
     it("liquidator receives all collateral", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const r = await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
       const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
         r.collateralAmountReceivedByLiquidator,
@@ -100,8 +96,6 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
     });
 
     it("Try to make new borrow after liquidation", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder)
 
       // put collateral amount on user's balance
@@ -118,8 +112,6 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
     });
 
     it("Try to repay before liquidation", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       // make repayment to rebalance
       const amountsToRepay = {
         useCollateral: true,

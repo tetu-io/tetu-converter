@@ -7,7 +7,6 @@ import {
   BorrowManager__factory,
   ConverterController,
   ConverterController__factory,
-  DebtMonitor__factory,
   IBorrowManager__factory,
   IPoolAdapter,
   IPoolAdapter__factory,
@@ -17,7 +16,6 @@ import {
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
   GAS_LIMIT_BM_FIND_POOL_1,
   GAS_LIMIT_BM_FIND_POOL_10,
@@ -34,6 +32,7 @@ import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
+import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -45,6 +44,8 @@ describe("BorrowManager", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

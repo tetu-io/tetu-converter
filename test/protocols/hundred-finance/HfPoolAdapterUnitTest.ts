@@ -15,7 +15,6 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
@@ -38,6 +37,7 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("HfPoolAdapterUnitTest", () => {
 
@@ -49,6 +49,7 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -158,7 +159,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         let snapshotLocal: string;
         before(async function () {
           snapshotLocal = await TimeUtils.snapshot();
-          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -173,7 +173,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         });
 
         it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -193,7 +192,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
         });
         it("should open position in debt monitor", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -201,12 +199,10 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -225,7 +221,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         let snapshotLocal: string;
         before(async function () {
           snapshotLocal = await TimeUtils.snapshot();
-          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -239,7 +234,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           await TimeUtils.rollback(snapshotLocal);
         });
         it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -257,7 +251,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should open position in debt monitor", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -265,12 +258,10 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -289,7 +280,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         let snapshotLocal: string;
         before(async function () {
           snapshotLocal = await TimeUtils.snapshot();
-          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -303,7 +293,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           await TimeUtils.rollback(snapshotLocal);
         });
         it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -323,7 +312,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
         });
         it("should open position in debt monitor", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -331,12 +319,10 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -355,7 +341,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         let snapshotLocal: string;
         before(async function () {
           snapshotLocal = await TimeUtils.snapshot();
-          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -369,7 +354,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           await TimeUtils.rollback(snapshotLocal);
         });
         it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -392,7 +376,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
         });
         it("should open position in debt monitor", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -400,12 +383,10 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -417,7 +398,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if not tetu converter", async () => {
-        if (!await isPolygonForkInUse()) return;
         const collateralAsset = MaticAddresses.DAI;
         const collateralCToken = MaticAddresses.hDAI;
         const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -437,7 +417,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Use mocked HfComptroller", () => {
         it("normal borrow should work correctly", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -471,7 +450,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should revert if comptroller doesn't return borrowed amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -493,7 +471,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
         });
         it("should revert if fail to get liquidity balance after borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -515,7 +492,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-22 liquidity failed"); // CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED
         });
         it("should revert if liquidity balance is incorrect after borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -537,7 +513,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-23 incorrect liquidity"); // INCORRECT_RESULT_LIQUIDITY
         });
         it("should revert if mint fails", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -559,7 +534,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-17 mint failed"); // MINT_FAILED
         });
         it("should revert if borrow fails", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -688,7 +662,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         let snapshotLocal: string;
         before(async function () {
           snapshotLocal = await TimeUtils.snapshot();
-          if (!await isPolygonForkInUse()) return;
           results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,
@@ -703,7 +676,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           await TimeUtils.rollback(snapshotLocal);
         });
         it("should get expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -722,7 +694,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should close position after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -730,7 +701,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(false);
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -740,7 +710,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
         });
         it("should withdraw expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -756,7 +725,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         let snapshotLocal: string;
         before(async function () {
           snapshotLocal = await TimeUtils.snapshot();
-          if (!await isPolygonForkInUse()) return;
           results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,
@@ -771,7 +739,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           await TimeUtils.rollback(snapshotLocal);
         });
         it("should get expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -790,7 +757,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should close position after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -798,7 +764,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(false);
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -808,7 +773,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
         });
         it("should withdraw expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -825,7 +789,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         let snapshotLocal: string;
         before(async function () {
           snapshotLocal = await TimeUtils.snapshot();
-          if (!await isPolygonForkInUse()) return;
           results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,
@@ -840,7 +803,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           await TimeUtils.rollback(snapshotLocal);
         });
         it("should get expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -859,7 +821,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should close position after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -867,7 +828,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           expect(ret).eq(false);
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -877,12 +837,10 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
         });
         it("should withdraw expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
         it("repay() should return expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect(areAlmostEqual(results.repayResultsCollateralAmountOut, results.init.collateralAmount)).eq(true);
         });
       });
@@ -923,7 +881,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         expect(ret).eq(true);
       });
       it("should revert if not tetu converter", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeFullRepayTest(
             collateralAsset,
@@ -941,7 +898,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should fail if pay too small amount and try to close the position", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeFullRepayTest(
             collateralAsset,
@@ -957,7 +913,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Use mocked HfComptroller", () => {
         it("normal repay should work correctly", async () => {
-          if (!await isPolygonForkInUse()) return;
           const results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,
@@ -986,7 +941,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
         });
         it("should revert if repayBorrow fails", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
           await mocksSet.mockedComptroller.setRepayBorrowFails();
           await expect(
@@ -1006,7 +960,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-27 repay failed"); // REPAY_FAILED
         });
         it("should revert if redeem fails", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await mocksSet.mockedComptroller.setRedeemFails();
@@ -1027,7 +980,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-26 redeem failed"); // REDEEM_FAILED
         });
         it("should revert if getAccountSnapshot for collateral fails", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await mocksSet.mockedBorrowCToken.setCollateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent(3);
@@ -1048,7 +1000,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
         });
         it("should revert if getAccountSnapshot for borrow fails", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await mocksSet.mockedBorrowCToken.setBorrowTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent(3);
@@ -1069,7 +1020,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
         });
         it("should revert with CLOSE_POSITION_FAILED if token balance is not zero after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await expect(
@@ -1089,7 +1039,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
         });
         it("should revert with CLOSE_POSITION_FAILED if borrow balance is not zero after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await expect(
@@ -1110,7 +1059,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
         });
         it("should revert with WRONG_BORROWED_BALANCE if amount to repay is less than borrow balance during full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await mocksSet.mockedBorrowCToken.setReturnBorrowBalance1AfetCallingBorrowBalanceCurrent();
@@ -1371,7 +1319,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
     }
     describe("Good paths", () => {
       it("should return expected values for DAI:USDC", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await testDaiUSDC();
         const ret = [
           // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
@@ -1390,7 +1337,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         expect(ret).eq(expected);
       });
       it("should return expected values for MATIC:USDC", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await testMaticUSDC();
         const ret = [
           // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
@@ -1409,7 +1355,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         expect(ret).eq(expected);
       });
       it("should return expected values for USDC:MATIC", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await testUSDCMatic();
         const ret = [
           // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
@@ -1431,7 +1376,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
     describe("Bad paths", () => {
       describe("Not TetuConverter", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({makeBorrowToRebalanceAsDeployer: true})
           ).revertedWith("TC-8 tetu converter only");
@@ -1439,7 +1383,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Position is not registered", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({skipBorrow: true})
           ).revertedWith("TC-11 position not registered"); // BORROW_POSITION_IS_NOT_REGISTERED
@@ -1447,7 +1390,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Result health factor is less min allowed one", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({additionalAmountCorrectionFactor: 3})
           ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
@@ -1455,7 +1397,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Use mocked HfComptroller", () => {
         it("should revert if comptroller doesn't return borrowed amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralAsset = MaticAddresses.DAI;
           const collateralHolder = MaticAddresses.HOLDER_DAI;
           const collateralCTokenAddress = MaticAddresses.hDAI;
@@ -1496,7 +1437,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
         });
         it("should revert if borrow fails", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralAsset = MaticAddresses.DAI;
           const collateralHolder = MaticAddresses.HOLDER_DAI;
           const collateralCTokenAddress = MaticAddresses.hDAI;
@@ -1865,7 +1805,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       describe("Use borrow asset to repay", () => {
         describe("Dai : WMatic", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await daiWMatic(false);
 
             expect(r.ret).eq(r.expected);
@@ -1873,7 +1812,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         });
         describe("USDC : USDT", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await usdcUsdt(false);
 
             expect(r.ret).eq(r.expected);
@@ -1881,7 +1819,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         });
         describe("WBTC : WETH", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await wbtcWETH(false);
 
             expect(r.ret).eq(r.expected);
@@ -1891,7 +1828,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       describe("Use collateral asset to repay", () => {
         describe("Dai : WMatic", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await daiWMatic(true);
 
             expect(r.ret).eq(r.expected);
@@ -1899,7 +1835,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         });
         describe("USDC : USDT", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await usdcUsdt(true);
 
             expect(r.ret).eq(r.expected);
@@ -1907,7 +1842,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         });
         describe("WBTC : WETH", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await wbtcWETH(true);
 
             expect(r.ret).eq(r.expected);
@@ -1919,7 +1853,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
     describe("Bad paths", () => {
       describe("Not TetuConverter and not user", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{makeRepayToRebalanceAsDeployer: true})
           ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
@@ -1927,7 +1860,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Position is not registered", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{skipBorrow: true})
           ).revertedWith("TC-11 position not registered");
@@ -1935,7 +1867,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Result health factor is less min allowed one", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorDiv: 100})
           ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
@@ -1943,7 +1874,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Try to repay amount greater then the debt", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorMul: 100})
           ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
@@ -1951,7 +1881,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Use mocked HfComptroller", () => {
         it("should revert if repayBorrow fails", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralAsset = MaticAddresses.DAI;
           const collateralHolder = MaticAddresses.HOLDER_DAI;
           const collateralCTokenAddress = MaticAddresses.hDAI;
@@ -2000,8 +1929,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
   describe("updateBalance", () => {
     it("should return expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const collateralAsset = MaticAddresses.DAI;
       const collateralCToken = MaticAddresses.hDAI;
       const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -2110,56 +2037,47 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await makeInitializePoolAdapterTest();
         expect(r.ret).eq(r.expected);
       });
     });
     describe("Bad paths", () => {
       it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroController: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero user", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroUser: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero pool", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroPool: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero converter", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroConverter: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero collateral asset", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroCollateralAsset: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero borrow asset", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroBorrowAsset: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero token address provider", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroTokenAddressProvider: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on second initialization", async () => {
-        if (!await isPolygonForkInUse()) return;
         const d = await makeInitializePoolAdapter();
         await expect(
           d.poolAdapter.initialize(
@@ -2174,7 +2092,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         ).revertedWith("Initializable: contract is already initialized");
       });
       it("should revert if token address provider returns zero cTokenCollateral", async () => {
-        if (!await isPolygonForkInUse()) return;
         const tokenAddressProviderMock = await MocksHelper.createTokenAddressProviderMock(
           deployer,
           Misc.ZERO_ADDRESS, // (!)
@@ -2185,7 +2102,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         ).revertedWith("TC-16 ctoken not found"); // C_TOKEN_NOT_FOUND
       });
       it("should revert if token address provider returns zero cTokenBorrow", async () => {
-        if (!await isPolygonForkInUse()) return;
         const tokenAddressProviderMock = await MocksHelper.createTokenAddressProviderMock(
           deployer,
           MaticAddresses.hMATIC,
@@ -2200,7 +2116,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
 
   describe("claimRewards", () => {
     it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const receiver = ethers.Wallet.createRandom().address;
         const d = await HundredFinanceTestUtils.prepareToBorrow(
           deployer,
@@ -2219,7 +2134,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
   describe("getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const d = await HundredFinanceTestUtils.prepareToBorrow(
           deployer,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
@@ -2238,7 +2152,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
   describe("getConfig", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const d = await HundredFinanceTestUtils.prepareToBorrow(
           deployer,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
@@ -2269,8 +2182,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
   describe("getStatus", () => {
     describe("Good paths", () => {
       it("user has made a borrow, should return expected status", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralAsset = MaticAddresses.USDT;
         const collateralCToken = MaticAddresses.hUSDT;
         const collateralHolder = MaticAddresses.HOLDER_USDT;
@@ -2301,8 +2212,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         expect(ret).eq(expected);
       });
       it("user has not made a borrow, should return expected status", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralAsset = MaticAddresses.USDT;
         const collateralCToken = MaticAddresses.hUSDT;
         const collateralHolder = MaticAddresses.HOLDER_USDT;
@@ -2337,7 +2246,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if getAccountSnapshot for collateral fails", async () => {
-        if (!await isPolygonForkInUse()) return;
         const collateralAsset = MaticAddresses.USDT;
         const collateralCToken = MaticAddresses.hUSDT;
         const collateralHolder = MaticAddresses.HOLDER_USDT;
@@ -2363,7 +2271,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
       });
       it("should revert if getAccountSnapshot for borrow fails", async () => {
-        if (!await isPolygonForkInUse()) return;
         const collateralAsset = MaticAddresses.USDT;
         const collateralCToken = MaticAddresses.hUSDT;
         const collateralHolder = MaticAddresses.HOLDER_USDT;
@@ -2403,7 +2310,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
-      if (!await isPolygonForkInUse()) return;
       results = await makeBorrowTest(
         collateralAsset,
         collateralCToken,
@@ -2419,8 +2325,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
     describe("Good paths", () => {
       describe("Full repay", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const tetuConverterAsUser = ITetuConverter__factory.connect(
             await results.init.controller.tetuConverter(),
@@ -2440,8 +2344,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Partial repay 50%", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const tetuConverterAsUser = ITetuConverter__factory.connect(
             await results.init.controller.tetuConverter(),
@@ -2461,8 +2363,6 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       });
       describe("Partial repay 5%", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const tetuConverterAsUser = ITetuConverter__factory.connect(
             await results.init.controller.tetuConverter(),

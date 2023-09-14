@@ -1,11 +1,11 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {Aave3AprLibFacade, IAavePriceOracle} from "../../../typechain";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
+import {Aave3AprLibFacade} from "../../../typechain";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {Misc} from "../../../scripts/utils/Misc";
 import {expect} from "chai";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("AaveSharedLibTest", () => {
 //region Global vars for all tests
@@ -17,6 +17,8 @@ describe("AaveSharedLibTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

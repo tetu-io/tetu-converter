@@ -4,18 +4,11 @@ import {Logger} from "tslog";
 import logSettings from "../../log_settings";
 import {Misc} from "./Misc";
 import {config as dotEnvConfig} from "dotenv";
+import {EnvSetup} from "./EnvSetup";
+import {VerifyUtils} from "./VerifyUtils";
 
 const log: Logger<unknown> = new Logger(logSettings);
 
-dotEnvConfig();
-// tslint:disable-next-line:no-var-requires
-const argv = require('yargs/yargs')()
-  .env('')
-  .options({
-    networkScanKey: {
-      type: "string",
-    },
-  }).argv;
 
 export class Verify {
 
@@ -68,8 +61,8 @@ export class Verify {
 
       const resp =
         await axios.post(
-          (await Misc.getNetworkScanUrl()) +
-          `?module=contract&action=verifyproxycontract&apikey=${argv.networkScanKey}`,
+          (await VerifyUtils.getNetworkScanUrl()) +
+          `?module=contract&action=verifyproxycontract&apikey=${EnvSetup.getEnv().networkScanKey}`,
           `address=${adr}`);
       // log.info("proxy verify resp", resp.data);
     } catch (e) {

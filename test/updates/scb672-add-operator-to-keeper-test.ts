@@ -11,8 +11,13 @@ import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {PriceOracleManagerUtils} from "../baseUT/utils/PriceOracleManagerUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe.skip("study, SCB672 - update keeper, check fixHealth", () => {
+  before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+  });
+
   it("should return expected values", async () => {
     const converterControllerV14 = "0x2df21e2a115fcB3d850Fbc67237571bBfB566e99";
     const signer = (await ethers.getSigners())[0];

@@ -16,6 +16,7 @@ import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("Aave3SingleBlockTest", () => {
 //region Global vars for all tests
@@ -26,6 +27,8 @@ describe("Aave3SingleBlockTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

@@ -6,7 +6,6 @@ import {
   DForcePlatformAdapter__factory, IDForceInterestRateModel__factory,
 } from "../../../typechain";
 import {expect} from "chai";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {
   DForceHelper, IBorrowRewardsPredictionInput,
@@ -21,6 +20,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("DForceHelper tests", () => {
 //region Global vars for all tests
@@ -32,6 +32,7 @@ describe("DForceHelper tests", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -170,8 +171,6 @@ describe("DForceHelper tests", () => {
       describe("Test1. Supply, wait, get rewards; supply rewards only", () => {
         describe("Supply 20_000 DAI, 1000 blocks", () => {
           it("should return amount of rewards same to really received", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // get amount of really earned supply-rewards
             const r = await makeTestSupplyRewardsOnly(
               MaticAddresses.DAI,
@@ -195,8 +194,6 @@ describe("DForceHelper tests", () => {
         });
         describe("Supply USDC, 2_000 blocks", () => {
           it("should return amount of rewards same to really received", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // get amount of really earned supply-rewards
             const r = await makeTestSupplyRewardsOnly(
               MaticAddresses.USDC,
@@ -221,8 +218,6 @@ describe("DForceHelper tests", () => {
         });
         describe("Supply USDT, 2_000 blocks", () => {
           it("should return amount of rewards same to really received", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // get amount of really earned supply-rewards
             const r = await makeTestSupplyRewardsOnly(
               MaticAddresses.USDT,
@@ -247,8 +242,6 @@ describe("DForceHelper tests", () => {
         });
         describe("Supply WETH, 2_000 blocks", () => {
           it("should return amount of rewards same to really received", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // get amount of really earned supply-rewards
             const r = await makeTestSupplyRewardsOnly(
               MaticAddresses.WETH,
@@ -277,8 +270,6 @@ describe("DForceHelper tests", () => {
       describe("Test2. Supply, borrow, wait, claim rewards; borrow rewards only", () => {
         describe("Borrow 10_000 DAI, 1000 blocks", () => {
           it("should return amount of rewards same to really received", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // get amount of really earned supply-rewards
             const r = await makeTestBorrowRewardsOnly(
               MaticAddresses.WETH, // WETH doesn't have supply-rewards
@@ -419,8 +410,6 @@ describe("DForceHelper tests", () => {
         });
         describe("Borrow 100 USDC, 1000 blocks", () => {
           it("should return amount of rewards same to really received", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // get amount of really earned supply-rewards
             const r = await makeTestBorrowRewardsOnly(
               MaticAddresses.WETH, // WETH doesn't have supply-rewards

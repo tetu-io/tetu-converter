@@ -5,7 +5,6 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/helpers/AaveTwoHelper";
@@ -28,7 +27,7 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
-import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
@@ -41,6 +40,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -140,8 +140,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
     }
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await initializePlatformAdapter();
 
         const ret = [
@@ -162,19 +160,16 @@ describe("AaveTwoPlatformAdapterTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if aave-pool is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroAavePool: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if controller is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroController: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if template normal is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroTemplateAdapterNormal: true})
         ).revertedWith("TC-1 zero address");
@@ -391,8 +386,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
     describe("Good paths", () => {
       describe("DAI : matic", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.WMATIC;
 
@@ -404,8 +397,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       });
       describe("WMATIC: USDT", () => {
         it("should return expected values", async () =>{
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.WMATIC;
           const borrowAsset = MaticAddresses.USDT;
           const collateralAmount = parseUnits("1000", 18);
@@ -417,8 +408,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       });
       describe("DAI:USDC", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralAmount = parseUnits("1000", 18);
@@ -431,8 +420,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       /** CRV and Balancer are frozen */
       describe.skip("CRV:BALANCER", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.CRV;
           const borrowAsset = MaticAddresses.BALANCER;
           const collateralAmount = parseUnits("1", 18);
@@ -444,16 +431,12 @@ describe("AaveTwoPlatformAdapterTest", () => {
       });
       describe("Try to use huge collateral amount", () => {
         it("should return borrow amount equal to max available amount", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(MaticAddresses.DAI, parseUnits("1", 28), MaticAddresses.WMATIC);
           expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
         });
       });
       describe("Frozen", () => {
         it("should return no plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             MaticAddresses.DAI,
             parseUnits("1", 18),
@@ -469,8 +452,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       describe("EntryKinds", () => {
         describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
           it("should return expected collateral and borrow amounts", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAsset = MaticAddresses.DAI;
             const borrowAsset = MaticAddresses.WMATIC;
             const collateralAmount = parseUnits("1000", 18);
@@ -513,8 +494,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
         describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
           it("should split source amount on the parts with almost same cost", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAsset = MaticAddresses.DAI;
             const borrowAsset = MaticAddresses.WMATIC;
             const collateralAmount = parseUnits("1000", 18);
@@ -563,8 +542,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
         describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
           it("should return expected collateral and borrow amounts", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAsset = MaticAddresses.DAI;
             const borrowAsset = MaticAddresses.WMATIC;
 
@@ -615,8 +592,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
          */
         describe.skip("Allowed collateral exceeds available collateral", () => {
           it("should return expected borrow and collateral amounts", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // let's get max available supply amount
             const sample = await preparePlan(MaticAddresses.DAI, parseUnits("1", 18), MaticAddresses.WMATIC);
 
@@ -652,8 +627,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
         describe("Allowed borrow amounts exceeds available borrow amount", () => {
           it("should return expected borrow and collateral amounts", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // let's get max available borrow amount
             const sample = await preparePlan(MaticAddresses.DAI, parseUnits("1", 18), MaticAddresses.WMATIC);
 
@@ -710,8 +683,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroCollateralAsset: true })
             ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
@@ -719,8 +690,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
         describe("borrow token is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroBorrowAsset: true })
             ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
@@ -728,8 +697,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
         describe("healthFactor2_ is less than min allowed", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ incorrectHealthFactor2: 100 })
             ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
@@ -737,8 +704,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
         describe("countBlocks_ is zero", () => {
           it("should revert", async () =>{
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroCountBlocks: true })
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
@@ -746,8 +711,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
         describe("collateralAmount_ is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroCollateralAmount: true })
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
@@ -759,13 +722,11 @@ describe("AaveTwoPlatformAdapterTest", () => {
       describe.skip("inactive", () => {
         describe("collateral token is inactive", () => {
           it("should revert", async () =>{
-            if (!await isPolygonForkInUse()) return;
             expect.fail("TODO");
           });
         });
         describe("borrow token is inactive", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
             expect.fail("TODO");
           });
         });
@@ -773,23 +734,19 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
       describe("pool is frozen", () => {
         it("should fail if collateral token is frozen", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({ makeCollateralAssetFrozen: true })).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrow token is frozen", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({ makeBorrowAssetFrozen: true })).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
 
       describe("Not usable", () => {
         it("should fail if borrow asset is not borrowable", async () => {
-          if (!await isPolygonForkInUse()) return;
           // AaveToken has borrowing = FALSE
           expect((await tryGetConversionPlan({}, MaticAddresses.DAI, MaticAddresses.AaveToken)).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if collateral asset is not usable as collateral", async () => {
-          if (!await isPolygonForkInUse()) return;
           // USDT has liquidation threshold = 0, it means, it cannot be used as collateral
           expect((await tryGetConversionPlan({}, MaticAddresses.USDT)).converter).eq(Misc.ZERO_ADDRESS);
         });
@@ -797,8 +754,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
       describe("Use unsupported entry kind 999", () => {
         it("should return zero plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.WMATIC;
           const collateralAmount = parseUnits("1000", 18);
@@ -819,8 +774,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
       describe("Result collateralAmount == 0, amountToBorrow != 0 (edge case, improve coverage)", () => {
         it("should return zero plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.USDC;
           const borrowAsset = MaticAddresses.USDT;
           const collateralAmount = parseUnits("1", 6);
@@ -868,8 +821,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
       describe("Zero available liquidity (edge case, improve coverage)", () => {
         it("should return zero plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.USDC;
           const borrowAsset = MaticAddresses.USDT;
           const collateralAmount = parseUnits("1", 6);
@@ -919,8 +870,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
     });
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
           deployer,
           controller.address,
@@ -977,8 +926,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralHolders = [
@@ -1000,8 +947,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
       describe("Huge amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralHolders = [
@@ -1092,16 +1037,12 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
     describe("Good paths", () => {
       it("initialized pool adapter should has expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await makeInitializePoolAdapterTest();
         expect(r.ret).eq(r.expected);
       });
     });
     describe("Bad paths", () => {
       it("should revert if converter address is not registered", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeInitializePoolAdapterTest(
             {useWrongConverter: true}
@@ -1109,8 +1050,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         ).revertedWith("TC-25 converter not found"); // CONVERTER_NOT_FOUND
       });
       it("should revert if it's called by not borrow-manager", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeInitializePoolAdapterTest(
             {wrongCallerOfInitializePoolAdapter: true}
@@ -1122,8 +1061,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
   describe("events", () => {
     it("should emit expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const user = ethers.Wallet.createRandom().address;
       const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
       const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
@@ -1164,8 +1101,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
   describe("setFrozen", () => {
     describe("Good paths", () => {
       it("should assign expected value to frozen", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const controller = await TetuConverterApp.createController(deployer,
           {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
@@ -1192,7 +1127,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
     });
     describe("Bad paths", () => {
       it("should assign expected value to frozen", async () => {
-        if (!await isPolygonForkInUse()) return;
         const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
           deployer,
           (await TetuConverterApp.createController(deployer)).address,
@@ -1209,8 +1143,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const controller = await TetuConverterApp.createController(deployer);
 
       const pa = await AdaptersHelper.createAaveTwoPlatformAdapter(

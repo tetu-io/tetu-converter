@@ -2,8 +2,13 @@ import {ethers} from "hardhat";
 import {RepayTheBorrowImpl} from "../../../scripts/tasks/RepayTheBorrowImpl";
 import {IConverterController__factory, ITetuConverter__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("test repayTheBorrow script", () => {
+  before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+  });
+
   it("should return expected values", async () => {
     const tetuConverterAddress = "0x081735DEa3D1256881B7cb31cd37c4f7C3E95152";
     const strategyAddress = "0x807a528818113a6f65b7667a59a4CaaAc719fc12";
