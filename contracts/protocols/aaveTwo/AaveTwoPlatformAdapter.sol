@@ -24,7 +24,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   //region ----------------------------------------------------- Constants
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.3";
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
@@ -33,7 +33,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   struct LocalsGetConversionPlan {
     IAaveTwoPool pool;
     IAaveTwoLendingPoolAddressesProvider addressProvider;
-    IAaveTwoProtocolDataProvider dataProvider;
     IAaveTwoPriceOracle priceOracle;
     IConverterController controller;
     DataTypes.ReserveData rc;
@@ -135,7 +134,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       vars.pool = pool;
 
       vars.addressProvider = IAaveTwoLendingPoolAddressesProvider(vars.pool.getAddressesProvider());
-      vars.dataProvider = IAaveTwoProtocolDataProvider(vars.addressProvider.getAddress(bytes32(AaveTwoAprLib.ID_DATA_PROVIDER)));
       vars.priceOracle = IAaveTwoPriceOracle(vars.addressProvider.getPriceOracle());
 
       vars.rc = vars.pool.getReserveData(params.collateralAsset);
@@ -145,7 +143,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         if (_isUsable(vars.rb.configuration) && vars.rb.configuration.getBorrowingEnabled()) {
           //------------------------------- Calculate maxAmountToSupply and maxAmountToBorrow
           // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
-          (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
+          (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt) = _getReserveData(params.borrowAsset, vars.rb);
 
           plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
           plan.maxAmountToBorrow = vars.availableLiquidity;
@@ -242,7 +240,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
               )
               * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
               / pd.rb10powDec;
-              (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
+              (, vars.totalStableDebt, vars.totalVariableDebt) = _getReserveData(params.collateralAsset, vars.rc);
 
               // calculate supply-APR, see detailed explanation in Aave3AprLib
               plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
@@ -289,6 +287,20 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     } else {
       return plan;
     }
+  }
+
+  /// @notice Get total amounts for the given asset
+  /// @dev We don't use dataProvider.getReserveData, because it returns 13 variables and we have stack-too-deep problem
+  ///      on coverage if include this file to converter.sol in tetu-v2-strategies, see SCB-799
+  function _getReserveData(address asset, DataTypes.ReserveData memory reserve) internal view returns (
+    uint availableLiquidity,
+    uint totalStableDebt,
+    uint totalVariableDebt
+  ) {
+    // see aave-v2-protocol, AaveProtocolDataProvider.sol, getReserveData implementation
+    availableLiquidity = IERC20(asset).balanceOf(reserve.aTokenAddress);
+    totalStableDebt = IERC20(reserve.stableDebtTokenAddress).totalSupply();
+    totalVariableDebt = IERC20(reserve.variableDebtTokenAddress).totalSupply();
   }
   //endregion ----------------------------------------------------- Get conversion plan
 
