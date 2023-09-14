@@ -20,6 +20,7 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {ITestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
+import {Misc} from "../../scripts/utils/Misc";
 
 /**
  * Assume, some lending platform should be deactivated or
@@ -168,11 +169,21 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
         borrower.address
       );
 
-      if (params?.amountMultiplier && params?.amountDivider) {
-        await borrower.setUpRequireAmountBack(
-          status.amountToPay.mul(params?.amountMultiplier).div(params?.amountDivider)
-        );
-      }
+      const amountToPay = (params?.amountMultiplier && params?.amountDivider)
+        ? status.amountToPay.mul(params?.amountMultiplier).div(params?.amountDivider)
+        : Misc.MAX_UINT;
+
+      await borrower.setUpRequireAmountBack(
+        amountToPay,
+        amountToPay,
+        0,
+        0,
+        Misc.ZERO_ADDRESS, // poolAdapter.address,
+        0,
+        Misc.ZERO_ADDRESS, // amountProvider,
+        false
+      );
+
 
       // move time to increase our debt a bit
       await TimeUtils.advanceNBlocks(2000);
@@ -180,7 +191,9 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
       const closePosition = !params?.notClosePosition;
       const userCollateralBalanceBefore = await IERC20__factory.connect(p.collateral.asset, deployer).balanceOf(borrower.address);
       const userBorrowBalanceBefore = await IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(borrower.address);
+
       await tcAsGov.repayTheBorrow(poolAdapter.address, closePosition);
+
       const userCollateralBalanceAfter = await IERC20__factory.connect(p.collateral.asset, deployer).balanceOf(borrower.address);
       const userBorrowBalanceAfter = await IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(borrower.address);
 
