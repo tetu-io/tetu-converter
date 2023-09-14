@@ -21,7 +21,10 @@ contract LendingPlatformMock2 is IPlatformAdapter {
   }
   ConversionPlanParams internal conversionPlanParams;
 
-  function setupGetConversionPlan(AppDataTypes.InputConversionParams memory params, AppDataTypes.ConversionPlan memory results) external {
+  function setupGetConversionPlan(
+    AppDataTypes.InputConversionParams memory params,
+    AppDataTypes.ConversionPlan memory results
+  ) external {
     conversionPlanParams = ConversionPlanParams({
       params: params,
       results: results
@@ -38,6 +41,7 @@ contract LendingPlatformMock2 is IPlatformAdapter {
     if (
       params_.collateralAsset == conversionPlanParams.params.collateralAsset
       && params_.borrowAsset == conversionPlanParams.params.borrowAsset
+      && params_.amountIn == conversionPlanParams.params.amountIn
     ) {
       plan = conversionPlanParams.results;
     }

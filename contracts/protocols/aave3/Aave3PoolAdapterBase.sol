@@ -17,7 +17,6 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
-import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -552,9 +551,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint healthFactorBefore
   ) internal view {
     uint threshold = uint(controller_.minHealthFactor2()) * 10 ** (18 - 2);
-    console.log("_validateHealthFactor.hf18", healthFactorAfter);
-    console.log("_validateHealthFactor.healthFactorBefore", healthFactorBefore);
-    console.log("_validateHealthFactor.min health factor", threshold);
     uint reduction = healthFactorBefore > healthFactorAfter
       ? healthFactorBefore - healthFactorAfter
       : 0;

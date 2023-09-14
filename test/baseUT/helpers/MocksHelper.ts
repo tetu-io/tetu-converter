@@ -424,7 +424,15 @@ export class MocksHelper {
       asset,
     ) as CTokenMock;
   }
-
+  public static async createMockedToken(signer: SignerWithAddress, symbol: string, decimals: number) : Promise<MockERC20> {
+    return await DeployUtils.deployContract(
+      signer,
+      "MockERC20",
+      symbol,
+      symbol,
+      decimals
+    ) as MockERC20;
+  }
 //endregion Batch functions
 
 //region TetuLiquidator and SwapManager

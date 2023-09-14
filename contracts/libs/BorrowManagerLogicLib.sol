@@ -9,6 +9,7 @@ import "../interfaces/IConverterController.sol";
 import "./ConverterLogicLib.sol";
 import "./AppUtils.sol";
 import "./EntryKinds.sol";
+import "hardhat/console.sol";
 
 /// @notice BorrowManager-contract logic-related functions
 library BorrowManagerLogicLib {
@@ -18,7 +19,19 @@ library BorrowManagerLogicLib {
   //region ----------------------------------------------------- Constants
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
-  uint constant public REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
+  uint public constant REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
+
+  uint internal constant DENOMINATOR = 100_000;
+
+  /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
+  ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
+  ///         Case: health factor is not healthy
+  uint internal constant MAX_REBALANCING_AMOUNT_THRESHOLD_UNHEALTHY = 50_000;
+
+  /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
+  ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
+  ///         Case: health factor is too healthy
+  uint internal constant MAX_REBALANCING_AMOUNT_THRESHOLD_TOO_HEALTHY = 10_000;
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
@@ -234,10 +247,12 @@ library BorrowManagerLogicLib {
   ) {
     (uint collateralAmount, uint amountToPay, uint healthFactor18,,,) = poolAdapter_.getStatus();
 
-    (
-      int requiredBorrowAssetAmount,
-      int requiredCollateralAssetAmount
-    ) = ConverterLogicLib.getRebalanceAmounts(addParams_.targetHealthFactor2 * 1e16, collateralAmount, amountToPay, healthFactor18);
+    (, int requiredCollateralAssetAmount) = ConverterLogicLib.getRebalanceAmounts(
+      addParams_.targetHealthFactor2 * 1e16,
+      collateralAmount,
+      amountToPay,
+      healthFactor18
+    );
 
     // the user already has a debt with same collateral+borrow assets
     // so, we should use same pool adapter for new borrow AND rebalance exist debt in both directions if necessary
@@ -248,8 +263,7 @@ library BorrowManagerLogicLib {
       platformAdapter_,
       p_,
       addParams_.targetHealthFactor2,
-      requiredCollateralAssetAmount,
-      requiredBorrowAssetAmount
+      requiredCollateralAssetAmount
     );
 
     // take only the pool with enough liquidity
@@ -279,16 +293,17 @@ library BorrowManagerLogicLib {
   ///                               Positive amount means, that the debt is unhealthy and we need to add more collateral to fix it.
   ///                               Negative amount means, that the debt is too healthy (its health factor > target one)
   ///                               and so we can use exist collateral to borrow more debt.
-  /// @param borrowAmountToFix_ TODO
   function _getPlanWithRebalancing(
     IPlatformAdapter platformAdapter_,
     AppDataTypes.InputConversionParams memory p_,
     uint16 targetHealthFactor2_,
-    int collateralAmountToFix_,
-    int borrowAmountToFix_
+    int collateralAmountToFix_
   ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
+    console.log("_getPlanWithRebalancing.amountIn", p_.amountIn);
+    console.log("_getPlanWithRebalancing.collateralAmountToFix_"); console.logInt(collateralAmountToFix_);
+    console.log("_getPlanWithRebalancing.targetHealthFactor2_", targetHealthFactor2_);
     AppDataTypes.InputConversionParams memory input = AppDataTypes.InputConversionParams({
       collateralAsset: p_.collateralAsset,
       borrowAsset: p_.borrowAsset,
@@ -299,22 +314,68 @@ library BorrowManagerLogicLib {
     });
 
     uint entryKind = EntryKinds.getEntryKind(p_.entryData);
-    if (entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-      // amountIn is required collateral amount
-      if (collateralAmountToFix_ > 0) {
-        // current health factor is unhealthy
-      } else {
-        // current health factor is TOO healthy
+    bool negative = collateralAmountToFix_ < 0;
+    uint collateralDelta;
+    console.log("_getPlanWithRebalancing.negative", negative);
+
+    if (collateralAmountToFix_ != 0) {
+      if (entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+        collateralDelta = negative
+          ? uint(-collateralAmountToFix_)
+          : uint(collateralAmountToFix_);
+        uint maxAllowedDelta = input.amountIn
+          * (negative
+              ? MAX_REBALANCING_AMOUNT_THRESHOLD_TOO_HEALTHY
+              : MAX_REBALANCING_AMOUNT_THRESHOLD_UNHEALTHY
+          ) / DENOMINATOR;
+        console.log("_getPlanWithRebalancing.collateralDelta", collateralDelta);
+        console.log("_getPlanWithRebalancing.maxAllowedDelta", maxAllowedDelta);
+        if (collateralDelta > maxAllowedDelta) {
+          collateralDelta = maxAllowedDelta;
+        }
+        // amountIn is required collateral amount, we need to fix it
+        input.amountIn = negative
+          ? input.amountIn + collateralDelta // unhealthy
+          : input.amountIn - collateralDelta; // too healthy
+      } else if (entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+
       }
-
-    } else if (entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
-
-    } else {
-      require(entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2, AppErrors.UNSUPPORTED_VALUE);
     }
 
+    console.log("_getPlanWithRebalancing.input.amountIn", input.amountIn);
     plan = platformAdapter_.getConversionPlan(input, targetHealthFactor2_);
+    console.log("_getPlanWithRebalancing.plan.collateralAmount", plan.collateralAmount);
+    console.log("_getPlanWithRebalancing.plan.amountToBorrow", plan.amountToBorrow);
+
+    if (entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
+      collateralDelta = negative
+        ? uint(-collateralAmountToFix_)
+        : uint(collateralAmountToFix_);
+      uint maxAllowedDelta = plan.collateralAmount
+        * (negative
+          ? MAX_REBALANCING_AMOUNT_THRESHOLD_TOO_HEALTHY
+          : MAX_REBALANCING_AMOUNT_THRESHOLD_UNHEALTHY
+        ) / DENOMINATOR;
+      if (collateralDelta > maxAllowedDelta) {
+        collateralDelta = maxAllowedDelta;
+      }
+      console.log("_getPlanWithRebalancing.collateralDelta.2", collateralDelta);
+      console.log("_getPlanWithRebalancing.maxAllowedDelta.2", maxAllowedDelta);
+
+      plan.collateralAmount = negative
+        ?  plan.collateralAmount - collateralDelta // unhealthy
+        :  plan.collateralAmount + collateralDelta; // too healthy
+      console.log("_getPlanWithRebalancing.plan.collateralAmount", plan.collateralAmount);
+    } else {
+      plan.collateralAmount = negative
+        ? plan.collateralAmount > collateralDelta
+            ? plan.collateralAmount - collateralDelta
+            : 0
+        : plan.collateralAmount + collateralDelta;
+    }
+    console.log("_getPlanWithRebalancing.plan.collateralAmount.fixed", plan.collateralAmount);
   }
+
   //endregion ----------------------------------------------------- Find exist pool adapter to rebalance
 
   //region ----------------------------------------------------- Find new lending platforms to borrow

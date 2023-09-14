@@ -128,8 +128,6 @@ library TetuConverterLogicLib {
     uint amountToPay
   ) {
     (uint amountReturnedByUser, uint amountReceivedOnBalance) = _callRequirePayAmountBack(user_, asset_, amount_);
-    console.log("_requirePayAmountBack.amountReturnedByUser", amountReturnedByUser);
-    console.log("_requirePayAmountBack.amountReceivedOnBalance", amountReceivedOnBalance);
 
     // The results of calling requirePayAmountBack depend on whether the required amount is on the user's balance:
     // 1. The {amount_} exists on the balance
@@ -145,20 +143,16 @@ library TetuConverterLogicLib {
       // there is a chance that {pa_} doesn't require rebalancing anymore or require less amount
       // check what amount is required by {pa_} now
       (, uint requiredCollateralToPay) = ConverterLogicLib.checkPositionHealth(pa_, borrowManager_, healthFactorThreshold18);
-      console.log("_requirePayAmountBack.requiredCollateralToPay", requiredCollateralToPay);
 
       if (requiredCollateralToPay == 0) {
         skipRepay = true;
       } else {
         require(amountReturnedByUser != 0, AppErrors.ZERO_AMOUNT); // user has any assets to send to converter
-        console.log("_requirePayAmountBack.amountReceivedOnBalance", amountReceivedOnBalance);
-        console.log("_requirePayAmountBack.Math.min(amountReturnedByUser, requiredCollateralToPay)", Math.min(amountReturnedByUser, requiredCollateralToPay));
         (amountReturnedByUser, amountReceivedOnBalance) = _callRequirePayAmountBack(
           user_,
           asset_,
           Math.min(amountReturnedByUser, requiredCollateralToPay)
         );
-        console.log("_requirePayAmountBack.amountReturnedByUser", amountReturnedByUser);
       }
     }
 
@@ -208,31 +202,23 @@ library TetuConverterLogicLib {
   ) {
     RepayTheBorrowParams memory v;
 
-    console.log("repayTheBorrow.closePosition", closePosition);
     // update internal debts and get actual amount to repay
     v.pa = IPoolAdapter(poolAdapter_);
     (,v.user, v.collateralAsset, v.borrowAsset) = v.pa.getConfig();
     v.pa.updateStatus();
-    console.log("repayTheBorrow.collateralAsset", v.collateralAsset);
-    console.log("repayTheBorrow.borrowAsset", v.borrowAsset);
 
     // add debt gap if necessary
     {
       bool debtGapRequired;
       (collateralAmountOut, repaidAmountOut,,,, debtGapRequired) = v.pa.getStatus();
-      console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
-      console.log("repayTheBorrow.repaidAmountOut", repaidAmountOut);
-      console.log("repayTheBorrow.debtGapRequired", debtGapRequired);
       if (debtGapRequired) {
         repaidAmountOut = getAmountWithDebtGap(repaidAmountOut, controller_.debtGap());
-        console.log("repayTheBorrow.repaidAmountOut.fixed", repaidAmountOut);
       }
     }
     require(collateralAmountOut != 0 && repaidAmountOut != 0, AppErrors.REPAY_FAILED);
 
     // ask the user for the amount-to-repay; use exist balance for safety, normally it should be 0
     v.balanceBefore = IERC20(v.borrowAsset).balanceOf(address(this));
-    console.log("repayTheBorrow.balanceBefore",v.balanceBefore);
 
     // for definiteness ask the user to send us collateral asset
     (v.skipRepay, repaidAmountOut) = _requirePayAmountBackToClosePosition(
@@ -242,12 +228,9 @@ library TetuConverterLogicLib {
       repaidAmountOut - v.balanceBefore,
       controller_.debtGap()
     );
-    console.log("repayTheBorrow.skipRepay",v.skipRepay);
-    console.log("repayTheBorrow.amount",repaidAmountOut);
 
     if (! v.skipRepay) {
       uint balanceAfter = IERC20(v.borrowAsset).balanceOf(address(this));
-      console.log("repayTheBorrow.balanceAfter", balanceAfter);
 
       // ensure that we have received required amount fully or partially
       if (closePosition) {
@@ -259,12 +242,9 @@ library TetuConverterLogicLib {
 
       // make full repay and close the position
       v.balanceBefore = IERC20(v.borrowAsset).balanceOf(v.user);
-      console.log("repayTheBorrow.balanceBefore.user", v.balanceBefore);
       collateralAmountOut = v.pa.repay(repaidAmountOut, v.user, closePosition);
-      console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
       emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
       balanceAfter = IERC20(v.borrowAsset).balanceOf(v.user);
-      console.log("repayTheBorrow.balanceBefore.user.final", v.balanceBefore);
 
       v.assets = new address[](2);
       v.assets[0] = v.borrowAsset;
@@ -281,8 +261,6 @@ library TetuConverterLogicLib {
       v.amounts[1] = collateralAmountOut;
       ITetuConverterCallback(v.user).onTransferAmounts(v.assets, v.amounts);
 
-      console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
-      console.log("repayTheBorrow.repaidAmountOut", repaidAmountOut);
       return (collateralAmountOut, repaidAmountOut);
     } else {
       return (0, 0);
@@ -311,8 +289,6 @@ library TetuConverterLogicLib {
     uint amountToPay
   ) {
     (uint amountReturnedByUser, uint amountReceivedOnBalance) = _callRequirePayAmountBack(user_, asset_, amount_);
-    console.log("_requirePayAmountBackToClosePosition.amountReturnedByUser", amountReturnedByUser);
-    console.log("_requirePayAmountBackToClosePosition.amountReceivedOnBalance", amountReceivedOnBalance);
 
     // The results of calling requirePayAmountBack depend on whether the required amount is on the user's balance:
     // 1. The {amount_} exists on the balance
@@ -328,24 +304,19 @@ library TetuConverterLogicLib {
       // there is a chance that {pa_} doesn't require rebalancing anymore or require less amount
       // check what amount is required by {pa_} now
       (uint collateralAmount, uint debtAmount,,,, bool debtGapRequired) = pa_.getStatus();
-      console.log("_requirePayAmountBackToClosePosition.collateralAmount", collateralAmount);
-      console.log("_requirePayAmountBackToClosePosition.debtAmount", debtAmount);
       if (debtGapRequired) {
         debtAmount = getAmountWithDebtGap(debtAmount, debtGap);
-        console.log("_requirePayAmountBackToClosePosition.debtAmount.fixed", debtAmount);
       }
 
       if (collateralAmount == 0) {
         skipRepay = true; // debt is closed or liquidated
       } else {
         require(amountReturnedByUser != 0, AppErrors.ZERO_AMOUNT); // user has any assets to send to converter
-        console.log("_requirePayAmountBackToClosePosition.amountReceivedOnBalance", amountReceivedOnBalance);
         (, amountReceivedOnBalance) = _callRequirePayAmountBack(
           user_,
           asset_,
           Math.min(amountReturnedByUser, debtAmount)
         );
-        console.log("_requirePayAmountBackToClosePosition.amountReceivedOnBalance", amountReceivedOnBalance);
       }
     }
 

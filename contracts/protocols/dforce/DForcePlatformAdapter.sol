@@ -18,7 +18,6 @@ import "../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -201,10 +200,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                 plan.converter = converter;
                 plan.liquidationThreshold18 = collateralFactor;
                 plan.ltv18 = collateralFactor * borrowFactorMantissa / 10**18;
-                console.log("liquidationThreshold18", plan.liquidationThreshold18);
-                console.log("ltv18", plan.ltv18);
-                console.log("collateralFactor", collateralFactor);
-                console.log("borrowFactorMantissa", borrowFactorMantissa);
 
                 //-------------------------------- Prices and health factor
                 vars.priceOracle = IDForcePriceOracle(vars.comptroller.priceOracle());
@@ -221,8 +216,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                 // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
                 // see explanation of health factor value in IConverterController.sol
                 vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
-                console.log("healthFactor18", vars.healthFactor18);
-                console.log("healthFactor2_", healthFactor2_);
                 if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
                   vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
                 }

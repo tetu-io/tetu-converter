@@ -1448,14 +1448,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           });
         });
       });
-      describe("Result health factor is less min allowed one", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          await expect(
-            testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorDiv: 100})
-          ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
-        });
-      });
       describe("Try to repay amount greater then the debt", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;

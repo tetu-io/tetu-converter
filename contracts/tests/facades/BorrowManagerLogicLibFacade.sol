@@ -35,7 +35,7 @@ contract BorrowManagerLogicLibFacade {
   function _findConverter(
     AppDataTypes.InputConversionParams memory p_,
     BorrowManagerLogicLib.InputParamsAdditional memory addParams_
-  ) internal view returns (
+  ) external view returns (
     address[] memory convertersOut,
     uint[] memory collateralAmountsOut,
     uint[] memory amountsToBorrowOut,
@@ -48,7 +48,7 @@ contract BorrowManagerLogicLibFacade {
     uint countDebts_,
     uint count_,
     BorrowManagerLogicLib.BorrowCandidate[] memory data_
-  ) internal pure returns (
+  ) external pure returns (
     address[] memory convertersOut,
     uint[] memory collateralAmountsOut,
     uint[] memory amountsToBorrowOut,
@@ -62,7 +62,7 @@ contract BorrowManagerLogicLibFacade {
     AppDataTypes.InputConversionParams memory p_,
     BorrowManagerLogicLib.InputParamsAdditional memory addParams_,
     BorrowManagerLogicLib.BorrowCandidate[] memory input
-  ) internal view returns (FindExistDebtsToRebalanceLocal memory) {
+  ) external view returns (FindExistDebtsToRebalanceLocal memory) {
     (uint count, bool needMore) = BorrowManagerLogicLib._findExistDebtsToRebalance(platformAdapters, p_, addParams_, input);
     return FindExistDebtsToRebalanceLocal({
       count: count,
@@ -78,7 +78,7 @@ contract BorrowManagerLogicLibFacade {
     address collateralAsset_,
     address borrowAsset_,
     IConverterController controller_
-  ) internal view returns (
+  ) external view returns (
     uint indexPlatformAdapter,
     address poolAdapter
   ) {
@@ -91,7 +91,7 @@ contract BorrowManagerLogicLibFacade {
     AppDataTypes.InputConversionParams memory p_,
     BorrowManagerLogicLib.InputParamsAdditional memory addParams_,
     uint usedAmountIn0
-  ) internal view returns (
+  ) external view returns (
     BorrowManagerLogicLib.BorrowCandidate memory dest,
     uint usedAmountInFinal
   ) {
@@ -102,12 +102,16 @@ contract BorrowManagerLogicLibFacade {
     IPlatformAdapter platformAdapter_,
     AppDataTypes.InputConversionParams memory p_,
     uint16 targetHealthFactor2_,
-    int requiredCollateralAssetAmount,
-    int requiredBorrowAssetAmount
-  ) internal view returns (
+    int requiredCollateralAssetAmount
+  ) external view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    return BorrowManagerLogicLib._getPlanWithRebalancing(platformAdapter_, p_, targetHealthFactor2_, requiredCollateralAssetAmount, requiredBorrowAssetAmount);
+    return BorrowManagerLogicLib._getPlanWithRebalancing(
+      platformAdapter_,
+      p_,
+      targetHealthFactor2_,
+      requiredCollateralAssetAmount
+    );
   }
 
   function _findPoolsForNewDebt(
@@ -116,7 +120,7 @@ contract BorrowManagerLogicLibFacade {
     AppDataTypes.InputConversionParams memory p_,
     BorrowManagerLogicLib.InputParamsAdditional memory addParams_,
     BorrowManagerLogicLib.BorrowCandidate[] memory dest_
-  ) internal view returns (
+  ) external view returns (
     uint totalCount
   ) {
     return BorrowManagerLogicLib._findPoolsForNewDebt(platformAdapters_, startDestIndex_, p_, addParams_, dest_);

@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPoolAdapter.sol";
-import "hardhat/console.sol";
 
 /// @notice TetuConverter-app logic-related utils
 library ConverterLogicLib {
