@@ -154,7 +154,7 @@ describe("BorrowManagerLogicLibTest", () => {
 
         function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
           return getPlanWithRebalancing({
-            collateralAsset: usdc,
+            collateralAsset: dai,
             borrowAsset: usdt,
             amountIn: "100",
             entryKind: AppConstants.ENTRY_KIND_0,
@@ -189,7 +189,7 @@ describe("BorrowManagerLogicLibTest", () => {
 
           function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
-              collateralAsset: usdc,
+              collateralAsset: dai,
               borrowAsset: usdt,
               amountIn: "100",
               entryKind: AppConstants.ENTRY_KIND_0,
@@ -223,7 +223,7 @@ describe("BorrowManagerLogicLibTest", () => {
           function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
-              borrowAsset: usdt,
+              borrowAsset: dai,
               amountIn: "1000",
               entryKind: AppConstants.ENTRY_KIND_0,
               collateralAmountToFix: "-30",
@@ -316,8 +316,178 @@ describe("BorrowManagerLogicLibTest", () => {
     });
 
     describe("Entry kind 1", () => {
+      describe("zero amount to fix", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
 
+        function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          return getPlanWithRebalancing({
+            collateralAsset: usdc,
+            borrowAsset: usdt,
+            amountIn: "100",
+            entryKind: AppConstants.ENTRY_KIND_1,
+            collateralAmountToFix: "0",
+            plan: {
+              expectedFinalAmountIn: "100",
+              collateralAmountOut: "100",
+              borrowAmountOut: "80"
+            }
+          });
+        }
+
+        it("should return expected collateral amount in plan", async () => {
+          const ret = await loadFixture(getPlanWithRebalancingTest);
+          expect(ret.planOut.collateralAmountOut).eq(100);
+        });
+        it("should return expected borrow amount in plan", async () => {
+          const ret = await loadFixture(getPlanWithRebalancingTest);
+          expect(ret.planOut.borrowAmountOut).eq(80);
+        });
+      });
+
+      describe("amount to fix is less than the threshold", () => {
+        describe("positive amount to fix (we need to provide more collateral)", () => {
+          let snapshot: string;
+          before(async function () {
+            snapshot = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshot);
+          });
+
+          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+            return getPlanWithRebalancing({
+              collateralAsset: usdc,
+              borrowAsset: usdt,
+              amountIn: "300",
+              entryKind: AppConstants.ENTRY_KIND_1,
+              collateralAmountToFix: "15",
+              plan: {
+                expectedFinalAmountIn: "285",
+                collateralAmountOut: "190",
+                borrowAmountOut: "95"
+              }
+            });
+          }
+
+          it("should return expected collateral amount in plan", async () => {
+            const ret = await loadFixture(getPlanWithRebalancingTest);
+            expect(ret.planOut.collateralAmountOut).eq(190 + 15);
+          });
+          it("should return expected borrow amount in plan", async () => {
+            const ret = await loadFixture(getPlanWithRebalancingTest);
+            expect(ret.planOut.borrowAmountOut).eq(95);
+          });
+        });
+        describe("negative amount to fix (we can borrow more)", () => {
+          let snapshot: string;
+          before(async function () {
+            snapshot = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshot);
+          });
+
+          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+            return getPlanWithRebalancing({
+              collateralAsset: usdc,
+              borrowAsset: usdt,
+              amountIn: "300",
+              entryKind: AppConstants.ENTRY_KIND_1,
+              collateralAmountToFix: "-15",
+              plan: {
+                expectedFinalAmountIn: "315",
+                collateralAmountOut: "210",
+                borrowAmountOut: "105"
+              }
+            });
+          }
+
+          it("should return expected collateral amount in plan", async () => {
+            const ret = await loadFixture(getPlanWithRebalancingTest);
+            expect(ret.planOut.collateralAmountOut).eq(210-15);
+          });
+          it("should return expected borrow amount in plan", async () => {
+            const ret = await loadFixture(getPlanWithRebalancingTest);
+            expect(ret.planOut.borrowAmountOut).eq(105);
+          });
+        });
+      });
+      describe("amount to fix exceeds threshold", () => {
+        describe("positive amount to fix (we need to provide more collateral)", () => {
+          let snapshot: string;
+          before(async function () {
+            snapshot = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshot);
+          });
+
+          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+            return getPlanWithRebalancing({
+              collateralAsset: usdc,
+              borrowAsset: usdt,
+              amountIn: "300",
+              entryKind: AppConstants.ENTRY_KIND_1,
+              collateralAmountToFix: "200", // we assume that 300/2 is max allowed delta
+              plan: {
+                expectedFinalAmountIn: "150",
+                collateralAmountOut: "100",
+                borrowAmountOut: "50"
+              }
+            });
+          }
+
+          it("should return expected collateral amount in plan", async () => {
+            const ret = await loadFixture(getPlanWithRebalancingTest);
+            expect(ret.planOut.collateralAmountOut).eq(100 + 150);
+          });
+          it("should return expected borrow amount in plan", async () => {
+            const ret = await loadFixture(getPlanWithRebalancingTest);
+            expect(ret.planOut.borrowAmountOut).eq(50);
+          });
+        });
+        describe("negative amount to fix (we can borrow more)", () => {
+          let snapshot: string;
+          before(async function () {
+            snapshot = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshot);
+          });
+
+          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+            return getPlanWithRebalancing({
+              collateralAsset: usdc,
+              borrowAsset: usdt,
+              amountIn: "300",
+              entryKind: AppConstants.ENTRY_KIND_1,
+              collateralAmountToFix: "-300", // we assume that -30 is max allowed delta
+              plan: {
+                expectedFinalAmountIn: "330",
+                collateralAmountOut: "220",
+                borrowAmountOut: "110"
+              }
+            });
+          }
+
+          it("should return expected collateral amount in plan", async () => {
+            const ret = await loadFixture(getPlanWithRebalancingTest);
+            expect(ret.planOut.collateralAmountOut).eq(220-30);
+          });
+          it("should return expected borrow amount in plan", async () => {
+            const ret = await loadFixture(getPlanWithRebalancingTest);
+            expect(ret.planOut.borrowAmountOut).eq(110);
+          });
+        });
+      });
     });
+
     describe("Entry kind 2", () => {
       describe("zero amount to fix", () => {
         let snapshot: string;
@@ -448,7 +618,7 @@ describe("BorrowManagerLogicLibTest", () => {
 
           it("should return expected collateral amount in plan", async () => {
             const ret = await loadFixture(getPlanWithRebalancingTest);
-            expect(ret.planOut.collateralAmountOut).eq(135);
+            expect(ret.planOut.collateralAmountOut).eq(125/2 + 125);
           });
           it("should return expected borrow amount in plan", async () => {
             const ret = await loadFixture(getPlanWithRebalancingTest);
@@ -469,7 +639,7 @@ describe("BorrowManagerLogicLibTest", () => {
               collateralAsset: usdc,
               borrowAsset: usdt,
               amountIn: "1000", // assume the threshold is 10%, so collateralAmountToFix shouldn't exceed 1000 * 10/100 = 100
-              entryKind: 0,
+              entryKind: AppConstants.ENTRY_KIND_2,
               collateralAmountToFix: "-900",
               plan: {
                 expectedFinalAmountIn: "1000",
@@ -481,11 +651,11 @@ describe("BorrowManagerLogicLibTest", () => {
 
           it("should return expected collateral amount in plan", async () => {
             const ret = await loadFixture(getPlanWithRebalancingTest);
-            expect(ret.planOut.collateralAmountOut).eq(1000);
+            expect(ret.planOut.collateralAmountOut).eq(1000+1250/10);
           });
           it("should return expected borrow amount in plan", async () => {
             const ret = await loadFixture(getPlanWithRebalancingTest);
-            expect(ret.planOut.borrowAmountOut).eq(1240);
+            expect(ret.planOut.borrowAmountOut).eq(1000);
           });
         });
       });

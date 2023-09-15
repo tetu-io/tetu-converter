@@ -119,4 +119,9 @@ library AppUtils {
       }
     }
   }
+
+  /// @notice Return a-b OR zero if a < b
+  function sub0(uint a, uint b) internal pure returns (uint) {
+    return a > b ? a - b : 0;
+  }
 }

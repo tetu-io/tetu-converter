@@ -301,9 +301,6 @@ library BorrowManagerLogicLib {
   ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    console.log("_getPlanWithRebalancing.amountIn", p_.amountIn);
-    console.log("_getPlanWithRebalancing.collateralAmountToFix_"); console.logInt(collateralAmountToFix_);
-    console.log("_getPlanWithRebalancing.targetHealthFactor2_", targetHealthFactor2_);
     AppDataTypes.InputConversionParams memory input = AppDataTypes.InputConversionParams({
       collateralAsset: p_.collateralAsset,
       borrowAsset: p_.borrowAsset,
@@ -314,66 +311,58 @@ library BorrowManagerLogicLib {
     });
 
     uint entryKind = EntryKinds.getEntryKind(p_.entryData);
-    bool negative = collateralAmountToFix_ < 0;
     uint collateralDelta;
-    console.log("_getPlanWithRebalancing.negative", negative);
 
     if (collateralAmountToFix_ != 0) {
-      if (entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-        collateralDelta = negative
-          ? uint(-collateralAmountToFix_)
-          : uint(collateralAmountToFix_);
-        uint maxAllowedDelta = input.amountIn
-          * (negative
-              ? MAX_REBALANCING_AMOUNT_THRESHOLD_TOO_HEALTHY
-              : MAX_REBALANCING_AMOUNT_THRESHOLD_UNHEALTHY
-          ) / DENOMINATOR;
-        console.log("_getPlanWithRebalancing.collateralDelta", collateralDelta);
-        console.log("_getPlanWithRebalancing.maxAllowedDelta", maxAllowedDelta);
-        if (collateralDelta > maxAllowedDelta) {
-          collateralDelta = maxAllowedDelta;
-        }
-        // amountIn is required collateral amount, we need to fix it
-        input.amountIn = negative
-          ? input.amountIn + collateralDelta // unhealthy
-          : input.amountIn - collateralDelta; // too healthy
-      } else if (entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
-
+      // fix amountIn
+      if (entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0
+        || entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1
+      ) {
+        (input.amountIn, collateralDelta) = _fixCollateralAmount(input.amountIn, collateralAmountToFix_, true);
       }
     }
 
-    console.log("_getPlanWithRebalancing.input.amountIn", input.amountIn);
     plan = platformAdapter_.getConversionPlan(input, targetHealthFactor2_);
-    console.log("_getPlanWithRebalancing.plan.collateralAmount", plan.collateralAmount);
-    console.log("_getPlanWithRebalancing.plan.amountToBorrow", plan.amountToBorrow);
 
-    if (entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
-      collateralDelta = negative
-        ? uint(-collateralAmountToFix_)
-        : uint(collateralAmountToFix_);
-      uint maxAllowedDelta = plan.collateralAmount
-        * (negative
-          ? MAX_REBALANCING_AMOUNT_THRESHOLD_TOO_HEALTHY
-          : MAX_REBALANCING_AMOUNT_THRESHOLD_UNHEALTHY
-        ) / DENOMINATOR;
-      if (collateralDelta > maxAllowedDelta) {
-        collateralDelta = maxAllowedDelta;
+    if (collateralAmountToFix_ != 0) {
+      // fix plan.collateralAmount
+      if (entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
+        (plan.collateralAmount, ) = _fixCollateralAmount(plan.collateralAmount, collateralAmountToFix_, false);
+      } else {
+        plan.collateralAmount = collateralAmountToFix_ < 0
+          ? AppUtils.sub0(plan.collateralAmount, collateralDelta)
+          : plan.collateralAmount + collateralDelta;
       }
-      console.log("_getPlanWithRebalancing.collateralDelta.2", collateralDelta);
-      console.log("_getPlanWithRebalancing.maxAllowedDelta.2", maxAllowedDelta);
-
-      plan.collateralAmount = negative
-        ?  plan.collateralAmount - collateralDelta // unhealthy
-        :  plan.collateralAmount + collateralDelta; // too healthy
-      console.log("_getPlanWithRebalancing.plan.collateralAmount", plan.collateralAmount);
-    } else {
-      plan.collateralAmount = negative
-        ? plan.collateralAmount > collateralDelta
-            ? plan.collateralAmount - collateralDelta
-            : 0
-        : plan.collateralAmount + collateralDelta;
     }
-    console.log("_getPlanWithRebalancing.plan.collateralAmount.fixed", plan.collateralAmount);
+  }
+
+  /// @notice Calculate amount_ + delta_ with taking into account thresholds for positive/negative deltas
+  /// @param amount_ Collateral amount
+  /// @param delta_ Collateral amount should be incremented on delta_.
+  ///               Negative {delta_} means "health factor is too healthy" situation => we can reduce collateral
+  /// @param inputAmount true - we modify collateral amount before calculation of the borrow amount
+  ///                    false - we modify collateral amount after calculation of the borrow amount
+  /// @return fixedAmount amount_ + X, where X = delta_ reduced by thresholds
+  /// @return collateralDelta value of X, see comment above
+  function _fixCollateralAmount(uint amount_, int delta_, bool inputAmount) internal pure returns (
+    uint fixedAmount,
+    uint collateralDelta
+  ) {
+    bool tooHealthy = delta_ < 0;
+    collateralDelta = tooHealthy
+      ? uint(- delta_)
+      : uint(delta_);
+    uint maxAllowedDelta = amount_
+      * (tooHealthy
+        ? MAX_REBALANCING_AMOUNT_THRESHOLD_TOO_HEALTHY
+        : MAX_REBALANCING_AMOUNT_THRESHOLD_UNHEALTHY
+      ) / DENOMINATOR;
+    if (collateralDelta > maxAllowedDelta) {
+      collateralDelta = maxAllowedDelta;
+    }
+    fixedAmount = tooHealthy == inputAmount
+      ? amount_ + collateralDelta
+      : amount_ - collateralDelta;
   }
 
   //endregion ----------------------------------------------------- Find exist pool adapter to rebalance
