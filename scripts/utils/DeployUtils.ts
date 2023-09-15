@@ -20,16 +20,6 @@ const libraries = new Map<string, string>([
 // tslint:disable-next-line:no-var-requires
 const hre = require("hardhat");
 
-dotEnvConfig();
-// tslint:disable-next-line:no-var-requires
-const argv = require('yargs/yargs')()
-  .env('TETU')
-  .options({
-    networkScanKey: {
-      type: "string",
-    },
-  }).argv;
-
 export class DeployUtils {
 
 //region Contract connection

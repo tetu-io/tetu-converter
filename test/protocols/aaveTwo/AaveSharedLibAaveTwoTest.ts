@@ -7,6 +7,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {expect} from "chai";
 import {parseUnits} from "ethers/lib/utils";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("AaveSharedLibTest", () => {
   const BASE_CURRENCY_DECIMALS = 18;
@@ -20,6 +21,8 @@ describe.skip("AaveSharedLibTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

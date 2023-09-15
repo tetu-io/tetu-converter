@@ -15,7 +15,6 @@ import {
 } from "../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
@@ -36,7 +35,7 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
-import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
@@ -50,6 +49,7 @@ describe("DForcePlatformAdapterTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -456,8 +456,6 @@ describe("DForcePlatformAdapterTest", () => {
     }
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await initializePlatformAdapter();
 
         const ret = [
@@ -482,19 +480,16 @@ describe("DForcePlatformAdapterTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if aave-pool is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroComptroller: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if controller is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroController: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if template normal is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroConverter: true})
         ).revertedWith("TC-1 zero address");
@@ -518,8 +513,6 @@ describe("DForcePlatformAdapterTest", () => {
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralCToken = MaticAddresses.dForce_iDAI;
@@ -541,8 +534,6 @@ describe("DForcePlatformAdapterTest", () => {
       });
       describe("USDC : USDT", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.USDC;
           const collateralCToken = MaticAddresses.dForce_iUSDC;
 
@@ -565,8 +556,6 @@ describe("DForcePlatformAdapterTest", () => {
       });
       describe("WMATIC : USDC", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.WMATIC;
           const collateralCToken = MaticAddresses.dForce_iMATIC;
 
@@ -589,8 +578,6 @@ describe("DForcePlatformAdapterTest", () => {
       });
       describe("Try to use huge collateral amount", () => {
         it("should return borrow amount equal to max available amount", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -607,8 +594,6 @@ describe("DForcePlatformAdapterTest", () => {
          *      totalBorrows    <    borrowCap       <       totalBorrows + available cash
          */
         it("maxAmountToBorrow is equal to borrowCap - totalBorrows", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -625,8 +610,6 @@ describe("DForcePlatformAdapterTest", () => {
          *      totalBorrows    <    borrowCap       <       totalBorrows + available cash
          */
         it("maxAmountToBorrow is equal to available cash if borrowCap is huge", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -644,8 +627,6 @@ describe("DForcePlatformAdapterTest", () => {
          *      totalBorrows    <     totalBorrows + available cash
          */
         it("maxAmountToBorrow is equal to available cash if borrowCap is unlimited", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -663,8 +644,6 @@ describe("DForcePlatformAdapterTest", () => {
          *      borrowCap   <     totalBorrows    <   totalBorrows + available cash
          */
         it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -679,8 +658,6 @@ describe("DForcePlatformAdapterTest", () => {
       });
       describe("Supply capacity", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -696,8 +673,6 @@ describe("DForcePlatformAdapterTest", () => {
       });
       describe("Frozen", () => {
         it("should return no plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -715,8 +690,6 @@ describe("DForcePlatformAdapterTest", () => {
       describe("EntryKinds", () => {
         describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
           it("should return expected collateral and borrow amounts", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAmount = parseUnits("1000", 18);
 
             const r = await preparePlan(
@@ -763,8 +736,6 @@ describe("DForcePlatformAdapterTest", () => {
         });
         describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
           it("should split source amount on the parts with almost same cost", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAmount = parseUnits("1000", 18);
 
             const r = await preparePlan(
@@ -804,8 +775,6 @@ describe("DForcePlatformAdapterTest", () => {
         });
         describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
           it("should return expected collateral amount", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // let's calculate borrow amount by known collateral amount
             const collateralAmount = parseUnits("10", 18);
             const d = await preparePlan(
@@ -856,8 +825,6 @@ describe("DForcePlatformAdapterTest", () => {
       describe("Collateral and borrow amounts fit to limits", () => {
         describe("Allowed collateral exceeds available collateral", () => {
           it("should return expected borrow and collateral amounts", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // let's get max available supply amount
             const sample = await preparePlan(
               controller,
@@ -907,8 +874,6 @@ describe("DForcePlatformAdapterTest", () => {
         });
         describe("Allowed borrow amounts exceeds available borrow amount", () => {
           it("should return expected borrow and collateral amounts", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // let's get max available borrow amount
             const sample = await preparePlan(
               controller,
@@ -980,8 +945,6 @@ describe("DForcePlatformAdapterTest", () => {
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroCollateralAsset: true })
             ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
@@ -989,8 +952,6 @@ describe("DForcePlatformAdapterTest", () => {
         });
         describe("borrow token is zero", () => {
           it("should revert", async () =>{
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroBorrowAsset: true })
             ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
@@ -998,8 +959,6 @@ describe("DForcePlatformAdapterTest", () => {
         });
         describe("healthFactor2_ is less than min allowed", () => {
           it("should revert", async () =>{
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ incorrectHealthFactor2: 100 })
             ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
@@ -1007,8 +966,6 @@ describe("DForcePlatformAdapterTest", () => {
         });
         describe("countBlocks_ is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroCountBlocks: true })
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
@@ -1016,8 +973,6 @@ describe("DForcePlatformAdapterTest", () => {
         });
         describe("collateralAmount_ is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroCollateralAmount: true })
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
@@ -1027,16 +982,12 @@ describe("DForcePlatformAdapterTest", () => {
 
       describe("cToken is not registered", () => {
         it("should fail if collateral token is not registered", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           expect((await tryGetConversionPlan(
             {},
             MaticAddresses.agEUR
           )).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrow token is not registered", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           expect((await tryGetConversionPlan(
             {},
             MaticAddresses.DAI,
@@ -1047,7 +998,6 @@ describe("DForcePlatformAdapterTest", () => {
 
       describe("capacity", () => {
         it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () => {
-          if (!await isPolygonForkInUse()) return;
           const planBorrowCapacityNotLimited = await tryGetConversionPlan(
             {},
             MaticAddresses.DAI,
@@ -1075,7 +1025,6 @@ describe("DForcePlatformAdapterTest", () => {
           expect(ret).eq(expected);
         });
         it("should return expected maxAmountToSupply if supplyCapacity is limited", async () => {
-          if (!await isPolygonForkInUse()) return;
           const plan = await tryGetConversionPlan(
             {setMinSupplyCapacity: true},
             MaticAddresses.DAI,
@@ -1088,7 +1037,6 @@ describe("DForcePlatformAdapterTest", () => {
           expect(plan.maxAmountToSupply.lt(parseUnits("12345"))).eq(true);
         });
         it("should return zero plan if supplyCapacity is zero", async () => {
-          if (!await isPolygonForkInUse()) return;
           const plan = await tryGetConversionPlan(
             {setZeroSupplyCapacity: true},
             MaticAddresses.DAI,
@@ -1104,7 +1052,6 @@ describe("DForcePlatformAdapterTest", () => {
           expect(plan.converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should return zero plan if borrowCapacity is zero", async () => {
-          if (!await isPolygonForkInUse()) return;
           const plan = await tryGetConversionPlan(
             {setZeroBorrowCapacity: true},
             MaticAddresses.DAI,
@@ -1123,23 +1070,18 @@ describe("DForcePlatformAdapterTest", () => {
 
       describe("paused", () => {
         it("should fail if mintPaused is true for collateral", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({setCollateralMintPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if redeemPaused for borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({setRedeemPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrowPaused for borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
 
       describe("Use unsupported entry kind 999", () => {
         it("should return zero plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -1159,8 +1101,6 @@ describe("DForcePlatformAdapterTest", () => {
 
       describe("Result collateralAmount == 0, amountToBorrow != 0 (edge case, improve coverage)", () => {
         it("should return zero plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralCToken = MaticAddresses.dForce_iDAI;
@@ -1211,8 +1151,6 @@ describe("DForcePlatformAdapterTest", () => {
     });
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const comptroller = await DForceHelper.getController(deployer);
         const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
           deployer,
@@ -1245,8 +1183,6 @@ describe("DForcePlatformAdapterTest", () => {
     describe("Good paths", () => {
       describe("small amount DAI => USDC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.dForce_iDAI;
           const borrowAsset = MaticAddresses.USDC;
@@ -1278,8 +1214,6 @@ describe("DForcePlatformAdapterTest", () => {
 
       describe("Huge amount DAI => USDC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.dForce_iDAI;
           const borrowAsset = MaticAddresses.USDC;
@@ -1312,8 +1246,6 @@ describe("DForcePlatformAdapterTest", () => {
 
       describe("Huge amount DAI => WBTC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.dForce_iDAI;
           const borrowAsset = MaticAddresses.WBTC;
@@ -1349,8 +1281,6 @@ describe("DForcePlatformAdapterTest", () => {
     describe("Good paths", () => {
       describe("Supply, wait, get rewards", () => {
         it("should return amount of rewards same to really received", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const collateralHolder = MaticAddresses.HOLDER_DAI;
           const collateralCTokenAddress = MaticAddresses.dForce_iDAI;
@@ -1480,16 +1410,12 @@ describe("DForcePlatformAdapterTest", () => {
 
     describe("Good paths", () => {
       it("initialized pool adapter should has expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await makeInitializePoolAdapterTest();
         expect(r.ret).eq(r.expected);
       });
     });
     describe("Bad paths", () => {
       it("should revert if converter address is not registered", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeInitializePoolAdapterTest(
             {useWrongConverter: true}
@@ -1497,8 +1423,6 @@ describe("DForcePlatformAdapterTest", () => {
         ).revertedWith("TC-25 converter not found"); // CONVERTER_NOT_FOUND
       });
       it("should revert if it's called by not borrow-manager", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeInitializePoolAdapterTest(
             {wrongCallerOfInitializePoolAdapter: true}
@@ -1520,8 +1444,6 @@ describe("DForcePlatformAdapterTest", () => {
     });
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
           deployer,
           controller.address,
@@ -1553,8 +1475,6 @@ describe("DForcePlatformAdapterTest", () => {
     describe("Bad paths", () => {
       describe("Not governance", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
             deployer,
             controller.address,
@@ -1575,8 +1495,6 @@ describe("DForcePlatformAdapterTest", () => {
       });
       describe("Try to add not CToken", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
             deployer,
             controller.address,
@@ -1596,8 +1514,6 @@ describe("DForcePlatformAdapterTest", () => {
 
   describe("events", () => {
     it("should emit expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const user = ethers.Wallet.createRandom().address;
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
@@ -1642,8 +1558,6 @@ describe("DForcePlatformAdapterTest", () => {
   describe("setFrozen", () => {
     describe("Good paths", () => {
       it("should assign expected value to frozen", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const controller = await TetuConverterApp.createController(deployer,
           {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
@@ -1671,8 +1585,6 @@ describe("DForcePlatformAdapterTest", () => {
     });
     describe("Bad paths", () => {
       it("should assign expected value to frozen", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const comptroller = await DForceHelper.getController(deployer);
         const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
           deployer,
@@ -1691,8 +1603,6 @@ describe("DForcePlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const controller = await TetuConverterApp.createController(deployer);
 
       const comptroller = await DForceHelper.getController(deployer);

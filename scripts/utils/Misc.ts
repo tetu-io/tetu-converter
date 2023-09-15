@@ -2,10 +2,29 @@ import {ethers} from "hardhat";
 import {Logger} from "tslog";
 import logSettings from "../../log_settings";
 import {BigNumber, ContractTransaction} from "ethers";
+import Common from 'ethereumjs-common';
 
 // tslint:disable-next-line:no-var-requires
 const hre = require("hardhat");
 const log: Logger<unknown> = new Logger(logSettings);
+
+const MATIC_CHAIN = Common.forCustomChain(
+  'mainnet', {
+    name: 'matic',
+    networkId: 137,
+    chainId: 137,
+  },
+  'petersburg',
+);
+
+const FANTOM_CHAIN = Common.forCustomChain(
+  'mainnet', {
+    name: 'fantom',
+    networkId: 250,
+    chainId: 250,
+  },
+  'petersburg',
+);
 
 export class Misc {
   public static readonly MAX_UINT = BigNumber.from('115792089237316195423570985008687907853269984665640564039457584007913129639935');  // BigNumber.from(2).pow(256).sub(1), // === type(uint).max
@@ -24,49 +43,24 @@ export class Misc {
     log.info('>>>' + text, ((Date.now() - start) / 1000).toFixed(1), 'sec');
   }
 
-  public static async getNetworkScanUrl(): Promise<string> {
-    const net = hre.network.config.chainId;
-    if (net === 4) {
-      return 'https://api-rinkeby.etherscan.io/api';
-    } else if (net === 1) {
-      return 'https://api.etherscan.io/api';
-    } else if (net === 137) {
-      return 'https://api.polygonscan.com/api'
-    } else if (net === 250) {
-      return 'https://api.ftmscan.com//api'
-    } else if (net === 43113) {
-      return 'https://testnet.snowtrace.io/api'
-    } else {
-      throw Error('network not found ' + net);
-    }
+  public static getChainId() {
+    return hre.network.config.chainId ?? 0;
   }
 
-  public static async runAndWait(callback: () => Promise<ContractTransaction>, stopOnError = true, wait = true) {
-    const start = Date.now();
-    const tr = await callback();
-    if (!wait) {
-      Misc.printDuration('runAndWait completed', start);
-      return;
-    }
-    await Misc.wait(1);
+  public static getChainName() {
+    return hre.network.name;
+  }
 
-    log.info('tx sent', tr.hash);
-
-    let receipt;
-    while (true) {
-      receipt = await ethers.provider.getTransactionReceipt(tr.hash);
-      if (receipt) {
-        break;
-      }
-      log.info('not yet complete', tr.hash);
-      await Misc.delay(10000);
+  public static async getChainConfig() {
+    const chainId = Misc.getChainId();
+    switch (chainId) {
+      case 137:
+        return MATIC_CHAIN;
+      case 250:
+        return FANTOM_CHAIN;
+      default:
+        throw new Error('Unknown net ' + chainId);
     }
-    log.info('transaction result', tr.hash, receipt?.status);
-    log.info('gas used', receipt.gasUsed.toString());
-    if (receipt?.status !== 1 && stopOnError) {
-      throw Error("Wrong status!");
-    }
-    Misc.printDuration('runAndWait completed', start);
   }
 
   public static async impersonate(address: string) {
