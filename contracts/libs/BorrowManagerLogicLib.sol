@@ -95,13 +95,13 @@ library BorrowManagerLogicLib {
 
     // find all exist valid debts and calculate how to make new borrow with rebalancing of the exist debt
     // add BorrowCandidate to {candidates} for such debts and clear up corresponded items in {platformAdapters}
-    (v.countCandidates, v.needMore) = _findExistDebtsToRebalance(v.platformAdapters, p_, addParams_, candidates);
+    (v.countCandidates, v.needMore) = _findCandidatesForExistDebts(v.platformAdapters, p_, addParams_, candidates);
     v.totalCandidates = (v.needMore && v.len != 0)
       // find borrow-candidates for all other platform adapters
-      ? _findPoolsForNewDebt(v.platformAdapters, v.countCandidates, p_, addParams_, candidates)
+      ? _findNewCandidates(v.platformAdapters, v.countCandidates, p_, addParams_, candidates)
       : v.countCandidates;
 
-    return _prepareFindConverterResults(v.countCandidates, v.totalCandidates, candidates);
+    return _prepareOutput(v.countCandidates, v.totalCandidates, candidates);
   }
 
   /// @notice Copy {data_} to output arrays
@@ -109,26 +109,26 @@ library BorrowManagerLogicLib {
   ///         Other part of {data_} is at first ordered by apr and then the data are copied to output arrays
   /// @param countDebts_ Count items of {data_} corresponded to the exist debts
   /// @param count_ Total count of valid items in {data_}
-  /// @param convertersOut Array with size equal to {count_}
-  ///                      First {countDebts_} contains data for the exist debts
-  ///                      All other items contains data for new positions that can be opened. These items are ordered by APR.
-  function _prepareFindConverterResults(
-    uint countDebts_,
-    uint count_,
-    BorrowCandidate[] memory data_
-  ) internal pure returns (
-    address[] memory convertersOut,
-    uint[] memory collateralAmountsOut,
-    uint[] memory amountsToBorrowOut,
-    int[] memory aprs18Out
+  /// @param data_ All found conversion strategies.
+  ///              First {countDebts_} positions contains data for exist debts (new borrow + rebalance),
+  ///              all others are new conversion strategies
+  /// @param converters Array with size equal to {count_}
+  ///                   First {countDebts_} contains data for the exist debts
+  ///                   All other items contains data for new positions that can be opened. These items are ordered by APR.
+  function _prepareOutput(uint countDebts_, uint count_, BorrowCandidate[] memory data_) internal pure returns (
+    address[] memory converters,
+    uint[] memory collateralAmounts,
+    uint[] memory borrowAmounts,
+    int[] memory aprs18
   ) {
     if (count_ != 0) {
       // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
-      convertersOut = new address[](count_);
-      collateralAmountsOut = new uint[](count_);
-      amountsToBorrowOut = new uint[](count_);
-      aprs18Out = new int[](count_);
+      converters = new address[](count_);
+      collateralAmounts = new uint[](count_);
+      borrowAmounts = new uint[](count_);
+      aprs18 = new int[](count_);
 
+      // sort new conversion strategies by APR
       uint countNewPos = count_ - countDebts_;
       int[] memory aprs = new int[](countNewPos);
       for (uint i; i < countNewPos; i = AppUtils.uncheckedInc(i)) {
@@ -137,15 +137,17 @@ library BorrowManagerLogicLib {
       uint[] memory indices = AppUtils._sortAsc(countNewPos, aprs);
 
       for (uint i; i < count_; i = AppUtils.uncheckedInc(i)) {
-        bool existDebt = i < countDebts_;
-        convertersOut[i] = data_[existDebt ? i : indices[i - countDebts_]].converter;
-        collateralAmountsOut[i] = data_[existDebt ? i : indices[i - countDebts_]].collateralAmount;
-        amountsToBorrowOut[i] = data_[existDebt ? i : indices[i - countDebts_]].amountToBorrow;
-        aprs18Out[i] = data_[existDebt ? i : indices[i - countDebts_]].apr18;
+        uint index = i < countDebts_
+          ? i
+          : countDebts_+ indices[i - countDebts_];
+        converters[i] = data_[index].converter;
+        collateralAmounts[i] = data_[index].collateralAmount;
+        borrowAmounts[i] = data_[index].amountToBorrow;
+        aprs18[i] = data_[index].apr18;
       }
     }
 
-    return (convertersOut, collateralAmountsOut, amountsToBorrowOut, aprs18Out);
+    return (converters, collateralAmounts, borrowAmounts, aprs18);
   }
   //endregion ----------------------------------------------------- Find best pool for borrowing
 
@@ -157,7 +159,7 @@ library BorrowManagerLogicLib {
   /// @return count Total count of found pool adapters = count of plans saved to {dest}
   /// @return needMore True if all found pool adapters are not able to use whole provided collateral,
   ///                  so new lending platforms should be used in addition
-  function _findExistDebtsToRebalance(
+  function _findCandidatesForExistDebts(
     IPlatformAdapter[] memory platformAdapters,
     AppDataTypes.InputConversionParams memory p_,
     InputParamsAdditional memory addParams_,
@@ -172,13 +174,13 @@ library BorrowManagerLogicLib {
     uint usedAmountIn;
     while (index < len) {
       address poolAdapter;
-      (index, poolAdapter) = _getExistValidPoolAdapter(platformAdapters, index, p_.user, p_.collateralAsset, p_.borrowAsset, addParams_.controller);
+      (index, poolAdapter, ) = _getExistValidPoolAdapter(platformAdapters, index, p_.user, p_.collateralAsset, p_.borrowAsset, addParams_.controller);
       if (poolAdapter != address(0)) {
         BorrowCandidate memory c;
         (c, usedAmountIn) = _findPoolsForExistDebt(IPoolAdapter(poolAdapter), platformAdapters[index], p_, addParams_, usedAmountIn);
         if (c.converter != address(0)) {
           dest[count++] = c;
-          platformAdapters[index] = IPlatformAdapter(address(0));
+          platformAdapters[index] = IPlatformAdapter(address(0)); // prevent using of this platform adapter in _findNewCandidates
           if (usedAmountIn >= p_.amountIn) break;
         }
       }
@@ -198,6 +200,7 @@ library BorrowManagerLogicLib {
   ///                              Return platformAdapters.len if the pool adapter wasn't found.
   /// @return poolAdapter First exist valid pool adapter found for the user-borrowAsset-collateralAsset
   ///                     "valid" means that the pool adapter is not dirty and can be use for new borrows
+  /// @return healthFactor18 Current health factor of the pool adapter
   function _getExistValidPoolAdapter(
     IPlatformAdapter[] memory platformAdapters_,
     uint index0_,
@@ -207,32 +210,31 @@ library BorrowManagerLogicLib {
     IConverterController controller_
   ) internal view returns (
     uint indexPlatformAdapter,
-    address poolAdapter
+    address poolAdapter,
+    uint healthFactor18
   ) {
     IBorrowManager borrowManager = IBorrowManager(controller_.borrowManager());
-    uint lenPools = platformAdapters_.length;
+    uint16 minHealthFactor2 = controller_.minHealthFactor2();
 
-    for (uint i = index0_; i < lenPools; i = i.uncheckedInc()) {
-      IPlatformAdapter pa = platformAdapters_[i];
-      address[] memory converters = pa.converters();
-      uint lenConverters = converters.length;
-      for (uint j; j < lenConverters; j = j.uncheckedInc()) {
+    uint len = platformAdapters_.length;
+
+    for (uint i = index0_; i < len; i = i.uncheckedInc()) {
+      address[] memory converters = platformAdapters_[i].converters();
+      for (uint j; j < converters.length; j = j.uncheckedInc()) {
         poolAdapter = borrowManager.getPoolAdapter(converters[j], user_, collateralAsset_, borrowAsset_);
         if (poolAdapter != address(0)) {
-          ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(
-            IPoolAdapter(poolAdapter),
-            controller_.minHealthFactor2()
-          );
+          (,, healthFactor18,,,) = IPoolAdapter(IPoolAdapter(poolAdapter)).getStatus();
+          ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(healthFactor18, minHealthFactor2);
           // todo process REBALANCE_REQUIRED_2, put the pool adapter on the first place in dest
 
           if (status != ConverterLogicLib.HealthStatus.DIRTY_1) {
-            return (i, poolAdapter); // health factor > 1
+            return (i, poolAdapter, healthFactor18); // health factor > 1
           } // we are inside a view function, so just skip dirty pool adapters
         }
       }
     }
 
-    return (lenPools, address(0));
+    return (len, address(0), 0);
   }
 
   function _findPoolsForExistDebt(
@@ -389,7 +391,7 @@ library BorrowManagerLogicLib {
   /// @param dest_ New position should be saved here starting from {startDestIndex} position
   ///              The length of array is equal to the length of platformAdapters
   /// @return totalCount Count of valid items in dest_, it must be >= startDestIndex
-  function _findPoolsForNewDebt(
+  function _findNewCandidates(
     IPlatformAdapter[] memory platformAdapters_,
     uint startDestIndex_,
     AppDataTypes.InputConversionParams memory p_,

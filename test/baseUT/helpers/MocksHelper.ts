@@ -55,7 +55,7 @@ import {
   DForceRewardDistributorMock,
   UpgradeableProxyFacade,
   ControllableV3Facade,
-  TetuConverterCallbackMock
+  TetuConverterCallbackMock, BorrowManagerMock, ConverterControllerMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -270,6 +270,11 @@ export class MocksHelper {
 //endregion Pools
 
 //region Core contracts
+
+  public static async createConverterControllerMock(signer: SignerWithAddress) : Promise<ConverterControllerMock> {
+    return await DeployUtils.deployContract(signer, "ConverterControllerMock") as ConverterControllerMock;
+  }
+
   public static async createBorrowManagerStub(
     signer: SignerWithAddress,
     valueIsPoolAdapter: boolean
@@ -279,6 +284,10 @@ export class MocksHelper {
       , "BorrowManagerStub"
       , valueIsPoolAdapter
     ) as BorrowManagerStub;
+  }
+
+  public static async createBorrowManagerMock(signer: SignerWithAddress) : Promise<BorrowManagerMock> {
+    return await DeployUtils.deployContract(signer, "BorrowManagerMock") as BorrowManagerMock;
   }
 
   public static async createDebtsMonitorStub(

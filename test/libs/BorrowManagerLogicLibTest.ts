@@ -3,13 +3,13 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BorrowManagerLogicLibFacade, MockERC20} from "../../typechain";
-import {IConversionPlan} from "../baseUT/apr/aprDataTypes";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {AppConstants} from "../baseUT/AppConstants";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
+import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 
 describe("BorrowManagerLogicLibTest", () => {
 //region Global vars for all tests
@@ -23,6 +23,8 @@ describe("BorrowManagerLogicLibTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     snapshotRoot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     signer = signers[0];
@@ -662,6 +664,280 @@ describe("BorrowManagerLogicLibTest", () => {
     });
   });
 
+  describe("_prepareOutput", () => {
+    interface IBorrowCandidate {
+      collateralAmount: string;
+      amountToBorrow: string;
+      apr18: string;
+    }
+    interface IPrepareOutputParams {
+      collateralAsset?: MockERC20; // usdc by default
+      borrowAsset?: MockERC20; // usdt by default
+      data: IBorrowCandidate[];
+      countDebts?: number; // 0 by defaults
+    }
+    interface IPrepareOutputResults {
+      convertersIndices: number[];
+      collateralAmounts: number[];
+      borrowAmounts: number[];
+      aprs: number[];
+    }
+
+    async function callPrepareOutput(p: IPrepareOutputParams): Promise<IPrepareOutputResults> {
+      const decimalsCollateral = await (p.collateralAsset ?? usdc).decimals();
+      const decimalsBorrow = await (p.borrowAsset ?? usdt).decimals();
+
+      const converters = p.data.map(x => ethers.Wallet.createRandom().address);
+      const ret = await facade._prepareOutput(
+        p.countDebts ?? 0,
+        p.data.length,
+        p.data.map(
+          (d, index) => ({
+            apr18: parseUnits(p.data[index].apr18, 18),
+            converter: converters[index],
+            collateralAmount: parseUnits(p.data[index].collateralAmount, decimalsCollateral),
+            amountToBorrow: parseUnits(p.data[index].amountToBorrow, decimalsBorrow),
+          })
+        )
+      );
+
+      return {
+        aprs: ret.aprs18.map(x => +formatUnits(x, 18)),
+        collateralAmounts: ret.collateralAmounts.map(x => +formatUnits(x, decimalsCollateral)),
+        borrowAmounts: ret.borrowAmounts.map(x => +formatUnits(x, decimalsBorrow)),
+        convertersIndices: ret.converters.map(x => converters.findIndex(value => x === value))
+      }
+    }
+
+    describe("Only new items", () => {
+      async function prepareOutputTest() : Promise<IPrepareOutputResults> {
+        return callPrepareOutput({
+          data: [
+            {apr18: "3", collateralAmount: "33", amountToBorrow: "333"},
+            {apr18: "1", collateralAmount: "11", amountToBorrow: "111"},
+            {apr18: "2", collateralAmount: "22", amountToBorrow: "222"},
+          ]
+        });
+      }
+
+      it("should return expected converters", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.convertersIndices.join()).eq([1, 2, 0].join());
+      });
+      it("should return expected collateral amounts", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.collateralAmounts.join()).eq([11, 22, 33].join());
+      });
+      it("should return expected borrow amounts", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.borrowAmounts.join()).eq([111, 222, 333].join());
+      });
+      it("should return expected aprs", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.aprs.join()).eq([1, 2, 3].join());
+      });
+    });
+    describe("Only exist debts", () => {
+      async function prepareOutputTest() : Promise<IPrepareOutputResults> {
+        return callPrepareOutput({
+          countDebts: 3,
+          data: [
+            {apr18: "3", collateralAmount: "33", amountToBorrow: "333"},
+            {apr18: "1", collateralAmount: "11", amountToBorrow: "111"},
+            {apr18: "2", collateralAmount: "22", amountToBorrow: "222"},
+          ]
+        });
+      }
+
+      it("should return expected converters", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.convertersIndices.join()).eq([0, 1, 2].join());
+      });
+      it("should return expected collateral amounts", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.collateralAmounts.join()).eq([33, 11, 22].join());
+      });
+      it("should return expected borrow amounts", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.borrowAmounts.join()).eq([333, 111, 222].join());
+      });
+      it("should return expected aprs", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.aprs.join()).eq([3, 1, 2].join());
+      });
+    });
+    describe("New and exit debts", () => {
+      async function prepareOutputTest() : Promise<IPrepareOutputResults> {
+        return callPrepareOutput({
+          countDebts: 2,
+          data: [
+            {apr18: "4", collateralAmount: "44", amountToBorrow: "444"},
+            {apr18: "1", collateralAmount: "11", amountToBorrow: "111"},
+            {apr18: "3", collateralAmount: "33", amountToBorrow: "333"},
+            {apr18: "2", collateralAmount: "22", amountToBorrow: "222"},
+          ]
+        });
+      }
+
+      it("should return expected converters", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.convertersIndices.join()).eq([0, 1, 3, 2].join());
+      });
+      it("should return expected collateral amounts", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.collateralAmounts.join()).eq([44, 11, 22, 33].join());
+      });
+      it("should return expected borrow amounts", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.borrowAmounts.join()).eq([444, 111, 222, 333].join());
+      });
+      it("should return expected aprs", async() => {
+        const ret = await loadFixture(prepareOutputTest);
+        expect(ret.aprs.join()).eq([4, 1, 2, 3].join());
+      });
+    });
+  });
+
+  describe("_getExistValidPoolAdapter", () => {
+    interface IGetExistValidPoolAdapterParams {
+      countPlatformAdapters: number;
+      index0: number;
+
+      poolAdapterPosition?: number; // default undefined (there is no exist debt)
+      poolAdapterHealthFactor?: string; // default 1.0
+
+      minHealthFactor?: string; // default 1.0
+    }
+
+    interface IGetExistValidPoolAdapterResults {
+      indexPlatformAdapter: number;
+      poolAdapterExpected: boolean;
+      healthFactor: number;
+    }
+
+    async function getExistValidPoolAdapter(p: IGetExistValidPoolAdapterParams): Promise<IGetExistValidPoolAdapterResults> {
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = ethers.Wallet.createRandom().address;
+      const borrowAsset = ethers.Wallet.createRandom().address;
+
+      const targetConverter = ethers.Wallet.createRandom().address;
+      const platformAdapters = await Promise.all([...Array(p.countPlatformAdapters).keys()].map(
+        async (x, index) => MocksHelper.createPlatformAdapterStub(
+          signer,
+          [
+            ethers.Wallet.createRandom().address,
+            index === p.poolAdapterPosition
+              ? targetConverter
+              : ethers.Wallet.createRandom().address
+          ]
+        )
+      ));
+
+      const poolAdapter = await MocksHelper.createPoolAdapterMock2(signer);
+      await poolAdapter.setStatus(
+        0, // not used here
+        0, // not used here
+        parseUnits(p.poolAdapterHealthFactor ?? "1", 18),
+        true, // not used here
+        0, // not used here
+        false // not used here
+      );
+
+      const borrowManager = await MocksHelper.createBorrowManagerMock(signer);
+      await borrowManager.setupGetPoolAdapter(targetConverter, user, collateralAsset, borrowAsset, poolAdapter.address);
+
+      const controller = await MocksHelper.createConverterControllerMock(signer);
+      await controller.setupBorrowManager(borrowManager.address);
+      await controller.setupMinHealthFactor2(parseUnits(p.minHealthFactor ?? "1", 2));
+
+      const ret = await facade._getExistValidPoolAdapter(
+        platformAdapters.map(x => x.address),
+        p.index0,
+        user,
+        collateralAsset,
+        borrowAsset,
+        controller.address
+      );
+
+      return {
+        indexPlatformAdapter: ret.indexPlatformAdapter.toNumber(),
+        poolAdapterExpected: ret.poolAdapter === poolAdapter.address,
+        healthFactor: +formatUnits(ret.healthFactor18, 18)
+      }
+    }
+
+    describe("there are no exist debts", () => {
+      async function getExistValidPoolAdapterTest(): Promise<IGetExistValidPoolAdapterResults> {
+        return getExistValidPoolAdapter({
+          index0: 0,
+          countPlatformAdapters: 2
+        });
+      }
+
+      it("should return expected indexPlatformAdapter", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.indexPlatformAdapter).eq(2);
+      });
+      it("should return zero address of the pool adapter", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.poolAdapterExpected).eq(false);
+      });
+      it("should return zero health factor", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.healthFactor).eq(0);
+      });
+    });
+
+    describe("there is exist debts in the search range", () => {
+      async function getExistValidPoolAdapterTest(): Promise<IGetExistValidPoolAdapterResults> {
+        return getExistValidPoolAdapter({
+          index0: 0,
+          countPlatformAdapters: 3,
+          poolAdapterPosition: 1,
+          poolAdapterHealthFactor: "1.5",
+          minHealthFactor: "1.03"
+        });
+      }
+
+      it("should return expected indexPlatformAdapter", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.indexPlatformAdapter).eq(1);
+      });
+      it("should return expected address of the pool adapter", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.poolAdapterExpected).eq(true);
+      });
+      it("should return expected health factor", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.healthFactor).eq(1.5);
+      });
+    });
+
+    describe("there is no exist debts in the search range", () => {
+      async function getExistValidPoolAdapterTest(): Promise<IGetExistValidPoolAdapterResults> {
+        return getExistValidPoolAdapter({
+          index0: 2,
+          countPlatformAdapters: 5,
+          poolAdapterPosition: 1,
+          poolAdapterHealthFactor: "1.5",
+          minHealthFactor: "1.03"
+        });
+      }
+
+      it("should return expected indexPlatformAdapter", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.indexPlatformAdapter).eq(5);
+      });
+      it("should return zero address of the pool adapter", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.poolAdapterExpected).eq(false);
+      });
+      it("should return zero health factor", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.healthFactor).eq(0);
+      });
+    });
+  });
 //endregion Unit tests
 
 });

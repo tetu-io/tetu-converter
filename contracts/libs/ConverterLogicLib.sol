@@ -74,8 +74,10 @@ library ConverterLogicLib {
   }
 
   /// @notice Check health status of the pool adapter
-  function getHealthStatus(IPoolAdapter pa, uint16 minHealthFactor2) internal view returns (HealthStatus) {
-    (,, uint healthFactor18,,,) = IPoolAdapter(pa).getStatus();
+  /// @param healthFactor18 Current health factor of the pool adapter, decimals 18
+  /// @param minHealthFactor2 Min allowed health factor, decimals 2
+  /// @return HealthStatus Health status of the pool adapter
+  function getHealthStatus(uint healthFactor18, uint16 minHealthFactor2) internal pure returns (HealthStatus) {
     if (healthFactor18 < 1e18) {
       // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
       return HealthStatus.DIRTY_1;

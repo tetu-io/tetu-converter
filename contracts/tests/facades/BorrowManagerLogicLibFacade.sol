@@ -44,26 +44,26 @@ contract BorrowManagerLogicLibFacade {
     return BorrowManagerLogicLib.findConverter(p_, addParams_, _pas);
   }
 
-  function _prepareFindConverterResults(
+  function _prepareOutput(
     uint countDebts_,
     uint count_,
     BorrowManagerLogicLib.BorrowCandidate[] memory data_
   ) external pure returns (
-    address[] memory convertersOut,
-    uint[] memory collateralAmountsOut,
-    uint[] memory amountsToBorrowOut,
-    int[] memory aprs18Out
+    address[] memory converters,
+    uint[] memory collateralAmounts,
+    uint[] memory borrowAmounts,
+    int[] memory aprs18
   ) {
-    return BorrowManagerLogicLib._prepareFindConverterResults(countDebts_, count_, data_);
+    return BorrowManagerLogicLib._prepareOutput(countDebts_, count_, data_);
   }
 
-  function _findExistDebtsToRebalance(
+  function _findCandidatesForExistDebts(
     IPlatformAdapter[] memory platformAdapters,
     AppDataTypes.InputConversionParams memory p_,
     BorrowManagerLogicLib.InputParamsAdditional memory addParams_,
     BorrowManagerLogicLib.BorrowCandidate[] memory input
   ) external view returns (FindExistDebtsToRebalanceLocal memory) {
-    (uint count, bool needMore) = BorrowManagerLogicLib._findExistDebtsToRebalance(platformAdapters, p_, addParams_, input);
+    (uint count, bool needMore) = BorrowManagerLogicLib._findCandidatesForExistDebts(platformAdapters, p_, addParams_, input);
     return FindExistDebtsToRebalanceLocal({
       count: count,
       needMore: needMore,
@@ -80,7 +80,8 @@ contract BorrowManagerLogicLibFacade {
     IConverterController controller_
   ) external view returns (
     uint indexPlatformAdapter,
-    address poolAdapter
+    address poolAdapter,
+    uint healthFactor18
   ) {
     return BorrowManagerLogicLib._getExistValidPoolAdapter(platformAdapters_, index0_, user_, collateralAsset_, borrowAsset_, controller_);
   }
@@ -114,7 +115,7 @@ contract BorrowManagerLogicLibFacade {
     );
   }
 
-  function _findPoolsForNewDebt(
+  function _findNewCandidates(
     IPlatformAdapter[] memory platformAdapters_,
     uint startDestIndex_,
     AppDataTypes.InputConversionParams memory p_,
@@ -123,6 +124,6 @@ contract BorrowManagerLogicLibFacade {
   ) external view returns (
     uint totalCount
   ) {
-    return BorrowManagerLogicLib._findPoolsForNewDebt(platformAdapters_, startDestIndex_, p_, addParams_, dest_);
+    return BorrowManagerLogicLib._findNewCandidates(platformAdapters_, startDestIndex_, p_, addParams_, dest_);
   }
 }
