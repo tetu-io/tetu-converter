@@ -41,7 +41,7 @@ export class EnvSetup {
 
         maticForkBlock: {
           type: 'number',
-          default: 46320827,
+          default: 42618407,
         },
 
         /////// NETWORK EXPLORERS

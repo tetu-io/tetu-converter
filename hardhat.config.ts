@@ -17,7 +17,6 @@ import {task} from "hardhat/config";
 import {deployContract} from "./scripts/deploy/DeployContract";
 import "hardhat-change-network";
 import { EnvSetup } from './scripts/utils/EnvSetup';
-//42618407
 
 task("deploy1", "Deploy contract", async function (args, hre, runSuper) {
   const [signer] = await hre.ethers.getSigners();
