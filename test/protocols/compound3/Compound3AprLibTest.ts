@@ -5,6 +5,7 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {Compound3AprLibFacade} from "../../../typechain";
 import {expect} from "chai";
 import {parseUnits} from "ethers/lib/utils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("Compound3AprLibTests", () => {
 //region Global vars for all tests
@@ -16,6 +17,8 @@ describe("Compound3AprLibTests", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

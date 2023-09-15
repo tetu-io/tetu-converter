@@ -10,7 +10,6 @@ import {
   IPrepareToBorrowResults
 } from "../../baseUT/protocols/compound3/Compound3TestUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
@@ -21,6 +20,7 @@ import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 import {Misc} from "../../../scripts/utils/Misc";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("Compound3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -31,6 +31,7 @@ describe("Compound3PoolAdapterIntTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -202,8 +203,6 @@ describe("Compound3PoolAdapterIntTest", () => {
       describe("Borrow small fixed amount", () => {
         describe("WETH-18 : usdc-6", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const r = await makeBorrow(
               MaticAddresses.WETH,
               MaticAddresses.HOLDER_WETH,
@@ -218,8 +217,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         })
         describe("WMATIC-18 : usdc-6", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const r = await makeBorrow(
               MaticAddresses.WMATIC,
               MaticAddresses.HOLDER_WMATIC,
@@ -241,8 +238,6 @@ describe("Compound3PoolAdapterIntTest", () => {
       describe("Borrow max available amount using all available collateral", () => {
         describe("WETH-18 : usdc-6", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const r = await makeBorrow(
               MaticAddresses.WETH,
               MaticAddresses.HOLDER_WETH,
@@ -257,8 +252,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         })
         describe("WMATIC-18 : usdc-6", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const r = await makeBorrow(
               MaticAddresses.WMATIC,
               MaticAddresses.HOLDER_WMATIC,
@@ -275,8 +268,6 @@ describe("Compound3PoolAdapterIntTest", () => {
     })
     describe("Bad paths", () => {
       it("should revert if wrong borrowed balances", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
         await cometMock2.disableTransferInWithdraw();
 
@@ -308,8 +299,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
       });
       it("should revert if not tetu converter", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeBorrow(
             MaticAddresses.WMATIC,
@@ -324,8 +313,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should revert if sumCollateralSafe <= borrowBase", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
         // we try to set collateralBase = small value in getStatus
         // as result, we follow condition will fail: sumCollateralSafe > borrowBase with INCORRECT_RESULT_LIQUIDITY
@@ -364,8 +351,6 @@ describe("Compound3PoolAdapterIntTest", () => {
   describe("Borrow using small health factors", () => {
     describe("health factor is greater than liquidationThreshold18/LTV", () => {
       it("health factor is less than liquidationThreshold18/LTV", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const targetHealthFactor2 = 103;
         const minHealthFactor2 = 101;
 
@@ -394,8 +379,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         expect(status.healthFactor18).approximately(minHealthFactorAllowedByPlatform, 1e9);
       })
       it("should borrow with specified health factor", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const targetHealthFactor2 = 108;
         const minHealthFactor2 = 101;
 
@@ -425,8 +408,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         describe("Partial repay of borrowed amount", () => {
           describe("WETH => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await makeBorrowAndRepay(
                 MaticAddresses.WETH,
                 MaticAddresses.HOLDER_WETH,
@@ -445,8 +426,6 @@ describe("Compound3PoolAdapterIntTest", () => {
           });
           describe("WMATIC => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await makeBorrowAndRepay(
                 MaticAddresses.WMATIC,
                 MaticAddresses.HOLDER_WMATIC,
@@ -467,8 +446,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         describe("Full repay of borrowed amount", () => {
           describe("WETH => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await makeBorrowAndRepay(
                 MaticAddresses.WETH,
                 MaticAddresses.HOLDER_WETH,
@@ -485,8 +462,6 @@ describe("Compound3PoolAdapterIntTest", () => {
           })
           describe("WBTC => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await makeBorrowAndRepay(
                 MaticAddresses.WBTC,
                 MaticAddresses.HOLDER_WBTC,
@@ -504,8 +479,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         });
         describe("Repay more then borrowed amount", () => {
           it("adapter should return extra amount to user", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const r = await makeBorrowAndRepay(
               MaticAddresses.WETH,
               MaticAddresses.HOLDER_WETH,
@@ -525,8 +498,6 @@ describe("Compound3PoolAdapterIntTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if transfer amount less than specified amount to repay", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(makeBorrowAndRepay(
           MaticAddresses.WETH,
           MaticAddresses.HOLDER_WETH,
@@ -540,7 +511,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         )).revertedWith("ERC20: transfer amount exceeds balance");
       });
       it("should revert if try to close position with not zero debt", async () => {
-        if (!await isPolygonForkInUse()) return;
 
         await expect(makeBorrowAndRepay(
           MaticAddresses.WETH,
@@ -555,8 +525,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         )).revertedWith("TC-55 close position not allowed");
       });
       it("should revert if not tetu converter", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeBorrowAndRepay(
             MaticAddresses.WETH,
@@ -574,8 +542,6 @@ describe("Compound3PoolAdapterIntTest", () => {
         ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should revert if some debt still exists after full repay", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
         // we try to set collateralBase = small value in getStatus
         // as result, we follow condition will fail: sumCollateralSafe > borrowBase with INCORRECT_RESULT_LIQUIDITY

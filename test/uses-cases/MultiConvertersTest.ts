@@ -1,19 +1,18 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
 import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
-import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
 import {IPlatformAdapter, IPlatformAdapter__factory, ITetuConverter} from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {GAS_LIMIT} from "../baseUT/GasLimit";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe("MultiConvertersTest", () => {
 //region Global vars for all tests
@@ -26,6 +25,8 @@ describe("MultiConvertersTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -34,7 +35,6 @@ describe("MultiConvertersTest", () => {
     // and some tests don't pass
     deployer = signers[1];
 
-    if (!await isPolygonForkInUse()) return;
     // We need to replace DForce price oracle by custom one
     // because when we run all tests
     // DForce-prices deprecate before DForce tests are run

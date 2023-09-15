@@ -32,9 +32,9 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {ICreateControllerParams, IDeployInitFabricsSet, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
 
 describe("DebtsMonitor", () => {
@@ -46,6 +46,8 @@ describe("DebtsMonitor", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

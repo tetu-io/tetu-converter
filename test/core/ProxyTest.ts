@@ -20,6 +20,7 @@ import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {proxy} from "../../typechain/contracts";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
+import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 
 /**
  * Most proxy contracts are proxy-contracts, that can be updated by proxy-updater only.
@@ -35,6 +36,8 @@ describe("ProxyTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

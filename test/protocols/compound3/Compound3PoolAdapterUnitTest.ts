@@ -9,7 +9,6 @@ import {
 } from "../../baseUT/protocols/compound3/Compound3TestUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {
   Compound3PoolAdapter,
@@ -25,6 +24,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 
 describe("Compound3PoolAdapterUnitTest", () => {
@@ -36,6 +36,7 @@ describe("Compound3PoolAdapterUnitTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -156,19 +157,16 @@ describe("Compound3PoolAdapterUnitTest", () => {
 
     describe("Good paths", () => {
       it("Normal mode: should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await makeInitializePoolAdapterTest(false);
         expect(r.ret).eq(r.expected);
       });
       it("EMode: should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await makeInitializePoolAdapterTest(false);
         expect(r.ret).eq(r.expected);
       });
     });
     describe("Bad paths", () => {
       it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest(
             false,
@@ -177,7 +175,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero user", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest(
             false,
@@ -186,7 +183,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero comet", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest(
             false,
@@ -195,7 +191,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero comet rewards", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest(
             false,
@@ -204,7 +199,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero converter", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest(
             false,
@@ -213,7 +207,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero collateral asset", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest(
             false,
@@ -222,7 +215,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero borrow asset", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest(
             false,
@@ -231,7 +223,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on second initialization", async () => {
-        if (!await isPolygonForkInUse()) return;
         const d = await makeInitializePoolAdapter();
         await expect(
           d.poolAdapter.initialize(
@@ -251,7 +242,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
   describe("getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const d = await Compound3TestUtils.prepareToBorrow(
           deployer,
           await TokenDataTypes.Build(deployer, MaticAddresses.WETH),
@@ -270,8 +260,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
   describe("claimRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const receiver = ethers.Wallet.createRandom().address;
 
         const r = await makeBorrow(
@@ -310,8 +298,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
   describe("borrowToRebalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await makeBorrow(
           MaticAddresses.WETH,
           MaticAddresses.HOLDER_WETH,
@@ -340,8 +326,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if wrong borrowed balances", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
 
         const cometRewardsMock = await MocksHelper.createCometRewardsMock(
@@ -376,8 +360,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
       });
       it("should revert if position is not opened", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.WETH);
         const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
         const prepareResults = await Compound3TestUtils.prepareToBorrow(
@@ -395,8 +377,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-11 position not registered"); // BORROW_POSITION_IS_NOT_REGISTERED
       });
       it("should revert if not tetu converter", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.WETH);
         const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
         const prepareResults = await Compound3TestUtils.prepareToBorrow(
@@ -489,8 +469,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
   describe("getCollateralAmountToReturn", () => {
     describe("Bad paths", () => {
       it("should revert if amount-to-repay is less then borrowed balances", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
 
         const cometRewardsMock = await MocksHelper.createCometRewardsMock(
@@ -527,8 +505,6 @@ describe("Compound3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
       });
       it("should revert if zero borrowed balances", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
 
         const cometRewardsMock = await MocksHelper.createCometRewardsMock(

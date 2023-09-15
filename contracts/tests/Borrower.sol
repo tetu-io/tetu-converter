@@ -507,67 +507,83 @@ contract Borrower is ITetuConverterCallback {
   }
 
   function requirePayAmountBack(address asset_, uint amount_) external override returns (uint amountOut) {
-    console.log("requirePayAmountBack.amount_", amount_);
-    uint countCalls = requireAmountBackParams.countCalls;
-    requireAmountBackParams.countCalls = countCalls + 1;
+    RequireAmountBackParams storage p = requireAmountBackParams;
+    console.log("Borrower.requirePayAmountBack.asset_, amount_, countCall", asset_, amount_, p.countCalls);
+
+    uint countCalls = p.countCalls;
+    p.countCalls = countCalls + 1;
 
     uint balance = IERC20(asset_).balanceOf(address(this));
     if (countCalls == 0) {
-      requireAmountBackParams.amountPassedToRequireRepayAtFirstCall = amount_;
-      uint amountToReturn = requireAmountBackParams.amountToReturn1 == type(uint).max
-        ? amount_
-        : requireAmountBackParams.amountToReturn1;
-      uint amountToTransfer = requireAmountBackParams.amountToTransfer1 == type(uint).max
-        ? amount_
-        : requireAmountBackParams.amountToTransfer1;
+      p.amountPassedToRequireRepayAtFirstCall = amount_;
+      uint amountToReturn = p.amountToReturn1 == type(uint).max ? amount_ : p.amountToReturn1;
+      uint amountToTransfer = p.amountToTransfer1 == type(uint).max ? amount_ : p.amountToTransfer1;
+      console.log("Borrower.requirePayAmountBack.amountToReturn", amountToReturn);
+      console.log("Borrower.requirePayAmountBack.amountToTransfer", amountToTransfer);
 
       // this is the first call of requirePayAmountBack
       require(amountToReturn <= amount_, "setUpRequireAmountBack:1");
       require(amountToTransfer <= balance, "setUpRequireAmountBack:2");
 
+      console.log("Borrower.asset.balance.0", IERC20(asset_).balanceOf(address(this)));
       IERC20(asset_).transfer(address(_tc()), amountToTransfer);
 
-      if (requireAmountBackParams.poolAdapterAddress != address(0)) {
-        console.log("requirePayAmountBack.1");
-        if (requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall != 0) {
-          console.log("requirePayAmountBack.2");
+      console.log("Borrower.asset.balance.1", IERC20(asset_).balanceOf(address(this)));
+      if (p.poolAdapterAddress != address(0)) {
+        if (p.amountToSendToPoolAdapterAtFirstCall != 0) {
+          console.log("Borrower.requirePayAmountBack.p.poolAdapterAddress, amountToSendToPoolAdapterAtFirstCall", p.poolAdapterAddress, p.amountToSendToPoolAdapterAtFirstCall);
           balance = IERC20(asset_).balanceOf(address(this));
-          require(requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall <= balance, "setUpRequireAmountBack:5");
-          console.log("requirePayAmountBack.3.balance", balance);
-          console.log("requirePayAmountBack.amountToSendToPoolAdapterAtFirstCall", requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall);
-          IERC20(asset_).transferFrom(requireAmountBackParams.amountProvider, address(this), requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall);
-          IERC20(asset_).approve(requireAmountBackParams.poolAdapterAddress, requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall);
-          PoolAdapterMock(requireAmountBackParams.poolAdapterAddress).repayToRebalance(
-            requireAmountBackParams.amountToSendToPoolAdapterAtFirstCall,
-            true
-          );
-          console.log("requirePayAmountBack.4");
+          require(p.amountToSendToPoolAdapterAtFirstCall <= balance, "setUpRequireAmountBack:5");
+          console.log("Borrower.requirePayAmountBack.balance", balance);
+          console.log("Borrower.requirePayAmountBack.transfer.from.amountProvider", p.amountToSendToPoolAdapterAtFirstCall);
+          IERC20(asset_).transferFrom(p.amountProvider, address(this), p.amountToSendToPoolAdapterAtFirstCall);
+          console.log("Borrower.asset.balance.2", IERC20(asset_).balanceOf(address(this)));
+
+          IERC20(asset_).approve(p.poolAdapterAddress, p.amountToSendToPoolAdapterAtFirstCall);
+          (,, address collateralAsset,) = PoolAdapterMock(p.poolAdapterAddress).getConfig();
+          if (collateralAsset == asset_) {
+            // in real adapter repayToRebalance won't be called
+            // only real repay() can be called
+            // we use repayToRebalance to imitate situation when amount-required-for-rebalancing is changed
+            console.log("Borrower.requirePayAmountBack.repayToRebalance", p.amountToSendToPoolAdapterAtFirstCall);
+            PoolAdapterMock(p.poolAdapterAddress).repayToRebalance(p.amountToSendToPoolAdapterAtFirstCall, true);
+            console.log("Borrower.asset.balance.3", IERC20(asset_).balanceOf(address(this)));
+          } else {
+            // in real adapter the collateral will be received by the Borrower
+            // we receive the collateral on separate address for test purposes only
+            console.log("Borrower.requirePayAmountBack.repay", p.amountToSendToPoolAdapterAtFirstCall);
+            PoolAdapterMock(p.poolAdapterAddress).repay(p.amountToSendToPoolAdapterAtFirstCall, p.amountProvider, false);
+            console.log("Borrower.asset.balance.4", IERC20(asset_).balanceOf(address(this)));
+          }
+          console.log("Borrower.requirePayAmountBack, status:");
+          PoolAdapterMock(p.poolAdapterAddress).getStatus(); // display status
         }
 
-        if (requireAmountBackParams.closeTheDebtAtFistCall) {
-          PoolAdapterMock(requireAmountBackParams.poolAdapterAddress).resetTheDebtForcibly();
+        if (p.closeTheDebtAtFistCall) {
+          console.log("requirePayAmountBack.p.poolAdapterAddress, closeTheDebtAtFistCall", p.poolAdapterAddress, p.closeTheDebtAtFistCall);
+          PoolAdapterMock(p.poolAdapterAddress).resetTheDebtForcibly();
+          console.log("Borrower.asset.balance.5", IERC20(asset_).balanceOf(address(this)));
         }
       }
 
-      console.log("requirePayAmountBack.return", amountToReturn);
+      console.log("Borrower.requirePayAmountBack.return", amountToReturn);
       return amountToReturn;
     } else {
-      requireAmountBackParams.amountPassedToRequireRepayAtSecondCall = amount_;
+      console.log("Borrower.asset.balance.6", IERC20(asset_).balanceOf(address(this)));
+      p.amountPassedToRequireRepayAtSecondCall = amount_;
 
-      uint amountToReturn = requireAmountBackParams.amountToReturn2 == type(uint).max
-        ? amount_
-        : requireAmountBackParams.amountToReturn2;
-      uint amountToTransfer = requireAmountBackParams.amountToTransfer2 == type(uint).max
-        ? amount_
-        : requireAmountBackParams.amountToTransfer2;
-
+      uint amountToReturn = p.amountToReturn2 == type(uint).max ? amount_ : p.amountToReturn2;
+      uint amountToTransfer = p.amountToTransfer2 == type(uint).max ? amount_ : p.amountToTransfer2;
 
       // this is the second call of requirePayAmountBack
       require(amountToReturn <= amount_, "setUpRequireAmountBack:3");
       require(amountToTransfer <= balance, "setUpRequireAmountBack:4");
 
+      console.log("Borrower.requirePayAmountBack.amountToTransfer", amountToTransfer);
       IERC20(asset_).transfer(address(_tc()), amountToTransfer);
-      console.log("requirePayAmountBack.return.2", amountToReturn);
+      console.log("Borrower.requirePayAmountBack.amountToReturn", amountToReturn);
+      console.log("Borrower.asset.balance.7", IERC20(asset_).balanceOf(address(this)));
+
       return amountToReturn;
     }
   }

@@ -9,7 +9,7 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BigNumber} from "ethers";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {GAS_SWAP_LIB_CONVERT_USING_PRICE_ORACLE, GAS_SWAP_LIB_IS_CONVERSION_VALID} from "../baseUT/GasLimit";
 
@@ -30,6 +30,8 @@ describe("SwapManager", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

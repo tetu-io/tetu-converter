@@ -1,8 +1,13 @@
 import {IConverterController__factory, IPoolAdapter__factory, ITetuConverter__factory} from "../../typechain";
 import {ethers} from "hardhat";
 import {Misc} from "../../scripts/utils/Misc";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe.skip("Try to call repayTheBorrow @skip-on-coverage", () => {
+  before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+  });
+
   it("should close the given borrow", async () => {
     const signer = (await ethers.getSigners())[1];
 

@@ -18,7 +18,6 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
@@ -45,6 +44,7 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("DForcePoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -56,6 +56,7 @@ describe("DForcePoolAdapterUnitTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -164,7 +165,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         const borrowCToken = MaticAddresses.dForce_iMATIC;
         let results: IMakeBorrowTestResults;
         before(async function () {
-          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -175,7 +175,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           );
         });
         it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.dfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -195,7 +194,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
         });
         it("should open position in debt monitor", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
@@ -203,12 +201,10 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -225,7 +221,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         const borrowCToken = MaticAddresses.dForce_iUSDC;
         let results: IMakeBorrowTestResults;
         before(async function () {
-          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -236,7 +231,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           );
         });
         it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.dfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -254,7 +248,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should open position in debt monitor", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
@@ -262,12 +255,10 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -284,7 +275,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         const borrowCToken = MaticAddresses.dForce_iUSDC;
         let results: IMakeBorrowTestResults;
         before(async function () {
-          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -295,7 +285,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           );
         });
         it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.dfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -315,7 +304,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
         });
         it("should open position in debt monitor", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
@@ -323,12 +311,10 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -345,7 +331,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         const borrowCToken = MaticAddresses.dForce_iUSDC;
         let results: IMakeBorrowTestResults;
         before(async function () {
-          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -356,7 +341,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           );
         });
         it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.dfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -376,7 +360,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
         });
         it("should open position in debt monitor", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
@@ -384,12 +367,10 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -401,7 +382,6 @@ describe("DForcePoolAdapterUnitTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if not tetu converter", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeBorrowTest(
             MaticAddresses.DAI,
@@ -416,7 +396,6 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       describe("Use mocked DForceController", () => {
         it("should work correctly with mocked DForceController", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeDForceControllerMock(
             MaticAddresses.DAI,
             MaticAddresses.dForce_iDAI,
@@ -450,7 +429,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should revert if comptroller doesn't return borrowed amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeDForceControllerMock(
             MaticAddresses.DAI,
             MaticAddresses.dForce_iDAI,
@@ -472,7 +450,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
         });
         it("should revert if liquidity balance is incorrect after borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeDForceControllerMock(
             MaticAddresses.DAI,
             MaticAddresses.dForce_iDAI,
@@ -615,7 +592,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         const borrowHolder = MaticAddresses.HOLDER_DAI;
         let results: IMakeFullRepayTestResults;
         before(async function () {
-          if (!await isPolygonForkInUse()) return;
           results = await makeRepayTest(
             collateralAsset,
             collateralCToken,
@@ -627,7 +603,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           );
         });
         it("should get expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.dfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -646,7 +621,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should close position after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
@@ -654,7 +628,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(false);
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -664,7 +637,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
         });
         it("should withdraw expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -678,7 +650,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         const borrowHolder = MaticAddresses.HOLDER_WMATIC;
         let results: IMakeFullRepayTestResults;
         before(async function () {
-          if (!await isPolygonForkInUse()) return;
           results = await makeRepayTest(
             collateralAsset,
             collateralCToken,
@@ -690,7 +661,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           );
         });
         it("should get expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.dfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -709,7 +679,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should close position after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
@@ -717,7 +686,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(false);
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -727,7 +695,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
         });
         it("should withdraw expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -742,7 +709,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
         let results: IMakeFullRepayTestResults;
         before(async function () {
-          if (!await isPolygonForkInUse()) return;
           results = await makeRepayTest(
             collateralAsset,
             collateralCToken,
@@ -754,7 +720,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           );
         });
         it("should get expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
           const status = await results.init.dfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -773,7 +738,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should close position after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
@@ -781,7 +745,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(false);
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -791,12 +754,10 @@ describe("DForcePoolAdapterUnitTest", () => {
 
         });
         it("should withdraw expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
         it("repay() should return expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect(areAlmostEqual(results.repayResultsCollateralAmountOut, results.init.collateralAmount)).eq(true);
         });
       });
@@ -848,7 +809,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         expect(userBorrowAssetBalanceChange).eq(amountToPayNum);
       });
       it("should revert if not tetu converter", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeRepayTest(
             collateralAsset,
@@ -866,7 +826,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should fail if pay too small amount and try to close the position", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeRepayTest(
             collateralAsset,
@@ -883,7 +842,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
       describe("Use mocked DForce controller", () => {
         it("should repay successfully", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeDForceControllerMock(
             collateralAsset,
             collateralCToken,
@@ -915,7 +873,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(ret).eq(expected);
         });
         it("should revert with CLOSE_POSITION_FAILED if token balance is not zero after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeDForceControllerMock(
             collateralAsset,
             collateralCToken,
@@ -939,7 +896,6 @@ describe("DForcePoolAdapterUnitTest", () => {
           ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
         });
         it("should revert with CLOSE_POSITION_FAILED if borrow balance is not zero after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeDForceControllerMock(
             collateralAsset,
             collateralCToken,
@@ -964,7 +920,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
         });
         it("should revert with WRONG_BORROWED_BALANCE if amount to repay is less than borrow balance during full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeDForceControllerMock(
             collateralAsset,
             collateralCToken,
@@ -1232,7 +1187,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
     describe("Good paths", () => {
       it("should return expected values for DAI:USDC", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await testDaiUSDC();
         const ret = [
           // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
@@ -1251,7 +1205,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         expect(ret).eq(expected);
       });
       it("should return expected values for MATIC:USDC", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await testMaticUSDC();
         const ret = [
           // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
@@ -1270,7 +1223,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         expect(ret).eq(expected);
       });
       it("should return expected values for USDC:MATIC", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await testUSDCMatic();
         const ret = [
           // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
@@ -1292,7 +1244,6 @@ describe("DForcePoolAdapterUnitTest", () => {
     describe("Bad paths", () => {
       describe("Not TetuConverter", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({makeBorrowToRebalanceAsDeployer: true})
           ).revertedWith("TC-8 tetu converter only");
@@ -1300,7 +1251,6 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       describe("Position is not registered", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({skipBorrow: true})
           ).revertedWith("TC-11 position not registered");
@@ -1308,10 +1258,9 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       describe("Result health factor is less min allowed one", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({additionalAmountCorrectionFactor: 10})
-          ).revertedWith("TC-3 wrong health factor");
+          ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
         });
       });
       describe("Use mocked DForce controller", () => {
@@ -1662,7 +1611,6 @@ describe("DForcePoolAdapterUnitTest", () => {
       describe("Use borrow asset to repay", () => {
         describe("Dai : WMatic", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await daiWMatic(false);
 
             expect(r.ret).eq(r.expected);
@@ -1670,7 +1618,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         });
         describe("USDC : USDT", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await usdcUsdt(false);
 
             expect(r.ret).eq(r.expected);
@@ -1678,7 +1625,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         });
         describe("WBTC : WETH", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await wbtcWETH(false);
 
             expect(r.ret).eq(r.expected);
@@ -1688,7 +1634,6 @@ describe("DForcePoolAdapterUnitTest", () => {
       describe("Use collateral asset to repay", () => {
         describe("Dai : WMatic", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await daiWMatic(true);
 
             expect(r.ret).eq(r.expected);
@@ -1696,7 +1641,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         });
         describe("USDC : USDT", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await usdcUsdt(true);
 
             expect(r.ret).eq(r.expected);
@@ -1704,7 +1648,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         });
         describe("WBTC : WETH", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await wbtcWETH(true);
 
             expect(r.ret).eq(r.expected);
@@ -1716,7 +1659,6 @@ describe("DForcePoolAdapterUnitTest", () => {
     describe("Bad paths", () => {
       describe("Not TetuConverter and not user", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{makeRepayToRebalanceAsDeployer: true})
           ).revertedWith("TC-8 tetu converter only"); // USER_OR_TETU_CONVERTER_ONLY
@@ -1724,7 +1666,6 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       describe("Position is not registered", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{skipBorrow: true})
           ).revertedWith("TC-11 position not registered"); // BORROW_POSITION_IS_NOT_REGISTERED
@@ -1732,15 +1673,13 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       describe("Result health factor is less min allowed one", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorDiv: 100})
-          ).revertedWith("TC-3 wrong health factor");
+          ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
         });
       });
       describe("Try to repay amount greater then the debt", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorMul: 100})
           ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
@@ -1835,56 +1774,47 @@ describe("DForcePoolAdapterUnitTest", () => {
 
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const r = await makeInitializePoolAdapterTest();
         expect(r.ret).eq(r.expected);
       });
     });
     describe("Bad paths", () => {
       it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroController: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero user", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroUser: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero pool", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroPool: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero converter", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroConverter: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero collateral asset", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroCollateralAsset: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero borrow asset", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroBorrowAsset: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero token address provider", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroTokenAddressProvider: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on second initialization", async () => {
-        if (!await isPolygonForkInUse()) return;
         const d = await makeInitializePoolAdapter();
         await expect(
           d.poolAdapter.initialize(
@@ -1899,7 +1829,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         ).revertedWith("Initializable: contract is already initialized");
       });
       it("should revert if token address provider returns zero cTokenCollateral", async () => {
-        if (!await isPolygonForkInUse()) return;
         const tokenAddressProviderMock = await MocksHelper.createTokenAddressProviderMock(
           deployer,
           Misc.ZERO_ADDRESS, // (!)
@@ -1910,7 +1839,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         ).revertedWith("TC-16 ctoken not found"); // C_TOKEN_NOT_FOUND
       });
       it("should revert if token address provider returns zero cTokenBorrow", async () => {
-        if (!await isPolygonForkInUse()) return;
         const tokenAddressProviderMock = await MocksHelper.createTokenAddressProviderMock(
           deployer,
           MaticAddresses.dForce_iMATIC,
@@ -1926,7 +1854,6 @@ describe("DForcePoolAdapterUnitTest", () => {
   describe("getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const d = await DForceTestUtils.prepareToBorrow(
           deployer,
           controllerInstance,
@@ -1946,7 +1873,6 @@ describe("DForcePoolAdapterUnitTest", () => {
   describe("getConfig", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const d = await DForceTestUtils.prepareToBorrow(
           deployer,
           controllerInstance,
@@ -1977,7 +1903,6 @@ describe("DForcePoolAdapterUnitTest", () => {
 
   describe("getStatus", () => {
     it("user has made a borrow, should return expected status", async () => {
-      if (!await isPolygonForkInUse()) return;
 
       const collateralAsset = MaticAddresses.USDT;
       const collateralCToken = MaticAddresses.dForce_iUSDT;
@@ -2009,8 +1934,6 @@ describe("DForcePoolAdapterUnitTest", () => {
       expect(ret).eq(expected);
     });
     it("user has not made a borrow, should return expected status", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const collateralAsset = MaticAddresses.USDT;
       const collateralCToken = MaticAddresses.dForce_iUSDT;
       const collateralHolder = MaticAddresses.HOLDER_USDT;
@@ -2077,8 +2000,6 @@ describe("DForcePoolAdapterUnitTest", () => {
   describe("updateBalance", () => {
     describe("Good paths", () => {
       it("should change stored balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralAsset = MaticAddresses.DAI;
         const collateralCToken = MaticAddresses.dForce_iDAI;
         const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -2110,8 +2031,6 @@ describe("DForcePoolAdapterUnitTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if caller is not TetuConverter", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralAsset = MaticAddresses.DAI;
         const collateralCToken = MaticAddresses.dForce_iDAI;
         const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -2136,7 +2055,6 @@ describe("DForcePoolAdapterUnitTest", () => {
   describe("claimRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
         const receiver = ethers.Wallet.createRandom().address;
         const comptroller = await DForceHelper.getController(deployer);
         const rd = IDForceRewardDistributor__factory.connect(await comptroller.rewardDistributor(), deployer);
@@ -2240,7 +2158,6 @@ describe("DForcePoolAdapterUnitTest", () => {
         }
         describe("Normal case", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const {receiverRewardsBalance} = await makeMockClaimRewardsTest({
               borrowRewardsAmount: 11,
               collateralRewardsAmount: 43,
@@ -2255,7 +2172,6 @@ describe("DForcePoolAdapterUnitTest", () => {
          */
         describe("Redistributor has zero balance", () => {
           it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
             const {receiverRewardsBalance} = await makeMockClaimRewardsTest({
               borrowRewardsAmount: 11,
               collateralRewardsAmount: 43,
@@ -2277,7 +2193,6 @@ describe("DForcePoolAdapterUnitTest", () => {
     const borrowCToken = MaticAddresses.dForce_iMATIC;
     let results: IMakeBorrowTestResults;
     before(async function () {
-      if (!await isPolygonForkInUse()) return;
       results = await makeBorrowTest(
         collateralAsset,
         collateralCToken,
@@ -2290,8 +2205,6 @@ describe("DForcePoolAdapterUnitTest", () => {
     describe("Good paths", () => {
       describe("Full repay", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const status = await results.init.dfPoolAdapterTC.getStatus();
           const tetuConverterAsUser = ITetuConverter__factory.connect(
             await results.init.controller.tetuConverter(),
@@ -2311,8 +2224,6 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       describe("Partial repay 50%", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const status = await results.init.dfPoolAdapterTC.getStatus();
           const tetuConverterAsUser = ITetuConverter__factory.connect(
             await results.init.controller.tetuConverter(),
@@ -2332,8 +2243,6 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       describe("Partial repay 5%", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const status = await results.init.dfPoolAdapterTC.getStatus();
           const tetuConverterAsUser = ITetuConverter__factory.connect(
             await results.init.controller.tetuConverter(),

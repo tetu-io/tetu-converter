@@ -4,7 +4,6 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {
   DForceInterestRateModelMock__factory,
@@ -26,6 +25,7 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
 import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 /**
  * For any landing platform:
@@ -47,6 +47,7 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -82,8 +83,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE3", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprAave3.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -183,8 +182,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE2", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprAaveTwo.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -240,8 +237,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("DForce", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprDForce.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -396,8 +391,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("SWAP", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralAsset = MaticAddresses.DAI;
         const collateralHolders = [ MaticAddresses.HOLDER_DAI ];
         const borrowAsset = MaticAddresses.WETH;
@@ -447,8 +440,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE3", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprAave3.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -495,8 +486,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE2", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprAaveTwo.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -552,8 +541,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe.skip("DForce: currently Dforce has only few WBTC...", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprDForce.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -617,8 +604,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 //endregion Constants
     describe("DForce", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprDForce.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -668,8 +653,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     });
     describe("HundredFinance", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprHundredFinance.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -726,8 +709,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     describe("SWAP", () => {
       describe("1 USDC", () => {
         it("predicted APR should be equal to real APR", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAmountNum = 1;
 
           const collateralToken = await TokenDataTypes.Build(deployer, ASSET_COLLATERAL);
@@ -757,8 +738,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
       });
       describe("1_000_000 USDC", () => {
         it("predicted APR should be equal to real APR", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAmountNum = 1_000_000;
 
           const collateralToken = await TokenDataTypes.Build(deployer, ASSET_COLLATERAL);
@@ -804,7 +783,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 //endregion Constants
     describe("DForce", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
 
         const ret = await AprDForce.makeBorrowTest(
           deployer
@@ -856,8 +834,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     });
     describe("HundredFinance", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprHundredFinance.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -923,7 +899,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 //endregion Constants
     describe("DForce", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
 
         const ret = await AprDForce.makeBorrowTest(
           deployer
@@ -975,8 +950,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     });
     describe("HundredFinance", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprHundredFinance.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -1042,8 +1015,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 //endregion Constants
     describe("DForce", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprDForce.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -1098,8 +1069,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     });
     describe("HundredFinance", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprHundredFinance.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -1201,35 +1170,30 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
       }
       describe("500", () => {
         it("predicted APR should be equal to real APR", async () => {
-          if (!await isPolygonForkInUse()) return;
           const r = await makeSwapTest(500);
           expect(r.ret).equals(r.expected);
         });
       });
       describe("1_000", () => {
         it("predicted APR should be equal to real APR", async () => {
-          if (!await isPolygonForkInUse()) return;
           const r = await makeSwapTest(1_000);
           expect(r.ret).equals(r.expected);
         });
       });
       describe("25000", () => {
         it("predicted APR should be equal to real APR", async () => {
-          if (!await isPolygonForkInUse()) return;
           const r = await makeSwapTest(35_000);
           expect(r.ret).equals(r.expected);
         });
       });
       describe("100_000", () => {
         it("predicted APR should be equal to real APR", async () => {
-          if (!await isPolygonForkInUse()) return;
           const r = await makeSwapTest(100_000);
           expect(r.ret).equals(r.expected);
         });
       });
       describe("5_000_000", () => {
         it("predicted APR should be equal to real APR", async () => {
-          if (!await isPolygonForkInUse()) return;
           const r = await makeSwapTest(5_000_000);
           expect(r.ret).equals(r.expected);
         });
@@ -1262,7 +1226,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("HundredFinance DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
         const {controller} = await TetuConverterApp.buildApp(deployer,
           [new HundredFinancePlatformFabric()],
           {} // disable swap
@@ -1285,7 +1248,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("DForce DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
         const {controller} = await TetuConverterApp.buildApp(deployer,
           [new DForcePlatformFabric()],
           {} // disable swap
@@ -1309,7 +1271,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("Swap DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
         const {controller} = await TetuConverterApp.buildApp(deployer,
           [],
           {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR} // disable swap

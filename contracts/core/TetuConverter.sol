@@ -422,13 +422,25 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     uint requiredBorrowedAmount_,
     uint requiredCollateralAmount_,
     address poolAdapter_
-  ) external nonReentrant override {
+  ) external
+  // not nonReentrant: nested repay() calls are possible
+  override {
     IConverterController _controller = IConverterController(controller());
+
+    require(_controller.keeper() == msg.sender, AppErrors.KEEPER_ONLY);
+    require(requiredBorrowedAmount_ != 0, AppErrors.INCORRECT_VALUE);
+
     TetuConverterLogicLib.requireRepay(_controller, requiredBorrowedAmount_, requiredCollateralAmount_, poolAdapter_);
   }
 
   /// @inheritdoc ITetuConverter
-  function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (uint collateralAmountOut, uint repaidAmountOut) {
+  function repayTheBorrow(address poolAdapter_, bool closePosition)
+  external
+    // not nonReentrant: nested repay() calls are possible
+  returns (
+    uint collateralAmountOut,
+    uint repaidAmountOut
+  ) {
     IConverterController _controller = _getControllerGovernanceOnly();
     return TetuConverterLogicLib.repayTheBorrow(_controller, poolAdapter_, closePosition);
   }

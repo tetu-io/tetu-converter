@@ -1,7 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
@@ -20,6 +19,8 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {ITestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {Misc} from "../../scripts/utils/Misc";
 
 /**
  * Assume, some lending platform should be deactivated or
@@ -48,6 +49,8 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -56,7 +59,6 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
     // and some tests don't pass
     deployer = signers[1];
 
-    if (!await isPolygonForkInUse()) return;
     // We need to replace DForce price oracle by custom one
     // because when we run all tests
     // DForce-prices deprecate before DForce tests are run,
@@ -168,11 +170,21 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
         borrower.address
       );
 
-      if (params?.amountMultiplier && params?.amountDivider) {
-        await borrower.setUpRequireAmountBack(
-          status.amountToPay.mul(params?.amountMultiplier).div(params?.amountDivider)
-        );
-      }
+      const amountToPay = (params?.amountMultiplier && params?.amountDivider)
+        ? status.amountToPay.mul(params?.amountMultiplier).div(params?.amountDivider)
+        : Misc.MAX_UINT;
+
+      await borrower.setUpRequireAmountBack(
+        amountToPay,
+        amountToPay,
+        0,
+        0,
+        Misc.ZERO_ADDRESS, // poolAdapter.address,
+        0,
+        Misc.ZERO_ADDRESS, // amountProvider,
+        false
+      );
+
 
       // move time to increase our debt a bit
       await TimeUtils.advanceNBlocks(2000);
@@ -180,7 +192,9 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
       const closePosition = !params?.notClosePosition;
       const userCollateralBalanceBefore = await IERC20__factory.connect(p.collateral.asset, deployer).balanceOf(borrower.address);
       const userBorrowBalanceBefore = await IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(borrower.address);
+
       await tcAsGov.repayTheBorrow(poolAdapter.address, closePosition);
+
       const userCollateralBalanceAfter = await IERC20__factory.connect(p.collateral.asset, deployer).balanceOf(borrower.address);
       const userBorrowBalanceAfter = await IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(borrower.address);
 
@@ -218,7 +232,6 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
 
     describe("Remove lending platform", () =>{
       it("should return collateral to user and unregister AAVE3 platform adapter ", async () => {
-        if (!await isPolygonForkInUse()) return;
 
         const r = await makeRepayTheBorrow();
 
@@ -245,8 +258,6 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
         expect(ret).eq(expected);
       });
       it("should return collateral to user and unregister AAVETwo platform adapter ", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await makeRepayTheBorrow({useAaveTwo: true});
 
         const ret = [
@@ -274,8 +285,6 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
     });
     describe("Not close position", () => {
       it("should make partial repayment if amount is less than required", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await makeRepayTheBorrow(
           {
             amountMultiplier: 1,

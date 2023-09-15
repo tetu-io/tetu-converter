@@ -5,7 +5,7 @@ import {EntryKindsFacade} from "../../typechain";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {defaultAbiCoder, parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {
   GAS_LIMIT_ENTRY_KINDS_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN,
   GAS_LIMIT_ENTRY_KINDS_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT, GAS_LIMIT_ENTRY_KINDS_EXACT_PROPORTIONS,
@@ -26,6 +26,8 @@ describe("EntryKindsTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

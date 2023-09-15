@@ -2,13 +2,13 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {
   HundredFinanceTestUtils,
   IPrepareToLiquidationResults
 } from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -35,6 +35,7 @@ describe.skip("HfLiquidationTest - simulate liquidation", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     console.log("before1");
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
@@ -62,7 +63,6 @@ describe.skip("HfLiquidationTest - simulate liquidation", () => {
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
-      if (!await isPolygonForkInUse()) return;
       init = await HundredFinanceTestUtils.prepareToLiquidation(
         deployer,
         collateralAsset,
@@ -80,16 +80,12 @@ describe.skip("HfLiquidationTest - simulate liquidation", () => {
 
     describe("Good paths", () => {
       it("health factor is less 1 before liquidation", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         console.log("Before liquidation", init.statusBeforeLiquidation);
         const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
         expect(healthFactorNum).below(1);
       });
 
       it("liquidator receives all collateral", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
           r.collateralAmountReceivedByLiquidator,
@@ -122,8 +118,6 @@ describe.skip("HfLiquidationTest - simulate liquidation", () => {
       });
 
       it("Try to make new borrow after liquidation", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
 
         // put collateral amount on user's balance
@@ -146,8 +140,6 @@ describe.skip("HfLiquidationTest - simulate liquidation", () => {
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
-      if (!await isPolygonForkInUse()) return;
-
       init = await HundredFinanceTestUtils.prepareToLiquidation(
         deployer,
         collateralAsset,
@@ -165,16 +157,12 @@ describe.skip("HfLiquidationTest - simulate liquidation", () => {
 
     describe("Good paths", () => {
       it("health factor is less 1 before liquidation", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         console.log("Before liquidation", init.statusBeforeLiquidation);
         const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
         expect(healthFactorNum).below(1);
       });
 
       it("liquidator receives all collateral", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
           r.collateralAmountReceivedByLiquidator,
@@ -207,8 +195,6 @@ describe.skip("HfLiquidationTest - simulate liquidation", () => {
       });
 
       it("Try to make new borrow after liquidation", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
 
         // put collateral amount on user's balance
