@@ -6,7 +6,6 @@ import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {BorrowRepayUsesCase, IMakeTestSingleBorrowInstantRepayResults} from "../baseUT/uses-cases/BorrowRepayUsesCase";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
 import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
@@ -20,7 +19,7 @@ import {
   GAS_LIMIT_INIT_BORROW_HUNDRED_FINANCE,
   GAS_LIMIT_REPAY_HUNDRED_FINANCE
 } from "../baseUT/GasLimit";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {IERC20__factory} from "../../typechain";
 
@@ -33,6 +32,8 @@ describe("BorrowRepayTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -41,7 +42,6 @@ describe("BorrowRepayTest", () => {
     // and some tests don't pass
     deployer = signers[1];
 
-    if (!await isPolygonForkInUse()) return;
     // We need to replace DForce price oracle by custom one
     // because when we run all tests
     // DForce-prices deprecate before DForce tests are run
@@ -80,7 +80,6 @@ describe("BorrowRepayTest", () => {
             let localSnapshot: string;
             before(async function () {
               localSnapshot = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -105,11 +104,9 @@ describe("BorrowRepayTest", () => {
               await TimeUtils.rollback(localSnapshot);
             });
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE3, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -123,7 +120,6 @@ describe("BorrowRepayTest", () => {
             let localSnapshot: string;
             before(async function () {
               localSnapshot = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -148,11 +144,9 @@ describe("BorrowRepayTest", () => {
               await TimeUtils.rollback(localSnapshot);
             });
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -166,7 +160,6 @@ describe("BorrowRepayTest", () => {
             let localSnapshot: string;
             before(async function () {
               localSnapshot = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -193,11 +186,9 @@ describe("BorrowRepayTest", () => {
               await TimeUtils.rollback(localSnapshot);
             });
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_HUNDRED_FINANCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -211,7 +202,6 @@ describe("BorrowRepayTest", () => {
             let localSnapshot: string;
             before(async function () {
               localSnapshot = await TimeUtils.snapshot();
-              if (!await isPolygonForkInUse()) return;
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -236,11 +226,9 @@ describe("BorrowRepayTest", () => {
               await TimeUtils.rollback(localSnapshot);
             });
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -265,7 +253,6 @@ describe("BorrowRepayTest", () => {
           const COUNT_BLOCKS = 1_000;
           describe("Mock", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay_Mock(deployer,
                 {
                   collateral: {
@@ -303,7 +290,6 @@ describe("BorrowRepayTest", () => {
             let snapshotLocal: string;
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
-              if (!await isPolygonForkInUse()) return;
               snapshotLocal = await TimeUtils.snapshot();
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
@@ -329,11 +315,9 @@ describe("BorrowRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE3, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -346,7 +330,6 @@ describe("BorrowRepayTest", () => {
             let snapshotLocal: string;
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
-              if (!await isPolygonForkInUse()) return;
               snapshotLocal = await TimeUtils.snapshot();
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
@@ -372,11 +355,9 @@ describe("BorrowRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -389,7 +370,6 @@ describe("BorrowRepayTest", () => {
             let snapshotLocal: string;
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
-              if (!await isPolygonForkInUse()) return;
               snapshotLocal = await TimeUtils.snapshot();
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
@@ -417,11 +397,9 @@ describe("BorrowRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_HUNDRED_FINANCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -434,7 +412,6 @@ describe("BorrowRepayTest", () => {
             let snapshotLocal: string;
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
-              if (!await isPolygonForkInUse()) return;
               snapshotLocal = await TimeUtils.snapshot();
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
@@ -460,11 +437,9 @@ describe("BorrowRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -493,7 +468,6 @@ describe("BorrowRepayTest", () => {
           const DELTA_BLOCKS_REPAY = 10;
           describe("Mock", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepays_Mock(deployer,
                 {
                   collateral: {
@@ -533,7 +507,6 @@ describe("BorrowRepayTest", () => {
           });
           describe("AAVE3", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepaysTest(deployer,
                 {
                   collateral: {
@@ -563,7 +536,6 @@ describe("BorrowRepayTest", () => {
           });
           describe("AAVETwo", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepaysTest(deployer,
                 {
                   collateral: {
@@ -593,7 +565,6 @@ describe("BorrowRepayTest", () => {
           });
           describe("dForce", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepaysTest(deployer,
                 {
                   collateral: {
@@ -623,7 +594,6 @@ describe("BorrowRepayTest", () => {
           });
           describe.skip("Hundred finance", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepaysTest(deployer,
                 {
                   collateral: {

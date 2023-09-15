@@ -14,6 +14,7 @@ import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {GAS_LIMIT} from "../baseUT/GasLimit";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 interface IFindBorrowStrategyInput {
   collateralAsset: string;
@@ -37,6 +38,10 @@ async function disablePlatformAdapter(
 }
 
 describe.skip("issue230310 (problem happens if mine interval > 1", () => {
+  before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+  });
+
   it("study using deployed TC beta 5", async () => {
     const converterAddress = "0x298F30E21f0dfa3718b9C31ae27c8A5E6A88B95E";
     const signer = (await ethers.getSigners())[0];

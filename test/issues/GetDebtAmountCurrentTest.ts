@@ -6,7 +6,6 @@ import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {
   BorrowRepayUsesCase
 } from "../baseUT/uses-cases/BorrowRepayUsesCase";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {
   ConverterController__factory,
@@ -15,6 +14,7 @@ import {
 } from "../../typechain";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {Misc} from "../../scripts/utils/Misc";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe("GetDebtAmountCurrentTest", () => {
 //region Global vars for all tests
@@ -25,6 +25,8 @@ describe("GetDebtAmountCurrentTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -33,7 +35,6 @@ describe("GetDebtAmountCurrentTest", () => {
     // and some tests don't pass
     deployer = signers[1];
 
-    if (!await isPolygonForkInUse()) return;
     // We need to replace DForce price oracle by custom one
     // because when we run all tests
     // DForce-prices deprecate before DForce tests are run
@@ -71,8 +72,6 @@ describe("GetDebtAmountCurrentTest", () => {
         const COUNT_BLOCKS = 1_000;
 
         it("should display not rounded values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const controller = await ConverterController__factory.connect("0xf1f5d27877e44C93d2892701a887Fb0a102A1815", deployer);
 
           // const priceOracleAave3 = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);

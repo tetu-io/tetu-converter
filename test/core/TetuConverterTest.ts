@@ -20,7 +20,7 @@ import {IPoolAdapterStatus, IPoolAdapterStatusNum} from "../baseUT/types/BorrowR
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
   GAS_FIND_SWAP_STRATEGY, GAS_LIMIT, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY, GAS_TC_SAFE_LIQUIDATE,
@@ -43,6 +43,8 @@ describe("TetuConverterTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

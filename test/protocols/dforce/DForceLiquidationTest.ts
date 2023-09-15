@@ -2,10 +2,10 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {DForceTestUtils, IPrepareToLiquidationResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -32,12 +32,12 @@ describe.skip("DForceLiquidationTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
 
-    if (!await isPolygonForkInUse()) return;
     init = await DForceTestUtils.prepareToLiquidation(
       deployer,
       collateralAsset,
@@ -67,16 +67,12 @@ describe.skip("DForceLiquidationTest", () => {
   describe("Make borrow, change prices, make health factor < 1", () => {
     describe("Good paths", () => {
       it("health factor is less 1 before liquidation", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         console.log("Before liquidation", init.statusBeforeLiquidation);
         const healtDForceactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
         expect(healtDForceactorNum).below(1);
       });
 
       it("liquidator receives all collateral", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await DForceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
           r.collateralAmountReceivedByLiquidator,
@@ -106,8 +102,6 @@ describe.skip("DForceLiquidationTest", () => {
       });
 
       it("Try to make new borrow after liquidation", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await DForceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
 
         // put collateral amount on user's balance

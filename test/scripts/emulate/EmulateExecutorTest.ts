@@ -11,8 +11,13 @@ import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("Run real work emulator @skip-on-coverage", () => {
+  before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+  });
+
   const pathIn = "./scripts/emulate/data/ListCommands.csv";
   const pathOut = "./tmp/EmulationResults.csv";
 

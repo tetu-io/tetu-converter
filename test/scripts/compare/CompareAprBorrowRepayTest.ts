@@ -18,8 +18,8 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {existsSync, writeFileSync} from "fs";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {writeFileSyncRestoreFolder} from "../../baseUT/utils/FileUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
@@ -49,12 +49,12 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
 
-    if (!await isPolygonForkInUse()) return;
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
         [new Aave3PlatformFabric()],
@@ -335,14 +335,10 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       }
     }
     it("generate file compareApr", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       await generateCompareApr(true);
     });
 
     it.skip("swap only", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const pathOut = "tmp/compareApr.csv";
       const assets = [
         wmatic,
@@ -388,8 +384,6 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
     });
 
     it("dai-usdc only", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const pathOut = "tmp/compareApr.csv";
       const assets = [
         dai,

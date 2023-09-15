@@ -15,36 +15,8 @@ import "solidity-coverage"
 import "hardhat-abi-exporter"
 import {task} from "hardhat/config";
 import {deployContract} from "./scripts/deploy/DeployContract";
-
-dotEnvConfig();
-
-// tslint:disable-next-line:no-var-requires
-const argv = require('yargs/yargs')()
-  .env('TETU')
-  .options({
-    hardhatChainId: {
-      type: 'number',
-      default: 137,
-    },
-    maticRpcUrl: {
-      type: 'string',
-    },
-    networkScanKey: {
-      type: 'string',
-    },
-    privateKey: {
-      type: 'string',
-      default: '85bb5fa78d5c4ed1fde856e9d0d1fe19973d7a79ce9ed6c0358ee06a4550504e', // random account
-    },
-    maticForkBlock: {
-      type: 'number',
-      default: 42618407,
-    },
-    hardhatLogsEnabled: {
-      type: 'boolean',
-      default: false,
-    },
-  }).argv;
+import "hardhat-change-network";
+import { EnvSetup } from './scripts/utils/EnvSetup';
 
 task("deploy1", "Deploy contract", async function (args, hre, runSuper) {
   const [signer] = await hre.ethers.getSigners();
@@ -59,18 +31,20 @@ export default {
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true,
-      chainId: argv.hardhatChainId,
+      chainId: EnvSetup.getEnv().hardhatChainId,
       timeout: 99999999,
       blockGasLimit: 0x1fffffffffffff,
-      gas: argv.hardhatChainId === 1 ? 19_000_000 :
-        argv.hardhatChainId === 137 ? 19_000_000 :
+      gas: EnvSetup.getEnv().hardhatChainId === 1 ? 19_000_000 :
+        EnvSetup.getEnv().hardhatChainId === 137 ? 19_000_000 :
           9_000_000,
-      forking: argv.hardhatChainId !== 31337 ? {
+      forking: EnvSetup.getEnv().hardhatChainId !== 31337 ? {
         url:
-          argv.hardhatChainId === 137 ? argv.maticRpcUrl :
+          EnvSetup.getEnv().hardhatChainId === 1 ? EnvSetup.getEnv().ethRpcUrl :
+            EnvSetup.getEnv().hardhatChainId === 137 ? EnvSetup.getEnv().maticRpcUrl :
             undefined,
         blockNumber:
-          argv.hardhatChainId === 137 ? argv.maticForkBlock !== 0 ? argv.maticForkBlock : undefined :
+          EnvSetup.getEnv().hardhatChainId === 1 ? EnvSetup.getEnv().ethForkBlock !== 0 ? EnvSetup.getEnv().ethForkBlock : undefined :
+            EnvSetup.getEnv().hardhatChainId === 137 ? EnvSetup.getEnv().maticForkBlock !== 0 ? EnvSetup.getEnv().maticForkBlock : undefined :
             undefined,
       } : undefined,
       accounts: {
@@ -78,37 +52,37 @@ export default {
         path: 'm/44\'/60\'/0\'/0',
         accountsBalance: '100000000000000000000000000000',
       },
-      loggingEnabled: argv.hardhatLogsEnabled,
+      loggingEnabled: EnvSetup.getEnv().hardhatLogsEnabled
     },
     matic: {
-      url: argv.maticRpcUrl || '',
+      url: EnvSetup.getEnv().maticRpcUrl || '',
       chainId: 137,
-      accounts: [argv.privateKey],
+      accounts: [EnvSetup.getEnv().privateKey],
     },
     eth: {
-      url: argv.ethRpcUrl || '',
+      url: EnvSetup.getEnv().ethRpcUrl || '',
       chainId: 1,
-      accounts: [argv.privateKey],
+      accounts: [EnvSetup.getEnv().privateKey],
     },
     sepolia: {
-      url: argv.sepoliaRpcUrl || '',
+      url: EnvSetup.getEnv().sepoliaRpcUrl || '',
       chainId: 11155111,
       // gas: 50_000_000_000,
-      accounts: [argv.privateKey],
+      accounts: [EnvSetup.getEnv().privateKey],
     },
   },
   etherscan: {
     //  https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html#multiple-api-keys-and-alternative-block-explorers
     apiKey: {
-      mainnet: argv.networkScanKey,
-      goerli: argv.networkScanKey,
-      sepolia: argv.networkScanKey,
-      polygon: argv.networkScanKeyMatic || argv.networkScanKey,
+      mainnet: EnvSetup.getEnv().networkScanKey,
+      goerli: EnvSetup.getEnv().networkScanKey,
+      sepolia: EnvSetup.getEnv().networkScanKey,
+      polygon: EnvSetup.getEnv().networkScanKeyMatic || EnvSetup.getEnv().networkScanKey,
     },
   },
   verify: {
     etherscan: {
-      apiKey: argv.networkScanKey
+      apiKey: EnvSetup.getEnv().networkScanKey
     }
   },
   solidity: {

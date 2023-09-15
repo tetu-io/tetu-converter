@@ -2,7 +2,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {
   IERC20__factory, IERC20Metadata__factory
@@ -18,6 +17,7 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {ITetuLiquidator__factory} from "../../../typechain/factories/contracts/interfaces";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 /**
  * For any landing platform:
@@ -39,6 +39,7 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -74,8 +75,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE3", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprAave3.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -124,8 +123,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE2", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprAaveTwo.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -180,8 +177,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("DForce", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprDForce.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -241,8 +236,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("HundredFinance", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const ret = await AprHundredFinance.makeBorrowTest(
           deployer
           , AMOUNT_TO_BORROW
@@ -302,8 +295,6 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("SWAP", () => {
       it("predicted APR should be equal to real APR", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralAmountNum = 1_000; // AMOUNT_COLLATERAL
         const collateralToken = await TokenDataTypes.Build(deployer, ASSET_COLLATERAL);
         const borrowToken = await TokenDataTypes.Build(deployer, ASSET_BORROW);

@@ -3,10 +3,10 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 /**
  * Supply amount => claim rewards in specified period
@@ -21,6 +21,7 @@ describe("DForceRewardsTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -46,8 +47,6 @@ describe("DForceRewardsTest", () => {
       describe("Supply amount and claim supply-rewards", () => {
         describe("DAI-18 : XXX", () => {
           it("should return expected amount of rewards", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAsset = MaticAddresses.DAI;
             const collateralHolder = MaticAddresses.HOLDER_DAI;
             const collateralCTokenAddress = MaticAddresses.dForce_iDAI;
@@ -83,8 +82,6 @@ describe("DForceRewardsTest", () => {
         });
         describe("USDC-6 : XXX", () => {
           it("should return expected amount of rewards", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAsset = MaticAddresses.USDC;
             const collateralHolder = MaticAddresses.HOLDER_USDC;
             const collateralCTokenAddress = MaticAddresses.dForce_iUSDC;
