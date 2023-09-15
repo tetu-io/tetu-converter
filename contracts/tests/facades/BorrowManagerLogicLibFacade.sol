@@ -86,17 +86,16 @@ contract BorrowManagerLogicLibFacade {
     return BorrowManagerLogicLib._getExistValidPoolAdapter(platformAdapters_, index0_, user_, collateralAsset_, borrowAsset_, controller_);
   }
 
-  function _findPoolsForExistDebt(
+  function _findConversionStrategyForExistDebt(
     IPoolAdapter poolAdapter_,
     IPlatformAdapter platformAdapter_,
     AppDataTypes.InputConversionParams memory p_,
-    BorrowManagerLogicLib.InputParamsAdditional memory addParams_,
-    uint usedAmountIn0
+    BorrowManagerLogicLib.InputParamsAdditional memory addParams_
   ) external view returns (
     BorrowManagerLogicLib.BorrowCandidate memory dest,
-    uint usedAmountInFinal
+    bool partialBorrow
   ) {
-    return BorrowManagerLogicLib._findPoolsForExistDebt(poolAdapter_, platformAdapter_, p_, addParams_, usedAmountIn0);
+    return BorrowManagerLogicLib._findConversionStrategyForExistDebt(poolAdapter_, platformAdapter_, p_, addParams_);
   }
 
   function _getPlanWithRebalancing(

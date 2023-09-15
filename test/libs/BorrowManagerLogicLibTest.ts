@@ -10,6 +10,7 @@ import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {BorrowManagerLogicLib} from "../../typechain/contracts/tests/facades/BorrowManagerLogicLibFacade";
 
 describe("BorrowManagerLogicLibTest", () => {
 //region Global vars for all tests
@@ -688,18 +689,16 @@ describe("BorrowManagerLogicLibTest", () => {
       const decimalsBorrow = await (p.borrowAsset ?? usdt).decimals();
 
       const converters = p.data.map(x => ethers.Wallet.createRandom().address);
-      const ret = await facade._prepareOutput(
-        p.countDebts ?? 0,
-        p.data.length,
-        p.data.map(
-          (d, index) => ({
-            apr18: parseUnits(p.data[index].apr18, 18),
-            converter: converters[index],
-            collateralAmount: parseUnits(p.data[index].collateralAmount, decimalsCollateral),
-            amountToBorrow: parseUnits(p.data[index].amountToBorrow, decimalsBorrow),
-          })
-        )
+      const bcc: BorrowManagerLogicLib.BorrowCandidateStruct[] = p.data.map(
+        (d, index) => ({
+          apr18: parseUnits(p.data[index].apr18, 18),
+          converter: converters[index],
+          collateralAmount: parseUnits(p.data[index].collateralAmount, decimalsCollateral),
+          amountToBorrow: parseUnits(p.data[index].amountToBorrow, decimalsBorrow),
+          healthFactor18: 0
+        })
       );
+      const ret = await facade._prepareOutput(p.countDebts ?? 0, p.data.length, bcc);
 
       return {
         aprs: ret.aprs18.map(x => +formatUnits(x, 18)),
@@ -935,6 +934,176 @@ describe("BorrowManagerLogicLibTest", () => {
       it("should return zero health factor", async () => {
         const ret = await loadFixture(getExistValidPoolAdapterTest);
         expect(ret.healthFactor).eq(0);
+      });
+    });
+
+    describe("Exist debt is dirty", () => {
+      async function getExistValidPoolAdapterTest(): Promise<IGetExistValidPoolAdapterResults> {
+        return getExistValidPoolAdapter({
+          index0: 0,
+          countPlatformAdapters: 5,
+          poolAdapterPosition: 1,
+          poolAdapterHealthFactor: "0.9", // dirty
+          minHealthFactor: "1.03"
+        });
+      }
+
+      it("should return expected indexPlatformAdapter", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.indexPlatformAdapter).eq(5);
+      });
+      it("should return zero address of the pool adapter", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.poolAdapterExpected).eq(false);
+      });
+      it("should return zero health factor", async () => {
+        const ret = await loadFixture(getExistValidPoolAdapterTest);
+        expect(ret.healthFactor).eq(0);
+      });
+    });
+  });
+
+  describe("_findConversionStrategyForExistDebt", () => {
+    interface IFindConversionStrategyParams {
+      collateralAsset?: MockERC20; // usdc by default
+      borrowAsset?: MockERC20; // usdt by default
+
+      /** AmountIn passed to _getPlanWithRebalancing */
+      amountIn: string;
+
+      /** Params for the internal call of platformAdapter_.getConversionPlan */
+      plan: {
+        converter?: string;
+        expectedFinalAmountIn: string;
+        collateralAmountOut: string;
+        borrowAmountOut: string;
+        maxAmountToSupplyOut?: string; // default MAX_INT
+        maxAmountToBorrowOut?: string; // default MAX_INT
+        apr18Out: string; // default 1
+      }
+
+      poolAdapterStatus: {
+        collateralAmount: string;
+        amountToPay: string;
+        healthFactor18: string;
+      }
+    }
+    interface IFindConversionStrategyResults {
+      partialBorrow: boolean;
+      planOut: {
+        converter: string;
+        collateralAmount: number;
+        amountToBorrow: number;
+        apr: number;
+        healthFactor: number;
+      }
+    }
+
+    async function findConversionStrategyForExistDebt(p: IFindConversionStrategyParams): Promise<IFindConversionStrategyResults> {
+      const platformAdapter = await MocksHelper.createLendingPlatformMock2(signer);
+      const poolAdapter = await MocksHelper.createPoolAdapterMock2(signer);
+
+      const collateralAsset = (p.collateralAsset || usdc);
+      const borrowAsset = (p.borrowAsset || usdt);
+      const decimalsCollateral = await collateralAsset.decimals();
+      const decimalsBorrow = await borrowAsset.decimals();
+
+      const entryData = "0x";
+      const amountIn = parseUnits(p.amountIn, decimalsCollateral);
+      const finalAmountIn= parseUnits(p.plan.expectedFinalAmountIn, decimalsCollateral);
+
+      const rewardsFactor = parseUnits("1", 18);
+      const targetHealthFactor2 = parseUnits("1", 2);
+
+
+      const planOut = {
+        // Platform adapter returns not-zero plan only if it receives valid input amount
+        // Actual values of the plan are not important
+        // We only check that this not zero plan is received, that's all
+        converter: p.plan.converter || ethers.Wallet.createRandom().address,
+        collateralAmount: parseUnits(p.plan.collateralAmountOut, decimalsCollateral),
+        amountToBorrow: parseUnits(p.plan.borrowAmountOut, decimalsBorrow),
+
+        maxAmountToBorrow: p.plan.maxAmountToBorrowOut
+          ? parseUnits(p.plan.maxAmountToBorrowOut, decimalsBorrow)
+          : Misc.MAX_UINT,
+        maxAmountToSupply: p.plan.maxAmountToSupplyOut
+          ? parseUnits(p.plan.maxAmountToSupplyOut, decimalsCollateral)
+          : Misc.MAX_UINT,
+
+        amountCollateralInBorrowAsset36: 1,
+        liquidationThreshold18: 1,
+        ltv18: 1,
+        borrowCost36: 1,
+        rewardsAmountInBorrowAsset36: 1,
+        supplyIncomeInBorrowAsset36: 1
+      }
+      await platformAdapter.setupGetConversionPlan(
+        {
+          collateralAsset: collateralAsset.address,
+          borrowAsset: borrowAsset.address,
+          user: facade.address,
+          amountIn: finalAmountIn,
+          entryData,
+          countBlocks: 1
+        },
+        planOut
+      );
+
+      const ret = await facade._findConversionStrategyForExistDebt(
+        poolAdapter.address,
+        platformAdapter.address,
+        {
+          collateralAsset: collateralAsset.address,
+          borrowAsset: borrowAsset.address,
+          user: facade.address,
+          amountIn,
+          entryData,
+          countBlocks: 1
+        },
+        {
+          controller: ethers.Wallet.createRandom().address, // not used
+          rewardsFactor,
+          targetHealthFactor2
+        }
+      )
+
+      return {
+        partialBorrow: ret.partialBorrow,
+        planOut: {
+          converter: ret.dest.converter,
+          collateralAmount: +formatUnits(ret.dest.collateralAmount, decimalsCollateral),
+          amountToBorrow: +formatUnits(ret.dest.amountToBorrow, decimalsBorrow),
+          apr: +formatUnits(ret.dest.apr18, 18),
+          healthFactor: +formatUnits(ret.dest.healthFactor18, 18),
+        }
+      }
+    }
+
+    describe("New debt is not possible, collateralAmountToFix is zero", () => {
+      async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
+        return findConversionStrategyForExistDebt({
+          amountIn: "100",
+          plan: {
+            expectedFinalAmountIn: "100",
+            collateralAmountOut: "0",
+            converter: Misc.ZERO_ADDRESS,
+            maxAmountToSupplyOut: "0",
+            borrowAmountOut: "0",
+            maxAmountToBorrowOut: "0",
+            apr18Out: "0"
+          },
+          poolAdapterStatus: {
+            collateralAmount: "200",
+            amountToPay: "200",
+            healthFactor18: "1"
+          }
+        });
+      }
+
+      it("should return zero converter", async () => {
+        const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+        expect(ret.planOut.converter).eq(Misc.ZERO_ADDRESS);
       });
     });
   });

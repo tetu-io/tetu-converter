@@ -48,6 +48,8 @@ library BorrowManagerLogicLib {
     uint collateralAmount;
     uint amountToBorrow;
     int apr18;
+    /// @notice Health factor of the exist debt; 0 for new conversion strategies
+    uint healthFactor18;
   }
 
   struct InputParamsAdditional {
@@ -66,19 +68,19 @@ library BorrowManagerLogicLib {
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   ///         Results are ordered in ascending order of APR, so the best available converter is first one.
   /// @param pas_ All platform adapters that support required pair of assets
-  /// @return convertersOut Result template-pool-adapters
-  /// @return collateralAmountsOut Amounts that should be provided as a collateral
-  /// @return amountsToBorrowOut Amounts that should be borrowed
-  /// @return aprs18Out Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
+  /// @return converters Result template-pool-adapters
+  /// @return collateralAmounts Amounts that should be provided as a collateral
+  /// @return borrowAmounts Amounts that should be borrowed
+  /// @return aprs18 Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
   function findConverter(
     AppDataTypes.InputConversionParams memory p_,
     InputParamsAdditional memory addParams_,
     EnumerableSet.AddressSet storage pas_
   ) internal view returns (
-    address[] memory convertersOut,
-    uint[] memory collateralAmountsOut,
-    uint[] memory amountsToBorrowOut,
-    int[] memory aprs18Out
+    address[] memory converters,
+    uint[] memory collateralAmounts,
+    uint[] memory borrowAmounts,
+    int[] memory aprs18
   ) {
     FindConverterLocal memory v;
 
@@ -96,6 +98,7 @@ library BorrowManagerLogicLib {
     // find all exist valid debts and calculate how to make new borrow with rebalancing of the exist debt
     // add BorrowCandidate to {candidates} for such debts and clear up corresponded items in {platformAdapters}
     (v.countCandidates, v.needMore) = _findCandidatesForExistDebts(v.platformAdapters, p_, addParams_, candidates);
+
     v.totalCandidates = (v.needMore && v.len != 0)
       // find borrow-candidates for all other platform adapters
       ? _findNewCandidates(v.platformAdapters, v.countCandidates, p_, addParams_, candidates)
@@ -171,20 +174,22 @@ library BorrowManagerLogicLib {
     needMore = true;
     uint len = platformAdapters.length;
     uint index;
-    uint usedAmountIn;
     while (index < len) {
       address poolAdapter;
       (index, poolAdapter, ) = _getExistValidPoolAdapter(platformAdapters, index, p_.user, p_.collateralAsset, p_.borrowAsset, addParams_.controller);
       if (poolAdapter != address(0)) {
-        BorrowCandidate memory c;
-        (c, usedAmountIn) = _findPoolsForExistDebt(IPoolAdapter(poolAdapter), platformAdapters[index], p_, addParams_, usedAmountIn);
+        (BorrowCandidate memory c, bool partialBorrow) = _findConversionStrategyForExistDebt(
+          IPoolAdapter(poolAdapter),
+          platformAdapters[index],
+          p_,
+          addParams_
+        );
         if (c.converter != address(0)) {
           dest[count++] = c;
           platformAdapters[index] = IPlatformAdapter(address(0)); // prevent using of this platform adapter in _findNewCandidates
-          if (usedAmountIn >= p_.amountIn) break;
+          needMore = needMore && partialBorrow;
         }
       }
-
       index++;
     }
 
@@ -225,8 +230,6 @@ library BorrowManagerLogicLib {
         if (poolAdapter != address(0)) {
           (,, healthFactor18,,,) = IPoolAdapter(IPoolAdapter(poolAdapter)).getStatus();
           ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(healthFactor18, minHealthFactor2);
-          // todo process REBALANCE_REQUIRED_2, put the pool adapter on the first place in dest
-
           if (status != ConverterLogicLib.HealthStatus.DIRTY_1) {
             return (i, poolAdapter, healthFactor18); // health factor > 1
           } // we are inside a view function, so just skip dirty pool adapters
@@ -237,19 +240,21 @@ library BorrowManagerLogicLib {
     return (len, address(0), 0);
   }
 
-  function _findPoolsForExistDebt(
+  /// @notice Get plan for new borrow with rebalancing of exist borrow (in both directions)
+  /// @return dest Parameters of the conversion strategy
+  function _findConversionStrategyForExistDebt(
     IPoolAdapter poolAdapter_,
     IPlatformAdapter platformAdapter_,
     AppDataTypes.InputConversionParams memory p_,
-    InputParamsAdditional memory addParams_,
-    uint usedAmountIn0
+    InputParamsAdditional memory addParams_
   ) internal view returns (
     BorrowCandidate memory dest,
-    uint usedAmountInFinal
+    bool partialBorrow
   ) {
     (uint collateralAmount, uint amountToPay, uint healthFactor18,,,) = poolAdapter_.getStatus();
 
-    (, int requiredCollateralAssetAmount) = ConverterLogicLib.getRebalanceAmounts(
+    // check debt status, take amounts that are required to rebalance the debt (in both directions)
+    (, int collateralAmountToFix) = ConverterLogicLib.getRebalanceAmounts(
       addParams_.targetHealthFactor2 * 1e16,
       collateralAmount,
       amountToPay,
@@ -258,33 +263,25 @@ library BorrowManagerLogicLib {
 
     // the user already has a debt with same collateral+borrow assets
     // so, we should use same pool adapter for new borrow AND rebalance exist debt in both directions if necessary
-    // There is a chance, that selected platform doesn't have enough amount to borrow, the collateral will be used partially.
-    // There is a case when we cannot make full rebalance of exist debt
-    // (i.e. new borrow amount is too small). Partial rebalance should be made in this case.
     AppDataTypes.ConversionPlan memory plan = _getPlanWithRebalancing(
       platformAdapter_,
       p_,
       addParams_.targetHealthFactor2,
-      requiredCollateralAssetAmount
+      collateralAmountToFix
     );
 
-    // take only the pool with enough liquidity
-    if (plan.converter != address(0) && plan.maxAmountToBorrow > plan.amountToBorrow) {
-      return (
-        BorrowCandidate({
-          converter: plan.converter,
-          amountToBorrow: plan.amountToBorrow,
-          collateralAmount: plan.collateralAmount,
-          apr18: _getApr18(plan, addParams_.rewardsFactor)
-        }),
-        ((EntryKinds.getEntryKind(p_.entryData) == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2)
-          ? plan.amountToBorrow
-          : plan.collateralAmount
-        ) + usedAmountIn0 // todo what about case entryKind = 1???
-      );
-    } else {
-      return (dest, 0);
+    if (plan.converter != address(0)) {
+      partialBorrow = plan.maxAmountToBorrow == plan.amountToBorrow || plan.maxAmountToSupply == plan.collateralAmount;
+      dest = BorrowCandidate({
+        converter: plan.converter,
+        amountToBorrow: plan.amountToBorrow,
+        collateralAmount: plan.collateralAmount,
+        apr18: _getApr18(plan, addParams_.rewardsFactor),
+        healthFactor18: healthFactor18
+      });
     }
+
+    return (dest, partialBorrow);
   }
 
   /// @notice Get conversion plan to borrow required amount + to rebalance exist debt
@@ -350,6 +347,7 @@ library BorrowManagerLogicLib {
     uint fixedAmount,
     uint collateralDelta
   ) {
+    // todo take into account supply cap
     bool tooHealthy = delta_ < 0;
     collateralDelta = tooHealthy
       ? uint(- delta_)
@@ -412,7 +410,8 @@ library BorrowManagerLogicLib {
           apr18: _getApr18(plan, addParams_.rewardsFactor),
           amountToBorrow: plan.amountToBorrow,
           collateralAmount: plan.collateralAmount,
-          converter: plan.converter
+          converter: plan.converter,
+          healthFactor18: 0
         });
       }
     }
