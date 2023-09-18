@@ -384,7 +384,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
       return (
       // == totalCollateral * amountToRepay / totalDebt
-        totalCollateralBase * (10 ** collateralDecimals) * part / 1e18 / collateralPrice,
+      // SCB-796: we need to calculate total amount of asset with asset's decimals at first
+      //          and only hen calculate part of it. It's not correct to to multiply base-amount on part and
+      //          then divide result on the price because there is a chance to get error 35 on small amounts
+        (totalCollateralBase * (10 ** collateralDecimals) / collateralPrice) * part / 1e18,
+        // WRONG: totalCollateralBase * (10 ** collateralDecimals) * part / 1e18 / collateralPrice,
+
         healthFactor18
       );
     }
