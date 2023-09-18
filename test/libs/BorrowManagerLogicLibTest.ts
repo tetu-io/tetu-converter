@@ -971,6 +971,8 @@ describe("BorrowManagerLogicLibTest", () => {
       /** AmountIn passed to _getPlanWithRebalancing */
       amountIn: string;
 
+      targetHealthFactor?: string; // default 1
+
       /** Params for the internal call of platformAdapter_.getConversionPlan */
       plan: {
         converter?: string;
@@ -979,7 +981,12 @@ describe("BorrowManagerLogicLibTest", () => {
         borrowAmountOut: string;
         maxAmountToSupplyOut?: string; // default MAX_INT
         maxAmountToBorrowOut?: string; // default MAX_INT
-        apr18Out: string; // default 1
+
+        // amounts required to calculate apr
+
+        amountCollateralInBorrowAsset36?: string; // default 1
+        borrowCost36?: string; // default 1
+        supplyIncomeInBorrowAsset36?: string; // default 1
       }
 
       poolAdapterStatus: {
@@ -990,13 +997,14 @@ describe("BorrowManagerLogicLibTest", () => {
     }
     interface IFindConversionStrategyResults {
       partialBorrow: boolean;
-      planOut: {
+      borrowCandidate: {
         converter: string;
         collateralAmount: number;
         amountToBorrow: number;
         apr: number;
         healthFactor: number;
       }
+      originConverter: string;
     }
 
     async function findConversionStrategyForExistDebt(p: IFindConversionStrategyParams): Promise<IFindConversionStrategyResults> {
@@ -1013,9 +1021,19 @@ describe("BorrowManagerLogicLibTest", () => {
       const finalAmountIn= parseUnits(p.plan.expectedFinalAmountIn, decimalsCollateral);
 
       const rewardsFactor = parseUnits("1", 18);
-      const targetHealthFactor2 = parseUnits("1", 2);
+      const targetHealthFactor2 = parseUnits(p.targetHealthFactor ?? "1", 2);
 
+      // set up pool adapter
+      await poolAdapter.setStatus(
+        parseUnits(p.poolAdapterStatus.collateralAmount, decimalsCollateral),
+        parseUnits(p.poolAdapterStatus.amountToPay, decimalsBorrow),
+        parseUnits(p.poolAdapterStatus.healthFactor18, 18),
+        true,
+        0,
+        true
+      );
 
+      // set up _getPlanWithRebalancing
       const planOut = {
         // Platform adapter returns not-zero plan only if it receives valid input amount
         // Actual values of the plan are not important
@@ -1031,12 +1049,13 @@ describe("BorrowManagerLogicLibTest", () => {
           ? parseUnits(p.plan.maxAmountToSupplyOut, decimalsCollateral)
           : Misc.MAX_UINT,
 
-        amountCollateralInBorrowAsset36: 1,
+        borrowCost36: parseUnits(p.plan.borrowCost36 ?? "1", 36),
+        amountCollateralInBorrowAsset36: parseUnits(p.plan.amountCollateralInBorrowAsset36 ?? "1", 36),
+        supplyIncomeInBorrowAsset36: parseUnits(p.plan.supplyIncomeInBorrowAsset36 ?? "1", 36),
+
         liquidationThreshold18: 1,
         ltv18: 1,
-        borrowCost36: 1,
         rewardsAmountInBorrowAsset36: 1,
-        supplyIncomeInBorrowAsset36: 1
       }
       await platformAdapter.setupGetConversionPlan(
         {
@@ -1070,40 +1089,169 @@ describe("BorrowManagerLogicLibTest", () => {
 
       return {
         partialBorrow: ret.partialBorrow,
-        planOut: {
+        borrowCandidate: {
           converter: ret.dest.converter,
           collateralAmount: +formatUnits(ret.dest.collateralAmount, decimalsCollateral),
           amountToBorrow: +formatUnits(ret.dest.amountToBorrow, decimalsBorrow),
           apr: +formatUnits(ret.dest.apr18, 18),
           healthFactor: +formatUnits(ret.dest.healthFactor18, 18),
-        }
+        },
+        originConverter: p.plan.converter ?? Misc.ZERO_ADDRESS
       }
     }
 
-    describe("New debt is not possible, collateralAmountToFix is zero", () => {
-      async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
-        return findConversionStrategyForExistDebt({
-          amountIn: "100",
-          plan: {
-            expectedFinalAmountIn: "100",
-            collateralAmountOut: "0",
-            converter: Misc.ZERO_ADDRESS,
-            maxAmountToSupplyOut: "0",
-            borrowAmountOut: "0",
-            maxAmountToBorrowOut: "0",
-            apr18Out: "0"
-          },
-          poolAdapterStatus: {
-            collateralAmount: "200",
-            amountToPay: "200",
-            healthFactor18: "1"
-          }
-        });
-      }
+    describe("Exist debt, health factor doesn't need any correction", () => {
+      describe("New borrow is not possible, collateralAmountToFix is zero", () => {
+        async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
+          return findConversionStrategyForExistDebt({
+            amountIn: "100",
+            plan: {
+              expectedFinalAmountIn: "100",
+              collateralAmountOut: "0",
+              converter: Misc.ZERO_ADDRESS,
+              maxAmountToSupplyOut: "0",
+              borrowAmountOut: "0",
+              maxAmountToBorrowOut: "0",
+            },
+            poolAdapterStatus: {
+              collateralAmount: "200",
+              amountToPay: "200",
+              healthFactor18: "1"
+            }
+          });
+        }
 
-      it("should return zero converter", async () => {
-        const ret = await loadFixture(findConversionStrategyForExistDebtTest);
-        expect(ret.planOut.converter).eq(Misc.ZERO_ADDRESS);
+        it("should return zero converter", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.borrowCandidate.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+      describe("Full borrow", () => {
+        async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
+          return findConversionStrategyForExistDebt({
+            amountIn: "107",
+            targetHealthFactor: "2",
+            plan: {
+              expectedFinalAmountIn: "107",
+              collateralAmountOut: "107",
+              converter: ethers.Wallet.createRandom().address,
+              maxAmountToSupplyOut: "107000",
+              borrowAmountOut: "53",
+              maxAmountToBorrowOut: "53000",
+
+              // amounts required to calculate apr
+
+              borrowCost36: "14",
+              amountCollateralInBorrowAsset36: "3",
+              supplyIncomeInBorrowAsset36: "2"
+
+            },
+            poolAdapterStatus: {
+              collateralAmount: "200",
+              amountToPay: "100",
+              healthFactor18: "2"
+            },
+          });
+        }
+
+        it("should return expected converter", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.borrowCandidate.converter).eq(ret.originConverter);
+        });
+        it("should return expected amountToBorrow", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.borrowCandidate.amountToBorrow).eq(53);
+        });
+        it("should return expected collateralAmount", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.borrowCandidate.collateralAmount).eq(107);
+        });
+        it("should return expected apr", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.borrowCandidate.apr).eq((14 - 2) / 3);
+        });
+        it("should return current health factor", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.borrowCandidate.healthFactor).eq(2);
+        });
+        it("should return not-partial borrow", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.partialBorrow).eq(false);
+        });
+      });
+      describe("Partial borrow because of maxAmountToBorrow", () => {
+        async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
+          return findConversionStrategyForExistDebt({
+            amountIn: "107",
+            targetHealthFactor: "2",
+            plan: {
+              expectedFinalAmountIn: "107",
+              collateralAmountOut: "107",
+              converter: ethers.Wallet.createRandom().address,
+              maxAmountToSupplyOut: "107000",
+              borrowAmountOut: "53",
+              maxAmountToBorrowOut: "53", // (!)
+
+              // amounts required to calculate apr
+
+              borrowCost36: "14",
+              amountCollateralInBorrowAsset36: "3",
+              supplyIncomeInBorrowAsset36: "2"
+
+            },
+            poolAdapterStatus: {
+              collateralAmount: "200",
+              amountToPay: "100",
+              healthFactor18: "2"
+            },
+          });
+        }
+
+        it("should return expected converter", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.borrowCandidate.converter).eq(ret.originConverter);
+        });
+        it("should return partial borrow", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.partialBorrow).eq(true);
+        });
+      });
+      describe("Partial borrow because of maxAmountToSupply", () => {
+        async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
+          return findConversionStrategyForExistDebt({
+            amountIn: "107",
+            targetHealthFactor: "2",
+            plan: {
+              expectedFinalAmountIn: "107",
+              collateralAmountOut: "107",
+              converter: ethers.Wallet.createRandom().address,
+              maxAmountToSupplyOut: "107", // (1)
+              borrowAmountOut: "53",
+              maxAmountToBorrowOut: "530000",
+
+              // amounts required to calculate apr
+
+              borrowCost36: "14",
+              amountCollateralInBorrowAsset36: "3",
+              supplyIncomeInBorrowAsset36: "2"
+
+            },
+            poolAdapterStatus: {
+              collateralAmount: "200",
+              amountToPay: "100",
+              healthFactor18: "2"
+            },
+          });
+        }
+
+        it("should return expected converter", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.borrowCandidate.converter).eq(ret.originConverter);
+        });
+        it("should return partial borrow", async () => {
+          const ret = await loadFixture(findConversionStrategyForExistDebtTest);
+          expect(ret.partialBorrow).eq(true);
+        });
       });
     });
   });

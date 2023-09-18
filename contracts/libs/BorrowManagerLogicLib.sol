@@ -255,7 +255,7 @@ library BorrowManagerLogicLib {
 
     // check debt status, take amounts that are required to rebalance the debt (in both directions)
     (, int collateralAmountToFix) = ConverterLogicLib.getRebalanceAmounts(
-      addParams_.targetHealthFactor2 * 1e16,
+      uint(addParams_.targetHealthFactor2) * 1e16,
       collateralAmount,
       amountToPay,
       healthFactor18
@@ -300,6 +300,7 @@ library BorrowManagerLogicLib {
   ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
+
     AppDataTypes.InputConversionParams memory input = AppDataTypes.InputConversionParams({
       collateralAsset: p_.collateralAsset,
       borrowAsset: p_.borrowAsset,
