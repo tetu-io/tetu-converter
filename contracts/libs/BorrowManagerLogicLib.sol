@@ -171,7 +171,7 @@ library BorrowManagerLogicLib {
     uint count,
     bool needMore
   ) {
-    needMore = true;
+    uint fullBorrowCounter = 0;
     uint len = platformAdapters.length;
     uint index;
     while (index < len) {
@@ -187,13 +187,15 @@ library BorrowManagerLogicLib {
         if (c.converter != address(0)) {
           dest[count++] = c;
           platformAdapters[index] = IPlatformAdapter(address(0)); // prevent using of this platform adapter in _findNewCandidates
-          needMore = needMore && partialBorrow;
+          if (partialBorrow) {
+            fullBorrowCounter++;
+          }
         }
       }
       index++;
     }
 
-    return (count, needMore);
+    return (count, fullBorrowCounter == 0);
   }
 
   /// @notice Try to find exist borrow for the given user
