@@ -23,15 +23,10 @@ library BorrowManagerLogicLib {
 
   uint internal constant DENOMINATOR = 100_000;
 
-  /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
-  ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
-  ///         Case: health factor is not healthy
-  uint internal constant MAX_REBALANCING_AMOUNT_THRESHOLD_UNHEALTHY = 50_000;
-
-  /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
-  ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
-  ///         Case: health factor is too healthy
-  uint internal constant MAX_REBALANCING_AMOUNT_THRESHOLD_TOO_HEALTHY = 10_000;
+  /// @notice Index of the threshold for too-healthy-case in thresholds array
+  uint internal constant INDEX_TOO_HEALTHY = 0;
+  /// @notice Index of the thresholds for unhealthy-case in thresholds array
+  uint internal constant INDEX_UNHEALTHY = 1;
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
@@ -60,6 +55,12 @@ library BorrowManagerLogicLib {
 
     /// @notice Target health factor for the {collateralAsset}
     uint16 targetHealthFactor2;
+
+    /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
+    ///             0: for the case when health factor is too healthy, see INDEX_TOO_HEALTHY
+    ///             1: for the case when health factor is unhealthy, see INDEX_UNHEALTHY
+    ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
+    uint[2] thresholds;
   }
 
   //endregion ----------------------------------------------------- Data types
@@ -98,11 +99,14 @@ library BorrowManagerLogicLib {
     // find all exist valid debts and calculate how to make new borrow with rebalancing of the exist debt
     // add BorrowCandidate to {candidates} for such debts and clear up corresponded items in {platformAdapters}
     (v.countCandidates, v.needMore) = _findCandidatesForExistDebts(v.platformAdapters, p_, addParams_, candidates);
+    console.log("findConverter.v.countCandidates", v.countCandidates);
+    console.log("findConverter.v.needMore", v.needMore);
 
     v.totalCandidates = (v.needMore && v.len != 0)
       // find borrow-candidates for all other platform adapters
       ? _findNewCandidates(v.platformAdapters, v.countCandidates, p_, addParams_, candidates)
       : v.countCandidates;
+    console.log("findConverter.v.totalCandidates", v.totalCandidates);
 
     return _prepareOutput(v.countCandidates, v.totalCandidates, candidates);
   }
@@ -124,6 +128,9 @@ library BorrowManagerLogicLib {
     uint[] memory borrowAmounts,
     int[] memory aprs18
   ) {
+    console.log("_prepareOutput.countDebts_", countDebts_);
+    console.log("_prepareOutput.count_", count_);
+    console.log("_prepareOutput.data_.length", data_.length);
     if (count_ != 0) {
       // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
       converters = new address[](count_);
@@ -279,6 +286,7 @@ library BorrowManagerLogicLib {
       platformAdapter_,
       p_,
       addParams_.targetHealthFactor2,
+      addParams_.thresholds,
       collateralAmountToFix
     );
 
@@ -300,6 +308,11 @@ library BorrowManagerLogicLib {
   /// @param platformAdapter_ Lending platform
   /// @param p_ Params of the borrow
   /// @param targetHealthFactor2_ Target health factor of the collateral asset
+  /// @param thresholds the maximum percentage by which the collateral amount can be changed
+  ///                   when rebalancing is made because of:
+  ///                   0: health factor is not healthy
+  ///                   1: health factor is unhealthy
+  ///                   Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
   /// @param collateralAmountToFix_ Amount of collateral that is required by lending platform to rebalance exist debt.
   ///                               Positive amount means, that the debt is unhealthy and we need to add more collateral to fix it.
   ///                               Negative amount means, that the debt is too healthy (its health factor > target one)
@@ -308,11 +321,11 @@ library BorrowManagerLogicLib {
     IPlatformAdapter platformAdapter_,
     AppDataTypes.InputConversionParams memory p_,
     uint16 targetHealthFactor2_,
+    uint[2] memory thresholds,
     int collateralAmountToFix_
   ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-
     AppDataTypes.InputConversionParams memory input = AppDataTypes.InputConversionParams({
       collateralAsset: p_.collateralAsset,
       borrowAsset: p_.borrowAsset,
@@ -330,7 +343,7 @@ library BorrowManagerLogicLib {
       if (entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0
         || entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1
       ) {
-        (input.amountIn, collateralDelta) = _fixCollateralAmount(input.amountIn, collateralAmountToFix_, true);
+        (input.amountIn, collateralDelta) = _fixCollateralAmount(input.amountIn, collateralAmountToFix_, true, thresholds);
       }
     }
 
@@ -339,7 +352,7 @@ library BorrowManagerLogicLib {
     if (collateralAmountToFix_ != 0) {
       // fix plan.collateralAmount
       if (entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
-        (plan.collateralAmount, ) = _fixCollateralAmount(plan.collateralAmount, collateralAmountToFix_, false);
+        (plan.collateralAmount, ) = _fixCollateralAmount(plan.collateralAmount, collateralAmountToFix_, false, thresholds);
       } else {
         plan.collateralAmount = collateralAmountToFix_ < 0
           ? AppUtils.sub0(plan.collateralAmount, collateralDelta)
@@ -354,9 +367,14 @@ library BorrowManagerLogicLib {
   ///               Negative {delta_} means "health factor is too healthy" situation => we can reduce collateral
   /// @param inputAmount true - we modify collateral amount before calculation of the borrow amount
   ///                    false - we modify collateral amount after calculation of the borrow amount
+  /// @param thresholds the maximum percentage by which the collateral amount can be changed
+  ///                   when rebalancing is made because of:
+  ///                   0: health factor is not healthy
+  ///                   1: health factor is unhealthy
+  ///                   Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
   /// @return fixedAmount amount_ + X, where X = delta_ reduced by thresholds
   /// @return collateralDelta value of X, see comment above
-  function _fixCollateralAmount(uint amount_, int delta_, bool inputAmount) internal pure returns (
+  function _fixCollateralAmount(uint amount_, int delta_, bool inputAmount, uint[2] memory thresholds) internal pure returns (
     uint fixedAmount,
     uint collateralDelta
   ) {
@@ -365,11 +383,11 @@ library BorrowManagerLogicLib {
     collateralDelta = tooHealthy
       ? uint(- delta_)
       : uint(delta_);
-    uint maxAllowedDelta = amount_
-      * (tooHealthy
-        ? MAX_REBALANCING_AMOUNT_THRESHOLD_TOO_HEALTHY
-        : MAX_REBALANCING_AMOUNT_THRESHOLD_UNHEALTHY
-      ) / DENOMINATOR;
+    uint maxAllowedDelta = amount_ * (
+      tooHealthy
+        ? thresholds[INDEX_TOO_HEALTHY]
+        : thresholds[INDEX_UNHEALTHY]
+    ) / DENOMINATOR;
     if (collateralDelta > maxAllowedDelta) {
       collateralDelta = maxAllowedDelta;
     }
@@ -416,6 +434,8 @@ library BorrowManagerLogicLib {
     uint len = platformAdapters_.length;
 
     for (uint i; i < len; i = i.uncheckedInc()) {
+      if (address(platformAdapters_[i]) == address(0)) continue;
+
       AppDataTypes.ConversionPlan memory plan = platformAdapters_[i].getConversionPlan(p_, addParams_.targetHealthFactor2);
 
       if (plan.converter != address(0)) {

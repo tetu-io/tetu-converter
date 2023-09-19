@@ -33,6 +33,17 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
 
   //region ----------------------------------------------------- Constants
   string public constant BORROW_MANAGER_VERSION = "1.0.1";
+
+  /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
+  ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
+  ///         Case: health factor is too healthy
+  uint internal constant THRESHOLD_REBALANCE_TOO_HEALTHY = 10_000;
+
+  /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
+  ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
+  ///         Case: health factor is not healthy
+  uint internal constant THRESHOLD_REBALANCE_UNHEALTHY = 50_000;
+
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
@@ -268,7 +279,8 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     BorrowManagerLogicLib.InputParamsAdditional memory addParams = BorrowManagerLogicLib.InputParamsAdditional({
       rewardsFactor: rewardsFactor,
       targetHealthFactor2: getTargetHealthFactor2(sourceToken_),
-      controller: IConverterController(controller())
+      controller: IConverterController(controller()),
+      thresholds: [THRESHOLD_REBALANCE_TOO_HEALTHY, THRESHOLD_REBALANCE_UNHEALTHY]
     });
     return BorrowManagerLogicLib.findConverter(
       params,

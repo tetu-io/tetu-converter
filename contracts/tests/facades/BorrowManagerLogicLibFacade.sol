@@ -102,6 +102,7 @@ contract BorrowManagerLogicLibFacade {
     IPlatformAdapter platformAdapter_,
     AppDataTypes.InputConversionParams memory p_,
     uint16 targetHealthFactor2_,
+    uint[2] memory thresholds,
     int requiredCollateralAssetAmount
   ) external view returns (
     AppDataTypes.ConversionPlan memory plan
@@ -110,6 +111,7 @@ contract BorrowManagerLogicLibFacade {
       platformAdapter_,
       p_,
       targetHealthFactor2_,
+      thresholds,
       requiredCollateralAssetAmount
     );
   }
@@ -119,10 +121,12 @@ contract BorrowManagerLogicLibFacade {
     uint startDestIndex_,
     AppDataTypes.InputConversionParams memory p_,
     BorrowManagerLogicLib.InputParamsAdditional memory addParams_,
-    BorrowManagerLogicLib.BorrowCandidate[] memory dest_
+    BorrowManagerLogicLib.BorrowCandidate[] memory input
   ) external view returns (
-    uint totalCount
+    uint totalCount,
+    BorrowManagerLogicLib.BorrowCandidate[] memory dest
   ) {
-    return BorrowManagerLogicLib._findNewCandidates(platformAdapters_, startDestIndex_, p_, addParams_, dest_);
+    totalCount = BorrowManagerLogicLib._findNewCandidates(platformAdapters_, startDestIndex_, p_, addParams_, input);
+    return (totalCount, input);
   }
 }
