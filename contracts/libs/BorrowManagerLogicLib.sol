@@ -131,18 +131,28 @@ library BorrowManagerLogicLib {
       borrowAmounts = new uint[](count_);
       aprs18 = new int[](count_);
 
-      // sort new conversion strategies by APR
-      uint countNewPos = count_ - countDebts_;
-      int[] memory aprs = new int[](countNewPos);
-      for (uint i; i < countNewPos; i = AppUtils.uncheckedInc(i)) {
-        aprs[i] = data_[countDebts_ + i].apr18;
+      // sort new conversion strategies by APR and exist debts by health factor
+      // to reduce number of variables put APR and health factors to the same array, but sort and use them independently
+      int[] memory orderBy = new int[](count_);
+      for (uint i; i < count_; i = AppUtils.uncheckedInc(i)) {
+        orderBy[i] = (i < countDebts_)
+          ? int(data_[i].healthFactor18)
+          : data_[i].apr18;
       }
-      uint[] memory indices = AppUtils._sortAsc(countNewPos, aprs);
+
+      uint countNewPos = count_ - countDebts_;
+      uint[] memory indices = new uint[](count_);
+
+      // order new positions by apr
+      AppUtils._sortAsc(countDebts_, countNewPos, orderBy, indices);
+
+      // order exist debts by health factor
+      AppUtils._sortAsc(0, countDebts_, orderBy, indices);
 
       for (uint i; i < count_; i = AppUtils.uncheckedInc(i)) {
         uint index = i < countDebts_
-          ? i
-          : countDebts_+ indices[i - countDebts_];
+          ? indices[i]
+          : indices[countDebts_ + count_ - i - 1];
         converters[i] = data_[index].converter;
         collateralAmounts[i] = data_[index].collateralAmount;
         borrowAmounts[i] = data_[index].amountToBorrow;
@@ -187,7 +197,7 @@ library BorrowManagerLogicLib {
         if (c.converter != address(0)) {
           dest[count++] = c;
           platformAdapters[index] = IPlatformAdapter(address(0)); // prevent using of this platform adapter in _findNewCandidates
-          if (partialBorrow) {
+          if (!partialBorrow) {
             fullBorrowCounter++;
           }
         }

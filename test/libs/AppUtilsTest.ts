@@ -136,121 +136,66 @@ describe("AppUtils", () => {
     });
   });
 
-  describe("shrinkAndOrder", () => {
-    describe("Good paths", () => {
-      describe("All items are not zero", () => {
-        it("should return expected values, reverse ordering", async () => {
-          const bb = [
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-          ];
-          const cc = [1, 2, 3, 4, 5];
-          const dd = [6, 7, 8, 9, 10];
-          const aa = [51, 41, 31, 21, 11];
-          const r = await facade.shrinkAndOrder(5, bb, cc, dd, aa);
+  describe("_sortAsc", () => {
+    interface ISortAscParams {
+      items: number[];
+      startIndex: number;
+      length: number;
+    }
+    interface ISortAscResults {
+      indices: number[];
+    }
 
-          const ret = [
-            r.bbOut.map(x => BalanceUtils.toString(x)).join(),
-            r.ccOut.map(x => BalanceUtils.toString(x)).join(),
-            r.ddOut.map(x => BalanceUtils.toString(x)).join(),
-            r.aaOut.map(x => BalanceUtils.toString(x)).join(),
-          ].join("\n");
+    async function sortAsc(p: ISortAscParams): Promise<ISortAscResults> {
+      const indices = await facade._sortAsc(p.startIndex, p.length, p.items);
+      return {
+        indices: indices.map(x => x.toNumber())
+      }
+    }
 
-          const expected = [
-            [bb[4], bb[3], bb[2], bb[1], bb[0]].map(x => BalanceUtils.toString(x)).join(),
-            [5, 4, 3, 2, 1].map(x => BalanceUtils.toString(x)).join(),
-            [10, 9, 8, 7, 6].map(x => BalanceUtils.toString(x)).join(),
-            [11, 21, 31, 41, 51].map(x => BalanceUtils.toString(x)).join(),
-          ].join("\n");
-
-          expect(ret).eq(expected);
-        });
-        it("should return expected values, random ordering", async () => {
-          const bb = [
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-          ];
-          const cc = [1, 2, 3, 4, 5];
-          const dd = [6, 7, 8, 9, 10];
-          const aa = [14, 65, 16, 31, 77];
-          const r = await facade.shrinkAndOrder(5, bb, cc, dd, aa);
-
-          const ret = [
-            r.bbOut.map(x => BalanceUtils.toString(x)).join(),
-            r.ccOut.map(x => BalanceUtils.toString(x)).join(),
-            r.ddOut.map(x => BalanceUtils.toString(x)).join(),
-            r.aaOut.map(x => BalanceUtils.toString(x)).join(),
-          ].join("\n");
-
-          const expected = [
-            [bb[0], bb[2], bb[3], bb[1], bb[4]].map(x => BalanceUtils.toString(x)).join(),
-            [cc[0], cc[2], cc[3], cc[1], cc[4]].map(x => BalanceUtils.toString(x)).join(),
-            [dd[0], dd[2], dd[3], dd[1], dd[4]].map(x => BalanceUtils.toString(x)).join(),
-            [14, 16, 31, 65, 77].map(x => BalanceUtils.toString(x)).join(),
-          ].join("\n");
-
-          expect(ret).eq(expected);
-        });
+    it("should success if there are no items", async () => {
+      const {indices} = await sortAsc({
+        items: [],
+        startIndex: 0,
+        length: 0
       });
-      describe("Some items are zero", () => {
-        it("should return expected values, random ordering", async () => {
-          const bb = [
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            Misc.ZERO_ADDRESS,
-            Misc.ZERO_ADDRESS,
-            Misc.ZERO_ADDRESS
-          ];
-          const cc = [1, 2, 3, 4, 5, 6, 7, 8];
-          const dd = [6, 7, 8, 9, 10, 11, 12, 13];
-          const aa = [14, 65, 16, 31, 77, 80, 81, 82];
-          const r = await facade.shrinkAndOrder(5, bb, cc, dd, aa);
-
-          const ret = [
-            r.bbOut.map(x => BalanceUtils.toString(x)).join(),
-            r.ccOut.map(x => BalanceUtils.toString(x)).join(),
-            r.ddOut.map(x => BalanceUtils.toString(x)).join(),
-            r.aaOut.map(x => BalanceUtils.toString(x)).join(),
-          ].join("\n");
-
-          const expected = [
-            [bb[0], bb[2], bb[3], bb[1], bb[4]].map(x => BalanceUtils.toString(x)).join(),
-            [cc[0], cc[2], cc[3], cc[1], cc[4]].map(x => BalanceUtils.toString(x)).join(),
-            [dd[0], dd[2], dd[3], dd[1], dd[4]].map(x => BalanceUtils.toString(x)).join(),
-            [14, 16, 31, 65, 77].map(x => BalanceUtils.toString(x)).join(),
-          ].join("\n");
-
-          expect(ret).eq(expected);
-        });
-      });
+      expect(indices.join()).eq([].join());
     });
-    describe("Gas estimation @skip-on-coverage", () => {
-      it("should return expected values", async () => {
-        const bb = [
-          ethers.Wallet.createRandom().address,
-          ethers.Wallet.createRandom().address,
-          ethers.Wallet.createRandom().address,
-          ethers.Wallet.createRandom().address,
-          ethers.Wallet.createRandom().address,
-        ];
-        const cc = [1, 2, 3, 4, 5];
-        const dd = [6, 7, 8, 9, 10];
-        const aa = [51, 41, 31, 21, 11];
-        const gasUsed = await facade.estimateGas.shrinkAndOrder(5, bb, cc, dd, aa);
 
-        controlGasLimitsEx(gasUsed, GAS_APP_UTILS_SHRINK_AND_ORDER, (u, t) => {
-          expect(u).to.be.below(t);
-        });
+    it("should return expected indices when all items are sorted", async () => {
+      const {indices} = await sortAsc({
+        items: [7, 1, 3, 2],
+        startIndex: 0,
+        length: 4
       });
+      expect(indices.join()).eq([1, 3, 2, 0].join());
+    });
+
+    it("should return expected indices when the end-part of items are sorted", async () => {
+      const {indices} = await sortAsc({
+        items: [7, 1, 3, 2, 14],
+        startIndex: 2,
+        length: 3
+      });
+      expect(indices.join()).eq([0, 0, 3, 2, 4].join());
+    });
+
+    it("should return expected indices when the first-part of items are sorted", async () => {
+      const {indices} = await sortAsc({
+        items: [7, 1, 3, 2, 14],
+        startIndex: 0,
+        length: 3
+      });
+      expect(indices.join()).eq([1, 2, 0, 0, 0].join());
+    });
+
+    it("should return expected indices when the middle-part of items are sorted", async () => {
+      const {indices} = await sortAsc({
+        items: [7, 14, 3, 2, 14],
+        startIndex: 1,
+        length: 3
+      });
+      expect(indices.join()).eq([0, 3, 2, 1, 0].join());
     });
   });
 //endregion Unit tests

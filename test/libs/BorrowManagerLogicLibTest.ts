@@ -17,6 +17,7 @@ import {expect} from "chai";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {BorrowManagerLogicLib} from "../../typechain/contracts/tests/facades/BorrowManagerLogicLibFacade";
 import {BigNumber} from "ethers";
+import {parseUint} from "hardhat-tracer/dist/src/utils";
 
 describe("BorrowManagerLogicLibTest", () => {
 //region Global vars for all tests
@@ -676,6 +677,7 @@ describe("BorrowManagerLogicLibTest", () => {
       collateralAmount: string;
       amountToBorrow: string;
       apr: string;
+      healthFactor?: string;
     }
     interface IPrepareOutputParams {
       collateralAsset?: MockERC20; // usdc by default
@@ -701,7 +703,7 @@ describe("BorrowManagerLogicLibTest", () => {
           converter: converters[index],
           collateralAmount: parseUnits(p.data[index].collateralAmount, decimalsCollateral),
           amountToBorrow: parseUnits(p.data[index].amountToBorrow, decimalsBorrow),
-          healthFactor18: 0
+          healthFactor18: parseUnits(p.data[index].healthFactor || "1", 18),
         })
       );
       const ret = await facade._prepareOutput(p.countDebts ?? 0, p.data.length, bcc);
@@ -743,32 +745,63 @@ describe("BorrowManagerLogicLibTest", () => {
       });
     });
     describe("Only exist debts", () => {
-      async function prepareOutputTest() : Promise<IPrepareOutputResults> {
-        return callPrepareOutput({
-          countDebts: 3,
-          data: [
-            {apr: "3", collateralAmount: "33", amountToBorrow: "333"},
-            {apr: "1", collateralAmount: "11", amountToBorrow: "111"},
-            {apr: "2", collateralAmount: "22", amountToBorrow: "222"},
-          ]
-        });
-      }
+      describe("Same health factor", () => {
+        async function prepareOutputTest(): Promise<IPrepareOutputResults> {
+          return callPrepareOutput({
+            countDebts: 3,
+            data: [
+              {apr: "3", collateralAmount: "33", amountToBorrow: "333"},
+              {apr: "1", collateralAmount: "11", amountToBorrow: "111"},
+              {apr: "2", collateralAmount: "22", amountToBorrow: "222"},
+            ]
+          });
+        }
 
-      it("should return expected converters", async() => {
-        const ret = await loadFixture(prepareOutputTest);
-        expect(ret.convertersIndices.join()).eq([0, 1, 2].join());
+        it("should return expected converters", async () => {
+          const ret = await loadFixture(prepareOutputTest);
+          expect(ret.convertersIndices.join()).eq([0, 1, 2].join());
+        });
+        it("should return expected collateral amounts", async () => {
+          const ret = await loadFixture(prepareOutputTest);
+          expect(ret.collateralAmounts.join()).eq([33, 11, 22].join());
+        });
+        it("should return expected borrow amounts", async () => {
+          const ret = await loadFixture(prepareOutputTest);
+          expect(ret.borrowAmounts.join()).eq([333, 111, 222].join());
+        });
+        it("should return expected aprs", async () => {
+          const ret = await loadFixture(prepareOutputTest);
+          expect(ret.aprs.join()).eq([3, 1, 2].join());
+        });
       });
-      it("should return expected collateral amounts", async() => {
-        const ret = await loadFixture(prepareOutputTest);
-        expect(ret.collateralAmounts.join()).eq([33, 11, 22].join());
-      });
-      it("should return expected borrow amounts", async() => {
-        const ret = await loadFixture(prepareOutputTest);
-        expect(ret.borrowAmounts.join()).eq([333, 111, 222].join());
-      });
-      it("should return expected aprs", async() => {
-        const ret = await loadFixture(prepareOutputTest);
-        expect(ret.aprs.join()).eq([3, 1, 2].join());
+      describe("Different health factors", () => {
+        async function prepareOutputTest(): Promise<IPrepareOutputResults> {
+          return callPrepareOutput({
+            countDebts: 3,
+            data: [
+              {apr: "3", collateralAmount: "33", amountToBorrow: "333", healthFactor: "7"},
+              {apr: "1", collateralAmount: "11", amountToBorrow: "111", healthFactor: "1"},
+              {apr: "2", collateralAmount: "22", amountToBorrow: "222", healthFactor: "4"},
+            ]
+          });
+        }
+
+        it("should return expected converters", async () => {
+          const ret = await loadFixture(prepareOutputTest);
+          expect(ret.convertersIndices.join()).eq([1, 2, 0].join());
+        });
+        it("should return expected collateral amounts", async () => {
+          const ret = await loadFixture(prepareOutputTest);
+          expect(ret.collateralAmounts.join()).eq([11, 22, 33].join());
+        });
+        it("should return expected borrow amounts", async () => {
+          const ret = await loadFixture(prepareOutputTest);
+          expect(ret.borrowAmounts.join()).eq([111, 222, 333].join());
+        });
+        it("should return expected aprs", async () => {
+          const ret = await loadFixture(prepareOutputTest);
+          expect(ret.aprs.join()).eq([1, 2, 3].join());
+        });
       });
     });
     describe("New and exit debts", () => {
@@ -1585,6 +1618,228 @@ describe("BorrowManagerLogicLibTest", () => {
         it("should return expected borrow amounts", async () => {
           const ret = await loadFixture(findCandidatesForExistDebtsTest);
           expect([ret.dest[0].amountToBorrow, ret.dest[1].amountToBorrow].join()).eq([50, 45].join());
+        });
+      });
+    });
+  });
+
+  describe("findConverter", () => {
+    interface IPlatformParams {
+      /** Params for the internal call of platformAdapter_.getConversionPlan */
+      plan: {
+        expectedFinalAmountIn: string;
+        collateralAmountOut?: string;
+        borrowAmountOut: string;
+        maxAmountToSupplyOut?: string; // default MAX_INT
+        maxAmountToBorrowOut?: string; // default MAX_INT
+
+        // amounts required to calculate apr
+
+        amountCollateralInBorrowAsset36?: string; // default 1
+        borrowCost36?: string; // default 1
+        supplyIncomeInBorrowAsset36?: string; // default 1
+      }
+
+      poolAdapterStatus?: {
+        collateralAmount: string;
+        amountToPay: string;
+        healthFactor18: string;
+      }
+    }
+
+    interface IBorrowCandidate {
+      collateralAmount: number;
+      amountToBorrow: number;
+      apr: number;
+      healthFactor: number;
+    }
+
+    interface IFindConverterParams {
+      /** AmountIn passed to _getPlanWithRebalancing */
+      amountIn: string;
+      targetHealthFactor?: string; // default 1
+      platforms: IPlatformParams[];
+    }
+    interface IFindConverterResults {
+      converters: string[];
+      collateralAmounts: number[];
+      borrowAmounts: number[];
+      aprs: number[];
+    }
+    async function findConverter(p: IFindConverterParams): Promise<IFindConverterResults> {
+      const collateralAsset = usdc;
+      const borrowAsset = usdt;
+      const decimalsCollateral = await collateralAsset.decimals();
+      const decimalsBorrow = await borrowAsset.decimals();
+
+      const rewardsFactor = parseUnits("1", 18);
+      const targetHealthFactor2 = parseUnits(p.targetHealthFactor ?? "1", 2);
+
+      const amountIn = parseUnits(p.amountIn, decimalsCollateral);
+
+      // set up controller and borrow manager
+      const controller = await MocksHelper.createConverterControllerMock(signer);
+      await controller.setupMinHealthFactor2(1);
+
+      const borrowMananger = await MocksHelper.createBorrowManagerMock(signer);
+      await controller.setupBorrowManager(borrowMananger.address);
+
+      // set up platform adapters
+      const platformAdapters: LendingPlatformMock2[] = [];
+      for (const pp of p.platforms) {
+        const converter = ethers.Wallet.createRandom().address; // for simplicity there is only one converter per platform
+        // set up platform adapter
+        const platformAdapter = await MocksHelper.createLendingPlatformMock2(signer);
+        platformAdapters.push(platformAdapter);
+
+        await platformAdapter.setupConverters([converter]);
+
+        const finalAmountIn = parseUnits(pp.plan.expectedFinalAmountIn, decimalsCollateral);
+
+        // set up _getPlanWithRebalancing
+        const planOut = {
+          // Platform adapter returns not-zero plan only if it receives valid input amount
+          // Actual values of the plan are not important
+          // We only check that this not zero plan is received, that's all
+          converter,
+          collateralAmount: parseUnits(pp.plan.collateralAmountOut || pp.plan.expectedFinalAmountIn, decimalsCollateral),
+          amountToBorrow: parseUnits(pp.plan.borrowAmountOut, decimalsBorrow),
+
+          maxAmountToBorrow: pp.plan.maxAmountToBorrowOut
+            ? parseUnits(pp.plan.maxAmountToBorrowOut, decimalsBorrow)
+            : Misc.MAX_UINT,
+          maxAmountToSupply: pp.plan.maxAmountToSupplyOut
+            ? parseUnits(pp.plan.maxAmountToSupplyOut, decimalsCollateral)
+            : Misc.MAX_UINT,
+
+          borrowCost36: parseUnits(pp.plan.borrowCost36 ?? "1", 36),
+          amountCollateralInBorrowAsset36: parseUnits(pp.plan.amountCollateralInBorrowAsset36 ?? "1", 36),
+          supplyIncomeInBorrowAsset36: parseUnits(pp.plan.supplyIncomeInBorrowAsset36 ?? "1", 36),
+
+          liquidationThreshold18: 1,
+          ltv18: 1,
+          rewardsAmountInBorrowAsset36: 1,
+        }
+
+        await platformAdapter.setupGetConversionPlan(
+          {
+            collateralAsset: collateralAsset.address,
+            borrowAsset: borrowAsset.address,
+            user: facade.address,
+            amountIn: finalAmountIn,
+            entryData: "0x",
+            countBlocks: 1
+          },
+          planOut
+        );
+
+        // set up pool adapter (exist debt)
+        if (pp.poolAdapterStatus) {
+          const poolAdapter = await MocksHelper.createPoolAdapterMock2(signer);
+
+          // set up pool adapter
+          await poolAdapter.setStatus(
+            parseUnits(pp.poolAdapterStatus.collateralAmount, decimalsCollateral),
+            parseUnits(pp.poolAdapterStatus.amountToPay, decimalsBorrow),
+            parseUnits(pp.poolAdapterStatus.healthFactor18, 18),
+            true,
+            0,
+            true
+          );
+
+          await borrowMananger.setupGetPoolAdapter(
+            converter,
+            facade.address,
+            collateralAsset.address,
+            borrowAsset.address,
+            poolAdapter.address
+          );
+        }
+      }
+
+      // set up EnumerableSet.AddressSet
+      await facade.addPlatformAdapter(platformAdapters.map(x => x.address));
+
+      const ret = await facade._findConverter(
+        {
+          collateralAsset: collateralAsset.address,
+          borrowAsset: borrowAsset.address,
+          user: facade.address,
+          amountIn,
+          entryData: "0x",
+          countBlocks: 1
+        },
+        {
+          controller: controller.address,
+          rewardsFactor,
+          targetHealthFactor2
+        },
+      );
+
+      return {
+        converters: ret.convertersOut,
+        collateralAmounts: ret.collateralAmountsOut.map(x => +formatUnits(x, decimalsCollateral)),
+        borrowAmounts: ret.amountsToBorrowOut.map(x => +formatUnits(x, decimalsBorrow)),
+        aprs: ret.aprs18Out.map(x => +formatUnits(x, 18))
+      }
+    }
+
+    describe("health factor is healthy, no collateral addon is required", () => {
+      describe("Two exist debts, full borrow is possible", () => {
+        async function findConverterTest(): Promise<IFindConverterResults> {
+          return findConverter({
+            amountIn: "100",
+            targetHealthFactor: "2",
+            platforms: [
+              {plan: {expectedFinalAmountIn: "100", borrowAmountOut: "70",},}, // no exist debt
+              {
+                plan: {
+                  expectedFinalAmountIn: "100",
+                  borrowAmountOut: "50",
+
+                  // amounts required to calculate apr = (14 - 10) / 2 = 2
+                  borrowCost36: "14",
+                  amountCollateralInBorrowAsset36: "2",
+                  supplyIncomeInBorrowAsset36: "10"
+                },
+                poolAdapterStatus: {collateralAmount: "2", amountToPay: "1", healthFactor18: "1.5",}
+              },
+              {plan: {expectedFinalAmountIn: "100", borrowAmountOut: "70",},}, // no exist debt
+              {
+                plan: {
+                  expectedFinalAmountIn: "100",
+                  borrowAmountOut: "45",
+
+                  // amounts required to calculate apr = (14 - 4) / 2 = 5
+                  borrowCost36: "14",
+                  amountCollateralInBorrowAsset36: "2",
+                  supplyIncomeInBorrowAsset36: "4"
+                },
+                poolAdapterStatus: {collateralAmount: "4", amountToPay: "2", healthFactor18: "3.0",}
+              },
+              {plan: {expectedFinalAmountIn: "100", borrowAmountOut: "70",},}, // no exist debt
+            ]
+          });
+        }
+
+        it("should return arrays with expected lengths", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect(ret.converters.length).eq(2);
+          expect(ret.collateralAmounts.length).eq(2);
+          expect(ret.borrowAmounts.length).eq(2);
+          expect(ret.aprs.length).eq(2);
+        });
+        it("should return expected collateral amounts", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect([ret.collateralAmounts[0], ret.collateralAmounts[1]].join()).eq([100, 100].join());
+        });
+        it("should return expected borrow amounts", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect([ret.borrowAmounts[0], ret.borrowAmounts[1]].join()).eq([45, 50].join());
+        });
+        it("should return expected aprs", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect([ret.aprs[0], ret.aprs[1]].join()).eq([5, 2].join());
         });
       });
     });
