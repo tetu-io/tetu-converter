@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPoolAdapter.sol";
+import "hardhat/console.sol";
 
 /// @notice TetuConverter-app logic-related utils
 library ConverterLogicLib {
@@ -23,20 +24,20 @@ library ConverterLogicLib {
   /// @param collateralAmount Current collateral amount of the given pool adapter
   /// @param amountToPay Current debts amount of the given pool adapter
   /// @param healthFactor18 Current health factor of the given pool adapter
-  /// @param requiredCollateralAssetAmount Amount of collateral asset required for rebalancing.
-  ///        Positive amount means, that such amount should be send to the pool adapter to restore health to the target factor
-  ///        Negative amount means, that such collateral amount can be redeemed from the lending platform without repay
-  /// @param requiredBorrowAssetAmount Amount of borrow asset required for rebalancing
+  /// @return requiredBorrowAssetAmount Amount of borrow asset required for rebalancing
   ///        Positive amount means, that this amount should be send to the pool adapter to restore health to the target factor
   ///        Negative amount means, that is can be borrowed in addition without adding new collateral.
+  /// @return requiredCollateralAssetAmount Amount of collateral asset required for rebalancing.
+  ///        Positive amount means, that such amount should be send to the pool adapter to restore health to the target factor
+  ///        Negative amount means, that such collateral amount can be redeemed from the lending platform without repay
   function getRebalanceAmounts(
     uint targetHealthFactor18,
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18
   ) internal pure returns (
-    int requiredCollateralAssetAmount,
-    int requiredBorrowAssetAmount
+    int requiredBorrowAssetAmount,
+    int requiredCollateralAssetAmount
   ) {
     // If full liquidation happens we will have collateralAmount = 0 and amountToPay > 0
     // In this case the open position should be just closed (we lost all collateral)
@@ -61,14 +62,23 @@ library ConverterLogicLib {
     uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(collateralAsset)) * 10 ** (18 - 2);
 
     (uint collateralAmount, uint amountToPay, uint healthFactor18,,,) = pa.getStatus();
+    console.log("checkPositionHealth.healthFactorTarget18", healthFactorTarget18);
+    console.log("checkPositionHealth.collateralAmount", collateralAmount);
+    console.log("checkPositionHealth.amountToPay", amountToPay);
+    console.log("checkPositionHealth.healthFactor18", healthFactor18);
 
     if (_isPositionUnhealthy(healthFactor18, healthFactorTarget18, minHealthFactor18)) {
+      console.log("checkPositionHealth._isPositionUnhealthy", true);
       (int borrow, int collateral) = getRebalanceAmounts(healthFactorTarget18, collateralAmount, amountToPay, healthFactor18);
+      console.log("checkPositionHealth.borrow");console.logInt(borrow);
+      console.log("checkPositionHealth.collateral");console.logInt(collateral);
       // if borrow/collateral amounts are negative
       // it means, that we can borrow additional amount without adding new collateral
       // there are no problems with the health in this case
       return (borrow > 0 ? uint(borrow) : 0, collateral > 0 ? uint(collateral) : 0);
     } else {
+      console.log("checkPositionHealth.requiredBorrowAssetAmount", requiredBorrowAssetAmount);
+      console.log("checkPositionHealth.requiredCollateralAssetAmount", requiredCollateralAssetAmount);
       return (requiredBorrowAssetAmount, requiredCollateralAssetAmount);
     }
   }
@@ -95,6 +105,6 @@ library ConverterLogicLib {
   /// @param minHealthFactor Min allowed health factor
   function _isPositionUnhealthy(uint healthFactor, uint targetHealthFactor, uint minHealthFactor) internal pure returns (bool) {
     targetHealthFactor; // hide warning
-    return healthFactor <= minHealthFactor;
+    return healthFactor < minHealthFactor;
   }
 }

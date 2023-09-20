@@ -285,6 +285,7 @@ describe("BorrowManager", () => {
     console.log("Source amount:", getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()).toString());
     const ret = await core.bm.findConverter(
       "0x",
+      ethers.Wallet.createRandom().address, // new user
       sourceToken.address,
       params?.targetAssetToSearch || targetToken.address,
       getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
@@ -293,6 +294,7 @@ describe("BorrowManager", () => {
     const gas = params?.estimateGas
       ? await core.bm.estimateGas.findConverter(
         "0x",
+        ethers.Wallet.createRandom().address, // new user
         sourceToken.address,
         params?.targetAssetToSearch || targetToken.address,
         getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
@@ -374,6 +376,7 @@ describe("BorrowManager", () => {
     const sourceAmount = getBigNumberFrom(sourceAmountNum, await sourceToken.decimals());
     const r = await core.bm.findConverter(
       "0x",
+      ethers.Wallet.createRandom().address, // new user
       sourceToken.address,
       targetToken.address,
       sourceAmount,
