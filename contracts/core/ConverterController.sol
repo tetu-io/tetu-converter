@@ -78,6 +78,9 @@ contract ConverterController is IConverterController, ControllableV3 {
 
   /// @inheritdoc IConverterController
   uint public override debtGap;
+
+  /// @inheritdoc IConverterController
+  bool public override rebalanceOnBorrowEnabled;
   //endregion ------------------------------------- Variables
 
   //region ------------------------------------- Events
@@ -293,4 +296,13 @@ contract ConverterController is IConverterController, ControllableV3 {
     }
   }
   //endregion ------------------------------------- Whitelist
+
+  //region ------------------------------------- Rebalance on borrowing
+  function setRebalanceOnBorrowEnabled(bool enabled_) external {
+    _onlyGovernance();
+    rebalanceOnBorrowEnabled = enabled_;
+  }
+  //endregion ------------------------------------- Rebalance on borrowing
+
+
 }

@@ -54,10 +54,12 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   /// @notice Local vars for {findConversionStrategy}
   struct FindConversionStrategyLocal {
     address[] borrowConverters;
+    address user;
+    address swapConverter;
+    IBorrowManager borrowManager;
     uint[] borrowSourceAmounts;
     uint[] borrowTargetAmounts;
     int[] borrowAprs18;
-    address swapConverter;
     uint swapSourceAmount;
     uint swapTargetAmount;
     int swapApr18;
@@ -117,6 +119,14 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
 
     FindConversionStrategyLocal memory p;
     if (!_controller.paused()) {
+      // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
+      p.borrowManager = IBorrowManager(_controller.borrowManager());
+
+      p.user = _controller.rebalanceOnBorrowEnabled()
+        && IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length != 0
+        ? msg.sender
+        : address(0);
+
       (p.borrowConverters,
         p.borrowSourceAmounts,
         p.borrowTargetAmounts,
@@ -169,17 +179,18 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
     IConverterController _controller = IConverterController(controller());
-    return _controller.paused()
-      ? (converters, collateralAmountsOut, amountToBorrowsOut, aprs18) // no conversion is available
-      : IBorrowManager(_controller.borrowManager()).findConverter(
-        entryData_,
-        // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
-        msg.sender,
-        sourceToken_,
-        targetToken_,
-        amountIn_,
-        periodInBlocks_
-      );
+    if (_controller.paused()) {
+      return (converters, collateralAmountsOut, amountToBorrowsOut, aprs18); // no conversion is available
+    } else {
+    // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
+      address user = _controller.rebalanceOnBorrowEnabled()
+        && IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length != 0
+        ? msg.sender
+        : address(0);
+
+      IBorrowManager borrowManager = IBorrowManager(_controller.borrowManager());
+      return borrowManager.findConverter(entryData_, user, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
+    }
   }
 
   /// @inheritdoc ITetuConverter
