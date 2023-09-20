@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPoolAdapter.sol";
-import "hardhat/console.sol";
 
 /// @notice TetuConverter-app logic-related utils
 library ConverterLogicLib {
@@ -62,23 +61,14 @@ library ConverterLogicLib {
     uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(collateralAsset)) * 10 ** (18 - 2);
 
     (uint collateralAmount, uint amountToPay, uint healthFactor18,,,) = pa.getStatus();
-    console.log("checkPositionHealth.healthFactorTarget18", healthFactorTarget18);
-    console.log("checkPositionHealth.collateralAmount", collateralAmount);
-    console.log("checkPositionHealth.amountToPay", amountToPay);
-    console.log("checkPositionHealth.healthFactor18", healthFactor18);
 
     if (_isPositionUnhealthy(healthFactor18, healthFactorTarget18, minHealthFactor18)) {
-      console.log("checkPositionHealth._isPositionUnhealthy", true);
       (int borrow, int collateral) = getRebalanceAmounts(healthFactorTarget18, collateralAmount, amountToPay, healthFactor18);
-      console.log("checkPositionHealth.borrow");console.logInt(borrow);
-      console.log("checkPositionHealth.collateral");console.logInt(collateral);
       // if borrow/collateral amounts are negative
       // it means, that we can borrow additional amount without adding new collateral
       // there are no problems with the health in this case
       return (borrow > 0 ? uint(borrow) : 0, collateral > 0 ? uint(collateral) : 0);
     } else {
-      console.log("checkPositionHealth.requiredBorrowAssetAmount", requiredBorrowAssetAmount);
-      console.log("checkPositionHealth.requiredCollateralAssetAmount", requiredCollateralAssetAmount);
       return (requiredBorrowAssetAmount, requiredCollateralAssetAmount);
     }
   }

@@ -1920,7 +1920,8 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             amountIn: collateralAmount,
             borrowAsset,
             countBlocks: 1,
-            entryData: "0x"
+            entryData: "0x",
+            user: userContract.address
           },
           targetHealthFactor2,
           {gasLimit: GAS_LIMIT},

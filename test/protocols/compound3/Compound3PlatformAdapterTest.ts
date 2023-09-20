@@ -217,7 +217,8 @@ describe("Compound3PlatformAdapterTest", () => {
         amountIn: p?.zeroCollateralAmount ? 0 : collateralAmount,
         borrowAsset: p?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
         countBlocks: p?.zeroCountBlocks ? 0 : countBlocks,
-        entryData: entryData || "0x"
+        entryData: entryData || "0x",
+        user: Misc.ZERO_ADDRESS
       },
       p?.incorrectHealthFactor2 || healthFactor2,
       {gasLimit: GAS_LIMIT},

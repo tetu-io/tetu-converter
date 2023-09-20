@@ -116,15 +116,17 @@ describe("BorrowManagerLogicLibTest", () => {
         // Actual values of the plan are not important
         // We only check that this not zero plan is received, that's all
         converter: ethers.Wallet.createRandom().address,
+
         collateralAmount: parseUnits(p.plan.collateralAmountOut, decimalsCollateral),
         amountToBorrow: parseUnits(p.plan.borrowAmountOut, decimalsBorrow),
+
+        maxAmountToSupply: Misc.MAX_UINT,
+        maxAmountToBorrow: parseUnits(p.plan.borrowAmountOut, decimalsBorrow),
 
         amountCollateralInBorrowAsset36: 1,
         liquidationThreshold18: 1,
         ltv18: 1,
         borrowCost36: 1,
-        maxAmountToBorrow: 1,
-        maxAmountToSupply: 1,
         rewardsAmountInBorrowAsset36: 1,
         supplyIncomeInBorrowAsset36: 1
       }
@@ -928,9 +930,7 @@ describe("BorrowManagerLogicLibTest", () => {
       const borrowManager = await MocksHelper.createBorrowManagerMock(signer);
       await borrowManager.setupGetPoolAdapter(targetConverter, user, collateralAsset, borrowAsset, poolAdapter.address);
 
-      const controller = await MocksHelper.createConverterControllerMock(signer);
-      await controller.setupBorrowManager(borrowManager.address);
-      await controller.setupMinHealthFactor2(parseUnits(p.minHealthFactor ?? "1", 2));
+      const minHealthFactor2 = parseUnits(p.minHealthFactor ?? "1", 2);
 
       const ret = await facade._getExistValidPoolAdapter(
         platformAdapters.map(x => x.address),
@@ -938,7 +938,8 @@ describe("BorrowManagerLogicLibTest", () => {
         user,
         collateralAsset,
         borrowAsset,
-        controller.address
+        borrowManager.address,
+        minHealthFactor2
       );
 
       return {

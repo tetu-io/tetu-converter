@@ -77,13 +77,22 @@ contract BorrowManagerLogicLibFacade {
     address user_,
     address collateralAsset_,
     address borrowAsset_,
-    IConverterController controller_
+    IBorrowManager borrowManager_,
+    uint16 minHealthFactor2
   ) external view returns (
     uint indexPlatformAdapter,
     address poolAdapter,
     uint healthFactor18
   ) {
-    return BorrowManagerLogicLib._getExistValidPoolAdapter(platformAdapters_, index0_, user_, collateralAsset_, borrowAsset_, controller_);
+    return BorrowManagerLogicLib._getExistValidPoolAdapter(
+      platformAdapters_,
+      index0_,
+      user_,
+      collateralAsset_,
+      borrowAsset_,
+      borrowManager_,
+      minHealthFactor2
+    );
   }
 
   function _findConversionStrategyForExistDebt(

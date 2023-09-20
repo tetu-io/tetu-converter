@@ -66,6 +66,7 @@ describe("Aave3PlatformAdapterTest", () => {
     collateralAsset: string;
     borrowAsset: string;
     private h: Aave3Helper;
+
     constructor(
       dataProvider: IAaveProtocolDataProvider,
       pool: IAavePool,
@@ -78,7 +79,8 @@ describe("Aave3PlatformAdapterTest", () => {
       this.collateralAsset = collateralAsset;
       this.borrowAsset = borrowAsset;
     }
-    async getAvailableLiquidity() : Promise<BigNumber> {
+
+    async getAvailableLiquidity(): Promise<BigNumber> {
       const rd = await this.dp.getReserveData(this.borrowAsset);
       console.log(`Reserve data before: totalAToken=${rd.totalAToken} totalStableDebt=${rd.totalStableDebt} totalVariableDebt=${rd.totalVariableDebt}`);
       const availableLiquidity = rd.totalAToken.sub(
@@ -87,12 +89,14 @@ describe("Aave3PlatformAdapterTest", () => {
       console.log("availableLiquidity", availableLiquidity);
       return availableLiquidity;
     }
+
     async getCurrentBR(): Promise<BigNumber> {
       const data = await this.h.getReserveInfo(deployer, this.pool, this.dp, this.borrowAsset);
       const br = data.data.currentVariableBorrowRate;
       console.log(`BR ${br.toString()}`);
       return BigNumber.from(br);
     }
+
     async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
       await IERC20Metadata__factory.connect(this.collateralAsset, deployer).approve(this.pool.address, collateralAmount);
       console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
@@ -101,12 +105,14 @@ describe("Aave3PlatformAdapterTest", () => {
       console.log(`Available borrow base ${userAccountData.availableBorrowsBase}`);
       await this.pool.setUserUseReserveAsCollateral(this.collateralAsset, true);
     }
+
     async borrow(borrowAmount: BigNumber): Promise<void> {
       console.log(`borrow ${this.borrowAsset} amount ${borrowAmount}`);
       await this.pool.borrow(this.borrowAsset, borrowAmount, 2, 0, deployer.address, {gasLimit: GAS_LIMIT});
 
     }
   }
+
 //endregion IPlatformActor impl
 
 //region Unit tests
@@ -117,15 +123,17 @@ describe("Aave3PlatformAdapterTest", () => {
       templateAdapterEMode: string;
       aavePool: string;
     }
+
     interface ICreateContractsSetBadParams {
       zeroController?: boolean;
       zeroTemplateAdapterNormal?: boolean;
       zeroTemplateAdapterEMode?: boolean;
       zeroAavePool?: boolean;
     }
+
     async function initializePlatformAdapter(
       badPaths?: ICreateContractsSetBadParams
-    ) : Promise<{data: IContractsSet, platformAdapter: Aave3PlatformAdapter}> {
+    ): Promise<{ data: IContractsSet, platformAdapter: Aave3PlatformAdapter }> {
       const controller = await TetuConverterApp.createController(
         deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
@@ -149,6 +157,7 @@ describe("Aave3PlatformAdapterTest", () => {
       );
       return {data, platformAdapter};
     }
+
     describe("Good paths", () => {
       it("should return expected values", async () => {
         const r = await initializePlatformAdapter();
@@ -248,7 +257,7 @@ describe("Aave3PlatformAdapterTest", () => {
       countBlocks: number = 10,
       badPathsParams?: IGetConversionPlanBadPaths,
       entryData?: string
-    ) : Promise<IPreparePlanResults> {
+    ): Promise<IPreparePlanResults> {
       const h = new Aave3Helper(deployer);
       const aavePool = await Aave3Helper.getAavePool(deployer);
       const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
@@ -298,7 +307,8 @@ describe("Aave3PlatformAdapterTest", () => {
           amountIn: badPathsParams?.zeroAmountIn ? 0 : amountIn,
           borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
           countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
-          entryData: entryData || "0x"
+          entryData: entryData || "0x",
+          user: Misc.ZERO_ADDRESS
         },
         healthFactor2,
         {gasLimit: GAS_LIMIT}
@@ -330,7 +340,7 @@ describe("Aave3PlatformAdapterTest", () => {
       badPathsParams?: IGetConversionPlanBadPaths,
       entryData?: string,
       expectEmptyPlan: boolean = false
-    ) : Promise<{sret: string, sexpected: string}> {
+    ): Promise<{ sret: string, sexpected: string }> {
       const d = await preparePlan(
         collateralAsset,
         collateralAmount,
@@ -355,7 +365,7 @@ describe("Aave3PlatformAdapterTest", () => {
         borrowAmount = d.plan.maxAmountToBorrow;
       }
 
-      const amountCollateralInBorrowAsset36 =  convertUnits(collateralAmount,
+      const amountCollateralInBorrowAsset36 = convertUnits(collateralAmount,
         d.priceCollateral,
         d.collateralAssetData.data.decimals,
         d.priceBorrow,
@@ -409,9 +419,9 @@ describe("Aave3PlatformAdapterTest", () => {
         // ensure that high efficiency mode is not available
         highEfficientModeEnabled
           ? d.collateralAssetData.data.emodeCategory !== 0
-            && d.borrowAssetData.data.emodeCategory === d.collateralAssetData.data.emodeCategory
+          && d.borrowAssetData.data.emodeCategory === d.collateralAssetData.data.emodeCategory
           : d.collateralAssetData.data.emodeCategory !== d.borrowAssetData.data.emodeCategory,
-      ].map(x => BalanceUtils.toString(x)) .join("\n");
+      ].map(x => BalanceUtils.toString(x)).join("\n");
 
       const expectedMaxAmountToBorrow = await Aave3Utils.getMaxAmountToBorrow(d.borrowAssetData, d.collateralAssetData);
       const expectedMaxAmountToSupply = await Aave3Utils.getMaxAmountToSupply(deployer, d.collateralAssetData);
@@ -425,39 +435,39 @@ describe("Aave3PlatformAdapterTest", () => {
       // The test handles both cases (it's not good, we need two different tests, but it's too hard to reproduce
       // required situations in test)
       const sexpected = (emptyPlan
-        ? [0, 0, 0, 0, 0, 0, 0, false, false, 0, 0, false, true]
-        : [
-          predictedBorrowCostInBorrowAssetRay,
-          predictedSupplyIncomeInBorrowAssetRay,
-          0,
+          ? [0, 0, 0, 0, 0, 0, 0, false, false, 0, 0, false, true]
+          : [
+            predictedBorrowCostInBorrowAssetRay,
+            predictedSupplyIncomeInBorrowAssetRay,
+            0,
 
-          // ltv18
-          BigNumber.from(
-            highEfficientModeEnabled
-              ? d.collateralAssetData.category?.ltv
-              : d.collateralAssetData.data.ltv
-          ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
+            // ltv18
+            BigNumber.from(
+              highEfficientModeEnabled
+                ? d.collateralAssetData.category?.ltv
+                : d.collateralAssetData.data.ltv
+            ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
 
-          // liquidationThreshold18
-          BigNumber.from(
-            highEfficientModeEnabled
-              ? d.collateralAssetData.category?.liquidationThreshold
-              : d.collateralAssetData.data.liquidationThreshold
-          ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
+            // liquidationThreshold18
+            BigNumber.from(
+              highEfficientModeEnabled
+                ? d.collateralAssetData.category?.liquidationThreshold
+                : d.collateralAssetData.data.liquidationThreshold
+            ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
 
-          expectedMaxAmountToBorrow,
-          expectedMaxAmountToSupply,
+            expectedMaxAmountToBorrow,
+            expectedMaxAmountToSupply,
 
-          true, // borrow APR is not 0
-          true, // supply APR is not 0
+            true, // borrow APR is not 0
+            true, // supply APR is not 0
 
-          borrowAmount,
-          collateralAmount,
+            borrowAmount,
+            collateralAmount,
 
-          true,
-          true,
-        ]
-    ).map(x => BalanceUtils.toString(x)) .join("\n");
+            true,
+            true,
+          ]
+      ).map(x => BalanceUtils.toString(x)).join("\n");
 
       return {sret, sexpected};
     }
@@ -483,7 +493,7 @@ describe("Aave3PlatformAdapterTest", () => {
       });
       describe("DAI : USDC", () => {
         it("should return expected values", async () => {
-            const countBlocks = 1;
+          const countBlocks = 1;
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralAmount = getBigNumberFrom(100, 18);
@@ -543,7 +553,7 @@ describe("Aave3PlatformAdapterTest", () => {
          * Currently vars.rcDebtCeiling < vars.rc.isolationModeTotalDebt, so new borrows are not possible
          */
         describe("STASIS EURS-2 : Tether USD", () => {
-          it("should return expected values", async () =>{
+          it("should return expected values", async () => {
             const collateralAsset = MaticAddresses.EURS;
             const borrowAsset = MaticAddresses.USDT;
             const collateralAmount = parseUnits("1000", 2); // 1000 Euro
@@ -626,7 +636,7 @@ describe("Aave3PlatformAdapterTest", () => {
               r.borrowAssetData.data.decimals
             );
 
-            const amountCollateralInBorrowAsset36 =  convertUnits(r.plan.collateralAmount,
+            const amountCollateralInBorrowAsset36 = convertUnits(r.plan.collateralAmount,
               r.priceCollateral,
               r.collateralAssetData.data.decimals,
               r.priceBorrow,
@@ -669,7 +679,7 @@ describe("Aave3PlatformAdapterTest", () => {
               r.plan.amountToBorrow.mul(r.priceBorrow),
               r.borrowAssetData.data.decimals
             );
-            const amountCollateralInBorrowAsset36 =  convertUnits(r.plan.collateralAmount,
+            const amountCollateralInBorrowAsset36 = convertUnits(r.plan.collateralAmount,
               r.priceCollateral,
               r.collateralAssetData.data.decimals,
               r.priceBorrow,
@@ -728,7 +738,7 @@ describe("Aave3PlatformAdapterTest", () => {
               defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
             );
 
-            const amountCollateralInBorrowAsset36 =  convertUnits(r.plan.collateralAmount,
+            const amountCollateralInBorrowAsset36 = convertUnits(r.plan.collateralAmount,
               r.priceCollateral,
               r.collateralAssetData.data.decimals,
               r.priceBorrow,
@@ -834,7 +844,7 @@ describe("Aave3PlatformAdapterTest", () => {
         collateralAsset: string = MaticAddresses.DAI,
         borrowAsset: string = MaticAddresses.WMATIC,
         collateralAmount: string = "1000"
-      ) : Promise<IConversionPlan> {
+      ): Promise<IConversionPlan> {
         return (await preparePlan(
           collateralAsset,
           parseUnits(collateralAmount),
@@ -843,39 +853,40 @@ describe("Aave3PlatformAdapterTest", () => {
           badPathsParams
         )).plan;
       }
+
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
           it("should revert", async () => {
             await expect(
-              tryGetConversionPlan({ zeroCollateralAsset: true })
+              tryGetConversionPlan({zeroCollateralAsset: true})
             ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
           });
         });
         describe("borrow token is zero", () => {
           it("should revert", async () => {
             await expect(
-              tryGetConversionPlan({ zeroBorrowAsset: true })
+              tryGetConversionPlan({zeroBorrowAsset: true})
             ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
           });
         });
         describe("healthFactor2_ is less than min allowed", () => {
           it("should revert", async () => {
             await expect(
-              tryGetConversionPlan({ incorrectHealthFactor2: 100 })
+              tryGetConversionPlan({incorrectHealthFactor2: 100})
             ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
           });
         });
         describe("countBlocks_ is zero", () => {
           it("should revert", async () => {
             await expect(
-              tryGetConversionPlan({ zeroCountBlocks: true })
+              tryGetConversionPlan({zeroCountBlocks: true})
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
           });
         });
         describe("collateralAmount_ is zero", () => {
           it("should revert", async () => {
             await expect(
-              tryGetConversionPlan({ zeroAmountIn: true })
+              tryGetConversionPlan({zeroAmountIn: true})
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
           });
         });
@@ -884,53 +895,53 @@ describe("Aave3PlatformAdapterTest", () => {
       /* We cannot make a reserve inactive if it has active suppliers */
       describe.skip("inactive", () => {
         describe("collateral token is inactive", () => {
-          it("should revert", async () =>{
-              expect.fail("TODO");
+          it("should revert", async () => {
+            expect.fail("TODO");
           });
         });
         describe("borrow token is inactive", () => {
           it("should revert", async () => {
-             expect.fail("TODO");
+            expect.fail("TODO");
           });
         });
       });
 
       describe("paused", () => {
         it("should fail if collateral token is paused", async () => {
-            expect((await tryGetConversionPlan({ makeCollateralAssetPaused: true })).converter).eq(Misc.ZERO_ADDRESS);
+          expect((await tryGetConversionPlan({makeCollateralAssetPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrow token is paused", async () => {
-            expect((await tryGetConversionPlan({ makeBorrowAssetPaused: true })).converter).eq(Misc.ZERO_ADDRESS);
+          expect((await tryGetConversionPlan({makeBorrowAssetPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
 
       describe("frozen", () => {
         it("should fail if collateral token is frozen", async () => {
-            expect((await tryGetConversionPlan({ makeCollateralAssetFrozen: true })).converter).eq(Misc.ZERO_ADDRESS);
+          expect((await tryGetConversionPlan({makeCollateralAssetFrozen: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrow token is frozen", async () => {
-            expect((await tryGetConversionPlan({ makeBorrowAssetFrozen: true })).converter).eq(Misc.ZERO_ADDRESS);
+          expect((await tryGetConversionPlan({makeBorrowAssetFrozen: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
 
       describe("Not usable", () => {
         it("should fail if borrow asset is not borrowable", async () => {
-            // AaveToken has borrowing = FALSE
+          // AaveToken has borrowing = FALSE
           expect((await tryGetConversionPlan({}, MaticAddresses.DAI, MaticAddresses.AaveToken)).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if collateral asset is not usable as collateral", async () => {
-            // agEUR has liquidation threshold = 0, it means, it cannot be used as collateral
+          // agEUR has liquidation threshold = 0, it means, it cannot be used as collateral
           expect((await tryGetConversionPlan({}, MaticAddresses.agEUR)).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if isolation mode is enabled for collateral, borrow token is not borrowable in isolation mode", async () => {
-            // EURS has not zero isolationModeTotalDebtm, SUSHI has "borrowable in isolation mode" = FALSE
+          // EURS has not zero isolationModeTotalDebtm, SUSHI has "borrowable in isolation mode" = FALSE
           expect((await tryGetConversionPlan({}, MaticAddresses.EURS, MaticAddresses.SUSHI)).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
 
       describe("Caps", () => {
         it("should return expected maxAmountToSupply when try to supply more than allowed by supply cap", async () => {
-            const plan = await tryGetConversionPlan(
+          const plan = await tryGetConversionPlan(
             {setMinSupplyCap: true},
             MaticAddresses.DAI,
             MaticAddresses.USDC,
@@ -939,7 +950,7 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(plan.maxAmountToSupply.lt(parseUnits("12345"))).eq(true);
         });
         it("should return expected maxAmountToSupply=max(uint) if supply cap is zero (supplyCap == 0 => no cap)", async () => {
-            const plan = await tryGetConversionPlan(
+          const plan = await tryGetConversionPlan(
             {setZeroSupplyCap: true},
             MaticAddresses.DAI,
             MaticAddresses.USDC,
@@ -949,7 +960,7 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(plan.maxAmountToSupply.eq(Misc.MAX_UINT)).eq(true);
         });
         it("should return expected borrowAmount when try to borrow more than allowed by borrow cap", async () => {
-            const planNoBorrowCap = await tryGetConversionPlan(
+          const planNoBorrowCap = await tryGetConversionPlan(
             {},
             MaticAddresses.DAI,
             MaticAddresses.USDC,
@@ -970,7 +981,7 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(ret).eq(expected);
         });
         it("should return expected borrowAmount when borrow cap is zero", async () => {
-            const plan = await tryGetConversionPlan(
+          const plan = await tryGetConversionPlan(
             {setZeroBorrowCap: true},
             MaticAddresses.DAI,
             MaticAddresses.USDC,
@@ -1057,7 +1068,7 @@ describe("Aave3PlatformAdapterTest", () => {
 
       describe("supplyCap < totalSupply (edge case, improve coverage)", () => {
         it("should return zero plan", async () => {
-            const collateralAsset = MaticAddresses.USDC;
+          const collateralAsset = MaticAddresses.USDC;
           const borrowAsset = MaticAddresses.USDT;
           const collateralAmount = parseUnits("1", 6);
 
@@ -1110,7 +1121,8 @@ describe("Aave3PlatformAdapterTest", () => {
             amountIn: parseUnits("1", 18),
             borrowAsset: MaticAddresses.USDC,
             countBlocks: 1,
-            entryData: "0x"
+            entryData: "0x",
+            user: Misc.ZERO_ADDRESS
           },
           200,
           {gasLimit: GAS_LIMIT}
@@ -1130,7 +1142,7 @@ describe("Aave3PlatformAdapterTest", () => {
         borrowAsset: string,
         collateralHolders: string[],
         part10000: number
-      ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
+      ): Promise<{ br: BigNumber, brPredicted: BigNumber }> {
         const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
         const aavePool = await Aave3Helper.getAavePool(deployer);
 
@@ -1148,7 +1160,7 @@ describe("Aave3PlatformAdapterTest", () => {
           collateralHolders,
           part10000
         );
-       }
+      }
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
@@ -1212,10 +1224,11 @@ describe("Aave3PlatformAdapterTest", () => {
       useWrongConverter?: boolean;
       wrongCallerOfInitializePoolAdapter?: boolean;
     }
+
     async function makeInitializePoolAdapterTest(
       useEMode: boolean,
       badParams?: IInitializePoolAdapterBadPaths
-    ) : Promise<{ret: string, expected: string}> {
+    ): Promise<{ ret: string, expected: string }> {
       const user = ethers.Wallet.createRandom().address;
       const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
       const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;

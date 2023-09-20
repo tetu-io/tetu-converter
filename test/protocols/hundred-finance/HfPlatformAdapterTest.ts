@@ -210,7 +210,8 @@ describe.skip("Hundred finance, platform adapter", () => {
         amountIn: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
         borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
         countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
-        entryData: entryData || "0x"
+        entryData: entryData || "0x",
+        user: Misc.ZERO_ADDRESS
       },
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
       {gasLimit: GAS_LIMIT},
@@ -909,7 +910,8 @@ describe.skip("Hundred finance, platform adapter", () => {
             amountIn: parseUnits("1", 18),
             borrowAsset: MaticAddresses.USDC,
             countBlocks: 1000,
-            entryData: "0x"
+            entryData: "0x",
+            user: Misc.ZERO_ADDRESS
           },
           200,
           {gasLimit: GAS_LIMIT},
@@ -1297,7 +1299,7 @@ describe.skip("Hundred finance, platform adapter", () => {
         converterNormal.address,
         [MaticAddresses.hDAI, MaticAddresses.hUSDC]
       );
-      expect( (await pa.platformKind())).eq(1); // LendingPlatformKinds.DFORCE_1
+      expect((await pa.platformKind())).eq(1); // LendingPlatformKinds.DFORCE_1
     });
   });
 //endregion Unit tests

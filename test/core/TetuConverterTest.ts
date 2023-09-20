@@ -20,7 +20,7 @@ import {IPoolAdapterStatus, IPoolAdapterStatusNum} from "../baseUT/types/BorrowR
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {controlGasLimitsEx2, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
   GAS_FIND_SWAP_STRATEGY, GAS_LIMIT, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY, GAS_TC_SAFE_LIQUIDATE,
@@ -920,7 +920,7 @@ describe("TetuConverterTest", () => {
           });
           it("Gas estimation @skip-on-coverage", async () => {
             const r = await makeFindConversionStrategyTest(true, false);
-            controlGasLimitsEx(r.gas, GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, (u, t) => {
+            controlGasLimitsEx2(r.gas, GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, (u, t) => {
               expect(u).to.be.below(t);
             });
           });
@@ -1105,7 +1105,7 @@ describe("TetuConverterTest", () => {
           BLOCKS_PER_DAY * 31,
           {borrowRateNum: 1000},
         );
-        controlGasLimitsEx(gas, GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, (u, t) => {
+        controlGasLimitsEx2(gas, GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -1351,7 +1351,7 @@ describe("TetuConverterTest", () => {
     describe("Gas estimation @skip-on-coverage", () => {
       it("should return expected values", async () => {
         const r = await makeFindSwapStrategyTest();
-        controlGasLimitsEx(r.gas, GAS_FIND_SWAP_STRATEGY, (u, t) => {
+        controlGasLimitsEx2(r.gas, GAS_FIND_SWAP_STRATEGY, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -1611,24 +1611,38 @@ describe("TetuConverterTest", () => {
           });
           describe("Pool adapter is unhealthy (rebalancing is missed)", () => {
             it("should register and use new pool adapter", async () => {
-              await expect(
-                makeConversionUsingBorrowing(
-                  [100_000],
-                  [100],
-                  {
-                    usePoolAdapterStub: true,
-                    minHealthFactor2: 120,
-                    setPoolAdaptersStatus: { // unhealthy status
-                      collateralAmountLiquidated: parseUnits("0"),
-                      healthFactor18: parseUnits("119", 16), // (!) unhealthy, less then minHealthFactor
-                      collateralAmount: parseUnits("1"),
-                      amountToPay: parseUnits("1"),
-                      opened: true,
-                      debtGapRequired: false
-                    }
+              const r = await makeConversionUsingBorrowing(
+                [100_000],
+                [100],
+                {
+                  usePoolAdapterStub: true,
+                  minHealthFactor2: 120,
+                  setPoolAdaptersStatus: { // unhealthy status
+                    collateralAmountLiquidated: parseUnits("0"),
+                    healthFactor18: parseUnits("119", 16), // (!) unhealthy, less then minHealthFactor
+                    collateralAmount: parseUnits("1"),
+                    amountToPay: parseUnits("1"),
+                    opened: true,
+                    debtGapRequired: false
                   }
-                )
-              ).revertedWith("TC-46 rebalancing is required"); // REBALANCING_IS_REQUIRED
+                }
+              );
+
+              const unhealthyPoolAdapter = r.init.poolAdapters[0];
+              const currentPoolAdapter = await r.init.core.bm.getPoolAdapter(
+                r.init.poolInstances[0].converter,
+                r.init.userContract.address,
+                r.init.sourceToken.address,
+                r.init.targetToken.address
+              );
+
+              const ret = [
+                currentPoolAdapter === Misc.ZERO_ADDRESS,
+                currentPoolAdapter === unhealthyPoolAdapter,
+                await r.init.core.bm.poolAdaptersRegistered(currentPoolAdapter),
+              ].join();
+              const expected = [false, true, 1].join();
+              expect(ret).eq(expected);
             });
           });
           describe("Pool adapter is dirty (full liquidation has happened)", () => {
@@ -1755,7 +1769,7 @@ describe("TetuConverterTest", () => {
                   incorrectConverterAddress: converter.address
                 }
               )
-            ).revertedWith("TC-35: UNKNOWN CONVERSION"); // UNSUPPORTED_CONVERSION_KIND
+            ).revertedWith("TC-35: Unsupported value"); // UNSUPPORTED_CONVERSION_KIND
           });
         });
         describe("Incorrect converter to swap (the passed address is not the address of the swap manager)", () => {
@@ -1947,7 +1961,7 @@ describe("TetuConverterTest", () => {
           {gasLimit: GAS_LIMIT}
         );
 
-        controlGasLimitsEx(gasUsed, GAS_TC_BORROW, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_TC_BORROW, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -2885,7 +2899,7 @@ describe("TetuConverterTest", () => {
           {gasLimit: GAS_LIMIT}
         );
 
-        controlGasLimitsEx(gasUsed, GAS_TC_REPAY, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_TC_REPAY, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -4117,7 +4131,7 @@ describe("TetuConverterTest", () => {
     describe("Gas estimation @skip-on-coverage", () => {
       it("should not exceed gas threshold", async () => {
         const ret = await makeQuoteRepayTest([100], [10], 0);
-        controlGasLimitsEx(ret.gasUsed, GAS_TC_QUOTE_REPAY, (u, t) => {
+        controlGasLimitsEx2(ret.gasUsed, GAS_TC_QUOTE_REPAY, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -4463,7 +4477,7 @@ describe("TetuConverterTest", () => {
           amountInNum: "1000"
         }
         const ret = await makeSafeLiquidateTest(params);
-        controlGasLimitsEx(ret.gasUsed, GAS_TC_SAFE_LIQUIDATE, (u, t) => {
+        controlGasLimitsEx2(ret.gasUsed, GAS_TC_SAFE_LIQUIDATE, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

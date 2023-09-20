@@ -9,7 +9,6 @@ import "../interfaces/IConverterController.sol";
 import "./ConverterLogicLib.sol";
 import "./AppUtils.sol";
 import "./EntryKinds.sol";
-import "hardhat/console.sol";
 
 /// @notice BorrowManager-contract logic-related functions
 library BorrowManagerLogicLib {
@@ -68,6 +67,7 @@ library BorrowManagerLogicLib {
   //region ----------------------------------------------------- Find best pool for borrowing
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   ///         Results are ordered in ascending order of APR, so the best available converter is first one.
+  /// @param p_ Conversion params. You can disable rebalance-of-exist-debts by sending user = 0
   /// @param pas_ All platform adapters that support required pair of assets
   /// @return converters Result template-pool-adapters
   /// @return collateralAmounts Amounts that should be provided as a collateral
@@ -98,7 +98,11 @@ library BorrowManagerLogicLib {
 
     // find all exist valid debts and calculate how to make new borrow with rebalancing of the exist debt
     // add BorrowCandidate to {candidates} for such debts and clear up corresponded items in {platformAdapters}
-    (v.countCandidates, v.needMore) = _findCandidatesForExistDebts(v.platformAdapters, p_, addParams_, candidates);
+    if (p_.user == address(0)) {
+      v.needMore = true; // rebalance of exist debts are disabled
+    } else {
+      (v.countCandidates, v.needMore) = _findCandidatesForExistDebts(v.platformAdapters, p_, addParams_, candidates);
+    }
 
     v.totalCandidates = (v.needMore && v.len != 0)
       // find borrow-candidates for all other platform adapters
@@ -125,9 +129,6 @@ library BorrowManagerLogicLib {
     uint[] memory borrowAmounts,
     int[] memory aprs18
   ) {
-    console.log("_prepareOutput.countDebts_", countDebts_);
-    console.log("_prepareOutput.count_", count_);
-    console.log("_prepareOutput.data_.length", data_.length);
     if (count_ != 0) {
       // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
       converters = new address[](count_);
@@ -185,12 +186,23 @@ library BorrowManagerLogicLib {
     uint count,
     bool needMore
   ) {
+    IBorrowManager borrowManager = IBorrowManager(addParams_.controller.borrowManager());
+    uint16 minHealthFactor2 = addParams_.controller.minHealthFactor2();
+
     uint fullBorrowCounter = 0;
     uint len = platformAdapters.length;
     uint index;
     while (index < len) {
       address poolAdapter;
-      (index, poolAdapter, ) = _getExistValidPoolAdapter(platformAdapters, index, p_.user, p_.collateralAsset, p_.borrowAsset, addParams_.controller);
+      (index, poolAdapter, ) = _getExistValidPoolAdapter(
+        platformAdapters,
+        index,
+        p_.user,
+        p_.collateralAsset,
+        p_.borrowAsset,
+        borrowManager,
+        minHealthFactor2
+      );
       if (poolAdapter != address(0)) {
         (BorrowCandidate memory c, bool partialBorrow) = _findConversionStrategyForExistDebt(
           IPoolAdapter(poolAdapter),
@@ -216,6 +228,7 @@ library BorrowManagerLogicLib {
   /// @param platformAdapters_ All currently active platform adapters
   /// @param index0_ Start to search from the item of {platformAdapters} with the given index
   /// @param user_ The user who tries to borrow {borrowAsset_} under {collateralAsset_}
+  /// @param minHealthFactor2 Min allowed health factor from controller
   /// @return indexPlatformAdapter Index of the platform adapter to which the {poolAdapter} belongs.
   ///                              The index indicates position of the platform adapter in {platformAdapters}.
   ///                              Return platformAdapters.len if the pool adapter wasn't found.
@@ -228,21 +241,19 @@ library BorrowManagerLogicLib {
     address user_,
     address collateralAsset_,
     address borrowAsset_,
-    IConverterController controller_
+    IBorrowManager borrowManager_,
+    uint16 minHealthFactor2
   ) internal view returns (
     uint indexPlatformAdapter,
     address poolAdapter,
     uint healthFactor18
   ) {
-    IBorrowManager borrowManager = IBorrowManager(controller_.borrowManager());
-    uint16 minHealthFactor2 = controller_.minHealthFactor2();
-
     uint len = platformAdapters_.length;
 
     for (uint i = index0_; i < len; i = i.uncheckedInc()) {
       address[] memory converters = platformAdapters_[i].converters();
       for (uint j; j < converters.length; j = j.uncheckedInc()) {
-        poolAdapter = borrowManager.getPoolAdapter(converters[j], user_, collateralAsset_, borrowAsset_);
+        poolAdapter = borrowManager_.getPoolAdapter(converters[j], user_, collateralAsset_, borrowAsset_);
         if (poolAdapter != address(0)) {
           (,, healthFactor18,,,) = IPoolAdapter(IPoolAdapter(poolAdapter)).getStatus();
           ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(healthFactor18, minHealthFactor2);

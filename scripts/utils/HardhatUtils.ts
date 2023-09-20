@@ -41,8 +41,16 @@ export class HardhatUtils {
   }
 }
 
+export function controlGasLimitsEx2(
+  gasUsed: BigNumber,
+  gasLimit: number,
+  f: (gasUsed: BigNumber, gasLimit: number) => void
+) {
+  f(gasUsed, gasLimit);
+  console.log(`Limit - used = ${gasLimit - gasUsed.toNumber()}, used=${gasUsed.toNumber()}`);
+}
 /**
- * @deprecated Check gas in separate it() and use @skip-on-coverage to skip such it() on coverage
+ * @deprecated Check gas using controlGasLimitsEx2 and use @skip-on-coverage to skip such it() on coverage
  */
 export function controlGasLimitsEx(
   gasUsed: BigNumber,
