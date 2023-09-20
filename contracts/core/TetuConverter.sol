@@ -121,9 +121,11 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     if (!_controller.paused()) {
       // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
       p.borrowManager = IBorrowManager(_controller.borrowManager());
-      p.user = IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length == 0
-        ? address(0)
-        : msg.sender;
+
+      p.user = _controller.rebalanceOnBorrowEnabled()
+        && IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length != 0
+        ? msg.sender
+        : address(0);
 
       (p.borrowConverters,
         p.borrowSourceAmounts,
@@ -173,9 +175,10 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       return (converters, collateralAmountsOut, amountToBorrowsOut, aprs18); // no conversion is available
     } else {
     // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
-      address user = IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length == 0
-        ? address(0)
-        : msg.sender;
+      address user = _controller.rebalanceOnBorrowEnabled()
+        && IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length != 0
+        ? msg.sender
+        : address(0);
 
       IBorrowManager borrowManager = IBorrowManager(_controller.borrowManager());
       return borrowManager.findConverter(entryData_, user, sourceToken_, targetToken_, amountIn_, periodInBlocks_);

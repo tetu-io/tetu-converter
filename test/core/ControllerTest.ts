@@ -952,6 +952,30 @@ describe("Controller", () => {
       });
     });
   });
+
+  describe("setRebalanceOnBorrowEnabled", () => {
+    describe("Good paths", () => {
+      it("should update rebalanceOnBorrowEnabled", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setRebalanceOnBorrowEnabled(true);
+        const rebalanceOnBorrowEnabled = await controller.rebalanceOnBorrowEnabled();
+
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setRebalanceOnBorrowEnabled(false);
+        const rebalanceOnBorrowEnabledFinal = await controller.rebalanceOnBorrowEnabled();
+
+        expect([rebalanceOnBorrowEnabled, rebalanceOnBorrowEnabledFinal].join()).eq([true, false].join());
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+        await expect(
+          controller.connect(await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)).setRebalanceOnBorrowEnabled(true)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
 //endregion Unit tests
 
 });
