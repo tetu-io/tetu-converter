@@ -45,7 +45,7 @@ contract HfPriceOracleMock is IChangePriceForTests {
     return prices[cToken_];
   }
 
-  function renounceOwnership() external view {
+  function renounceOwnership() external pure {
     console.log("HfPriceOracleMock.renounceOwnership");
   }
 
@@ -58,7 +58,7 @@ contract HfPriceOracleMock is IChangePriceForTests {
     address[] memory chainlinkAggregatorAddress,
     uint256[] memory chainlinkPriceBase,
     uint256[] memory underlyingTokenDecimals
-  ) external view {
+  ) external pure {
     cTokenAddress;
     chainlinkAggregatorAddress;
     chainlinkPriceBase;
@@ -66,7 +66,7 @@ contract HfPriceOracleMock is IChangePriceForTests {
     console.log("HfPriceOracleMock.setTokenConfigs");
   }
 
-  function tokenConfig(address) external view returns (
+  function tokenConfig(address) external pure returns (
     address chainlinkAggregatorAddress,
     uint256 chainlinkPriceBase,
     uint256 underlyingTokenDecimals

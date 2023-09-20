@@ -8,7 +8,7 @@ import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../scripts/utils/Misc";
-import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe("Price oracle tests", () => {
 //region Global vars for all tests
@@ -20,7 +20,7 @@ describe("Price oracle tests", () => {
 
 //region before, after
   before(async function () {
-    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
 
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
