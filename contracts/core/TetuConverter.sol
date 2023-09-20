@@ -124,9 +124,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       ) = IBorrowManager(_controller.borrowManager()).findConverter(
         entryData_,
       // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
-        IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length == 0
-          ? address(0)
-          : msg.sender,
+        msg.sender,
         sourceToken_,
         targetToken_,
         amountIn_,
@@ -176,9 +174,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       : IBorrowManager(_controller.borrowManager()).findConverter(
         entryData_,
         // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
-        IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length == 0
-          ? address(0)
-          : msg.sender,
+        msg.sender,
         sourceToken_,
         targetToken_,
         amountIn_,

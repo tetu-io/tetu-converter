@@ -148,16 +148,14 @@ library BorrowManagerLogicLib {
       uint countNewPos = count_ - countDebts_;
       uint[] memory indices = new uint[](count_);
 
-      // order new positions by apr
+      // order new positions by apr: lowest apr is best, such positions should be first
       AppUtils._sortAsc(countDebts_, countNewPos, orderBy, indices);
 
-      // order exist debts by health factor
+      // order exist debts by health factor: lowest health factor is most problematic, such positions should be first
       AppUtils._sortAsc(0, countDebts_, orderBy, indices);
 
       for (uint i; i < count_; i = AppUtils.uncheckedInc(i)) {
-        uint index = i < countDebts_
-          ? indices[i]
-          : indices[countDebts_ + count_ - i - 1];
+        uint index = indices[i];
         converters[i] = data_[index].converter;
         collateralAmounts[i] = data_[index].collateralAmount;
         borrowAmounts[i] = data_[index].amountToBorrow;
@@ -450,7 +448,13 @@ library BorrowManagerLogicLib {
 
       AppDataTypes.ConversionPlan memory plan = platformAdapters_[i].getConversionPlan(p_, addParams_.targetHealthFactor2);
 
-      if (plan.converter != address(0)) {
+      if (
+        plan.converter != address(0)
+        // check if we are able to supply required collateral
+        && plan.maxAmountToSupply > p_.amountIn
+        // take only the pool with enough liquidity
+        && plan.maxAmountToBorrow >= plan.amountToBorrow
+      ) {
         dest_[totalCount++] = BorrowCandidate({
           apr18: _getApr18(plan, addParams_.rewardsFactor),
           amountToBorrow: plan.amountToBorrow,

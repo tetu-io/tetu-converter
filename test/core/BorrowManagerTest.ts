@@ -1199,7 +1199,7 @@ describe("BorrowManager", () => {
                   availableLiquidityInTokens: [0, 2000] // enough cash
                 },
                 {   // source, target   -   pool 2 is the best
-                  borrowRateInTokens: [0, bestBorrowRate+1], // the rate is worse
+                  borrowRateInTokens: [0, bestBorrowRate+1], // the rate is worse, the borrow cost is higher..
                   availableLiquidityInTokens: [0, 2000000000] // a lot of cash
                 },
               ]
