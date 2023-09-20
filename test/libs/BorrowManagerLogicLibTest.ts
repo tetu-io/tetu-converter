@@ -729,6 +729,14 @@ describe("BorrowManagerLogicLibTest", () => {
     }
 
     describe("Only new items", () => {
+      let snapshot: string;
+      before(async function () {
+        snapshot = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshot);
+      });
+
       async function prepareOutputTest() : Promise<IPrepareOutputResults> {
         return callPrepareOutput({
           data: [
@@ -758,6 +766,14 @@ describe("BorrowManagerLogicLibTest", () => {
     });
     describe("Only exist debts", () => {
       describe("Same health factor", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function prepareOutputTest(): Promise<IPrepareOutputResults> {
           return callPrepareOutput({
             countDebts: 3,
@@ -787,6 +803,14 @@ describe("BorrowManagerLogicLibTest", () => {
         });
       });
       describe("Different health factors", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function prepareOutputTest(): Promise<IPrepareOutputResults> {
           return callPrepareOutput({
             countDebts: 3,
@@ -817,6 +841,14 @@ describe("BorrowManagerLogicLibTest", () => {
       });
     });
     describe("New and exit debts", () => {
+      let snapshot: string;
+      before(async function () {
+        snapshot = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshot);
+      });
+
       async function prepareOutputTest() : Promise<IPrepareOutputResults> {
         return callPrepareOutput({
           countDebts: 2,
@@ -917,6 +949,14 @@ describe("BorrowManagerLogicLibTest", () => {
     }
 
     describe("there are no exist debts", () => {
+      let snapshot: string;
+      before(async function () {
+        snapshot = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshot);
+      });
+
       async function getExistValidPoolAdapterTest(): Promise<IGetExistValidPoolAdapterResults> {
         return getExistValidPoolAdapter({
           index0: 0,
@@ -939,6 +979,14 @@ describe("BorrowManagerLogicLibTest", () => {
     });
 
     describe("there is exist debts in the search range", () => {
+      let snapshot: string;
+      before(async function () {
+        snapshot = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshot);
+      });
+
       async function getExistValidPoolAdapterTest(): Promise<IGetExistValidPoolAdapterResults> {
         return getExistValidPoolAdapter({
           index0: 0,
@@ -964,6 +1012,14 @@ describe("BorrowManagerLogicLibTest", () => {
     });
 
     describe("there is no exist debts in the search range", () => {
+      let snapshot: string;
+      before(async function () {
+        snapshot = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshot);
+      });
+
       async function getExistValidPoolAdapterTest(): Promise<IGetExistValidPoolAdapterResults> {
         return getExistValidPoolAdapter({
           index0: 2,
@@ -989,6 +1045,14 @@ describe("BorrowManagerLogicLibTest", () => {
     });
 
     describe("Exist debt is dirty", () => {
+      let snapshot: string;
+      before(async function () {
+        snapshot = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshot);
+      });
+
       async function getExistValidPoolAdapterTest(): Promise<IGetExistValidPoolAdapterResults> {
         return getExistValidPoolAdapter({
           index0: 0,
@@ -1154,6 +1218,14 @@ describe("BorrowManagerLogicLibTest", () => {
 
     describe("Exist debt, health factor doesn't need any correction", () => {
       describe("New borrow is not possible, collateralAmountToFix is zero", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
           return findConversionStrategyForExistDebt({
             amountIn: "100",
@@ -1179,6 +1251,14 @@ describe("BorrowManagerLogicLibTest", () => {
         });
       });
       describe("Full borrow", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
           return findConversionStrategyForExistDebt({
             amountIn: "107",
@@ -1232,6 +1312,14 @@ describe("BorrowManagerLogicLibTest", () => {
         });
       });
       describe("Partial borrow because of maxAmountToBorrow", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
           return findConversionStrategyForExistDebt({
             amountIn: "107",
@@ -1269,6 +1357,14 @@ describe("BorrowManagerLogicLibTest", () => {
         });
       });
       describe("Partial borrow because of maxAmountToSupply", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findConversionStrategyForExistDebtTest(): Promise<IFindConversionStrategyResults> {
           return findConversionStrategyForExistDebt({
             amountIn: "107",
@@ -1468,6 +1564,14 @@ describe("BorrowManagerLogicLibTest", () => {
     }
 
     describe("No exist debts", () => {
+      let snapshot: string;
+      before(async function () {
+        snapshot = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshot);
+      });
+
       async function findCandidatesForExistDebtsTest() : Promise<IFindCandidatesForExistDebtsResults> {
         return findCandidatesForExistDebts({
           amountIn: "100",
@@ -1489,6 +1593,14 @@ describe("BorrowManagerLogicLibTest", () => {
     });
     describe("health factor is healthy, no collateral addon is required", () => {
       describe("Two exist debts, full borrow is possible", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findCandidatesForExistDebtsTest(): Promise<IFindCandidatesForExistDebtsResults> {
           return findCandidatesForExistDebts({
             amountIn: "100",
@@ -1535,6 +1647,14 @@ describe("BorrowManagerLogicLibTest", () => {
         });
       });
       describe("Two exist debts, only partial borrow is possible on one of platforms", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findCandidatesForExistDebtsTest(): Promise<IFindCandidatesForExistDebtsResults> {
           return findCandidatesForExistDebts({
             amountIn: "100",
@@ -1580,6 +1700,14 @@ describe("BorrowManagerLogicLibTest", () => {
         });
       });
       describe("Two exist debts, only partial borrow is possible on both platforms", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findCandidatesForExistDebtsTest(): Promise<IFindCandidatesForExistDebtsResults> {
           return findCandidatesForExistDebts({
             amountIn: "100",
@@ -1628,7 +1756,7 @@ describe("BorrowManagerLogicLibTest", () => {
   describe("_findNewCandidates", () => {
     interface IPlatformParams {
       /** Params for the internal call of platformAdapter_.getConversionPlan */
-      plan: IConversionPlan;
+      plan?: IConversionPlan;
     }
 
     interface IBorrowCandidate {
@@ -1639,7 +1767,6 @@ describe("BorrowManagerLogicLibTest", () => {
     }
 
     interface IFindNewCandidatesParams {
-      startDestIndex: number;
       /** AmountIn passed to _getPlanWithRebalancing */
       amountIn: string;
       targetHealthFactor?: string; // default 1
@@ -1674,44 +1801,45 @@ describe("BorrowManagerLogicLibTest", () => {
 
           await platformAdapter.setupConverters([converter]);
 
-          const finalAmountIn = parseUnits(pp.plan.expectedFinalAmountIn, decimalsCollateral);
+          if (pp.plan) {
+            const finalAmountIn = parseUnits(pp.plan.expectedFinalAmountIn, decimalsCollateral);
+            // set up _getPlanWithRebalancing
+            const planOut = {
+              // Platform adapter returns not-zero plan only if it receives valid input amount
+              // Actual values of the plan are not important
+              // We only check that this not zero plan is received, that's all
+              converter,
+              collateralAmount: parseUnits(pp.plan.collateralAmountOut || pp.plan.expectedFinalAmountIn, decimalsCollateral),
+              amountToBorrow: parseUnits(pp.plan.borrowAmountOut, decimalsBorrow),
 
-          // set up _getPlanWithRebalancing
-          const planOut = {
-            // Platform adapter returns not-zero plan only if it receives valid input amount
-            // Actual values of the plan are not important
-            // We only check that this not zero plan is received, that's all
-            converter,
-            collateralAmount: parseUnits(pp.plan.collateralAmountOut || pp.plan.expectedFinalAmountIn, decimalsCollateral),
-            amountToBorrow: parseUnits(pp.plan.borrowAmountOut, decimalsBorrow),
+              maxAmountToBorrow: pp.plan.maxAmountToBorrowOut
+                ? parseUnits(pp.plan.maxAmountToBorrowOut, decimalsBorrow)
+                : Misc.MAX_UINT,
+              maxAmountToSupply: pp.plan.maxAmountToSupplyOut
+                ? parseUnits(pp.plan.maxAmountToSupplyOut, decimalsCollateral)
+                : Misc.MAX_UINT,
 
-            maxAmountToBorrow: pp.plan.maxAmountToBorrowOut
-              ? parseUnits(pp.plan.maxAmountToBorrowOut, decimalsBorrow)
-              : Misc.MAX_UINT,
-            maxAmountToSupply: pp.plan.maxAmountToSupplyOut
-              ? parseUnits(pp.plan.maxAmountToSupplyOut, decimalsCollateral)
-              : Misc.MAX_UINT,
+              borrowCost36: parseUnits(pp.plan.borrowCost36 ?? "1", 36),
+              amountCollateralInBorrowAsset36: parseUnits(pp.plan.amountCollateralInBorrowAsset36 ?? "1", 36),
+              supplyIncomeInBorrowAsset36: parseUnits(pp.plan.supplyIncomeInBorrowAsset36 ?? "1", 36),
 
-            borrowCost36: parseUnits(pp.plan.borrowCost36 ?? "1", 36),
-            amountCollateralInBorrowAsset36: parseUnits(pp.plan.amountCollateralInBorrowAsset36 ?? "1", 36),
-            supplyIncomeInBorrowAsset36: parseUnits(pp.plan.supplyIncomeInBorrowAsset36 ?? "1", 36),
+              liquidationThreshold18: 1,
+              ltv18: 1,
+              rewardsAmountInBorrowAsset36: 1,
+            }
 
-            liquidationThreshold18: 1,
-            ltv18: 1,
-            rewardsAmountInBorrowAsset36: 1,
+            await platformAdapter.setupGetConversionPlan(
+              {
+                collateralAsset: collateralAsset.address,
+                borrowAsset: borrowAsset.address,
+                user: facade.address,
+                amountIn: finalAmountIn,
+                entryData: "0x",
+                countBlocks: 1
+              },
+              planOut
+            );
           }
-
-          await platformAdapter.setupGetConversionPlan(
-            {
-              collateralAsset: collateralAsset.address,
-              borrowAsset: borrowAsset.address,
-              user: facade.address,
-              amountIn: finalAmountIn,
-              entryData: "0x",
-              countBlocks: 1
-            },
-            planOut
-          );
         }
       }
 
@@ -1721,7 +1849,7 @@ describe("BorrowManagerLogicLibTest", () => {
             ? Misc.ZERO_ADDRESS
             : x
         ),
-        p.startDestIndex,
+        p.existDebtCandidatesIndices.length,
         {
           collateralAsset: collateralAsset.address,
           borrowAsset: borrowAsset.address,
@@ -1743,7 +1871,7 @@ describe("BorrowManagerLogicLibTest", () => {
               collateralAmount: BigNumber.from(1),
               amountToBorrow: BigNumber.from(1),
               apr18: BigNumber.from(0),
-              healthFactor18: BigNumber.from(1),
+              healthFactor18: parseUnits("1", 18),
             })
           ),
           ...[...Array(platformAdapters.length - p.existDebtCandidatesIndices.length).keys()].map(
@@ -1760,7 +1888,7 @@ describe("BorrowManagerLogicLibTest", () => {
 
       return {
         totalCount: ret.totalCount.toNumber(),
-        dest: ret.dest.map(x => ({
+        dest: ret.dest.slice(0, ret.totalCount.toNumber()).map(x => ({
             collateralAmount: +formatUnits(x.collateralAmount, decimalsCollateral),
             amountToBorrow: +formatUnits(x.amountToBorrow, decimalsBorrow),
             apr: +formatUnits(x.apr18, 18),
@@ -1772,29 +1900,46 @@ describe("BorrowManagerLogicLibTest", () => {
 
     describe("health factor is healthy, no collateral addon is required", () => {
       describe("Two exist debts, three new candidates", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findConverterTest(): Promise<IFindNewCandidatesResults> {
           return findNewCandidates({
             amountIn: "100",
             targetHealthFactor: "2",
             platforms: [
-              {plan: {
+              {
+                plan: {
                   expectedFinalAmountIn: "100", borrowAmountOut: "71",
-                  borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "10" // apr = (14 - 10) / 4 = 1
-              },}, {plan: {
+                  borrowCost36: "14", amountCollateralInBorrowAsset36: "4", supplyIncomeInBorrowAsset36: "10" // apr = (14 - 10) / 4 = 1
+                },
+              }, {
+                plan: {
                   expectedFinalAmountIn: "100", borrowAmountOut: "72", maxAmountToBorrowOut: "50",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "10" // apr = (14 - 10) / 2 = 2
-              }, }, {plan: {
+                },
+              }, {
+                plan: {
                   expectedFinalAmountIn: "100", borrowAmountOut: "76",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "2" // apr = (14 - 2) / 2 = 6
-              }, }, {plan: {
+                },
+              }, {
+                plan: {
                   expectedFinalAmountIn: "100", borrowAmountOut: "75", maxAmountToSupplyOut: "100",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "4" // apr = (14 - 4) / 2 = 5
-              }, }, {plan: {
+                },
+              }, {
+                plan: {
                   expectedFinalAmountIn: "100", borrowAmountOut: "70",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "1", supplyIncomeInBorrowAsset36: "14" // apr = (14 - 14) / 1 = 0
-              }, },
+                },
+              },
             ],
-            startDestIndex: 2,
             existDebtCandidatesIndices: [1, 3]
           });
         }
@@ -1814,6 +1959,88 @@ describe("BorrowManagerLogicLibTest", () => {
         it("should return expected aprs", async () => {
           const ret = await loadFixture(findConverterTest);
           expect(ret.dest.map(x => x.apr).join()).eq([0, 0, 1, 6, 0].join());
+        });
+        it("should return zero health factors for new candidates", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect(ret.dest.map(x => x.healthFactor).join()).eq([1, 1, 0, 0, 0].join());
+        });
+      });
+      describe("Single exist debts, single new candidate", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
+        async function findConverterTest(): Promise<IFindNewCandidatesResults> {
+          return findNewCandidates({
+            amountIn: "100",
+            targetHealthFactor: "2",
+            platforms: [
+              {}, // no conversion is possible
+              {
+                plan: {
+                  expectedFinalAmountIn: "100", borrowAmountOut: "72", maxAmountToBorrowOut: "50",
+                  borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "10" // apr = (14 - 10) / 2 = 2
+                },
+              },
+              {}, // no conversion is possible
+              {
+                plan: {
+                  expectedFinalAmountIn: "100", borrowAmountOut: "75", maxAmountToSupplyOut: "100",
+                  borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "4" // apr = (14 - 4) / 2 = 5
+                },
+              },
+              {}, // no conversion is possible
+            ],
+            existDebtCandidatesIndices: [3]
+          });
+        }
+
+        it("should return expected total count", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect(ret.totalCount).eq(2);
+        });
+        it("should return expected collateral amounts", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect(ret.dest.map(x => x.collateralAmount).join()).eq([0.000001, 100].join());
+        });
+        it("should return expected borrow amounts", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect(ret.dest.map(x => x.amountToBorrow).join()).eq([0.000001, 72].join());
+        });
+        it("should return expected aprs", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect(ret.dest.map(x => x.apr).join()).eq([0, 2].join());
+        });
+        it("should return zero health factors for new candidates", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect(ret.dest.map(x => x.healthFactor).join()).eq([1, 0].join());
+        });
+      });
+      describe("No exist debts, no new candidates", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
+        async function findConverterTest(): Promise<IFindNewCandidatesResults> {
+          return findNewCandidates({
+            amountIn: "100",
+            targetHealthFactor: "2",
+            platforms: [{}, {}, {}, {}, {}],
+            existDebtCandidatesIndices: []
+          });
+        }
+
+        it("should return expected total count", async () => {
+          const ret = await loadFixture(findConverterTest);
+          expect(ret.totalCount).eq(0);
         });
       });
     });
@@ -1871,7 +2098,8 @@ describe("BorrowManagerLogicLibTest", () => {
         // set up platform adapter
         const platformAdapter = await MocksHelper.createLendingPlatformMock2(signer);
         platformAdapters.push(platformAdapter);
-        mapConverter2index.set(converter, platformAdapters.length - 1);
+        mapConverter2index.set(converter.toLowerCase(), platformAdapters.length - 1);
+        console.log("converter", converter);
 
         await platformAdapter.setupConverters([converter]);
 
@@ -1959,9 +2187,10 @@ describe("BorrowManagerLogicLibTest", () => {
             : [AppConstants.THRESHOLD_REBALANCE_TOO_HEALTHY, AppConstants.THRESHOLD_REBALANCE_UNHEALTHY],
         },
       );
+      console.log("ret", ret);
 
       return {
-        indexPlatformAdapters: ret.convertersOut.map(x => mapConverter2index.get(x) || -1),
+        indexPlatformAdapters: ret.convertersOut.map(x => mapConverter2index.get(x.toLowerCase()) ?? -1),
         collateralAmounts: ret.collateralAmountsOut.map(x => +formatUnits(x, decimalsCollateral)),
         borrowAmounts: ret.amountsToBorrowOut.map(x => +formatUnits(x, decimalsBorrow)),
         aprs: ret.aprs18Out.map(x => +formatUnits(x, 18))
@@ -1970,6 +2199,14 @@ describe("BorrowManagerLogicLibTest", () => {
 
     describe("health factor is healthy, no collateral addon is required", () => {
       describe("Two exist debts, full borrow is possible", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findConverterTest(): Promise<IFindConverterResults> {
           return findConverter({
             amountIn: "100",
@@ -2034,6 +2271,14 @@ describe("BorrowManagerLogicLibTest", () => {
         });
       });
       describe("Two exist debts, full borrow is not possible", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
         async function findConverterTest(): Promise<IFindConverterResults> {
           return findConverter({
             amountIn: "100",
@@ -2044,19 +2289,25 @@ describe("BorrowManagerLogicLibTest", () => {
             platforms: [
               {plan: {
                   expectedFinalAmountIn: "100", borrowAmountOut: "71",
-                  borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "10" // apr = (14 - 10) / 4 = 1
-              },}, {plan: {
-                  expectedFinalAmountIn: "100", borrowAmountOut: "72", maxAmountToBorrowOut: "50",
+                  borrowCost36: "14", amountCollateralInBorrowAsset36: "4", supplyIncomeInBorrowAsset36: "10" // apr = (14 - 10) / 4 = 1
+              },},
+              {plan: {
+                  expectedFinalAmountIn: "100", borrowAmountOut: "72", maxAmountToSupplyOut: "100",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "10" // apr = (14 - 10) / 2 = 2
-                }, poolAdapterStatus: {collateralAmount: "2", amountToPay: "1", healthFactor18: "3.0",}
-              }, {plan: {
+                },
+               poolAdapterStatus: {collateralAmount: "2", amountToPay: "1", healthFactor18: "3.0",}
+              },
+              {plan: {
                   expectedFinalAmountIn: "100", borrowAmountOut: "76",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "2" // apr = (14 - 2) / 2 = 6
-              }, }, {plan: {
+              }, },
+              {plan: {
                   expectedFinalAmountIn: "100", borrowAmountOut: "75", maxAmountToSupplyOut: "100",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "4" // apr = (14 - 4) / 2 = 5
-                }, poolAdapterStatus: {collateralAmount: "4", amountToPay: "2", healthFactor18: "1.5",}
-              }, {plan: {
+                },
+               poolAdapterStatus: {collateralAmount: "4", amountToPay: "2", healthFactor18: "1.5",}
+              },
+              {plan: {
                   expectedFinalAmountIn: "100", borrowAmountOut: "70",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "1", supplyIncomeInBorrowAsset36: "14" // apr = (14 - 14) / 1 = 0
               }, },
@@ -2078,7 +2329,7 @@ describe("BorrowManagerLogicLibTest", () => {
         });
         it("should return expected aprs", async () => {
           const ret = await loadFixture(findConverterTest);
-          expect([ret.aprs[0], ret.aprs[1]].join()).eq([5, 2, 6, 1, 0].join());
+          expect(ret.aprs.join()).eq([5, 2, 6, 1, 0].join());
         });
       });
     });

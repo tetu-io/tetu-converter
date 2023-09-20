@@ -99,14 +99,11 @@ library BorrowManagerLogicLib {
     // find all exist valid debts and calculate how to make new borrow with rebalancing of the exist debt
     // add BorrowCandidate to {candidates} for such debts and clear up corresponded items in {platformAdapters}
     (v.countCandidates, v.needMore) = _findCandidatesForExistDebts(v.platformAdapters, p_, addParams_, candidates);
-    console.log("findConverter.v.countCandidates", v.countCandidates);
-    console.log("findConverter.v.needMore", v.needMore);
 
     v.totalCandidates = (v.needMore && v.len != 0)
       // find borrow-candidates for all other platform adapters
       ? _findNewCandidates(v.platformAdapters, v.countCandidates, p_, addParams_, candidates)
       : v.countCandidates;
-    console.log("findConverter.v.totalCandidates", v.totalCandidates);
 
     return _prepareOutput(v.countCandidates, v.totalCandidates, candidates);
   }
@@ -359,9 +356,15 @@ library BorrowManagerLogicLib {
           : plan.collateralAmount + collateralDelta;
       }
     }
+
+    // take into account possible supply cap after fixing plan.collateralAmount
+    if (plan.collateralAmount > plan.maxAmountToSupply) {
+      plan.collateralAmount = plan.maxAmountToSupply;
+    }
   }
 
   /// @notice Calculate amount_ + delta_ with taking into account thresholds for positive/negative deltas
+  /// @dev This function doesn't take into account possible supply cap, result value should be checked and fixed outside
   /// @param amount_ Collateral amount
   /// @param delta_ Collateral amount should be incremented on delta_.
   ///               Negative {delta_} means "health factor is too healthy" situation => we can reduce collateral
@@ -372,13 +375,12 @@ library BorrowManagerLogicLib {
   ///                   0: health factor is not healthy
   ///                   1: health factor is unhealthy
   ///                   Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
-  /// @return fixedAmount amount_ + X, where X = delta_ reduced by thresholds
+  /// @return fixedAmount amount_ + X, where X = delta_ reduced according to the thresholds
   /// @return collateralDelta value of X, see comment above
   function _fixCollateralAmount(uint amount_, int delta_, bool inputAmount, uint[2] memory thresholds) internal pure returns (
     uint fixedAmount,
     uint collateralDelta
   ) {
-    // todo take into account supply cap
     bool tooHealthy = delta_ < 0;
     collateralDelta = tooHealthy
       ? uint(- delta_)
@@ -413,7 +415,6 @@ library BorrowManagerLogicLib {
   /// C = SA * PS, BS = C / HF * PCF
   /// Max target amount capable to be borrowed: ResultTA = BS / PT [TA].
   /// We can use the pool only if ResultTA >= PTA >= required-target-amount
-  /// @dev We cannot make this function public because storage-param is used
   /// @param platformAdapters_ List of available platform adapters.
   ///                         {startDestIndex} items are 0 in this list, they will be skipped.
   /// @param startDestIndex_ Index of first available position in {dest_}
