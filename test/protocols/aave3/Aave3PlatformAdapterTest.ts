@@ -26,7 +26,11 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
-import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HardhatUtils,
+  POLYGON_NETWORK_ID
+} from "../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
@@ -1127,8 +1131,7 @@ describe("Aave3PlatformAdapterTest", () => {
           200,
           {gasLimit: GAS_LIMIT}
         );
-        console.log("Aave3PlatformAdapter.getConversionPlan.gas", gasUsed.toString());
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

@@ -9,7 +9,11 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BigNumber} from "ethers";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HARDHAT_NETWORK_ID,
+  HardhatUtils
+} from "../../scripts/utils/HardhatUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {GAS_SWAP_LIB_CONVERT_USING_PRICE_ORACLE, GAS_SWAP_LIB_IS_CONVERSION_VALID} from "../baseUT/GasLimit";
 
@@ -108,7 +112,7 @@ describe("SwapManager", () => {
       it("should not exceed gas threshold", async () => {
         const amountUsdc = parseUnits("100", 6);
         const gasUsed = await facade.estimateGas.convertUsingPriceOracle(priceOracle.address, usdc.address, amountUsdc, weth.address);
-        controlGasLimitsEx(gasUsed, GAS_SWAP_LIB_CONVERT_USING_PRICE_ORACLE, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_SWAP_LIB_CONVERT_USING_PRICE_ORACLE, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -192,7 +196,7 @@ describe("SwapManager", () => {
           parseUnits("2000", 18),
           10_000
         );
-        controlGasLimitsEx(gasUsed, GAS_SWAP_LIB_IS_CONVERSION_VALID, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_SWAP_LIB_IS_CONVERSION_VALID, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

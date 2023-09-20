@@ -49,7 +49,7 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {GAS_FULL_REPAY, GAS_LIMIT} from "../../baseUT/GasLimit";
 import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
@@ -509,7 +509,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         it("should not exceed gas limit @skip-on-coverage", async () => {
           const results = await loadFixture(makeFullRepayTest);
 
-          controlGasLimitsEx(results.gasUsed, GAS_FULL_REPAY, (u, t) => {
+          controlGasLimitsEx2(results.gasUsed, GAS_FULL_REPAY, (u, t) => {
             expect(u).to.be.below(t);
           });
         });

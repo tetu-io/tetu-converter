@@ -21,7 +21,7 @@ import {
   GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE_WITH_SWAP,
   GAS_LIMIT_QUOTE_REPAY_AAVE_TWO_WITH_SWAP
 } from "../baseUT/GasLimit";
-import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {controlGasLimitsEx2, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
@@ -131,7 +131,7 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE3, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE3, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -179,7 +179,7 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE_TWO, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -226,7 +226,7 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_DFORCE, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -273,7 +273,7 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -338,7 +338,7 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE3, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE3, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -386,7 +386,7 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE_TWO, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -433,7 +433,7 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_DFORCE, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -480,7 +480,7 @@ describe("QuoteRepayTest", () => {
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -535,7 +535,7 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE3_WITH_SWAP, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE3_WITH_SWAP, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -574,7 +574,7 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE_TWO_WITH_SWAP, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_AAVE_TWO_WITH_SWAP, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -613,7 +613,7 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_DFORCE_WITH_SWAP, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_DFORCE_WITH_SWAP, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -652,7 +652,7 @@ describe("QuoteRepayTest", () => {
               await TimeUtils.rollback(snapshotLocal);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE_WITH_SWAP, (u, t) => {
+              controlGasLimitsEx2(results.quoteRepayGasConsumption, GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE_WITH_SWAP, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });

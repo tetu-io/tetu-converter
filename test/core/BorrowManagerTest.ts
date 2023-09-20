@@ -32,7 +32,11 @@ import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HARDHAT_NETWORK_ID,
+  HardhatUtils
+} from "../../scripts/utils/HardhatUtils";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -1474,25 +1478,25 @@ describe("BorrowManager", () => {
         }
         it("1 pool, estimated gas should be less the limit", async () => {
           const gas = await checkGas(1);
-          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_1, (u, t) => {
+          controlGasLimitsEx2(gas, GAS_LIMIT_BM_FIND_POOL_1, (u, t) => {
             expect(u).to.be.below(t);
           });
         });
         it("5 pools, estimated gas should be less the limit", async () => {
           const gas = await checkGas(5);
-          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_5, (u, t) => {
+          controlGasLimitsEx2(gas, GAS_LIMIT_BM_FIND_POOL_5, (u, t) => {
             expect(u).to.be.below(t);
           });
         });
         it.skip("10 pools, estimated gas should be less the limit", async () => {
           const gas = await checkGas(10);
-          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_10, (u, t) => {
+          controlGasLimitsEx2(gas, GAS_LIMIT_BM_FIND_POOL_10, (u, t) => {
             expect(u).to.be.below(t);
           });
         });
         it.skip("100 pools, estimated gas should be less the limit", async () => {
           const gas = await checkGas(100);
-          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_100, (u, t) => {
+          controlGasLimitsEx2(gas, GAS_LIMIT_BM_FIND_POOL_100, (u, t) => {
             expect(u).to.be.below(t);
           });
         });

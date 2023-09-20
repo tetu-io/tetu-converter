@@ -6,12 +6,7 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
-import {
-  GAS_APP_UTILS_SHRINK_AND_ORDER
-} from "../baseUT/GasLimit";
-import {Misc} from "../../scripts/utils/Misc";
+import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 
 describe("AppUtils", () => {
 //region Global vars for all tests

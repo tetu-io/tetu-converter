@@ -49,19 +49,3 @@ export function controlGasLimitsEx2(
   f(gasUsed, gasLimit);
   console.log(`Limit - used = ${gasLimit - gasUsed.toNumber()}, used=${gasUsed.toNumber()}`);
 }
-/**
- * @deprecated Check gas using controlGasLimitsEx2 and use @skip-on-coverage to skip such it() on coverage
- */
-export function controlGasLimitsEx(
-  gasUsed: BigNumber,
-  gasLimit: number,
-  f: (gasUsed: BigNumber, gasLimit: number) => void
-) {
-  const env = EnvSetup.getEnv();
-  if (env.disableGasLimitControl === 1) {
-    console.log(`Gas control is skipped: used=${gasUsed.toNumber()} limit=${gasLimit}}`);
-  } else {
-    f(gasUsed, gasLimit);
-    console.log(`Limit - used = ${gasLimit - gasUsed.toNumber()}, used=${gasUsed.toNumber()}`);
-  }
-}

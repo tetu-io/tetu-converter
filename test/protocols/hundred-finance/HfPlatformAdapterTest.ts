@@ -28,7 +28,11 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
-import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HardhatUtils,
+  POLYGON_NETWORK_ID
+} from "../../../scripts/utils/HardhatUtils";
 import {
   GAS_LIMIT,
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
@@ -916,8 +920,7 @@ describe.skip("Hundred finance, platform adapter", () => {
           200,
           {gasLimit: GAS_LIMIT},
         );
-        console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

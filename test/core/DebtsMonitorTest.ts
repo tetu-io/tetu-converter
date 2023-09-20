@@ -34,7 +34,11 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HARDHAT_NETWORK_ID,
+  HardhatUtils
+} from "../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
 
 describe("DebtsMonitor", () => {
@@ -875,7 +879,7 @@ describe("DebtsMonitor", () => {
         );
 
         const gasUsed = await dmAsPa.estimateGas.onOpenPosition();
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_DM_ON_OPEN_POSITION, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_DM_ON_OPEN_POSITION, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -1150,7 +1154,7 @@ describe("DebtsMonitor", () => {
         await dmAsPa.onOpenPosition();
         const gasUsed = await dmAsPa.estimateGas.onClosePosition();
 
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_DM_ON_CLOSE_POSITION, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_DM_ON_CLOSE_POSITION, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

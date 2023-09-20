@@ -9,7 +9,11 @@ import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {randomInt} from "crypto";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HARDHAT_NETWORK_ID,
+  HardhatUtils
+} from "../../scripts/utils/HardhatUtils";
 
 describe("Controller", () => {
 //region Global vars for all tests
@@ -185,7 +189,7 @@ describe("Controller", () => {
 
         const {gasUsed} = await createTestController(a);
 
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
             expect(u).to.be.below(t);
           }
         );

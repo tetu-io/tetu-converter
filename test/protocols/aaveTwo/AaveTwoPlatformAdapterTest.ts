@@ -27,7 +27,11 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
-import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HardhatUtils,
+  POLYGON_NETWORK_ID
+} from "../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
@@ -891,7 +895,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           {gasLimit: GAS_LIMIT},
         );
         console.log("AaveTwoPlatformAdapter.getConversionPlan.gas", gasUsed.toString());
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -906,7 +910,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         collateralHolders: string[],
         part10000: number
       ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
-        const templateAdapterNormalStub = ethers.Wallet.createRandom();
         const dp = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
         const aavePool = await AaveTwoHelper.getAavePool(deployer);
 
