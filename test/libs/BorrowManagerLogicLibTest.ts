@@ -751,19 +751,19 @@ describe("BorrowManagerLogicLibTest", () => {
 
       it("should return expected converters", async() => {
         const ret = await loadFixture(prepareOutputTest);
-        expect(ret.convertersIndices.join()).eq([1, 2, 0].join());
+        expect(ret.convertersIndices.join()).eq([0, 2, 1].join());
       });
       it("should return expected collateral amounts", async() => {
         const ret = await loadFixture(prepareOutputTest);
-        expect(ret.collateralAmounts.join()).eq([33, 22, 11].join());
+        expect(ret.collateralAmounts.join()).eq([11, 22, 33].join());
       });
       it("should return expected borrow amounts", async() => {
         const ret = await loadFixture(prepareOutputTest);
-        expect(ret.borrowAmounts.join()).eq([333, 222, 111].join());
+        expect(ret.borrowAmounts.join()).eq([111, 222, 333].join());
       });
       it("should return ordered aprs", async() => {
         const ret = await loadFixture(prepareOutputTest);
-        expect(ret.aprs.join()).eq([3, 2, 1].join());
+        expect(ret.aprs.join()).eq([1, 2, 3].join());
       });
     });
     describe("Only exist debts", () => {
@@ -857,8 +857,8 @@ describe("BorrowManagerLogicLibTest", () => {
           data: [
             {apr: "4", collateralAmount: "44", amountToBorrow: "444", healthFactor: "5"},
             {apr: "1", collateralAmount: "11", amountToBorrow: "111", healthFactor: "50"},
-            {apr: "2", collateralAmount: "22", amountToBorrow: "222"},
             {apr: "3", collateralAmount: "33", amountToBorrow: "333"},
+            {apr: "2", collateralAmount: "22", amountToBorrow: "222"},
           ]
         });
       }
@@ -869,15 +869,15 @@ describe("BorrowManagerLogicLibTest", () => {
       });
       it("should return expected collateral amounts", async() => {
         const ret = await loadFixture(prepareOutputTest);
-        expect(ret.collateralAmounts.join()).eq([44, 11, 33, 22].join());
+        expect(ret.collateralAmounts.join()).eq([44, 11, 22, 33].join());
       });
       it("should return expected borrow amounts", async() => {
         const ret = await loadFixture(prepareOutputTest);
-        expect(ret.borrowAmounts.join()).eq([444, 111, 333, 222].join());
+        expect(ret.borrowAmounts.join()).eq([444, 111, 222, 333].join());
       });
       it("should return expected aprs", async() => {
         const ret = await loadFixture(prepareOutputTest);
-        expect(ret.aprs.join()).eq([4, 1, 3, 2].join());
+        expect(ret.aprs.join()).eq([4, 1, 2, 3].join());
       });
     });
   });
@@ -1983,14 +1983,14 @@ describe("BorrowManagerLogicLibTest", () => {
               {}, // no conversion is possible
               {
                 plan: {
-                  expectedFinalAmountIn: "100", borrowAmountOut: "72", maxAmountToBorrowOut: "50",
+                  expectedFinalAmountIn: "100", borrowAmountOut: "72", maxAmountToBorrowOut: "72",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "10" // apr = (14 - 10) / 2 = 2
                 },
               },
               {}, // no conversion is possible
               {
                 plan: {
-                  expectedFinalAmountIn: "100", borrowAmountOut: "75", maxAmountToSupplyOut: "100",
+                  expectedFinalAmountIn: "100", borrowAmountOut: "75", maxAmountToSupplyOut: "75",
                   borrowCost36: "14", amountCollateralInBorrowAsset36: "2", supplyIncomeInBorrowAsset36: "4" // apr = (14 - 4) / 2 = 5
                 },
               },
@@ -2318,7 +2318,7 @@ describe("BorrowManagerLogicLibTest", () => {
 
         it("should return expected converters", async () => {
           const ret = await loadFixture(findConverterTest);
-          expect(ret.indexPlatformAdapters.join()).eq([3, 1, 2, 0, 4].join());
+          expect(ret.indexPlatformAdapters.join()).eq([3, 1, 4, 0, 2].join());
         });
         it("should return expected collateral amounts", async () => {
           const ret = await loadFixture(findConverterTest);
@@ -2326,11 +2326,11 @@ describe("BorrowManagerLogicLibTest", () => {
         });
         it("should return expected borrow amounts", async () => {
           const ret = await loadFixture(findConverterTest);
-          expect(ret.borrowAmounts.join()).eq([75, 72, 76, 71, 70].join());
+          expect(ret.borrowAmounts.join()).eq([75, 72, 70, 71, 76].join());
         });
         it("should return expected aprs", async () => {
           const ret = await loadFixture(findConverterTest);
-          expect(ret.aprs.join()).eq([5, 2, 6, 1, 0].join());
+          expect(ret.aprs.join()).eq([5, 2, 0, 1, 6].join());
         });
       });
     });
