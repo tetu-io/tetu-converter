@@ -37,6 +37,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   /// @notice repay allows to reduce health factor of following value (decimals 18):
   uint constant public MAX_ALLOWED_HEALTH_FACTOR_REDUCTION = 1e13; // 0.001%
+
+  /// @notice amount of collateral in terms of base currency that cannot be used in any case during partial repayment
+  ///         we need such reserve because of SCB-796
+  ///         without it health factor can reduce after partial repayment in edge cases because of rounding
+  ///         Base currency has 8 decimals, usdc/usdt have 6 decimals.. we need 100 tokens in reserve
+  uint constant internal COLLATERAL_RESERVE_BASE_CURRENCY = 100;
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Variables
@@ -386,12 +392,18 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       // == totalCollateral * amountToRepay / totalDebt
       // SCB-796:
       //   We need to calculate total amount in terms of the collateral asset at first and only then take part of it.
-      //   It's not correct to multiply totalCollateralBase on part and then divide result on the price
-      //   because there is a chance to get error 35 on small amounts.
+      //   Also we should keep a few tokens untouched as a reserve
+      //   to prevent decreasing of health factor in edge cases because of rounding error
+      //   (we are going to return 0.000014 usdc, but 0.000015 are returned)
       //
       // totalCollateralBase and collateralPrice have decimals of base current, part has decimals 18
       // in result we have an amount in terms of collateral asset.
-        (totalCollateralBase * (10 ** collateralDecimals) / collateralPrice) * part / 1e18,
+        (
+          (totalCollateralBase > COLLATERAL_RESERVE_BASE_CURRENCY
+            ? totalCollateralBase - COLLATERAL_RESERVE_BASE_CURRENCY
+            : totalCollateralBase
+          ) * (10 ** collateralDecimals) / collateralPrice
+        ) * part / 1e18,
         // WRONG: totalCollateralBase * (10 ** collateralDecimals) * part / 1e18 / collateralPrice,
 
         healthFactor18
