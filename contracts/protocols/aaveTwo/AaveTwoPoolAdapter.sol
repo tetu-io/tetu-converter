@@ -17,6 +17,7 @@ import "../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
 import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
+import "../../libs/AppUtils.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v2-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -309,17 +310,14 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     pool.repay(assetBorrow, (closePosition_ ? type(uint).max : amountToRepay_), RATE_MODE, address(this));
 
     // withdraw the collateral
-    if (closePosition_) {
+
+    {
       // if the position is closed, amountCollateralToWithdraw contains type(uint).max
       // so, we need to calculate actual amount of returned collateral through balance difference
       uint balanceUserCollateralBefore = IERC20(assetCollateral).balanceOf(receiver_);
       pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_); // amountCollateralToWithdraw == type(uint).max
       uint balanceUserCollateralAfter = IERC20(assetCollateral).balanceOf(receiver_);
-      amountCollateralToWithdraw = balanceUserCollateralAfter < balanceUserCollateralBefore
-        ? 0
-        : balanceUserCollateralAfter - balanceUserCollateralBefore;
-    } else {
-      pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
+      amountCollateralToWithdraw = AppUtils.sub0(balanceUserCollateralAfter, balanceUserCollateralBefore);
     }
 
     {
@@ -354,9 +352,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     require(aTokensBalanceBeforeSupply >= aTokensBalanceAfterSupply, AppErrors.WEIRD_OVERFLOW);
     uint localCollateralBalanceATokens = collateralBalanceATokens;
-    localCollateralBalanceATokens = aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply > localCollateralBalanceATokens
-      ? 0
-      : localCollateralBalanceATokens - (aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply);
+    localCollateralBalanceATokens = AppUtils.sub0(localCollateralBalanceATokens, aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply);
     collateralBalanceATokens = localCollateralBalanceATokens;
 
     emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactorAfter, localCollateralBalanceATokens);
@@ -392,7 +388,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     uint amountToRepayBase = amountToRepay_ * borrowPrice / (10 ** IERC20Metadata(assetBorrow_).decimals());
 
-    if (closePosition_) {
+    if (closePosition_ || amountToRepayBase >= totalDebtBase) {
       // we cannot close position and pay the debt only partly
       require(totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_PARTIAL);
       return (type(uint).max, healthFactor18);
@@ -401,26 +397,23 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
       require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
-      uint part = amountToRepayBase >= totalDebtBase
-        ? 10**18
-        : 10**18 * amountToRepayBase / totalDebtBase;
-
       return (
-      // == totalCollateral * amountToRepay / totalDebt
       // SCB-796:
       //   We need to calculate total amount in terms of the collateral asset at first and only then take part of it.
       //   Also we should keep a few tokens untouched as a reserve
       //   to prevent decreasing of health factor in edge cases because of rounding error
       //   (we are going to return 0.000014 usdc, but 0.000015 are returned)
       //
-      // totalCollateralBase and collateralPrice have decimals of ETH, part has decimals 18
+      // totalCollateralBase and collateralPrice have decimals of ETH
       // in result we have an amount in terms of collateral asset.
+      //
+      // == totalCollateral * part, part = amountToRepay / totalDebt < 1; "part" is collateral that should be returned
         (
           (totalCollateralBase > COLLATERAL_RESERVE_BASE_CURRENCY
             ? totalCollateralBase - COLLATERAL_RESERVE_BASE_CURRENCY
             : totalCollateralBase
           ) * (10 ** collateralDecimals) / collateralPrice
-        ) * part / 1e18,
+        ) * amountToRepayBase / totalDebtBase,
       // WRONG: totalCollateralBase * (10 ** collateralDecimals) * part / 1e18 / collateralPrice,
 
         healthFactor18
