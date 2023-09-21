@@ -48,7 +48,7 @@ export interface IPoolAdapterStatus {
 export interface IPoolAdapterStatusNum {
   collateralAmount: number;
   amountToPay: number;
-  healthFactor18: number;
+  healthFactor: number;
   opened: boolean;
   collateralAmountLiquidated: number;
   debtGapRequired: boolean;

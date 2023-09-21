@@ -11,7 +11,7 @@ export class BorrowRepayDataTypeUtils {
       opened: p.opened,
       collateralAmount: +formatUnits(p.collateralAmount, collateralDecimals),
       amountToPay: +formatUnits(p.amountToPay, borrowDecimals),
-      healthFactor18: +formatUnits(p.healthFactor18, 18),
+      healthFactor: +formatUnits(p.healthFactor18, 18),
       collateralAmountLiquidated: +formatUnits(p.collateralAmountLiquidated, collateralDecimals),
       debtGapRequired: p.debtGapRequired
     }
