@@ -11,7 +11,7 @@ import "../proxy/ControllableV3.sol";
 contract ConverterController is IConverterController, ControllableV3 {
 
   //region ------------------------------------- Constants
-  string public constant CONVERTER_CONTROLLER_VERSION = "1.0.0";
+  string public constant CONVERTER_CONTROLLER_VERSION = "1.0.1";
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
   /// @notice Denominator for {debtGap}
   uint constant DEBT_GAP_DENOMINATOR = 100_000;

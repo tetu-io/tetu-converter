@@ -32,7 +32,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
   using EnumerableMap for EnumerableMap.UintToAddressMap;
 
   //region ----------------------------------------------------- Constants
-  string public constant BORROW_MANAGER_VERSION = "1.0.1";
+  string public constant BORROW_MANAGER_VERSION = "1.1.0";
 
   /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
   ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
@@ -273,8 +273,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
       borrowAsset: targetToken_,
       amountIn: amountIn_,
       countBlocks: periodInBlocks_,
-      entryData: entryData_,
-      user: user_
+      entryData: entryData_
     });
     BorrowManagerLogicLib.InputParamsAdditional memory addParams = BorrowManagerLogicLib.InputParamsAdditional({
       rewardsFactor: rewardsFactor,
@@ -285,7 +284,8 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     return BorrowManagerLogicLib.findConverter(
       params,
       addParams,
-      _pairsList[getAssetPairKey(sourceToken_, targetToken_)]
+      _pairsList[getAssetPairKey(sourceToken_, targetToken_)],
+      user_
     );
   }
   //endregion ----------------------------------------------------- Find best pool for borrowing
