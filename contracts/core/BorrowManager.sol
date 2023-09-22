@@ -32,7 +32,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
   using EnumerableMap for EnumerableMap.UintToAddressMap;
 
   //region ----------------------------------------------------- Constants
-  string public constant BORROW_MANAGER_VERSION = "1.0.1";
+  string public constant BORROW_MANAGER_VERSION = "1.1.0";
 
   /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
   ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
