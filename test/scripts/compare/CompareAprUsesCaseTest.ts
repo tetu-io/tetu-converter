@@ -23,7 +23,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCores} from "../../baseUT/chains/polygon/maticCores";
+import {MaticCore} from "../../baseUT/cores/maticCore";
 
 /**
  * Script to generate
@@ -277,7 +277,7 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   async function makeTestAave3(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
     const controller = await TetuConverterApp.createController(deployer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
-    const core = MaticCores.getCoreAave3();
+    const core = MaticCore.getCoreAave3();
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
       deployer,

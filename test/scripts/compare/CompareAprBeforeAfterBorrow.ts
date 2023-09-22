@@ -26,7 +26,7 @@ import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinanceP
 import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCores} from "../../baseUT/chains/polygon/maticCores";
+import {MaticCore} from "../../baseUT/cores/maticCore";
 
 /**
  * For any landing platform:
@@ -84,7 +84,7 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE3", () => {
       it("predicted APR should be equal to real APR", async () => {
-        const core = MaticCores.getCoreAave3();
+        const core = MaticCore.getCoreAave3();
         const ret = await AprAave3.makeBorrowTest(
           deployer,
           core,
@@ -443,7 +443,7 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE3", () => {
       it("predicted APR should be equal to real APR", async () => {
-        const core = MaticCores.getCoreAave3();
+        const core = MaticCore.getCoreAave3();
         const ret = await AprAave3.makeBorrowTest(
           deployer,
           core,

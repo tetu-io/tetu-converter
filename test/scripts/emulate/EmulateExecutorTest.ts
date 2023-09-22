@@ -12,7 +12,7 @@ import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePr
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCores} from "../../baseUT/chains/polygon/maticCores";
+import {MaticCore} from "../../baseUT/cores/maticCore";
 
 describe.skip("Run real work emulator @skip-on-coverage", () => {
   before(async function () {
@@ -25,7 +25,7 @@ describe.skip("Run real work emulator @skip-on-coverage", () => {
   it("Run all commands", async () => {
     const signers = await ethers.getSigners();
     const deployer = signers[0];
-    const core = MaticCores.getCoreAave3();
+    const core = MaticCore.getCoreAave3();
 
     // attach custom price oracles to be able to manipulate with the prices
     const priceOracleAave3 = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
