@@ -20,7 +20,7 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {BigNumber} from "ethers";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
-import {ICompound3AssetInfo} from "../../../scripts/integration/helpers/Compound3Helper";
+import {ICompound3AssetInfo} from "../../../scripts/chains/polygon/integration/helpers/Compound3Helper";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {addLiquidatorPath} from "../../baseUT/utils/TetuLiquidatorUtils";

@@ -10,7 +10,7 @@ import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatfo
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/chains/polygon/integration/helpers/DForceHelper";
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class DForcePlatformFabric implements ILendingPlatformFabric {

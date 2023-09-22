@@ -1,12 +1,11 @@
 import {ethers, network} from "hardhat";
 import {writeFileSync} from "fs";
-import {IDForceController} from "../../../../typechain";
+import {IDForceController} from "../../../../../../typechain";
 import {DForceHelper} from "../../helpers/DForceHelper";
 
 /**
- * Download detailed info for reward tokens on DForce Markets
- *
- * npx hardhat run scripts/integration/lending/dforce/downloaddfmarketrewards.ts
+ * Download detailed info for all available Hundred-finance pool(s) and tokens
+ *    npx hardhat run scripts/integration/lending/dforce/downloaddfmarkets.ts
  */
 async function main() {
     const signer = (await ethers.getSigners())[0];
@@ -17,8 +16,8 @@ async function main() {
 
     const controller: IDForceController = DForceHelper.getController(signer);
 
-    const lines = await DForceHelper.getRewardsData(signer, controller);
-    writeFileSync('./tmp/df_rewards.csv', lines.join("\n"), 'utf8');
+    const lines = await DForceHelper.getData(signer, controller);
+    writeFileSync('./tmp/df_reserves.csv', lines.join("\n"), 'utf8');
 }
 
 main()

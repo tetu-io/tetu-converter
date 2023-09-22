@@ -8,10 +8,10 @@ import {
   IAaveProtocolDataProvider,
   IAaveProtocolDataProvider__factory,
   IERC20Metadata__factory
-} from "../../../typechain";
+} from "../../../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {Aave3DataTypes} from "../../../typechain/contracts/integrations/aave3/IAavePool";
-import {MaticAddresses} from "../../addresses/MaticAddresses";
+import {Aave3DataTypes} from "../../../../../typechain/contracts/integrations/aave3/IAavePool";
+import {MaticAddresses} from "../../../../addresses/MaticAddresses";
 
 // https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
 const AAVE_POOL = MaticAddresses.AAVE_V3_POOL;

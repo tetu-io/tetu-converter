@@ -7,10 +7,10 @@ import {
   IAaveTwoProtocolDataProvider,
   IAaveTwoProtocolDataProvider__factory,
   IERC20Metadata__factory
-} from "../../../typechain";
+} from "../../../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {MaticAddresses} from "../../addresses/MaticAddresses";
-import {DataTypes} from "../../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
+import {MaticAddresses} from "../../../../addresses/MaticAddresses";
+import {DataTypes} from "../../../../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
 import {IReserveLtvConfig} from "./Aave3Helper";
 
 const AAVE_POOL = MaticAddresses.AAVE_TWO_POOL;

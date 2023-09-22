@@ -2,7 +2,7 @@ import {
   DeploySolutionUtils
 } from "./DeploySolutionUtils";
 import {ethers, network} from "hardhat";
-import {DeployerUtils} from "../utils/DeployerUtils";
+import {DeployerUtils} from "../../../utils/DeployerUtils";
 
 /**
  * Deploy TetuConverter application to blockchain.

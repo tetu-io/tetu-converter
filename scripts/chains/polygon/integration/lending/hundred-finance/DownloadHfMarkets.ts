@@ -1,6 +1,6 @@
 import {ethers, network} from "hardhat";
 import {writeFileSync} from "fs";
-import {IHfComptroller} from "../../../../typechain";
+import {IHfComptroller} from "../../../../../../typechain";
 import {HundredFinanceHelper} from "../../helpers/HundredFinanceHelper";
 
 /**

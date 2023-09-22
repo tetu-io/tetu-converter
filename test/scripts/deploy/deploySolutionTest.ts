@@ -1,4 +1,4 @@
-import {DeploySolutionUtils} from "../../../scripts/deploy/DeploySolutionUtils";
+import {DeploySolutionUtils} from "../../../scripts/chains/polygon/deploy/DeploySolutionUtils";
 import {ethers} from "hardhat";
 import {IOps__factory} from "../../../typechain";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";

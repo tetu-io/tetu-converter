@@ -6,7 +6,7 @@ import {
   IAavePriceOracle,
   IAaveProtocolDataProvider, IERC20__factory, IERC20Metadata__factory
 } from "../../../../typechain";
-import {Aave3Helper, IAave3ReserveInfo} from "../../../../scripts/integration/helpers/Aave3Helper";
+import {Aave3Helper, IAave3ReserveInfo} from "../../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
 import {IConversionPlan} from "../../apr/aprDataTypes";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";

@@ -6,7 +6,7 @@ import {
   IDForcePriceOracle, IERC20__factory, IERC20Metadata__factory, IPoolAdapter__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
-import {DForceHelper, IDForceMarketData} from "../../../../scripts/integration/helpers/DForceHelper";
+import {DForceHelper, IDForceMarketData} from "../../../../scripts/chains/polygon/integration/helpers/DForceHelper";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {MocksHelper} from "../../helpers/MocksHelper";
 import {AdaptersHelper} from "../../helpers/AdaptersHelper";

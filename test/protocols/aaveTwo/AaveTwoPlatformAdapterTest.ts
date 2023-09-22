@@ -7,7 +7,7 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/chains/polygon/integration/helpers/AaveTwoHelper";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
 import {
   AaveTwoPlatformAdapter,

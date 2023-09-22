@@ -13,7 +13,7 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
-import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper} from "../../../scripts/chains/polygon/integration/helpers/AaveTwoHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";

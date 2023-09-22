@@ -2,22 +2,21 @@
  * Utils to deploy and setup TetuConverter app
  */
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {CoreContractsHelper} from "../../test/baseUT/helpers/CoreContractsHelper";
-import {RunHelper} from "../utils/RunHelper";
+import {CoreContractsHelper} from "../../../../test/baseUT/helpers/CoreContractsHelper";
+import {RunHelper} from "../../../utils/RunHelper";
 import {BigNumber} from "ethers";
 import {
-  BorrowManager__factory, ConverterController,
+  ConverterController,
   ConverterController__factory,
   IBorrowManager,
-  IBorrowManager__factory,
-  IConverterController, IConverterController__factory, Keeper__factory
-} from "../../typechain";
-import {AdaptersHelper} from "../../test/baseUT/helpers/AdaptersHelper";
+  IBorrowManager__factory
+} from "../../../../typechain";
+import {AdaptersHelper} from "../../../../test/baseUT/helpers/AdaptersHelper";
 import {appendFileSync} from "fs";
 import {ethers, network} from "hardhat";
-import {Misc} from "../utils/Misc";
-import {MaticAddresses} from "../addresses/MaticAddresses";
-import {writeFileSyncRestoreFolder} from "../../test/baseUT/utils/FileUtils";
+import {Misc} from "../../../utils/Misc";
+import {MaticAddresses} from "../../../addresses/MaticAddresses";
+import {writeFileSyncRestoreFolder} from "../../../../test/baseUT/utils/FileUtils";
 
 //region Data types
 export interface IControllerSetupParams {

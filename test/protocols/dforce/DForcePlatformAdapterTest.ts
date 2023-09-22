@@ -19,7 +19,7 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
-import {DForceHelper, IDForceMarketData} from "../../../scripts/integration/helpers/DForceHelper";
+import {DForceHelper, IDForceMarketData} from "../../../scripts/chains/polygon/integration/helpers/DForceHelper";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";

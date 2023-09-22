@@ -15,7 +15,7 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
+import {HundredFinanceHelper} from "../../../scripts/chains/polygon/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";

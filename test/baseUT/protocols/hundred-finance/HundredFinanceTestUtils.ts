@@ -24,7 +24,7 @@ import {ethers} from "hardhat";
 import {
   HundredFinanceHelper,
   IHundredFinanceMarketData
-} from "../../../../scripts/integration/helpers/HundredFinanceHelper";
+} from "../../../../scripts/chains/polygon/integration/helpers/HundredFinanceHelper";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {IHfAccountLiquidity, IHundredFinanceAccountSnapshot} from "../../apr/aprHundredFinance";

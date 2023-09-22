@@ -13,13 +13,13 @@ import {
   IDForceLendingData,
   IDForceLendingData__factory
 
-} from "../../../typechain";
+} from "../../../../../typechain";
 import {BigNumber, ContractTransaction, Signer} from "ethers";
 import {Aave3Helper} from "./Aave3Helper";
-import {MaticAddresses} from "../../addresses/MaticAddresses";
-import {TokenDataTypes} from "../../../test/baseUT/types/TokenDataTypes";
-import {DeployerUtils} from "../../utils/DeployerUtils";
-import {getBigNumberFrom} from "../../utils/NumberUtils";
+import {MaticAddresses} from "../../../../addresses/MaticAddresses";
+import {TokenDataTypes} from "../../../../../test/baseUT/types/TokenDataTypes";
+import {DeployerUtils} from "../../../../utils/DeployerUtils";
+import {getBigNumberFrom} from "../../../../utils/NumberUtils";
 
 //region Data types
 export interface IDForceMarketData {

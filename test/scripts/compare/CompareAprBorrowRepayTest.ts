@@ -17,7 +17,7 @@ import {ITokenParams} from "../../baseUT/types/BorrowRepayDataTypes";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {existsSync, writeFileSync} from "fs";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
+import {Aave3Helper} from "../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
 import {writeFileSyncRestoreFolder} from "../../baseUT/utils/FileUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 

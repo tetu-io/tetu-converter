@@ -1,6 +1,6 @@
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {IAave3ReserveInfo} from "../../../../scripts/integration/helpers/Aave3Helper";
+import {IAave3ReserveInfo} from "../../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
 import {IAaveToken__factory} from "../../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 

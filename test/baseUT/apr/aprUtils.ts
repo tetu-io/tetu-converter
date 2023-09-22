@@ -8,7 +8,7 @@ import {TokenDataTypes} from "../types/TokenDataTypes";
 import {getRatioMul100, setInitialBalance} from "../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {existsSync, writeFileSync} from "fs";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
+import {Aave3Helper} from "../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
 import {IBorrowingTestResults, ISwapTestResults} from "../uses-cases/CompareAprUsesCase";
 import {IPointResults} from "./aprDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";

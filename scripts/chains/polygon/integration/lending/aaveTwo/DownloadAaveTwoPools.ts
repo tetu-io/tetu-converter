@@ -2,7 +2,7 @@ import {writeFileSync} from "fs";
 import {
   IAaveTwoPool, IAaveTwoProtocolDataProvider
 
-} from "../../../../typechain";
+} from "../../../../../../typechain";
 import {ethers, network} from "hardhat";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {AaveTwoHelper} from "../../helpers/AaveTwoHelper";

@@ -6,7 +6,7 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {expect} from "chai";
 import {parseUnits} from "ethers/lib/utils";
-import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper} from "../../../scripts/chains/polygon/integration/helpers/AaveTwoHelper";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("AaveSharedLibTest", () => {
