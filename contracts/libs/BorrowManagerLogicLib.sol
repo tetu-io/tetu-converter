@@ -9,6 +9,7 @@ import "../interfaces/IConverterController.sol";
 import "./ConverterLogicLib.sol";
 import "./AppUtils.sol";
 import "./EntryKinds.sol";
+import "hardhat/console.sol";
 
 /// @notice BorrowManager-contract logic-related functions
 library BorrowManagerLogicLib {
@@ -62,21 +63,32 @@ library BorrowManagerLogicLib {
     uint[2] thresholds;
   }
 
+  struct FindCandidatesForExistDebtsLocal {
+    IBorrowManager borrowManager;
+    uint16 minHealthFactor2;
+
+    uint fullBorrowCounter;
+    uint len;
+    uint index;
+  }
+
   //endregion ----------------------------------------------------- Data types
 
   //region ----------------------------------------------------- Find best pool for borrowing
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   ///         Results are ordered in ascending order of APR, so the best available converter is first one.
-  /// @param p_ Conversion params. You can disable rebalance-of-exist-debts by sending user = 0
+  /// @param p_ Conversion params
   /// @param pas_ All platform adapters that support required pair of assets
+  /// @param user_ Borrower. You can disable rebalance-of-exist-debts by sending {user_} = 0
   /// @return converters Result template-pool-adapters
   /// @return collateralAmounts Amounts that should be provided as a collateral
   /// @return borrowAmounts Amounts that should be borrowed
   /// @return aprs18 Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
   function findConverter(
     AppDataTypes.InputConversionParams memory p_,
-    InputParamsAdditional memory addParams_,
-    EnumerableSet.AddressSet storage pas_
+    InputParamsAdditional memory pa_,
+    EnumerableSet.AddressSet storage pas_,
+    address user_
   ) internal view returns (
     address[] memory converters,
     uint[] memory collateralAmounts,
@@ -98,15 +110,15 @@ library BorrowManagerLogicLib {
 
     // find all exist valid debts and calculate how to make new borrow with rebalancing of the exist debt
     // add BorrowCandidate to {candidates} for such debts and clear up corresponded items in {platformAdapters}
-    if (p_.user == address(0)) {
+    if (user_ == address(0)) {
       v.needMore = true; // rebalance of exist debts are disabled
     } else {
-      (v.countCandidates, v.needMore) = _findCandidatesForExistDebts(v.platformAdapters, p_, addParams_, candidates);
+      (v.countCandidates, v.needMore) = _findCandidatesForExistDebts(v.platformAdapters, p_, pa_, candidates, user_);
     }
 
     v.totalCandidates = (v.needMore && v.len != 0)
       // find borrow-candidates for all other platform adapters
-      ? _findNewCandidates(v.platformAdapters, v.countCandidates, p_, addParams_, candidates)
+      ? _findNewCandidates(v.platformAdapters, v.countCandidates, p_, pa_, candidates)
       : v.countCandidates;
 
     return _prepareOutput(v.countCandidates, v.totalCandidates, candidates);
@@ -178,48 +190,50 @@ library BorrowManagerLogicLib {
   function _findCandidatesForExistDebts(
     IPlatformAdapter[] memory platformAdapters,
     AppDataTypes.InputConversionParams memory p_,
-    InputParamsAdditional memory addParams_,
-    BorrowCandidate[] memory dest
+    InputParamsAdditional memory pa_,
+    BorrowCandidate[] memory dest,
+    address user_
   ) internal view returns (
     uint count,
     bool needMore
   ) {
-    IBorrowManager borrowManager = IBorrowManager(addParams_.controller.borrowManager());
-    uint16 minHealthFactor2 = addParams_.controller.minHealthFactor2();
+    FindCandidatesForExistDebtsLocal memory v;
+    v.borrowManager = IBorrowManager(pa_.controller.borrowManager());
+    v.minHealthFactor2 = pa_.controller.minHealthFactor2();
 
-    uint fullBorrowCounter = 0;
-    uint len = platformAdapters.length;
-    uint index;
-    while (index < len) {
+    v.fullBorrowCounter = 0;
+    v.len = platformAdapters.length;
+    v.index;
+    while (v.index < v.len) {
       address poolAdapter;
-      (index, poolAdapter, ) = _getExistValidPoolAdapter(
+      (v.index, poolAdapter, ) = _getExistValidPoolAdapter(
         platformAdapters,
-        index,
-        p_.user,
+        v.index,
+        user_,
         p_.collateralAsset,
         p_.borrowAsset,
-        borrowManager,
-        minHealthFactor2
+        v.borrowManager,
+        v.minHealthFactor2
       );
       if (poolAdapter != address(0)) {
         (BorrowCandidate memory c, bool partialBorrow) = _findConversionStrategyForExistDebt(
           IPoolAdapter(poolAdapter),
-          platformAdapters[index],
+          platformAdapters[v.index],
           p_,
-          addParams_
+          pa_
         );
         if (c.converter != address(0)) {
           dest[count++] = c;
-          platformAdapters[index] = IPlatformAdapter(address(0)); // prevent using of this platform adapter in _findNewCandidates
+          platformAdapters[v.index] = IPlatformAdapter(address(0)); // prevent using of this platform adapter in _findNewCandidates
           if (!partialBorrow) {
-            fullBorrowCounter++;
+            v.fullBorrowCounter++;
           }
         }
       }
-      index++;
+      v.index++;
     }
 
-    return (count, fullBorrowCounter == 0);
+    return (count, v.fullBorrowCounter == 0);
   }
 
   /// @notice Try to find exist borrow for the given user
@@ -271,7 +285,7 @@ library BorrowManagerLogicLib {
     IPoolAdapter poolAdapter_,
     IPlatformAdapter platformAdapter_,
     AppDataTypes.InputConversionParams memory p_,
-    InputParamsAdditional memory addParams_
+    InputParamsAdditional memory pa_
   ) internal view returns (
     BorrowCandidate memory dest,
     bool partialBorrow
@@ -280,7 +294,7 @@ library BorrowManagerLogicLib {
 
     // check debt status, take amounts that are required to rebalance the debt (in both directions)
     (, int collateralAmountToFix) = ConverterLogicLib.getRebalanceAmounts(
-      uint(addParams_.targetHealthFactor2) * 1e16,
+      uint(pa_.targetHealthFactor2) * 1e16,
       collateralAmount,
       amountToPay,
       healthFactor18
@@ -291,8 +305,8 @@ library BorrowManagerLogicLib {
     AppDataTypes.ConversionPlan memory plan = _getPlanWithRebalancing(
       platformAdapter_,
       p_,
-      addParams_.targetHealthFactor2,
-      addParams_.thresholds,
+      pa_.targetHealthFactor2,
+      pa_.thresholds,
       collateralAmountToFix
     );
 
@@ -302,7 +316,7 @@ library BorrowManagerLogicLib {
         converter: plan.converter,
         amountToBorrow: plan.amountToBorrow,
         collateralAmount: plan.collateralAmount,
-        apr18: _getApr18(plan, addParams_.rewardsFactor),
+        apr18: _getApr18(plan, pa_.rewardsFactor),
         healthFactor18: healthFactor18
       });
     }
@@ -335,7 +349,6 @@ library BorrowManagerLogicLib {
     AppDataTypes.InputConversionParams memory input = AppDataTypes.InputConversionParams({
       collateralAsset: p_.collateralAsset,
       borrowAsset: p_.borrowAsset,
-      user: p_.user,
       entryData: p_.entryData,
       countBlocks: p_.countBlocks,
       amountIn: p_.amountIn
@@ -434,20 +447,28 @@ library BorrowManagerLogicLib {
     IPlatformAdapter[] memory platformAdapters_,
     uint startDestIndex_,
     AppDataTypes.InputConversionParams memory p_,
-    InputParamsAdditional memory addParams_,
+    InputParamsAdditional memory pa_,
     BorrowCandidate[] memory dest_
   ) internal view returns (
     uint totalCount
   ) {
+    console.log("_findNewCandidates.1.startDestIndex_", startDestIndex_);
     totalCount = startDestIndex_;
 
     uint len = platformAdapters_.length;
+    console.log("_findNewCandidates.platformAdapters_.length", platformAdapters_.length);
 
     for (uint i; i < len; i = i.uncheckedInc()) {
+      console.log("_findNewCandidates.2,i", i);
       if (address(platformAdapters_[i]) == address(0)) continue;
 
-      AppDataTypes.ConversionPlan memory plan = platformAdapters_[i].getConversionPlan(p_, addParams_.targetHealthFactor2);
+      console.log("_findNewCandidates.3");
+      console.log("_findNewCandidates.frozen", platformAdapters_[i].frozen());
+      console.log("_findNewCandidates.block.number", block.number);
+      console.log("_findNewCandidates.platformKind", uint(platformAdapters_[i].platformKind()));
+      AppDataTypes.ConversionPlan memory plan = platformAdapters_[i].getConversionPlan(p_, pa_.targetHealthFactor2);
 
+      console.log("_findNewCandidates.4");
       if (
         plan.converter != address(0)
         // check if we are able to supply required collateral
@@ -455,15 +476,18 @@ library BorrowManagerLogicLib {
         // take only the pool with enough liquidity
         && plan.maxAmountToBorrow >= plan.amountToBorrow
       ) {
+        console.log("_findNewCandidates.5.plan.converter", plan.converter);
         dest_[totalCount++] = BorrowCandidate({
-          apr18: _getApr18(plan, addParams_.rewardsFactor),
+          apr18: _getApr18(plan, pa_.rewardsFactor),
           amountToBorrow: plan.amountToBorrow,
           collateralAmount: plan.collateralAmount,
           converter: plan.converter,
           healthFactor18: 0
         });
       }
+      console.log("_findNewCandidates.6");
     }
+    console.log("_findNewCandidates.7");
   }
   //endregion ----------------------------------------------------- Find new lending platforms to borrow
 

@@ -273,8 +273,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
       borrowAsset: targetToken_,
       amountIn: amountIn_,
       countBlocks: periodInBlocks_,
-      entryData: entryData_,
-      user: user_
+      entryData: entryData_
     });
     BorrowManagerLogicLib.InputParamsAdditional memory addParams = BorrowManagerLogicLib.InputParamsAdditional({
       rewardsFactor: rewardsFactor,
@@ -285,7 +284,8 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     return BorrowManagerLogicLib.findConverter(
       params,
       addParams,
-      _pairsList[getAssetPairKey(sourceToken_, targetToken_)]
+      _pairsList[getAssetPairKey(sourceToken_, targetToken_)],
+      user_
     );
   }
   //endregion ----------------------------------------------------- Find best pool for borrowing

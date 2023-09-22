@@ -20,10 +20,10 @@ library AppDataTypes {
   }
 
   /// @notice Input params for BorrowManager.findPool (stack is too deep problem)
+  /// @dev ATTENTION: This struct is immutable because it's sent as parameter to platform adapter...
   struct InputConversionParams {
     address collateralAsset;
     address borrowAsset;
-    address user;
 
     /// @notice Encoded entry kind and additional params if necessary (set of params depends on the kind)
     ///         See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
@@ -36,6 +36,8 @@ library AppDataTypes {
     ///         For entry kind = 1: Available amount of {sourceToken}
     ///         For entry kind = 2: Amount of {targetToken} that should be received after conversion
     uint amountIn;
+
+    // immutable, see comments above
   }
 
   /// @notice Explain how a given lending pool can make specified conversion

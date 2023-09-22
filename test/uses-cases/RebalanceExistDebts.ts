@@ -174,166 +174,204 @@ describe("BorrowRepayTest", () => {
       }
     }
 
-    describe("Borrow, move time, borrow again", () => {
-      let snapshot: string;
-      before(async function () {
-        snapshot = await TimeUtils.snapshot();
-      });
-      after(async function () {
-        await TimeUtils.rollback(snapshot);
-      });
-
-      async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
-        return makeBorrowWithRebalance({
-          collateralAsset: MaticAddresses.USDC,
-          collateralHolder: MaticAddresses.HOLDER_USDC,
-          borrowAsset: MaticAddresses.USDT,
-          collateralAmount: "1000",
-          countBlocksBetweenBorrows: 1000,
-          targetHealthFactor1: "2.1"
+    describe("rebalanceOnBorrowEnabled ON", () => {
+      describe("Borrow, move time, borrow again", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
         });
-      }
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
 
-      it("second borrowed amount should be less then the first one", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
-        console.log(ret);
+        async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
+          return makeBorrowWithRebalance({
+            collateralAsset: MaticAddresses.USDC,
+            collateralHolder: MaticAddresses.HOLDER_USDC,
+            borrowAsset: MaticAddresses.USDT,
+            collateralAmount: "1000",
+            countBlocksBetweenBorrows: 1000,
+            targetHealthFactor1: "2.1"
+          });
+        }
+
+        it("second borrowed amount should be less then the first one", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
+          console.log(ret);
+        });
+        it("should change health factor of the pool adapter before second borrow", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+        });
+        it("should restore health factor by second borrow", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.1, 1e-8);
+        });
       });
-      it("should change health factor of the pool adapter before second borrow", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+      describe("Borrow, increase target health factor a bit, borrow again with full rebalance", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
+        async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
+          return makeBorrowWithRebalance({
+            collateralAsset: MaticAddresses.USDC,
+            collateralHolder: MaticAddresses.HOLDER_USDC,
+            borrowAsset: MaticAddresses.USDT,
+            collateralAmount: "1000",
+            targetHealthFactor1: "2.1",
+            targetHealthFactor2: "2.2",
+          });
+        }
+
+        it("second borrowed amount should be less than the first one", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
+          console.log(ret);
+        });
+        it("should restore health factor by second borrow", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.2, 1e-8);
+        });
       });
-      it("should restore health factor by second borrow", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.statusAfterBorrow2.healthFactor).approximately(2.1, 1e-8);
+      describe("Borrow, reduce target health factor a bit, borrow again with full rebalance", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
+        async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
+          return makeBorrowWithRebalance({
+            collateralAsset: MaticAddresses.USDC,
+            collateralHolder: MaticAddresses.HOLDER_USDC,
+            borrowAsset: MaticAddresses.USDT,
+            collateralAmount: "1000",
+            targetHealthFactor1: "2.1",
+            targetHealthFactor2: "2.0",
+          });
+        }
+
+        it("second borrowed amount should be greater than the first one", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.borrowedAmount2).gt(ret.borrowedAmount1);
+          console.log(ret);
+        });
+        it("should restore health factor by second borrow", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.0, 1e-8);
+        });
+      });
+      describe("Borrow, increase target health factor significantly, borrow again with partial rebalance", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
+        async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
+          return makeBorrowWithRebalance({
+            collateralAsset: MaticAddresses.USDC,
+            collateralHolder: MaticAddresses.HOLDER_USDC,
+            borrowAsset: MaticAddresses.USDT,
+            collateralAmount: "1000",
+            targetHealthFactor1: "2.1",
+            targetHealthFactor2: "4.2",
+          });
+        }
+
+        it("second borrowed amount should be less than the first one", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
+          console.log(ret);
+        });
+        it("second borrowed amount should be greater than zero", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.borrowedAmount2).gt(0);
+        });
+        it("should increase health factor by second borrow", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.statusAfterBorrow2.healthFactor).gt(3.0);
+        });
+      });
+      describe("Borrow, reduce target health factor significantly, borrow again with partial rebalance", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
+        });
+
+        async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
+          return makeBorrowWithRebalance({
+            collateralAsset: MaticAddresses.USDC,
+            collateralHolder: MaticAddresses.HOLDER_USDC,
+            borrowAsset: MaticAddresses.USDT,
+            collateralAmount: "1000",
+            targetHealthFactor1: "2.1",
+            targetHealthFactor2: "1.05",
+          });
+        }
+
+        it("second borrowed amount should be greater than the first one", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.borrowedAmount2).gt(ret.borrowedAmount1);
+          console.log(ret);
+        });
+        it("second borrowed amount shouldn't exceed first amount more than expected", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.borrowedAmount2).lt(1100);
+        });
+        it("should restore health factor by second borrow", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.statusAfterBorrow2.healthFactor).lt(2.05);
+        });
       });
     });
-    describe("Borrow, increase target health factor a bit, borrow again with full rebalance", () => {
-      let snapshot: string;
-      before(async function () {
-        snapshot = await TimeUtils.snapshot();
-      });
-      after(async function () {
-        await TimeUtils.rollback(snapshot);
-      });
-
-      async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
-        return makeBorrowWithRebalance({
-          collateralAsset: MaticAddresses.USDC,
-          collateralHolder: MaticAddresses.HOLDER_USDC,
-          borrowAsset: MaticAddresses.USDT,
-          collateralAmount: "1000",
-          targetHealthFactor1: "2.1",
-          targetHealthFactor2: "2.2",
+    describe("rebalanceOnBorrowEnabled OFF", () => {
+      describe("Borrow, move time, borrow again", () => {
+        let snapshot: string;
+        before(async function () {
+          snapshot = await TimeUtils.snapshot();
         });
-      }
-
-      it("second borrowed amount should be less than the first one", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
-        console.log(ret);
-      });
-      it("should restore health factor by second borrow", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.statusAfterBorrow2.healthFactor).approximately(2.2, 1e-8);
-      });
-    });
-    describe("Borrow, reduce target health factor a bit, borrow again with full rebalance", () => {
-      let snapshot: string;
-      before(async function () {
-        snapshot = await TimeUtils.snapshot();
-      });
-      after(async function () {
-        await TimeUtils.rollback(snapshot);
-      });
-
-      async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
-        return makeBorrowWithRebalance({
-          collateralAsset: MaticAddresses.USDC,
-          collateralHolder: MaticAddresses.HOLDER_USDC,
-          borrowAsset: MaticAddresses.USDT,
-          collateralAmount: "1000",
-          targetHealthFactor1: "2.1",
-          targetHealthFactor2: "2.0",
+        after(async function () {
+          await TimeUtils.rollback(snapshot);
         });
-      }
 
-      it("second borrowed amount should be greater than the first one", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.borrowedAmount2).gt(ret.borrowedAmount1);
-        console.log(ret);
-      });
-      it("should restore health factor by second borrow", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.statusAfterBorrow2.healthFactor).approximately(2.0, 1e-8);
-      });
-    });
-    describe("Borrow, increase target health factor significantly, borrow again with partial rebalance", () => {
-      let snapshot: string;
-      before(async function () {
-        snapshot = await TimeUtils.snapshot();
-      });
-      after(async function () {
-        await TimeUtils.rollback(snapshot);
-      });
+        async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
+          return makeBorrowWithRebalance({
+            collateralAsset: MaticAddresses.USDC,
+            collateralHolder: MaticAddresses.HOLDER_USDC,
+            borrowAsset: MaticAddresses.USDT,
+            collateralAmount: "1000",
+            countBlocksBetweenBorrows: 1000,
+            targetHealthFactor1: "2.1"
+          });
+        }
 
-      async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
-        return makeBorrowWithRebalance({
-          collateralAsset: MaticAddresses.USDC,
-          collateralHolder: MaticAddresses.HOLDER_USDC,
-          borrowAsset: MaticAddresses.USDT,
-          collateralAmount: "1000",
-          targetHealthFactor1: "2.1",
-          targetHealthFactor2: "4.2",
+        it("second borrowed amount should be equal to the first one", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.borrowedAmount2).approximately(ret.borrowedAmount1, 0.01);
+          console.log(ret);
         });
-      }
-
-      it("second borrowed amount should be less than the first one", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
-        console.log(ret);
-      });
-      it("second borrowed amount should be greater than zero", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.borrowedAmount2).gt(0);
-      });
-      it("should increase health factor by second borrow", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.statusAfterBorrow2.healthFactor).gt(3.0);
-      });
-    });
-    describe("Borrow, reduce target health factor significantly, borrow again with partial rebalance", () => {
-      let snapshot: string;
-      before(async function () {
-        snapshot = await TimeUtils.snapshot();
-      });
-      after(async function () {
-        await TimeUtils.rollback(snapshot);
-      });
-
-      async function makeBorrowWithRebalanceTest(): Promise<IBorrowWithRebalanceResults> {
-        return makeBorrowWithRebalance({
-          collateralAsset: MaticAddresses.USDC,
-          collateralHolder: MaticAddresses.HOLDER_USDC,
-          borrowAsset: MaticAddresses.USDT,
-          collateralAmount: "1000",
-          targetHealthFactor1: "2.1",
-          targetHealthFactor2: "1.05",
+        it("should change health factor of the pool adapter before second borrow", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
         });
-      }
-
-      it("second borrowed amount should be greater than the first one", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.borrowedAmount2).gt(ret.borrowedAmount1);
-        console.log(ret);
-      });
-      it("second borrowed amount shouldn't exceed first amount more than expected", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.borrowedAmount2).lt(1100);
-      });
-      it("should restore health factor by second borrow", async () => {
-        const ret = await loadFixture(makeBorrowWithRebalanceTest);
-        expect(ret.statusAfterBorrow2.healthFactor).lt(2.05);
+        it("should not restore health factor by second borrow", async () => {
+          const ret = await loadFixture(makeBorrowWithRebalanceTest);
+          expect(ret.statusAfterBorrow2.healthFactor).lt(2.1);
+        });
       });
     });
   });
