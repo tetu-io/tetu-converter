@@ -263,7 +263,7 @@ describe("Aave3PlatformAdapterTest", () => {
       entryData?: string
     ): Promise<IPreparePlanResults> {
       const h = new Aave3Helper(deployer);
-      const aavePool = await Aave3Helper.getAavePool(deployer);
+      const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
       const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
         deployer,
         controller.address,
@@ -273,7 +273,7 @@ describe("Aave3PlatformAdapterTest", () => {
       );
       const healthFactor2 = badPathsParams?.incorrectHealthFactor2 || 200;
 
-      const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
+      const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
       const block = await hre.ethers.provider.getBlock("latest");
       const before = await getAave3StateInfo(deployer, aavePool, dp, collateralAsset, borrowAsset);
 
@@ -318,7 +318,7 @@ describe("Aave3PlatformAdapterTest", () => {
         {gasLimit: GAS_LIMIT}
       );
 
-      const prices = await (await Aave3Helper.getAavePriceOracle(deployer)).getAssetsPrices([collateralAsset, borrowAsset]);
+      const prices = await (await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL)).getAssetsPrices([collateralAsset, borrowAsset]);
       return {
         plan,
         aavePool,
@@ -991,7 +991,7 @@ describe("Aave3PlatformAdapterTest", () => {
             MaticAddresses.USDC,
             "12345"
           );
-          const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer);
+          const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
           const borrowData = await dataProvider.getReserveData(MaticAddresses.USDC);
           // by default, maxAmountToBorrow = totalAToken - totalStableDebt - totalVariableDebt;
           const expectedMaxAmountToBorrow = borrowData.totalAToken
@@ -1146,8 +1146,8 @@ describe("Aave3PlatformAdapterTest", () => {
         collateralHolders: string[],
         part10000: number
       ): Promise<{ br: BigNumber, brPredicted: BigNumber }> {
-        const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
-        const aavePool = await Aave3Helper.getAavePool(deployer);
+        const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
+        const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
 
         return PredictBrUsesCase.makeTest(
           deployer,
@@ -1244,7 +1244,7 @@ describe("Aave3PlatformAdapterTest", () => {
       const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
       const converterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);
 
-      const aavePool = await Aave3Helper.getAavePool(deployer);
+      const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
       const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
         deployer,
         controller.address,
@@ -1374,7 +1374,7 @@ describe("Aave3PlatformAdapterTest", () => {
           {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
 
-        const aavePool = await Aave3Helper.getAavePool(deployer);
+        const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
         const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
           deployer,
           controller.address,
@@ -1401,7 +1401,7 @@ describe("Aave3PlatformAdapterTest", () => {
         const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
           deployer,
           (await TetuConverterApp.createController(deployer)).address,
-          (await Aave3Helper.getAavePool(deployer)).address,
+          (await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL)).address,
           ethers.Wallet.createRandom().address,
           ethers.Wallet.createRandom().address
         );

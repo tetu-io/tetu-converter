@@ -6,6 +6,7 @@ import {
 import {ethers, network} from "hardhat";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Aave3Helper} from "../../helpers/Aave3Helper";
+import {MaticAddresses} from "../../../../../addresses/MaticAddresses";
 
 /** Download detailed info for all available AAVE pools */
 async function getAave3PoolReserves(
@@ -145,7 +146,7 @@ async function getAave3PoolReserves(
 
 /**
  * Download detailed info for all available AAVE pools
- *     npx hardhat run scripts/integration/lending/aave3/DownloadAave3Pools.ts
+ *     npx hardhat run scripts/chains/polygon/integration/lending/aave3/DownloadAave3Pools.ts
  */
 async function main() {
   const signer = (await ethers.getSigners())[0];
@@ -154,8 +155,10 @@ async function main() {
   const net = await ethers.provider.getNetwork();
   console.log(net, network.name);
 
-  const aavePool: IAavePool = Aave3Helper.getAavePool(signer);
-  const dp: IAaveProtocolDataProvider = await Aave3Helper.getAaveProtocolDataProvider(signer);
+  const aavePoolAddress = MaticAddresses.AAVE_V3_POOL;
+
+  const aavePool: IAavePool = Aave3Helper.getAavePool(signer, aavePoolAddress);
+  const dp: IAaveProtocolDataProvider = await Aave3Helper.getAaveProtocolDataProvider(signer, aavePoolAddress);
 
   const lines = await getAave3PoolReserves(signer, aavePool, dp);
   writeFileSync('./tmp/aave3_reserves.csv', lines.join("\n"), 'utf8');

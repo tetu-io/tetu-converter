@@ -24,6 +24,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
 import {GAS_LIMIT} from "../../GasLimit";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -171,13 +172,13 @@ export class Aave3TestUtils {
 
     const aavePool = additionalParams?.useAave3PoolMock
       ? await MocksHelper.getAave3PoolMock(deployer, collateralToken.address, borrowToken.address)
-      : await Aave3Helper.getAavePool(deployer);
+      : await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
     if (additionalParams?.useMockedAavePriceOracle) {
       await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
     }
 
-    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer);
-    const aavePrices = await Aave3Helper.getAavePriceOracle(deployer);
+    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
+    const aavePrices = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
 
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
@@ -459,7 +460,7 @@ export class Aave3TestUtils {
     await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, Misc.MAX_UINT);
 
     const aavePoolAsLiquidator = IAavePool__factory.connect(d.aavePool.address, liquidator);
-    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator);
+    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator, MaticAddresses.AAVE_V3_POOL);
     const userReserveData = await dataProvider.getUserReserveData(d.borrowToken.address, borrowerAddress);
     const amountToLiquidate = userReserveData.currentVariableDebt.div(2);
 

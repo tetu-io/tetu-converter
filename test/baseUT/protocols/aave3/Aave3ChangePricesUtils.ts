@@ -16,7 +16,7 @@ import {parseUnits} from "ethers/lib/utils";
 export class Aave3ChangePricesUtils {
   public static async setupPriceOracleMock(deployer: SignerWithAddress) : Promise<Aave3PriceOracleMock> {
     // get access to AAVE price oracle
-    const aaveOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    const aaveOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
 
     // get admin address
     const aavePoolOwner = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_V3_POOL_OWNER);
@@ -31,7 +31,7 @@ export class Aave3ChangePricesUtils {
     )) as Aave3PriceOracleMock;
 
     // copy current prices from real price oracle to the mock
-    const aavePool = await Aave3Helper.getAavePool(deployer);
+    const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
     const reserves = await aavePool.getReservesList();
     const prices = await aaveOracle.getAssetsPrices(reserves);
     await mock.setPrices(reserves, prices);
@@ -58,7 +58,7 @@ export class Aave3ChangePricesUtils {
 
     // change a price of the given asset
     const oracle = Aave3PriceOracleMock__factory.connect(
-      (await Aave3Helper.getAavePriceOracle(signer)).address
+      (await Aave3Helper.getAavePriceOracle(signer, MaticAddresses.AAVE_V3_POOL)).address
       , signer
     );
     const currentPrice: BigNumber = await oracle.getAssetPrice(asset);
@@ -79,7 +79,7 @@ export class Aave3ChangePricesUtils {
     console.log("setAssetPrice.begin");
     // change a price of the given asset
     const oracle = Aave3PriceOracleMock__factory.connect(
-      (await Aave3Helper.getAavePriceOracle(signer)).address,
+      (await Aave3Helper.getAavePriceOracle(signer, MaticAddresses.AAVE_V3_POOL)).address,
       signer
     );
     await oracle.setPrices([asset], [newPrice]);
@@ -94,7 +94,7 @@ export class Aave3ChangePricesUtils {
     const aaveEmergencyAdmin = await DeployerUtils.startImpersonate(
       MaticAddresses.AAVE_V3_EMERGENCY_ADMIN
     );
-    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aavePool = await Aave3Helper.getAavePool(signer, MaticAddresses.AAVE_V3_POOL);
     const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
       await aavePool.ADDRESSES_PROVIDER(),
       signer
@@ -117,7 +117,7 @@ export class Aave3ChangePricesUtils {
     const aavePoolAdmin = await DeployerUtils.startImpersonate(
       MaticAddresses.AAVE_V3_POOL_OWNER
     );
-    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aavePool = await Aave3Helper.getAavePool(signer, MaticAddresses.AAVE_V3_POOL);
     const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
       await aavePool.ADDRESSES_PROVIDER(),
       signer
@@ -146,7 +146,7 @@ export class Aave3ChangePricesUtils {
     const aavePoolAdmin = await DeployerUtils.startImpersonate(
       MaticAddresses.AAVE_V3_POOL_OWNER
     );
-    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aavePool = await Aave3Helper.getAavePool(signer, MaticAddresses.AAVE_V3_POOL);
     const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
       await aavePool.ADDRESSES_PROVIDER(),
       signer
@@ -161,7 +161,7 @@ export class Aave3ChangePricesUtils {
     if (supplyCapValue) {
       capValue = supplyCapValue;
     } else {
-      const dp = await Aave3Helper.getAaveProtocolDataProvider(signer);
+      const dp = await Aave3Helper.getAaveProtocolDataProvider(signer, MaticAddresses.AAVE_V3_POOL);
       const r = await dp.getReserveData(reserve);
       capValue = r.totalAToken.div(
         parseUnits("1", await IERC20Metadata__factory.connect(reserve, signer).decimals())
@@ -181,7 +181,7 @@ export class Aave3ChangePricesUtils {
     const aavePoolAdmin = await DeployerUtils.startImpersonate(
       MaticAddresses.AAVE_V3_POOL_OWNER
     );
-    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aavePool = await Aave3Helper.getAavePool(signer, MaticAddresses.AAVE_V3_POOL);
     const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
       await aavePool.ADDRESSES_PROVIDER(),
       signer
@@ -192,7 +192,7 @@ export class Aave3ChangePricesUtils {
       aavePoolAdmin
     );
 
-    const dp = await Aave3Helper.getAaveProtocolDataProvider(signer);
+    const dp = await Aave3Helper.getAaveProtocolDataProvider(signer, MaticAddresses.AAVE_V3_POOL);
     const r = await dp.getReserveData(reserve);
     const capValue = borrowCapValue
       ? borrowCapValue

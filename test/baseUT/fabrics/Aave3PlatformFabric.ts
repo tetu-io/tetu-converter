@@ -8,7 +8,7 @@ import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class Aave3PlatformFabric implements ILendingPlatformFabric {
   async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {
-    const aavePool = await Aave3Helper.getAavePool(deployer);
+    const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
 
     const templateAdapterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
     const templateAdapterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);

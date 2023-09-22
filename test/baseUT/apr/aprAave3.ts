@@ -29,6 +29,7 @@ import {
 import {Misc} from "../../../scripts/utils/Misc";
 import {getDifference} from "../utils/CommonUtils";
 import {MocksHelper} from "../helpers/MocksHelper";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 //region Data types
 export interface IAaveReserveData {
@@ -284,9 +285,9 @@ export class AprAave3 {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
-    const aavePool = await Aave3Helper.getAavePool(deployer);
-    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
-    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
+    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
     const baseCurrencyDecimals = Math.log10((await priceOracle.BASE_CURRENCY_UNIT()).toNumber()); // === 8
 
     const borrowReserveData = await dp.getReserveData(p.borrow.asset);
@@ -688,9 +689,9 @@ export class AprAave3 {
     // console.log("collateralAmount", collateralAmount);
     // console.log("countBlocks", countBlocks);
     const libFacade = await DeployUtils.deployContract(deployer, "Aave3AprLibFacade") as Aave3AprLibFacade;
-    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
+    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
 
-    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
     const priceCollateral = await priceOracle.getAssetPrice(collateralAsset);
     const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
@@ -762,9 +763,9 @@ export class AprAave3 {
     operationTimestamp?: number
   ) : Promise<BigNumber> {
     const libFacade = await DeployUtils.deployContract(deployer, "Aave3AprLibFacade") as Aave3AprLibFacade;
-    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
+    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
 
-    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
     const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
     const decimalsBorrow = await IERC20Metadata__factory.connect(borrowAsset, deployer).decimals();

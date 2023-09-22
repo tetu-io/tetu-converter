@@ -103,7 +103,7 @@ async function getAaveTwoPoolReserves(
 
 /**
  * Download detailed info for all available AAVE pools
- *    npx hardhat run scripts/integration/lending/aaveTwo/DownloadAaveTwoPools.ts
+ *    npx hardhat run scripts/chains/polygon/integration/lending/aaveTwo/DownloadAaveTwoPools.ts
  */
 async function main() {
   const signer = (await ethers.getSigners())[0];

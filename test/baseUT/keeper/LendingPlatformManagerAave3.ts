@@ -60,7 +60,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
 
     // get admin address
     const aavePoolAdmin = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_V3_POOL_ADMIN);
-    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aavePool = await Aave3Helper.getAavePool(signer, MaticAddresses.AAVE_V3_POOL);
     const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
       await aavePool.ADDRESSES_PROVIDER(),
       signer
@@ -169,7 +169,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     console.log("AAVE3 set active", asset, active);
     // get admin address
     const aavePoolAdmin = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_V3_POOL_ADMIN);
-    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aavePool = await Aave3Helper.getAavePool(signer, MaticAddresses.AAVE_V3_POOL);
     const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
       await aavePool.ADDRESSES_PROVIDER(),
       signer

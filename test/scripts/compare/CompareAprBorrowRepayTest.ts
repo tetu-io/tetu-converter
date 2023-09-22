@@ -172,7 +172,7 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       controller,
       countBlocks
     );
-    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
     const prices = await priceOracle.getAssetsPrices([collateral.asset, borrow.asset]);
 
     return {

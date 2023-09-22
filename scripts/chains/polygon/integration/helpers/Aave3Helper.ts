@@ -13,9 +13,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Aave3DataTypes} from "../../../../../typechain/contracts/integrations/aave3/IAavePool";
 import {MaticAddresses} from "../../../../addresses/MaticAddresses";
 
-// https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
-const AAVE_POOL = MaticAddresses.AAVE_V3_POOL;
-
 const FULL_MASK =                      "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
 //region aave-v3-core: ReserveConfiguration.sol
@@ -154,8 +151,7 @@ export class Aave3Helper {
 
   constructor(signer: SignerWithAddress) {
     this.funcGetECategoryData = Aave3Helper.memoize(category => Aave3Helper.getEModeCategory(
-      Aave3Helper.getAavePool(signer)
-      , category
+      Aave3Helper.getAavePool(signer, MaticAddresses.AAVE_V3_POOL), category
     ));
   }
 
@@ -177,7 +173,7 @@ export class Aave3Helper {
     reserve: string
   ) : Promise<IAave3ReserveInfo> {
     const rd: Aave3DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
-    const priceOracle = await Aave3Helper.getAavePriceOracle(signer);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(signer, MaticAddresses.AAVE_V3_POOL);
 
     const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
@@ -254,22 +250,22 @@ export class Aave3Helper {
 //endregion Instance
 
 //region Access
-  public static getAavePool(signer: SignerWithAddress): IAavePool {
-    return IAavePool__factory.connect(AAVE_POOL, signer);
+  public static getAavePool(signer: SignerWithAddress, pool: string): IAavePool {
+    return IAavePool__factory.connect(pool, signer);
   }
-  public static async getAaveAddressesProvider(signer: SignerWithAddress): Promise<IAaveAddressesProvider> {
+  public static async getAaveAddressesProvider(signer: SignerWithAddress, pool: string): Promise<IAaveAddressesProvider> {
     return IAaveAddressesProvider__factory.connect(
-      await Aave3Helper.getAavePool(signer).ADDRESSES_PROVIDER()
+      await Aave3Helper.getAavePool(signer, pool).ADDRESSES_PROVIDER()
       , signer
     );
   }
-  public static async getAaveProtocolDataProvider(signer: SignerWithAddress): Promise<IAaveProtocolDataProvider> {
+  public static async getAaveProtocolDataProvider(signer: SignerWithAddress, pool: string): Promise<IAaveProtocolDataProvider> {
     return IAaveProtocolDataProvider__factory.connect(
-      await(await Aave3Helper.getAaveAddressesProvider(signer)).getPoolDataProvider(), signer);
+      await(await Aave3Helper.getAaveAddressesProvider(signer, pool)).getPoolDataProvider(), signer);
   }
-  public static async getAavePriceOracle(signer: SignerWithAddress): Promise<IAavePriceOracle> {
+  public static async getAavePriceOracle(signer: SignerWithAddress, pool: string): Promise<IAavePriceOracle> {
     return IAavePriceOracle__factory.connect(
-      await(await Aave3Helper.getAaveAddressesProvider(signer)).getPriceOracle(), signer);
+      await(await Aave3Helper.getAaveAddressesProvider(signer, pool)).getPriceOracle(), signer);
   }
 //endregion Access
 
