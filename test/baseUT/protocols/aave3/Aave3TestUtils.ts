@@ -25,6 +25,7 @@ import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
 import {GAS_LIMIT} from "../../GasLimit";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {ICoreAave3} from "./Aave3DataTypes";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -157,6 +158,7 @@ export class Aave3TestUtils {
    */
   public static async prepareToBorrow(
     deployer: SignerWithAddress,
+    core: ICoreAave3,
     controller: ConverterController,
     collateralToken: TokenDataTypes,
     collateralHolders: string[],
@@ -174,7 +176,7 @@ export class Aave3TestUtils {
       ? await MocksHelper.getAave3PoolMock(deployer, collateralToken.address, borrowToken.address, MaticAddresses.AAVE_V3_POOL)
       : await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
     if (additionalParams?.useMockedAavePriceOracle) {
-      await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+      await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
     }
 
     const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
@@ -408,6 +410,7 @@ export class Aave3TestUtils {
 
   public static async prepareToLiquidation(
     deployer: SignerWithAddress,
+    core: ICoreAave3,
     controller: ConverterController,
     collateralAsset: string,
     collateralHolder: string,
@@ -422,6 +425,7 @@ export class Aave3TestUtils {
 
     const d = await Aave3TestUtils.prepareToBorrow(
       deployer,
+      core,
       controller,
       collateralToken,
       [collateralHolder],
@@ -434,7 +438,7 @@ export class Aave3TestUtils {
     console.log("After borrow, user account", await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address));
 
     // reduce price of collateral to reduce health factor below 1
-    await Aave3ChangePricesUtils.changeAssetPrice(deployer, d.collateralToken.address, false, changePriceFactor);
+    await Aave3ChangePricesUtils.changeAssetPrice(deployer, core, d.collateralToken.address, false, changePriceFactor);
 
     const statusBeforeLiquidation = await d.aavePoolAdapterAsTC.getStatus();
     return {

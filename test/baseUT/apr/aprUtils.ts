@@ -14,7 +14,6 @@ import {IPointResults} from "./aprDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {CoreContractsHelper} from "../helpers/CoreContractsHelper";
 
 //region Make borrow
 /**

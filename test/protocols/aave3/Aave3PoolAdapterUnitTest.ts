@@ -49,10 +49,11 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {controlGasLimitsEx2, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {GAS_FULL_REPAY, GAS_LIMIT} from "../../baseUT/GasLimit";
 import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
+import {MaticCores} from "../../baseUT/chains/polygon/maticCores";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -102,9 +103,11 @@ describe("Aave3PoolAdapterUnitTest", () => {
   ): Promise<IMakeBorrowTestResults> {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+    const core = MaticCores.getCoreAave3();
 
     const init = await Aave3TestUtils.prepareToBorrow(
       deployer,
+      core,
       controller,
       collateralToken,
       [collateralHolder],
@@ -293,8 +296,9 @@ describe("Aave3PoolAdapterUnitTest", () => {
     }
 
     async function makeRepay(p: IMakeRepayTestParams): Promise<IMakeRepayTestResults> {
+      const core = MaticCores.getCoreAave3();
       if (p.setPriceOracleMock) {
-        await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+        await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
       }
       const collateralToken = await TokenDataTypes.Build(deployer, p.collateralAsset);
       const borrowToken = await TokenDataTypes.Build(deployer, p.borrowAsset);
@@ -302,6 +306,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
       const init = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        core,
         controller,
         collateralToken,
         [p.collateralHolder],
@@ -368,12 +373,12 @@ describe("Aave3PoolAdapterUnitTest", () => {
       const userBorrowAssetBalanceBeforeRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
 
       if (p.collateralPriceIsZero) {
-        await Aave3ChangePricesUtils.setAssetPrice(deployer, init.collateralToken.address, BigNumber.from(0));
+        await Aave3ChangePricesUtils.setAssetPrice(deployer, core, init.collateralToken.address, BigNumber.from(0));
         console.log("Collateral price was set to 0");
       }
 
       if (p.borrowPriceIsZero) {
-        await Aave3ChangePricesUtils.setAssetPrice(deployer, init.borrowToken.address, BigNumber.from(0));
+        await Aave3ChangePricesUtils.setAssetPrice(deployer, core, init.borrowToken.address, BigNumber.from(0));
         console.log("Borrow price was set to 0");
       }
 
@@ -657,7 +662,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
         after(async function () {await TimeUtils.rollback(snapshotLocal);});
 
         async function makeAlmostFullRepayTest() : Promise<IMakeRepayTestResults> {
-          const mockPriceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+          const core = MaticCores.getCoreAave3();
+          const mockPriceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
           await mockPriceOracle.setPrices(
             [MaticAddresses.USDC, MaticAddresses.USDT],
             [100000000, 100061400]
@@ -996,8 +1002,10 @@ describe("Aave3PoolAdapterUnitTest", () => {
       p: IMakeRepayToRebalanceInputParams,
       useEMode?: boolean
     ) : Promise<IMakeRepayToRebalanceResults>{
+      const core = MaticCores.getCoreAave3();
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        core,
         controller,
         p.collateralToken,
         [p.collateralHolder],
@@ -1414,8 +1422,10 @@ describe("Aave3PoolAdapterUnitTest", () => {
       borrowHolder: string,
       badPathsParams?: IMakeBorrowToRebalanceBadPathParams
     ) : Promise<IMakeBorrowToRebalanceResults>{
+      const core = MaticCores.getCoreAave3();
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        core,
         controller,
         collateralToken,
         [collateralHolder],
@@ -1723,8 +1733,10 @@ describe("Aave3PoolAdapterUnitTest", () => {
     it("should return expected values", async () => {
       const receiver = ethers.Wallet.createRandom().address;
       const controller = await loadFixture(createControllerDefault);
+      const core = MaticCores.getCoreAave3();
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        core,
         controller,
         await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
         [MaticAddresses.HOLDER_DAI],
@@ -1750,8 +1762,10 @@ describe("Aave3PoolAdapterUnitTest", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         const controller = await loadFixture(createControllerDefault);
+        const core = MaticCores.getCoreAave3();
         const d = await Aave3TestUtils.prepareToBorrow(
           deployer,
+          core,
           controller,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
           [MaticAddresses.HOLDER_DAI],
@@ -1782,8 +1796,10 @@ describe("Aave3PoolAdapterUnitTest", () => {
       borrowAsset: string,
       useEMode: boolean
     ): Promise<{ret: string, expected: string}> {
+      const core = MaticCores.getCoreAave3();
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        core,
         controller,
         await TokenDataTypes.Build(deployer, collateralAsset),
         [holderCollateralAsset],
@@ -2092,10 +2108,12 @@ describe("Aave3PoolAdapterUnitTest", () => {
           const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
           const controller = await loadFixture(createControllerDefault);
+          const core = MaticCores.getCoreAave3();
 
           // we only prepare to borrow, but don't make a borrow
           const init = await Aave3TestUtils.prepareToBorrow(
             deployer,
+            core,
             controller,
             collateralToken,
             [collateralHolder],
@@ -2138,6 +2156,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         await TimeUtils.rollback(snapshotForEach);
       });
       it("it should revert if collateral price is zero", async () => {
+        const core = MaticCores.getCoreAave3();
         const controller = await loadFixture(createControllerDefault);
         const r = await makeBorrowTest(
           controller,
@@ -2147,13 +2166,14 @@ describe("Aave3PoolAdapterUnitTest", () => {
           "1999",
           {useMockedAavePriceOracle: true}
         );
-        await Aave3ChangePricesUtils.setAssetPrice(deployer, r.init.collateralToken.address, BigNumber.from(0));
+        await Aave3ChangePricesUtils.setAssetPrice(deployer, core, r.init.collateralToken.address, BigNumber.from(0));
         await expect(
           r.init.aavePoolAdapterAsTC.getStatus()
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
       it("it should revert if borrow price is zero", async () => {
         const controller = await loadFixture(createControllerDefault);
+        const core = MaticCores.getCoreAave3();
 
         const r = await makeBorrowTest(
           controller,
@@ -2163,7 +2183,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           "1999",
           {useMockedAavePriceOracle: true}
         );
-        await Aave3ChangePricesUtils.setAssetPrice(deployer, r.init.borrowToken.address, BigNumber.from(0));
+        await Aave3ChangePricesUtils.setAssetPrice(deployer, core, r.init.borrowToken.address, BigNumber.from(0));
         await expect(
           r.init.aavePoolAdapterAsTC.getStatus()
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
@@ -2178,9 +2198,11 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const controller = await loadFixture(createControllerDefault);
         const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.DAI);
         const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC);
+        const core = MaticCores.getCoreAave3();
 
         const init = await Aave3TestUtils.prepareToBorrow(
           deployer,
+          core,
           controller,
           collateralToken,
           [MaticAddresses.HOLDER_DAI],
@@ -2327,8 +2349,9 @@ describe("Aave3PoolAdapterUnitTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if collateral price is zero", async () => {
+        const core = MaticCores.getCoreAave3();
         const results = await loadFixture(setupBorrowForTest);
-        const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+        const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
         await priceOracle.setPrices([results.init.collateralToken.address], [parseUnits("0")]);
 
         await expect(
@@ -2356,8 +2379,11 @@ describe("Aave3PoolAdapterUnitTest", () => {
       const controller = await loadFixture(createControllerDefault);
       const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
       const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDT);
+      const core = MaticCores.getCoreAave3();
+
       const init = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        core,
         controller,
         collateralToken,
         [MaticAddresses.HOLDER_USDC],

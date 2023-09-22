@@ -33,6 +33,8 @@ import {
 } from "../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
+import {MaticCores} from "../../baseUT/chains/polygon/maticCores";
+import {ICoreAave3} from "../../baseUT/protocols/aave3/Aave3DataTypes";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -255,6 +257,7 @@ describe("Aave3PlatformAdapterTest", () => {
     }
 
     async function preparePlan(
+      core: ICoreAave3,
       collateralAsset: string,
       amountIn: BigNumber,
       borrowAsset: string,
@@ -278,28 +281,28 @@ describe("Aave3PlatformAdapterTest", () => {
       const before = await getAave3StateInfo(deployer, aavePool, dp, collateralAsset, borrowAsset);
 
       if (badPathsParams?.makeBorrowAssetPaused) {
-        await Aave3ChangePricesUtils.setReservePaused(deployer, borrowAsset);
+        await Aave3ChangePricesUtils.setReservePaused(deployer, core, borrowAsset);
       }
       if (badPathsParams?.makeCollateralAssetPaused) {
-        await Aave3ChangePricesUtils.setReservePaused(deployer, collateralAsset);
+        await Aave3ChangePricesUtils.setReservePaused(deployer, core, collateralAsset);
       }
       if (badPathsParams?.makeBorrowAssetFrozen) {
-        await Aave3ChangePricesUtils.setReserveFreeze(deployer, borrowAsset);
+        await Aave3ChangePricesUtils.setReserveFreeze(deployer, core, borrowAsset);
       }
       if (badPathsParams?.makeCollateralAssetFrozen) {
-        await Aave3ChangePricesUtils.setReserveFreeze(deployer, collateralAsset);
+        await Aave3ChangePricesUtils.setReserveFreeze(deployer, core, collateralAsset);
       }
       if (badPathsParams?.setMinSupplyCap) {
-        await Aave3ChangePricesUtils.setSupplyCap(deployer, collateralAsset);
+        await Aave3ChangePricesUtils.setSupplyCap(deployer, core, collateralAsset);
       }
       if (badPathsParams?.setMinBorrowCap) {
-        await Aave3ChangePricesUtils.setBorrowCap(deployer, borrowAsset);
+        await Aave3ChangePricesUtils.setBorrowCap(deployer, core, borrowAsset);
       }
       if (badPathsParams?.setZeroSupplyCap) {
-        await Aave3ChangePricesUtils.setSupplyCap(deployer, collateralAsset, BigNumber.from(0));
+        await Aave3ChangePricesUtils.setSupplyCap(deployer, core, collateralAsset, BigNumber.from(0));
       }
       if (badPathsParams?.setZeroBorrowCap) {
-        await Aave3ChangePricesUtils.setBorrowCap(deployer, borrowAsset, BigNumber.from(0));
+        await Aave3ChangePricesUtils.setBorrowCap(deployer, core, borrowAsset, BigNumber.from(0));
       }
       if (badPathsParams?.frozen) {
         await aavePlatformAdapter.setFrozen(true);
@@ -335,6 +338,7 @@ describe("Aave3PlatformAdapterTest", () => {
     }
 
     async function makeGetConversionPlanTest(
+      core: ICoreAave3,
       collateralAsset: string,
       collateralAmount: BigNumber,
       borrowAsset: string,
@@ -346,6 +350,7 @@ describe("Aave3PlatformAdapterTest", () => {
       expectEmptyPlan: boolean = false
     ): Promise<{ sret: string, sexpected: string }> {
       const d = await preparePlan(
+        core,
         collateralAsset,
         collateralAmount,
         borrowAsset,
@@ -377,7 +382,9 @@ describe("Aave3PlatformAdapterTest", () => {
       );
 
       // calculate expected supply and borrow values
-      const predictedSupplyIncomeInBorrowAssetRay = await AprAave3.predictSupplyIncomeRays(deployer,
+      const predictedSupplyIncomeInBorrowAssetRay = await AprAave3.predictSupplyIncomeRays(
+        deployer,
+        core,
         d.aavePool,
         collateralAsset,
         collateralAmount,
@@ -389,7 +396,9 @@ describe("Aave3PlatformAdapterTest", () => {
         d.blockTimeStamp,
       );
 
-      const predictedBorrowCostInBorrowAssetRay = await AprAave3.predictBorrowAprRays(deployer,
+      const predictedBorrowCostInBorrowAssetRay = await AprAave3.predictBorrowAprRays(
+        deployer,
+        core,
         d.aavePool,
         collateralAsset,
         borrowAsset,
@@ -483,8 +492,10 @@ describe("Aave3PlatformAdapterTest", () => {
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.WMATIC;
           const collateralAmount = getBigNumberFrom(1000, 18);
+          const core = MaticCores.getCoreAave3();
 
           const r = await makeGetConversionPlanTest(
+            core,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -503,6 +514,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const collateralAmount = getBigNumberFrom(100, 18);
 
           const r = await makeGetConversionPlanTest(
+            MaticCores.getCoreAave3(),
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -522,6 +534,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const collateralAmount = getBigNumberFrom(1000, 6);
 
           const r = await makeGetConversionPlanTest(
+            MaticCores.getCoreAave3(),
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -541,6 +554,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const collateralAmount = BigNumber.from("1999909100")
 
           const r = await makeGetConversionPlanTest(
+            MaticCores.getCoreAave3(),
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -563,6 +577,7 @@ describe("Aave3PlatformAdapterTest", () => {
             const collateralAmount = parseUnits("1000", 2); // 1000 Euro
 
             const r = await makeGetConversionPlanTest(
+              MaticCores.getCoreAave3(),
               collateralAsset,
               collateralAmount,
               borrowAsset,
@@ -590,6 +605,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const collateralAmount = parseUnits("1000", 18); // 1000 Dai
 
           const r = await makeGetConversionPlanTest(
+            MaticCores.getCoreAave3(),
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -603,6 +619,7 @@ describe("Aave3PlatformAdapterTest", () => {
       describe("Frozen", () => {
         it("should return no plan", async () => {
           const r = await preparePlan(
+            MaticCores.getCoreAave3(),
             MaticAddresses.DAI,
             parseUnits("1", 18),
             MaticAddresses.WMATIC,
@@ -622,6 +639,7 @@ describe("Aave3PlatformAdapterTest", () => {
             const collateralAmount = parseUnits("1000", 18);
 
             const r = await preparePlan(
+              MaticCores.getCoreAave3(),
               collateralAsset,
               collateralAmount,
               borrowAsset,
@@ -664,6 +682,7 @@ describe("Aave3PlatformAdapterTest", () => {
             const collateralAmount = parseUnits("1000", 18);
 
             const r = await preparePlan(
+              MaticCores.getCoreAave3(),
               collateralAsset,
               collateralAmount,
               borrowAsset,
@@ -713,7 +732,8 @@ describe("Aave3PlatformAdapterTest", () => {
             // let's calculate borrow amount by known collateral amount
             const collateralAmount = parseUnits("1000", 18);
             const countBlocks = 10;
-            const d = await preparePlan(collateralAsset, collateralAmount, borrowAsset, countBlocks);
+            const core = MaticCores.getCoreAave3();
+            const d = await preparePlan(core, collateralAsset, collateralAmount, borrowAsset, countBlocks);
             const borrowAmount = AprUtils.getBorrowAmount(
               collateralAmount,
               d.healthFactor2,
@@ -734,6 +754,7 @@ describe("Aave3PlatformAdapterTest", () => {
             );
 
             const r = await preparePlan(
+              core,
               collateralAsset,
               borrowAmount,
               borrowAsset,
@@ -764,11 +785,12 @@ describe("Aave3PlatformAdapterTest", () => {
       describe("Collateral and borrow amounts fit to limits", () => {
         describe("Allowed collateral exceeds available collateral", () => {
           it("should return expected borrow and collateral amounts", async () => {
+            const core = MaticCores.getCoreAave3();
             // let's get max available supply amount
-            const sample = await preparePlan(MaticAddresses.DAI, parseUnits("1", 18), MaticAddresses.WMATIC);
+            const sample = await preparePlan(core, MaticAddresses.DAI, parseUnits("1", 18), MaticAddresses.WMATIC);
 
             // let's try to borrow amount using collateral that exceeds max supply amount
-            const r = await preparePlan(MaticAddresses.DAI, sample.plan.maxAmountToSupply.add(1000), MaticAddresses.WMATIC);
+            const r = await preparePlan(core, MaticAddresses.DAI, sample.plan.maxAmountToSupply.add(1000), MaticAddresses.WMATIC);
             console.log(r.plan);
 
             const expectedCollateralAmount = AprUtils.getCollateralAmount(
@@ -795,11 +817,13 @@ describe("Aave3PlatformAdapterTest", () => {
         });
         describe("Allowed borrow amounts exceeds available borrow amount", () => {
           it("should return expected borrow and collateral amounts", async () => {
+            const core = MaticCores.getCoreAave3();
             // let's get max available borrow amount
-            const sample = await preparePlan(MaticAddresses.DAI, parseUnits("1", 18), MaticAddresses.WMATIC);
+            const sample = await preparePlan(core, MaticAddresses.DAI, parseUnits("1", 18), MaticAddresses.WMATIC);
 
             // let's try to borrow amount using collateral that exceeds max supply amount
             const r = await preparePlan(
+              core,
               MaticAddresses.DAI,
               sample.plan.maxAmountToBorrow.add(1000),
               MaticAddresses.WMATIC,
@@ -850,6 +874,7 @@ describe("Aave3PlatformAdapterTest", () => {
         collateralAmount: string = "1000"
       ): Promise<IConversionPlan> {
         return (await preparePlan(
+          MaticCores.getCoreAave3(),
           collateralAsset,
           parseUnits(collateralAmount),
           borrowAsset,
@@ -1008,8 +1033,10 @@ describe("Aave3PlatformAdapterTest", () => {
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.WMATIC;
           const collateralAmount = parseUnits("1000", 18);
+          const core = MaticCores.getCoreAave3();
 
           const r = await preparePlan(
+            core,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -1028,8 +1055,10 @@ describe("Aave3PlatformAdapterTest", () => {
           const collateralAsset = MaticAddresses.USDC;
           const borrowAsset = MaticAddresses.USDT;
           const collateralAmount = parseUnits("1", 6);
+          const core = MaticCores.getCoreAave3();
 
           const r0 = await preparePlan(
+            core,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -1043,13 +1072,14 @@ describe("Aave3PlatformAdapterTest", () => {
           // and we should hit second condition in borrow-validation section:
           //    plan.amountToBorrow == 0 || plan.collateralAmount == 0
 
-          const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+          const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
           await priceOracle.setPrices(
             [MaticAddresses.USDC, MaticAddresses.USDT],
             [parseUnits("1", 15), parseUnits("1", 5)]
           );
 
           const r1 = await preparePlan(
+            core,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -1075,8 +1105,10 @@ describe("Aave3PlatformAdapterTest", () => {
           const collateralAsset = MaticAddresses.USDC;
           const borrowAsset = MaticAddresses.USDT;
           const collateralAmount = parseUnits("1", 6);
+          const core = MaticCores.getCoreAave3();
 
           const r0 = await preparePlan(
+            core,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -1086,9 +1118,10 @@ describe("Aave3PlatformAdapterTest", () => {
           );
 
           // set very small supplyCap
-          await Aave3ChangePricesUtils.setSupplyCap(deployer, MaticAddresses.USDC, parseUnits("1", 6));
+          await Aave3ChangePricesUtils.setSupplyCap(deployer, core, MaticAddresses.USDC, parseUnits("1", 6));
 
           const r1 = await preparePlan(
+            core,
             collateralAsset,
             collateralAmount,
             borrowAsset,

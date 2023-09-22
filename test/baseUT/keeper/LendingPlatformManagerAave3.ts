@@ -11,6 +11,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ITokenWithHolder} from "../types/TokenDataTypes";
 import {Aave3ChangePricesUtils} from "../protocols/aave3/Aave3ChangePricesUtils";
+import {ICoreAave3} from "../protocols/aave3/Aave3DataTypes";
 
 export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
   poolAdapter: Aave3PoolAdapter;
@@ -23,7 +24,9 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
    * */
   collateralHolder: ITokenWithHolder;
   borrowHolder: ITokenWithHolder;
+  core: ICoreAave3;
   constructor(
+    core: ICoreAave3,
     pa: Aave3PoolAdapter,
     borrower: Borrower,
     tc: ITetuConverter,
@@ -35,6 +38,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     this.tc = tc;
     this.collateralHolder = collateralHolder;
     this.borrowHolder = borrowHolder;
+    this.core = core;
   }
 
 //region ILendingPlatformManager
@@ -46,7 +50,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     times: number
   ): Promise<IPoolAdapterState01>  {
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
-    await Aave3ChangePricesUtils.changeAssetPrice(signer, asset, inc, times);
+    await Aave3ChangePricesUtils.changeAssetPrice(signer, this.core, asset, inc, times);
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);
     console.log("changeAssetPrice.2", before, after);
     return {before, after};

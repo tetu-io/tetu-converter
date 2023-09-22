@@ -29,7 +29,7 @@ import {
 import {Misc} from "../../../scripts/utils/Misc";
 import {getDifference} from "../utils/CommonUtils";
 import {MocksHelper} from "../helpers/MocksHelper";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {ICoreAave3} from "../protocols/aave3/Aave3DataTypes";
 
 //region Data types
 export interface IAaveReserveData {
@@ -133,6 +133,11 @@ interface ICostValue {
   valueBase: BigNumber,
   /* Cost/income value in terms of borrow/collateral asset, multiplied on 1e18 to increase the precision */
   valueMultiplied18: BigNumber
+}
+
+interface IMakeBorrowTestResults {
+  details: IAprAave3Results,
+  results: IBorrowResults
 }
 //endregion Data types
 
@@ -268,6 +273,7 @@ export class AprAave3 {
    * 3. Calculate real APR for the period since "next" to "last"
    * 4. Enumerate all additional points. Move to the point, get balances, save them to the results.
    *
+   * @param core Core addresses of AAVE3 on the current chain
    * @param deployer
    * @param amountToBorrow0 Amount to borrow without decimals (i.e. 100 for 100 DAI)
    * @param p Main parameters (asset, amounts, so on)
@@ -275,19 +281,17 @@ export class AprAave3 {
    */
   static async makeBorrowTest(
     deployer: SignerWithAddress,
+    core: ICoreAave3,
     amountToBorrow0: number | BigNumber,
     p: ITestSingleBorrowParams,
     additionalPoints: number[]
-  ) : Promise<{
-    details: IAprAave3Results,
-    results: IBorrowResults
-  }> {
+  ) : Promise<IMakeBorrowTestResults> {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
-    const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
-    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
-    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
+    const aavePool = await Aave3Helper.getAavePool(deployer, core.pool);
+    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, core.pool);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, core.pool);
     const baseCurrencyDecimals = Math.log10((await priceOracle.BASE_CURRENCY_UNIT()).toNumber()); // === 8
 
     const borrowReserveData = await dp.getReserveData(p.borrow.asset);
@@ -675,6 +679,7 @@ export class AprAave3 {
    */
   static async predictSupplyIncomeRays(
     deployer: SignerWithAddress,
+    core: ICoreAave3,
     aavePool: IAavePool,
     collateralAsset: string,
     collateralAmount: BigNumber,
@@ -689,9 +694,9 @@ export class AprAave3 {
     // console.log("collateralAmount", collateralAmount);
     // console.log("countBlocks", countBlocks);
     const libFacade = await DeployUtils.deployContract(deployer, "Aave3AprLibFacade") as Aave3AprLibFacade;
-    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
+    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, core.pool);
 
-    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, core.pool);
     const priceCollateral = await priceOracle.getAssetPrice(collateralAsset);
     const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
@@ -752,6 +757,7 @@ export class AprAave3 {
    */
   static async predictBorrowAprRays(
     deployer: SignerWithAddress,
+    core: ICoreAave3,
     aavePool: IAavePool,
     collateralAsset: string,
     borrowAsset: string,
@@ -763,19 +769,13 @@ export class AprAave3 {
     operationTimestamp?: number
   ) : Promise<BigNumber> {
     const libFacade = await DeployUtils.deployContract(deployer, "Aave3AprLibFacade") as Aave3AprLibFacade;
-    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
+    const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, core.pool);
 
-    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, core.pool);
     const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
     const decimalsBorrow = await IERC20Metadata__factory.connect(borrowAsset, deployer).decimals();
-    const before = stateBeforeBorrow
-      || (await getAave3StateInfo(deployer
-        , aavePool
-        , dp
-        , collateralAsset
-        , borrowAsset
-      ));
+    const before = stateBeforeBorrow || (await getAave3StateInfo(deployer, aavePool, dp, collateralAsset, borrowAsset));
 
     const borrowReserveData = reserveData || await dp.getReserveData(borrowAsset);
 

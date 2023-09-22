@@ -18,6 +18,7 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {ITetuLiquidator__factory} from "../../../typechain/factories/contracts/interfaces";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {MaticCores} from "../../baseUT/chains/polygon/maticCores";
 
 /**
  * For any landing platform:
@@ -75,10 +76,12 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE3", () => {
       it("predicted APR should be equal to real APR", async () => {
+        const core = MaticCores.getCoreAave3();
         const ret = await AprAave3.makeBorrowTest(
-          deployer
-          , AMOUNT_TO_BORROW
-          , {
+          deployer,
+          core,
+          AMOUNT_TO_BORROW,
+          {
             collateral: {
               asset: ASSET_COLLATERAL,
               holder: HOLDER_COLLATERAL,
@@ -92,8 +95,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
             collateralAmount: AMOUNT_COLLATERAL,
             healthFactor2: HEALTH_FACTOR2,
             countBlocks: COUNT_BLOCKS
-          }
-          , [] // no additional points
+          },
+          [] // no additional points
         );
         console.log("ret", ret);
 
