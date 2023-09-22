@@ -41,8 +41,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   /// @notice amount of collateral in terms of ETH that cannot be used in any case during partial repayment
   ///         we need such reserve because of SCB-796
   ///         without it health factor can reduce after partial repayment in edge cases because of rounding
-  ///         ETH has 8 decimals, usdc/usdt have 6 decimals.. we need 100 tokens in reserve
-  uint constant internal COLLATERAL_RESERVE_BASE_CURRENCY = 100;
+  ///         ETH has 8 decimals, usdc/usdt have 6 decimals.. we need > 100 tokens in reserve
+  uint constant internal COLLATERAL_RESERVE_BASE_CURRENCY = 1000;
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Variables

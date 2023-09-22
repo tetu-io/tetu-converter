@@ -42,8 +42,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   /// @notice amount of collateral in terms of base currency that cannot be used in any case during partial repayment
   ///         we need such reserve because of SCB-796
   ///         without it health factor can reduce after partial repayment in edge cases because of rounding
-  ///         Base currency has 8 decimals, usdc/usdt have 6 decimals.. we need 100 tokens in reserve
-  uint constant internal COLLATERAL_RESERVE_BASE_CURRENCY = 100;
+  ///         Base currency has 8 decimals, usdc/usdt have 6 decimals.. we need > 100 tokens in reserve
+  uint constant internal COLLATERAL_RESERVE_BASE_CURRENCY = 1000;
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Variables
