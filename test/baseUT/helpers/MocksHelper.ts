@@ -278,11 +278,7 @@ export class MocksHelper {
     signer: SignerWithAddress,
     valueIsPoolAdapter: boolean
   ) : Promise<BorrowManagerStub> {
-    return await DeployUtils.deployContract(
-      signer
-      , "BorrowManagerStub"
-      , valueIsPoolAdapter
-    ) as BorrowManagerStub;
+    return await DeployUtils.deployContract(signer, "BorrowManagerStub", valueIsPoolAdapter) as BorrowManagerStub;
   }
 
   public static async createBorrowManagerMock(signer: SignerWithAddress) : Promise<BorrowManagerMock> {
@@ -293,22 +289,14 @@ export class MocksHelper {
     signer: SignerWithAddress,
     valueIsConverterInUse: boolean
   ) : Promise<DebtMonitorStub> {
-    return await DeployUtils.deployContract(
-      signer
-      , "DebtMonitorStub"
-      , valueIsConverterInUse
-    ) as DebtMonitorStub;
+    return await DeployUtils.deployContract(signer, "DebtMonitorStub", valueIsConverterInUse) as DebtMonitorStub;
   }
 
   public static async createPlatformAdapterStub(
     signer: SignerWithAddress,
     converters: string[]
   ) : Promise<PlatformAdapterStub> {
-    return await DeployUtils.deployContract(
-      signer
-      , "PlatformAdapterStub"
-      , converters
-    ) as PlatformAdapterStub;
+    return await DeployUtils.deployContract(signer, "PlatformAdapterStub", converters) as PlatformAdapterStub;
   }
 //endregion Core contracts
 
@@ -335,13 +323,12 @@ export class MocksHelper {
     baseCurrencyUnit: BigNumber,
     fallbackOracle: string
   ) : Promise<Aave3PriceOracleMock> {
-    return await DeployUtils.deployContract(
-      signer
-      , "Aave3PriceOracleMock"
-      , addressProvider
-      , baseCurrency
-      , baseCurrencyUnit
-      , fallbackOracle
+    return await DeployUtils.deployContract(signer,
+      "Aave3PriceOracleMock",
+      addressProvider,
+      baseCurrency,
+      baseCurrencyUnit,
+      fallbackOracle
     ) as Aave3PriceOracleMock;
   }
 
@@ -352,11 +339,11 @@ export class MocksHelper {
     fallbackOracle: string
   ) : Promise<Aave3PriceOracleMock> {
     return await DeployUtils.deployContract(
-      signer
-      , "Aave2PriceOracleMock"
-      , owner
-      , weth
-      , fallbackOracle
+      signer,
+      "Aave2PriceOracleMock",
+      owner,
+      weth,
+      fallbackOracle
     ) as Aave3PriceOracleMock;
   }
 //endregion Price mocks

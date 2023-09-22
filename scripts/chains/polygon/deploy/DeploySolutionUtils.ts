@@ -364,7 +364,7 @@ export class DeploySolutionUtils {
     keeperSetupParams: IKeeperSetupParams,
     alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
-    const priceOracle = alreadyDeployed?.priceOracle || (await CoreContractsHelper.createPriceOracle(deployer)).address;
+    const priceOracle = alreadyDeployed?.priceOracle || (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address;
     console.log("Result PriceOracle: ", priceOracle);
 
     const controllerAddress = alreadyDeployed?.controller || await CoreContractsHelper.deployController(deployer);

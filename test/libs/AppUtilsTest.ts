@@ -1,11 +1,10 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {AppUtilsFacade} from "../../typechain";
+import {AppUtilsFacade, MockERC20} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {parseUnits} from "ethers/lib/utils";
-import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 
 describe("AppUtils", () => {
@@ -14,6 +13,10 @@ describe("AppUtils", () => {
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
   let facade: AppUtilsFacade;
+
+  let usdc: MockERC20;
+  let dai: MockERC20;
+  let matic: MockERC20;
 //endregion Global vars for all tests
 
 //region before, after
@@ -25,6 +28,10 @@ describe("AppUtils", () => {
     const signers = await ethers.getSigners();
     deployer = signers[0];
     facade = await DeployUtils.deployContract(deployer, "AppUtilsFacade") as AppUtilsFacade;
+
+    usdc = await DeployUtils.deployContract(deployer, 'MockERC20', 'USDC', 'USDC', 6) as MockERC20;
+    dai = await DeployUtils.deployContract(deployer, 'MockERC20', 'Dai', 'DAI', 18) as MockERC20;
+    matic = await DeployUtils.deployContract(deployer, 'MockERC20', 'Matic', 'MATIC', 18) as MockERC20;
   });
 
   after(async function () {
@@ -64,25 +71,25 @@ describe("AppUtils", () => {
 
   describe("removeLastItems (address)", () => {
     it("remove 2 items - should return expected values", async () => {
-      const src = [MaticAddresses.DAI, MaticAddresses.WMATIC, MaticAddresses.USDC];
-      const expected = [MaticAddresses.DAI];
+      const src = [dai.address, matic.address, usdc.address];
+      const expected = [dai.address];
       const ret = await facade["removeLastItems(address[],uint256)"](src, 1);
       expect(ret.join().toLowerCase()).eq(expected.join().toLowerCase());
     });
     it("remove 1 item - should return expected values", async () => {
-      const src = [MaticAddresses.DAI, MaticAddresses.WMATIC, MaticAddresses.USDC];
-      const expected = [MaticAddresses.DAI, MaticAddresses.WMATIC];
+      const src = [dai.address, matic.address, usdc.address];
+      const expected = [dai.address, matic.address];
       const ret = await facade["removeLastItems(address[],uint256)"](src, 2);
       expect(ret.join().toLowerCase()).eq(expected.join().toLowerCase());
     });
     it("remove 0 items - should return expected values", async () => {
-      const src = [MaticAddresses.DAI, MaticAddresses.WMATIC, MaticAddresses.USDC];
-      const expected = [MaticAddresses.DAI, MaticAddresses.WMATIC, MaticAddresses.USDC];
+      const src = [dai.address, matic.address, usdc.address];
+      const expected = [dai.address, matic.address, usdc.address];
       const ret = await facade["removeLastItems(address[],uint256)"](src, 3);
       expect(ret.join().toLowerCase()).eq(expected.join().toLowerCase());
     });
     it("remove all items - should return empty array", async () => {
-      const src = [MaticAddresses.DAI, MaticAddresses.WMATIC, MaticAddresses.USDC];
+      const src = [dai.address, matic.address, usdc.address];
       const ret = await facade["removeLastItems(address[],uint256)"](src, 0);
       expect(ret.join().toLowerCase()).eq([].join().toLowerCase());
     });

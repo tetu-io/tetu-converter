@@ -14,7 +14,6 @@ import {
   HARDHAT_NETWORK_ID,
   HardhatUtils
 } from "../../scripts/utils/HardhatUtils";
-import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {GAS_SWAP_LIB_CONVERT_USING_PRICE_ORACLE, GAS_SWAP_LIB_IS_CONVERSION_VALID} from "../baseUT/GasLimit";
 
 const parseUnits = ethers.utils.parseUnits;
@@ -25,7 +24,7 @@ describe("SwapManager", () => {
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
   // tslint:disable-next-line:one-variable-per-declaration
-  let usdc: MockERC20, usdt: MockERC20, dai: MockERC20, matic: MockERC20, weth: MockERC20;
+  let usdc: MockERC20, usdt: MockERC20, dai: MockERC20, matic: MockERC20, weth: MockERC20, euro: MockERC20;
   // tslint:disable-next-line:one-variable-per-declaration
   let $usdc: BigNumber, $usdt: BigNumber, $dai: BigNumber, $matic: BigNumber, $weth: BigNumber;
   let priceOracle: PriceOracleMock;
@@ -47,6 +46,7 @@ describe("SwapManager", () => {
     dai = await DeployUtils.deployContract(deployer, 'MockERC20', 'Dai', 'DAI', 18) as MockERC20;
     matic = await DeployUtils.deployContract(deployer, 'MockERC20', 'Matic', 'MATIC', 18) as MockERC20;
     weth = await DeployUtils.deployContract(deployer, 'MockERC20', 'Wrapped Ether', 'WETH', 18) as MockERC20;
+    euro = await DeployUtils.deployContract(deployer, 'MockERC20', 'Euro', 'Euro', 2) as MockERC20;
 
     $usdc = parseUnits('1');
     $usdt = parseUnits('1');
@@ -98,13 +98,13 @@ describe("SwapManager", () => {
       it("should revert if target asset has zero price", async () => {
         const amountUsdc = parseUnits("100", 6);
         await expect(
-          facade.convertUsingPriceOracle(priceOracle.address, usdc.address, amountUsdc, MaticAddresses.EURS)
+          facade.convertUsingPriceOracle(priceOracle.address, usdc.address, amountUsdc, euro.address)
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
       it("should revert if source asset has zero price", async () => {
         const amountUsdc = parseUnits("100", 6);
         await expect(
-          facade.convertUsingPriceOracle(priceOracle.address, MaticAddresses.EURS, amountUsdc, usdc.address)
+          facade.convertUsingPriceOracle(priceOracle.address, euro.address, amountUsdc, usdc.address)
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });
