@@ -26,6 +26,7 @@ import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {GAS_LIMIT} from "../../GasLimit";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -129,7 +130,7 @@ export class AaveTwoTestUtils {
     const periodInBlocks = 1000;
 
     const aavePool = additionalParams?.useAaveTwoPoolMock
-      ? await MocksHelper.getAaveTwoPoolMock(deployer, collateralToken.address, borrowToken.address)
+      ? await MocksHelper.getAaveTwoPoolMock(deployer, collateralToken.address, borrowToken.address, MaticAddresses.AAVE_TWO_POOL)
       : await AaveTwoHelper.getAavePool(deployer);
     if (additionalParams?.useMockedAavePriceOracle) {
       await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);

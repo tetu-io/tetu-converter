@@ -140,7 +140,8 @@ describe("DForcePoolAdapterUnitTest", () => {
       collateralCToken,
       borrowCToken,
       mockedCollateralCToken.address,
-      mockedBorrowCToken.address
+      mockedBorrowCToken.address,
+      MaticAddresses.DFORCE_CONTROLLER
     );
 
     await mockedCollateralCToken.init(mockedComptroller.address, collateralAsset, collateralCToken);

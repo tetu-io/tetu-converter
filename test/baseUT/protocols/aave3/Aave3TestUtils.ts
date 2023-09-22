@@ -171,7 +171,7 @@ export class Aave3TestUtils {
     const h: Aave3Helper = new Aave3Helper(deployer);
 
     const aavePool = additionalParams?.useAave3PoolMock
-      ? await MocksHelper.getAave3PoolMock(deployer, collateralToken.address, borrowToken.address)
+      ? await MocksHelper.getAave3PoolMock(deployer, collateralToken.address, borrowToken.address, MaticAddresses.AAVE_V3_POOL)
       : await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
     if (additionalParams?.useMockedAavePriceOracle) {
       await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);

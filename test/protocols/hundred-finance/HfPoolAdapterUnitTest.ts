@@ -131,7 +131,8 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       collateralCToken,
       borrowCToken,
       mockedCollateralCToken.address,
-      mockedBorrowCToken.address
+      mockedBorrowCToken.address,
+      MaticAddresses.HUNDRED_FINANCE_COMPTROLLER
     );
 
     await mockedCollateralCToken.init(mockedComptroller.address, collateralAsset, collateralCToken);
