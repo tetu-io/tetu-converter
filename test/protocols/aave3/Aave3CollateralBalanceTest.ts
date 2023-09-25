@@ -349,7 +349,7 @@ describe("Aave3CollateralBalanceTest", () => {
         const core = MaticCore.getCoreAave3();
         await Aave3ChangePricesUtils.changeAssetPrice(deployer, core, init.d.collateralToken.address, false, 10);
 
-        await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder);
         const stateAfterLiquidation = await Aave3TestUtils.getState(init.d);
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -370,7 +370,9 @@ describe("Aave3CollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it.skip("try to make full repay, aave reverts", async () => {
-        await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        const core = MaticCore.getCoreAave3();
+
+        await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder);
         const stateAfterLiquidation = await Aave3TestUtils.getState(init.d);
 
         await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);

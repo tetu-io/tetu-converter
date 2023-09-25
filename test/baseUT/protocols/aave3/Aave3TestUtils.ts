@@ -24,7 +24,6 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
 import {GAS_LIMIT} from "../../GasLimit";
-import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {ICoreAave3} from "./Aave3DataTypes";
 
 //region Data types
@@ -170,17 +169,17 @@ export class Aave3TestUtils {
     const periodInBlocks = 1000;
 
     // initialize pool, adapters and helper for the adapters
-    const h: Aave3Helper = new Aave3Helper(deployer, MaticAddresses.AAVE_V3_POOL);
+    const h: Aave3Helper = new Aave3Helper(deployer, core.pool);
 
     const aavePool = additionalParams?.useAave3PoolMock
-      ? await MocksHelper.getAave3PoolMock(deployer, collateralToken.address, borrowToken.address, MaticAddresses.AAVE_V3_POOL)
-      : await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
+      ? await MocksHelper.getAave3PoolMock(deployer, collateralToken.address, borrowToken.address, core.pool)
+      : await Aave3Helper.getAavePool(deployer, core.pool);
     if (additionalParams?.useMockedAavePriceOracle) {
       await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
     }
 
-    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
-    const aavePrices = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
+    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer, core.pool);
+    const aavePrices = await Aave3Helper.getAavePriceOracle(deployer, core.pool);
 
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
@@ -452,6 +451,7 @@ export class Aave3TestUtils {
 
   public static async makeLiquidation(
     deployer: SignerWithAddress,
+    core: ICoreAave3,
     d: IPrepareToBorrowResults,
     borrowHolder: string
   ) : Promise<ILiquidationResults> {
@@ -464,7 +464,7 @@ export class Aave3TestUtils {
     await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, Misc.MAX_UINT);
 
     const aavePoolAsLiquidator = IAavePool__factory.connect(d.aavePool.address, liquidator);
-    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator, MaticAddresses.AAVE_V3_POOL);
+    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator, core.pool);
     const userReserveData = await dataProvider.getUserReserveData(d.borrowToken.address, borrowerAddress);
     const amountToLiquidate = userReserveData.currentVariableDebt.div(2);
 
