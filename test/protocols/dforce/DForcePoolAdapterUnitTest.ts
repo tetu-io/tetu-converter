@@ -22,7 +22,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 import {Misc} from "../../../scripts/utils/Misc";
-import {IDForceCalcAccountEquityResults} from "../../baseUT/apr/aprDForce";
+import {IDForceCalcAccountEquityResults} from "../../baseUT/protocols/dforce/aprDForce";
 import {areAlmostEqual, toStringWithRound} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {

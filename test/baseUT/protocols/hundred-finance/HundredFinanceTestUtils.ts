@@ -27,12 +27,12 @@ import {
 } from "../../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
-import {IHfAccountLiquidity, IHundredFinanceAccountSnapshot} from "../../apr/aprHundredFinance";
+import {IHfAccountLiquidity, IHundredFinanceAccountSnapshot} from "./aprHundredFinance";
 import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
-import {IConversionPlan} from "../../apr/aprDataTypes";
+import {IConversionPlan} from "../shared/aprDataTypes";
 import {GAS_LIMIT} from "../../GasLimit";
 
 //region Data types

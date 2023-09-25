@@ -4,7 +4,7 @@ import {
   IConversionPlan,
   IAssetInfo,
   IBorrowResults, ISwapResults, IStrategyToConvert
-} from "../apr/aprDataTypes";
+} from "../protocols/shared/aprDataTypes";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {

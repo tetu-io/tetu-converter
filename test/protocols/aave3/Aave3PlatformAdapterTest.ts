@@ -16,14 +16,14 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
-import {AprAave3, getAave3StateInfo, IAave3StateInfo, IAaveReserveData} from "../../baseUT/apr/aprAave3";
+import {AprAave3, getAave3StateInfo, IAave3StateInfo, IAaveReserveData} from "../../baseUT/protocols/aave3/aprAave3";
 import {Misc} from "../../../scripts/utils/Misc";
-import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {convertUnits} from "../../baseUT/protocols/shared/aprUtils";
 import {Aave3Utils} from "../../baseUT/protocols/aave3/Aave3Utils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
+import {IConversionPlan} from "../../baseUT/protocols/shared/aprDataTypes";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {

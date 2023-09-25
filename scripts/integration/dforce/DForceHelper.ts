@@ -14,12 +14,12 @@ import {
   IDForceLendingData__factory
 
 } from "../../../typechain";
-import {BigNumber, ContractTransaction, Signer} from "ethers";
-import {Aave3Helper} from "../aave3/Aave3Helper";
+import {BigNumber} from "ethers";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 import {TokenDataTypes} from "../../../test/baseUT/types/TokenDataTypes";
 import {DeployerUtils} from "../../utils/DeployerUtils";
 import {getBigNumberFrom} from "../../utils/NumberUtils";
+import {CommonUtils} from "../../../test/baseUT/utils/CommonUtils";
 
 //region Data types
 export interface IDForceMarketData {
@@ -311,7 +311,7 @@ export class DForceHelper {
         rd.blocksPerYear
       ];
 
-      dest.push(line.map(x => Aave3Helper.toString(x)).join(","));
+      dest.push(line.map(x => CommonUtils.toString(x)).join(","));
     }
 
     return dest;
@@ -415,7 +415,7 @@ export class DForceHelper {
         row.paused,
         row.rewardTokenPrice
       ];
-      dest.push(line.map(x => Aave3Helper.toString(x)).join(","));
+      dest.push(line.map(x => CommonUtils.toString(x)).join(","));
     }
 
     return dest;

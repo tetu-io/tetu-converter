@@ -5,6 +5,7 @@ import {
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Aave3Helper} from "./Aave3Helper";
+import {CommonUtils} from "../../../test/baseUT/utils/CommonUtils";
 
 export class DownloadAave3Pools {
   /** Download detailed info for all available AAVE pools */
@@ -137,7 +138,7 @@ export class DownloadAave3Pools {
         ];
       }
 
-      dest.push(line.map(x => Aave3Helper.toString(x)).join(","));
+      dest.push(line.map(x => CommonUtils.toString(x)).join(","));
     }
 
     return dest;

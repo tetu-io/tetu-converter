@@ -7,7 +7,7 @@ import {
   IAaveProtocolDataProvider, IERC20__factory, IERC20Metadata__factory
 } from "../../../../typechain";
 import {Aave3Helper, IAave3ReserveInfo} from "../../../../scripts/integration/aave3/Aave3Helper";
-import {IConversionPlan} from "../../apr/aprDataTypes";
+import {IConversionPlan} from "../shared/aprDataTypes";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {ethers} from "hardhat";
@@ -17,7 +17,7 @@ import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
-import {IAave3UserAccountDataResults} from "../../apr/aprAave3";
+import {IAave3UserAccountDataResults} from "./aprAave3";
 import {Aave3ChangePricesUtils} from "./Aave3ChangePricesUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";

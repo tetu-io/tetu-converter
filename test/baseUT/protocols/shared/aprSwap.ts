@@ -1,19 +1,19 @@
-import {TokenDataTypes} from "../types/TokenDataTypes";
+import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {
   IERC20__factory,
   SwapManager__factory
-} from "../../../typechain";
+} from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   IStrategyToConvert, IStrategyToSwap, ISwapResults
 } from "./aprDataTypes";
-import {TetuConverterApp} from "../helpers/TetuConverterApp";
-import {BalanceUtils} from "../utils/BalanceUtils";
-import {MocksHelper} from "../helpers/MocksHelper";
-import {CompareAprUsesCase} from "../uses-cases/CompareAprUsesCase";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {TetuConverterApp} from "../../helpers/TetuConverterApp";
+import {BalanceUtils} from "../../utils/BalanceUtils";
+import {MocksHelper} from "../../helpers/MocksHelper";
+import {CompareAprUsesCase} from "../../uses-cases/CompareAprUsesCase";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 
 export interface IMakeSwapTestResults {
   strategyToConvert: IStrategyToConvert;

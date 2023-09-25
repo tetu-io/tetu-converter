@@ -11,6 +11,7 @@ import {
 import {BigNumber} from "ethers";
 import {Aave3Helper} from "../aave3/Aave3Helper";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
+import {CommonUtils} from "../../../test/baseUT/utils/CommonUtils";
 
 //region Constants
 
@@ -202,7 +203,7 @@ export class HundredFinanceHelper {
                 rd.blocksPerYear
             ];
 
-            dest.push(line.map(x => Aave3Helper.toString(x)).join(","));
+            dest.push(line.map(x => CommonUtils.toString(x)).join(","));
         }
 
         return dest;

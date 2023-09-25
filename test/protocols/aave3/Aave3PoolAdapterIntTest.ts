@@ -14,7 +14,7 @@ import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
-import {IAave3UserAccountDataResults} from "../../baseUT/apr/aprAave3";
+import {IAave3UserAccountDataResults} from "../../baseUT/protocols/aave3/aprAave3";
 import {
   AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults

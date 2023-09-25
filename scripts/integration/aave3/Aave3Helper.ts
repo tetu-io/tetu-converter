@@ -294,15 +294,6 @@ export class Aave3Helper {
     return ! configuration.and(BigNumber.from(mask).xor(fullMask)).eq(0);
   }
 
-  public static toString(n: BigNumberish | boolean | undefined) : string {
-    if (n === undefined) {
-      return "";
-    }
-    return typeof n === "object" && n.toString()
-      ? n.toString()
-      : "" + n;
-  }
-
   public static memoize<T>(fn: (category: number) => Promise<T>) : (category: number) => Promise<T> {
     const cache = new Map<number, T>();
     return async (category: number) => {

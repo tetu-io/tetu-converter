@@ -18,14 +18,11 @@ import {BalanceUtils} from "../../utils/BalanceUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {ethers} from "hardhat";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {IDForceCalcAccountEquityResults} from "../../apr/aprDForce";
+import {IDForceCalcAccountEquityResults} from "./aprDForce";
 import {DForceChangePriceUtils} from "./DForceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
-import {TetuConverterApp} from "../../helpers/TetuConverterApp";
-import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
 import {GAS_LIMIT} from "../../GasLimit";
-import {AppDataTypes} from "../../../../typechain/contracts/protocols/dforce/DForcePlatformAdapter";
-import {IConversionPlan} from "../../apr/aprDataTypes";
+import {IConversionPlan} from "../shared/aprDataTypes";
 
 //region Data types
 export interface IPrepareToBorrowResults {

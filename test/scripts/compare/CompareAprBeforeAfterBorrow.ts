@@ -11,12 +11,12 @@ import {
 } from "../../../typechain";
 import {expect} from "chai";
 import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
-import {AprAave3} from "../../baseUT/apr/aprAave3";
-import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
-import {AprDForce} from "../../baseUT/apr/aprDForce";
+import {AprAave3} from "../../baseUT/protocols/aave3/aprAave3";
+import {AprAaveTwo} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
+import {AprDForce} from "../../baseUT/protocols/dforce/aprDForce";
 import {Misc} from "../../../scripts/utils/Misc";
-import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
-import {AprSwap} from "../../baseUT/apr/aprSwap";
+import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
+import {AprSwap} from "../../baseUT/protocols/shared/aprSwap";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";

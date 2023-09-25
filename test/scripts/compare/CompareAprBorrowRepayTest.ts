@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {IStrategyToConvert} from "../../baseUT/apr/aprDataTypes";
+import {IStrategyToConvert} from "../../baseUT/protocols/shared/aprDataTypes";
 import {BigNumber} from "ethers";
 import {ConverterController, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";

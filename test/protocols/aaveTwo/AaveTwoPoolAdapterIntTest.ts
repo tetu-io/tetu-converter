@@ -14,7 +14,7 @@ import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
+import {IAaveTwoUserAccountDataResults} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
 import {
   AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults

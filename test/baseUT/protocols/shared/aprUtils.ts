@@ -1,19 +1,18 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
+import {ITestSingleBorrowParams} from "../../types/BorrowRepayDataTypes";
 import {BigNumber} from "ethers";
-import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
-import {TetuConverterApp} from "../helpers/TetuConverterApp";
-import {MocksHelper} from "../helpers/MocksHelper";
-import {TokenDataTypes} from "../types/TokenDataTypes";
-import {getRatioMul100, setInitialBalance} from "../utils/CommonUtils";
-import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {ILendingPlatformFabric} from "../../fabrics/ILendingPlatformFabric";
+import {TetuConverterApp} from "../../helpers/TetuConverterApp";
+import {MocksHelper} from "../../helpers/MocksHelper";
+import {TokenDataTypes} from "../../types/TokenDataTypes";
+import {CommonUtils, setInitialBalance} from "../../utils/CommonUtils";
+import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {existsSync, writeFileSync} from "fs";
-import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
-import {IBorrowingTestResults, ISwapTestResults} from "../uses-cases/CompareAprUsesCase";
+import {IBorrowingTestResults, ISwapTestResults} from "../../uses-cases/CompareAprUsesCase";
 import {IPointResults} from "./aprDataTypes";
-import {Misc} from "../../../scripts/utils/Misc";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {Misc} from "../../../../scripts/utils/Misc";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 
 //region Make borrow
 /**
@@ -277,14 +276,14 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
 
       row.results?.predictedAmounts.supplyIncomeInBorrowTokens36,
       row.results?.resultAmounts.supplyIncomeInBorrowTokens36,
-      getRatioMul100(
+      CommonUtils.getRatioMul100(
         row.results?.predictedAmounts.supplyIncomeInBorrowTokens36,
         row.results?.resultAmounts.supplyIncomeInBorrowTokens36
       ),
 
       row.results?.predictedAmounts.costBorrow36,
       row.results?.resultAmounts.costBorrow36,
-      getRatioMul100(
+      CommonUtils.getRatioMul100(
         row.results?.predictedAmounts.costBorrow36,
         row.results?.resultAmounts.costBorrow36
       ),
@@ -364,7 +363,7 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
       }
     }
 
-    lines.push(line.map(x => Aave3Helper.toString(x)).join(","));
+    lines.push(line.map(x => CommonUtils.toString(x)).join(","));
   }
 
   // write data
@@ -431,7 +430,7 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
       undefined, undefined, undefined, undefined, undefined,
     ];
 
-    lines.push(line.map(x => Aave3Helper.toString(x)).join(","));
+    lines.push(line.map(x => CommonUtils.toString(x)).join(","));
   }
 
   // write data

@@ -19,7 +19,7 @@ import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
-import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
+import {IAaveTwoUserAccountDataResults} from "./aprAaveTwo";
 import {AaveTwoChangePricesUtils} from "./AaveTwoChangePricesUtils";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";

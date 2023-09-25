@@ -27,12 +27,12 @@ import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorr
 import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {AprDForce, getDForceStateInfo} from "../../baseUT/apr/aprDForce";
+import {AprDForce, getDForceStateInfo} from "../../baseUT/protocols/dforce/aprDForce";
 import {Misc} from "../../../scripts/utils/Misc";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
-import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {convertUnits} from "../../baseUT/protocols/shared/aprUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
+import {IConversionPlan} from "../../baseUT/protocols/shared/aprDataTypes";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {

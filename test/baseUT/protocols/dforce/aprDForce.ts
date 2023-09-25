@@ -1,85 +1,78 @@
 import {BigNumber} from "ethers";
-import {IBorrowResults, IPointResults} from "./aprDataTypes";
+import {IBorrowResults, IPointResults} from "../shared/aprDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
-import {HundredFinanceHelper} from "../../../scripts/integration/hundred-finance/HundredFinanceHelper";
+import {ITestSingleBorrowParams} from "../../types/BorrowRepayDataTypes";
+import {DForceHelper} from "../../../../scripts/integration/dforce/DForceHelper";
 import {
-  HfAprLibFacade, HfTestHelper, IERC20Metadata__factory, IHfComptroller,
-  IHfCToken,
-  IHfCToken__factory,
-} from "../../../typechain";
-import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {DeployUtils} from "../../../scripts/utils/DeployUtils";
+  DForceAprLibFacade, DForceTestHelper,
+  IDForceController,
+  IDForceCToken,
+  IDForceCToken__factory,
+  IERC20Metadata__factory
+} from "../../../../typechain";
+import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import hre, {ethers} from "hardhat";
 import {
   changeDecimals,
   convertUnits, getExpectedApr18, makeBorrow
-} from "./aprUtils";
-import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {HundredFinancePlatformFabric} from "../fabrics/HundredFinancePlatformFabric";
-import {HundredFinanceUtils} from "../utils/HundredFinanceUtils";
-import {Misc} from "../../../scripts/utils/Misc";
+} from "../shared/aprUtils";
+import {DForcePlatformFabric} from "../../fabrics/DForcePlatformFabric";
+import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
+import {DForceUtils} from "../../utils/DForceUtils";
+import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
 
 //region Data types
-interface IHfMarketState {
+interface IDForceMarketState {
   accrualBlockNumber: BigNumber;
   borrowIndex: BigNumber;
   borrowRatePerBlock: BigNumber;
   exchangeRateStored: BigNumber;
   cash: BigNumber;
-  reserveFactorMantissa: BigNumber;
+  reserveRatio: BigNumber;
   supplyRatePerBlock: BigNumber;
   totalBorrows: BigNumber;
   totalReserves: BigNumber;
   totalSupply: BigNumber;
 }
 
-export interface IHfAccountLiquidity {
-  error: BigNumber;
-  liquidity: BigNumber;
+export interface IDForceCalcAccountEquityResults {
+  // calcAccountEquity
+  accountEquity: BigNumber;
   shortfall: BigNumber;
+  collateralValue: BigNumber;
+  borrowedValue: BigNumber;
 }
 
-export interface IHundredFinanceAccountSnapshot {
-  error: BigNumber;
-  tokenBalance: BigNumber;
-  borrowBalance: BigNumber;
-  exchangeRateMantissa: BigNumber;
-}
-
-export interface IHfUserAccountState {
+export interface IDForceUserAccountState extends IDForceCalcAccountEquityResults {
   balance: BigNumber;
   borrowBalanceStored: BigNumber;
+  borrowPrincipal: BigNumber;
   borrowInterestIndex: BigNumber;
 
-  accountLiquidity: BigNumber;
-  accountShortfall: BigNumber;
-  accountTokenBalance: BigNumber;
-  accountBorrowBalance: BigNumber;
-  exchangeRateMantissa: BigNumber;
 }
 
-interface IHfState {
+interface IDForceState {
   block: number,
   blockTimestamp: number;
   collateral: {
-    market: IHfMarketState,
-    account: IHfUserAccountState
+    market: IDForceMarketState,
+    account: IDForceUserAccountState
   },
   borrow: {
-    market: IHfMarketState,
-    account: IHfUserAccountState
+    market: IDForceMarketState,
+    account: IDForceUserAccountState
   },
 }
 
-interface IAprHfTwoResults {
+interface IAprDForceTwoResults {
   /** State before borrow */
-  before: IHfState;
+  before: IDForceState;
   /** State just after borrow */
-  next: IHfState;
+  next: IDForceState;
   /** State just after borrow + 1 block */
-  last: IHfState;
+  last: IDForceState;
   /** Borrower address */
   userAddress: string;
   /** Exact value of the borrowed amount */
@@ -98,21 +91,21 @@ interface IAprHfTwoResults {
   /** total increment of collateral amount from NEXT to LAST in terms of COLLATERAL currency */
   deltaCollateralMul18: BigNumber;
   /** total increment of collateral amount from NEXT to LAST in terms of BORROW currency */
-  deltaCollateralBT: BigNumber;
+  deltaCollateralBtMul18: BigNumber;
   /** total increment of borrowed amount from NEXT to LAST in terms of BORROW currency */
   deltaBorrowBalance: BigNumber;
 }
 //endregion Data types
 
 //region Utils
-async function getHfMarketState(token: IHfCToken): Promise<IHfMarketState> {
+async function getDForceMarketState(token: IDForceCToken): Promise<IDForceMarketState> {
   return {
     accrualBlockNumber: await token.accrualBlockNumber(),
     borrowIndex: await token.borrowIndex(),
     cash: await token.getCash(),
     borrowRatePerBlock: await token.borrowRatePerBlock(),
     exchangeRateStored: await token.exchangeRateStored(),
-    reserveFactorMantissa: await token.reserveFactorMantissa(),
+    reserveRatio: await token.reserveRatio(),
     supplyRatePerBlock: await token.supplyRatePerBlock(),
     totalBorrows: await token.totalBorrows(),
     totalReserves: await token.totalReserves(),
@@ -120,48 +113,48 @@ async function getHfMarketState(token: IHfCToken): Promise<IHfMarketState> {
   }
 }
 
-async function getHfUserAccountState(
-  comptroller: IHfComptroller,
-  token: IHfCToken,
+async function getDForceUserAccountState(
+  comptroller: IDForceController,
+  token: IDForceCToken,
   user: string
-): Promise<IHfUserAccountState> {
-  const e = await comptroller.getAccountLiquidity(user);
-  const snapshot = await token.getAccountSnapshot(user);
+): Promise<IDForceUserAccountState> {
+  const snapshot = await token.borrowSnapshot(user);
+  const e = await comptroller.calcAccountEquity(user);
   return {
     balance: await token.balanceOf(user),
     borrowBalanceStored: await token.borrowBalanceStored(user),
-    borrowInterestIndex: await token.borrowIndex(),
+    borrowInterestIndex: snapshot.interestIndex,
+    borrowPrincipal: snapshot.principal,
 
-    accountLiquidity: e.liquidity,
-    accountShortfall: e.shortfall,
-    accountBorrowBalance: snapshot.borrowBalance,
-    accountTokenBalance: snapshot.tokenBalance,
-    exchangeRateMantissa: snapshot.exchangeRateMantissa
+    accountEquity: e.accountEquity,
+    shortfall: e.shortfall,
+    borrowedValue: e.borrowedValue,
+    collateralValue: e.collateralValue
   }
 }
 
-export async function getHfStateInfo(
-  comptroller: IHfComptroller,
-  cTokenCollateral: IHfCToken,
-  cTokenBorrow: IHfCToken,
+export async function getDForceStateInfo(
+  comptroller: IDForceController,
+  cTokenCollateral: IDForceCToken,
+  cTokenBorrow: IDForceCToken,
   user: string,
-) : Promise<IHfState> {
+) : Promise<IDForceState> {
   return {
     block: (await hre.ethers.provider.getBlock("latest")).number,
     blockTimestamp: (await hre.ethers.provider.getBlock("latest")).timestamp,
     collateral: {
-      market: await getHfMarketState(cTokenCollateral),
-      account: await getHfUserAccountState(comptroller, cTokenCollateral, user),
+      market: await getDForceMarketState(cTokenCollateral),
+      account: await getDForceUserAccountState(comptroller, cTokenCollateral, user),
     },
     borrow: {
-      market: await getHfMarketState(cTokenBorrow),
-      account: await getHfUserAccountState(comptroller, cTokenBorrow, user),
+      market: await getDForceMarketState(cTokenBorrow),
+      account: await getDForceUserAccountState(comptroller, cTokenBorrow, user),
     }
   }
 }
 //endregion Utils
 
-export class AprHundredFinance {
+export class AprDForce {
   /**
    * 0. Predict APR
    * 1. Make borrow
@@ -180,24 +173,26 @@ export class AprHundredFinance {
     deployer: SignerWithAddress,
     amountToBorrow0: number | BigNumber,
     p: ITestSingleBorrowParams,
-    additionalPoints: number[]
+    additionalPoints: number[],
   ): Promise<{
-    details: IAprHfTwoResults,
+    details: IAprDForceTwoResults,
     results: IBorrowResults
   }> {
-    const collateralCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.collateral.asset);
-    const borrowCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.borrow.asset);
+    const collateralCTokenAddress = DForceUtils.getCTokenAddressForAsset(p.collateral.asset);
+    const borrowCTokenAddress = DForceUtils.getCTokenAddressForAsset(p.borrow.asset);
+    const rewardsFactor = Misc.WEI;
 
-    const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-    const cTokenCollateral = IHfCToken__factory.connect(collateralCTokenAddress, deployer);
-    const cTokenBorrow = IHfCToken__factory.connect(borrowCTokenAddress, deployer);
-    const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
+    const comptroller = await DForceHelper.getController(deployer);
+    const cTokenCollateral = IDForceCToken__factory.connect(collateralCTokenAddress, deployer);
+    const cTokenBorrow = IDForceCToken__factory.connect(borrowCTokenAddress, deployer);
+    const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
+    const rewardsDistributor = await DForceHelper.getRewardDistributor(comptroller, deployer);
 
     const borrowAssetDecimals = await (IERC20Metadata__factory.connect(p.borrow.asset, deployer)).decimals();
     const collateralAssetDecimals = await (IERC20Metadata__factory.connect(p.collateral.asset, deployer)).decimals();
 
-    const marketCollateralData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
-    const marketBorrowData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
+    const marketCollateralData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
+    const marketBorrowData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
 
     console.log("marketCollateralData", marketCollateralData);
     console.log("marketBorrowData", marketBorrowData);
@@ -216,62 +211,62 @@ export class AprHundredFinance {
     console.log("priceBorrow36", priceBorrow36);
 
     // predict APR
-    const libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
-    const hfHelper = await DeployUtils.deployContract(deployer, "HfTestHelper") as HfTestHelper;
+    const libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
+    const dForceHelper = await DeployUtils.deployContract(deployer, "DForceTestHelper") as DForceTestHelper;
 
     // start point: we estimate APR in this point before borrow and supply
-    const before = await getHfStateInfo(comptroller
-      , cTokenCollateral
-      , cTokenBorrow
+    const before = await getDForceStateInfo(comptroller,
+      cTokenCollateral,
+      cTokenBorrow,
       // we don't have user address at this moment
       // so, use dummy address (and get dummy balance values - we don't use them)
-      , ethers.Wallet.createRandom().address
+      ethers.Wallet.createRandom().address
     );
 
-    const supplyRatePredicted = await this.getEstimatedSupplyRate(libFacade
-      , cTokenCollateral
-      , amountCollateral
+    const supplyRatePredicted = await this.getEstimatedSupplyRate(libFacade,
+      before,
+      amountCollateral,
+      marketCollateralData.interestRateModel
     );
     console.log(`supplyRatePredicted=${supplyRatePredicted.toString()}`);
 
     const amountToBorrow = getBigNumberFrom(amountToBorrow0, borrowAssetDecimals);
-    const borrowRatePredicted = await this.getEstimatedBorrowRate(libFacade
-      , cTokenBorrow
-      , amountToBorrow
+    const borrowRatePredicted = await this.getEstimatedBorrowRate(libFacade,
+      cTokenBorrow,
+      amountToBorrow,
     );
     console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
 
     // make borrow
     const borrowResults = await makeBorrow(
-      deployer
-      , p
-      , amountToBorrow
-      , new HundredFinancePlatformFabric()
+      deployer,
+      p,
+      amountToBorrow,
+      new DForcePlatformFabric(),
     );
     const userAddress = borrowResults.poolAdapter;
     const borrowAmount = borrowResults.borrowAmount;
     console.log(`userAddress=${userAddress} borrowAmount=${borrowAmount} amountToBorrow=${amountToBorrow}`);
 
     // next => last
-    const next = await getHfStateInfo(comptroller
-      , cTokenCollateral
-      , cTokenBorrow
-      , userAddress
+    const next = await getDForceStateInfo(comptroller,
+      cTokenCollateral,
+      cTokenBorrow,
+      userAddress,
     );
 
     // For borrow and collateral: move ahead on single block
-    await hfHelper.accrueInterest(cTokenCollateral.address, cTokenBorrow.address);
+    await dForceHelper.updateInterest(cTokenCollateral.address, cTokenBorrow.address);
 
-    const last = await getHfStateInfo(comptroller
-      , cTokenCollateral
-      , cTokenBorrow
-      , userAddress
+    const last = await getDForceStateInfo(comptroller,
+      cTokenCollateral,
+      cTokenBorrow,
+      userAddress,
     );
 
     console.log("before", before);
     console.log("next", next);
     console.log("last", last);
-
 
     // calculate exact values of supply/borrow APR
     // we use state-values "after-borrow" and exact values of supply/borrow rates after borrow
@@ -285,7 +280,6 @@ export class AprHundredFinance {
       priceBorrow36,
       amountCollateral,
     );
-    console.log("supplyIncomeInBorrowAsset36", supplyIncomeInBorrowAsset36);
     const supplyIncomeInBorrowAsset36Exact = await libFacade.getSupplyIncomeInBorrowAsset36(
       next.collateral.market.supplyRatePerBlock,
       countBlocksNextToLast,
@@ -313,15 +307,13 @@ export class AprHundredFinance {
     console.log("borrowAprExact", borrowCost36);
 
     // get collateral (in terms of collateral tokens) for next and last points
-    const collateralNextMul18 = next.collateral.account.balance
-      .mul(next.collateral.market.exchangeRateStored);
-    const collateralLastMul18 = last.collateral.account.balance
-      .mul(last.collateral.market.exchangeRateStored);
+    const collateralNextMul18 = next.collateral.account.balance.mul(next.collateral.market.exchangeRateStored);
+    const collateralLastMul18 = last.collateral.account.balance.mul(last.collateral.market.exchangeRateStored);
     const deltaCollateralMul18 = collateralLastMul18.sub(collateralNextMul18);
     const deltaCollateralBtMul18 = deltaCollateralMul18.mul(priceCollateral).div(priceBorrow);
-    console.log("collateralNextMul18", collateralNextMul18);
-    console.log("collateralLastMul18", collateralLastMul18);
-    console.log("deltaCollateralMul18", deltaCollateralMul18);
+    console.log("collateralNext", collateralNextMul18);
+    console.log("collateralLast", collateralLastMul18);
+    console.log("deltaCollateral", deltaCollateralMul18);
     console.log("deltaCollateralBT", deltaCollateralBtMul18);
 
     const deltaBorrowBalance = last.borrow.account.borrowBalanceStored.sub(
@@ -329,21 +321,47 @@ export class AprHundredFinance {
     );
     console.log("deltaBorrowBalance", deltaBorrowBalance);
 
+    let totalAmountRewards: BigNumber = BigNumber.from(0);
     const pointsResults: IPointResults[] = [];
-
     for (const period of additionalPoints) {
-      await TimeUtils.advanceNBlocks(period);
-      await hfHelper.accrueInterest(cTokenCollateral.address, cTokenBorrow.address);
+      // we need 4 blocks to update rewards ... so we need to make advance on N - 4 blocks
+      await TimeUtils.advanceNBlocks(period > 4 ? period - 4 : period);
+      await rewardsDistributor.updateDistributionState(collateralCTokenAddress, false);
+      await rewardsDistributor.updateReward(collateralCTokenAddress, userAddress, false);
 
-      const current = await getHfStateInfo(comptroller
+      await rewardsDistributor.updateDistributionState(borrowCTokenAddress, true);
+      await rewardsDistributor.updateReward(borrowCTokenAddress, userAddress, true);
+
+      await dForceHelper.updateInterest(cTokenCollateral.address, cTokenBorrow.address);
+
+      totalAmountRewards = await rewardsDistributor.reward(userAddress);
+
+      // let's reconvert rewards to borrow tokens
+      const rewardToken = await rewardsDistributor.rewardToken();
+      const priceRewards = await priceOracle.getUnderlyingPrice(rewardToken);
+      const rt = IDForceCToken__factory.connect(rewardToken, deployer);
+      console.log("totalAmountRewards", totalAmountRewards);
+      console.log("priceRewards", priceRewards);
+      console.log("rewards-decimals", await rt.decimals());
+      console.log("priceBorrow", priceBorrow);
+
+      const totalAmountRewardsBt36 = totalAmountRewards
+        .mul(priceRewards).mul(getBigNumberFrom(1, await rt.decimals()))
+        .mul(getBigNumberFrom(1, 36))
+        .div(priceBorrow.mul(getBigNumberFrom(1, borrowAssetDecimals)))
+        .div(getBigNumberFrom(1, await rt.decimals()));
+      console.log("totalAmountRewardsBt36", totalAmountRewardsBt36);
+
+      const current = await getDForceStateInfo(comptroller
         , cTokenCollateral
         , cTokenBorrow
         , userAddress
       );
+      console.log("current", current);
 
       const collateralCurrentMul18 = current.collateral.account.balance.mul(current.collateral.market.exchangeRateStored);
-      const dc = collateralCurrentMul18.sub(collateralNextMul18);
-      const db = current.borrow.account.borrowBalanceStored.sub(next.borrow.account.borrowBalanceStored);
+      const deltaCollateral = collateralCurrentMul18.sub(collateralNextMul18);
+      const deltaBorrow = current.borrow.account.borrowBalanceStored.sub(next.borrow.account.borrowBalanceStored);
 
       pointsResults.push({
         period: {
@@ -361,9 +379,11 @@ export class AprHundredFinance {
           borrow: current.borrow.account.borrowBalanceStored
         },
         costsInBorrowTokens36: {
-          collateral: changeDecimals(dc.mul(priceCollateral36).div(priceBorrow36), collateralAssetDecimals, 18),
-          borrow: changeDecimals(db, borrowAssetDecimals, 36),
-        }
+          collateral: changeDecimals(deltaCollateral.mul(priceCollateral36).div(priceBorrow36), collateralAssetDecimals, 18),
+          borrow: changeDecimals(deltaBorrow, borrowAssetDecimals, 36),
+        },
+        totalAmountRewards,
+        totalAmountRewardsBt36
       })
     }
 
@@ -377,24 +397,24 @@ export class AprHundredFinance {
     const predictedApr18 =  getExpectedApr18(
       borrowCost36,
       supplyIncomeInBorrowAsset36,
-      BigNumber.from(0),
+      totalAmountRewards, // TODO: use PREDICTED (not real) amount of rewards (!)
       collateralAmountInBorrowTokens36,
-      Misc.WEI // rewards = 0, not used
+      rewardsFactor
     );
 
     const resultSupplyIncomeInBorrowTokens36 = changeDecimals(
-      deltaCollateralMul18.mul(priceCollateral).div(priceBorrow)
+      deltaCollateralMul18.mul(priceCollateral)
       , borrowAssetDecimals
       , 18 // we need decimals 36, but deltaCollateralMul18 is already multiplied on 1e18
-    );
+    ).div(priceBorrow);
 
     const resultCostBorrow36 = changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36);
     const resultApr18 = getExpectedApr18(
       resultCostBorrow36,
       resultSupplyIncomeInBorrowTokens36,
-      BigNumber.from(0),
+      totalAmountRewards,
       collateralAmountInBorrowTokens36,
-      Misc.WEI // rewards = 0, not used
+      rewardsFactor
     );
 
     return {
@@ -405,7 +425,7 @@ export class AprHundredFinance {
         deltaBorrowBalance,
         deltaCollateralMul18,
         supplyIncomeInBorrowAsset36,
-        deltaCollateralBT: deltaCollateralBtMul18,
+        deltaCollateralBtMul18,
         borrowAmount,
         last,
         supplyIncomeInBorrowAsset36Exact,
@@ -450,26 +470,32 @@ export class AprHundredFinance {
   }
 
   static async getEstimatedSupplyRate(
-    libFacade: HfAprLibFacade,
-    token: IHfCToken,
+    libFacade: DForceAprLibFacade,
+    state: IDForceState,
     amountCollateral: BigNumber,
+    interestRateModel: string
   ) : Promise<BigNumber> {
-    return libFacade.getEstimatedSupplyRate(
-      await token.interestRateModel()
-      , token.address
-      , amountCollateral
+    return libFacade.getEstimatedSupplyRatePure(
+      state.collateral.market.totalSupply,
+      amountCollateral,
+      state.collateral.market.cash,
+      state.collateral.market.totalBorrows,
+      state.collateral.market.totalReserves,
+      interestRateModel,
+      state.collateral.market.reserveRatio,
+      state.collateral.market.exchangeRateStored,
     );
   }
 
   static async getEstimatedBorrowRate(
-    libFacade: HfAprLibFacade,
-    token: IHfCToken,
+    libFacade: DForceAprLibFacade,
+    token: IDForceCToken,
     borrowAmount: BigNumber
   ) : Promise<BigNumber> {
     return libFacade.getEstimatedBorrowRate(
-      await token.interestRateModel()
-      , token.address
-      , borrowAmount
+      await token.interestRateModel(),
+      token.address,
+      borrowAmount,
     );
 
   }

@@ -17,7 +17,7 @@ import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils
 import {BigNumber, ContractTransaction} from "ethers";
 import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus, IPoolAdapterStatusNum} from "../baseUT/types/BorrowRepayDataTypes";
-import {getExpectedApr18} from "../baseUT/apr/aprUtils";
+import {getExpectedApr18} from "../baseUT/protocols/shared/aprUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx2, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";

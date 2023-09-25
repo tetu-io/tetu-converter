@@ -23,7 +23,7 @@ import {BorrowMockAction} from "../actions/BorrowMockAction";
 import {RepayMockAction} from "../actions/RepayMockAction";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {makeInfinityApprove} from "../utils/transferUtils";
-import {IStrategyToConvert} from "../apr/aprDataTypes";
+import {IStrategyToConvert} from "../protocols/shared/aprDataTypes";
 import {RepayActionUsingSwap} from "../actions/RepayActionUsingSwap";
 import {ClaimRewardsAction} from "../actions/ClaimRewardsAction";
 import {parseUnits} from "ethers/lib/utils";

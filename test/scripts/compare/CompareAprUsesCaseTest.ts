@@ -8,19 +8,19 @@ import {
   ISwapTestResults
 } from "../../baseUT/uses-cases/CompareAprUsesCase";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {IAssetInfo} from "../../baseUT/apr/aprDataTypes";
+import {IAssetInfo} from "../../baseUT/protocols/shared/aprDataTypes";
 import {BigNumber} from "ethers";
 import {IERC20Metadata__factory, SwapManager__factory} from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {AprAave3} from "../../baseUT/apr/aprAave3";
+import {AprAave3} from "../../baseUT/protocols/aave3/aprAave3";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
-import {AprDForce} from "../../baseUT/apr/aprDForce";
-import {appendBorrowingTestResultsToFile, appendSwapTestResultsToFile} from "../../baseUT/apr/aprUtils";
+import {AprAaveTwo} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
+import {AprDForce} from "../../baseUT/protocols/dforce/aprDForce";
+import {appendBorrowingTestResultsToFile, appendSwapTestResultsToFile} from "../../baseUT/protocols/shared/aprUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {expect} from "chai";
 import {Misc} from "../../../scripts/utils/Misc";
-import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
+import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {MaticCore} from "../../baseUT/cores/maticCore";

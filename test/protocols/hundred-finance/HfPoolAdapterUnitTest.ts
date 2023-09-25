@@ -19,7 +19,7 @@ import {HundredFinanceHelper} from "../../../scripts/integration/hundred-finance
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
-import {IHfAccountLiquidity} from "../../baseUT/apr/aprHundredFinance";
+import {IHfAccountLiquidity} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {

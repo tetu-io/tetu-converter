@@ -19,7 +19,7 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
-import {IAave3UserAccountDataResults} from "../../baseUT/apr/aprAave3";
+import {IAave3UserAccountDataResults} from "../../baseUT/protocols/aave3/aprAave3";
 import {
   AaveRepayToRebalanceUtils, IAaveMakeRepayToRebalanceResults,
   IMakeRepayToRebalanceResults
@@ -1014,7 +1014,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         useEMode ?? false,
         {
           targetHealthFactor2: targetHealthFactorInitial2,
-          useAave3PoolMock: p?.badPathsParams?.useAavePoolMock ?? false
+          useAave3PoolMock: p?.badPathsParams?.poolMocked ?? false
         }
       );
       const collateralAssetData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, p.collateralToken.address);
@@ -1089,7 +1089,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         await d.controller.tetuConverter()
       );
 
-      if (p?.badPathsParams?.useAavePoolMock) {
+      if (p?.badPathsParams?.poolMocked) {
         if (p?.badPathsParams?.addToHealthFactorAfterRepay) {
           await Aave3PoolMock__factory.connect(d.aavePool.address, deployer).setHealthFactorAddonAfterRepay(
             parseUnits(p?.badPathsParams?.addToHealthFactorAfterRepay, 18)
@@ -1321,7 +1321,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         describe("RepayToRebalance reduces health factor by a value greater than the limit", () => {
           it("should NOT revert", async () => {
             await testRepayToRebalanceDaiWMatic({
-              useAavePoolMock: true,
+              poolMocked: true,
 
               // the state is healthy
               skipHealthFactors2: true,
@@ -1350,7 +1350,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         describe("RepayToRebalance reduces health factor by a value lesser than the limit", () => {
           it("should NOT revert", async () => {
             await testRepayToRebalanceDaiWMatic({
-              useAavePoolMock: true,
+              poolMocked: true,
 
               // healthFactor before repay = 9999999949101140296
               // healthFactor after repay =  9999990449101434776
@@ -1366,7 +1366,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           it("should revert", async () => {
             await expect(
               testRepayToRebalanceDaiWMatic({
-                useAavePoolMock: true,
+                poolMocked: true,
 
                 // healthFactor before repay = 9999999955468282000
                 // healthFactor after repay =  9900000455468577544
