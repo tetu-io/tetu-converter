@@ -20,7 +20,7 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {DForceHelper} from "../../../scripts/chains/polygon/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 import {Misc} from "../../../scripts/utils/Misc";
 import {IDForceCalcAccountEquityResults} from "../../baseUT/apr/aprDForce";
 import {areAlmostEqual, toStringWithRound} from "../../baseUT/utils/CommonUtils";

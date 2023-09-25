@@ -7,13 +7,13 @@ import {
   IAaveTwoProtocolDataProvider,
   IAaveTwoProtocolDataProvider__factory,
   IERC20Metadata__factory
-} from "../../../../../typechain";
+} from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {MaticAddresses} from "../../../../addresses/MaticAddresses";
-import {DataTypes} from "../../../../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
-import {IReserveLtvConfig} from "./Aave3Helper";
+import {MaticAddresses} from "../../addresses/MaticAddresses";
+import {DataTypes} from "../../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
+import {IReserveLtvConfig} from "../aave3/Aave3Helper";
 
-const AAVE_POOL = MaticAddresses.AAVE_TWO_POOL;
+const AAVE_POOL = MaticAddresses.AAVE_TWO_POOL; // todo Remove dependency on MaticAddresses
 
 const FULL_MASK =                      "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
@@ -170,8 +170,8 @@ export class AaveTwoHelper {
 //endregion Read reserve info
 
 //region Access
-  public static getAavePool(signer: SignerWithAddress): IAaveTwoPool {
-    return IAaveTwoPool__factory.connect(AAVE_POOL, signer);
+  public static getAavePool(signer: SignerWithAddress, pool: string = AAVE_POOL): IAaveTwoPool {
+    return IAaveTwoPool__factory.connect(pool, signer);
   }
   public static async getAaveAddressesProvider(signer: SignerWithAddress): Promise<IAaveTwoLendingPoolAddressesProvider> {
     return IAaveTwoLendingPoolAddressesProvider__factory.connect(

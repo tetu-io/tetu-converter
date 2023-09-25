@@ -33,9 +33,9 @@ export class BaseAddresses {
     public static MOONWELL_WETH_ROUTER = "0x31CCFB038771d9bF486Ef7c7f3A9F91bE72124C4".toLowerCase();
     public static MOONWELL_DAI = "0x73b06D8d18De422E269645eaCe15400DE7462417".toLowerCase();
     public static MOONWELL_USDC = "0xEdc817A28E8B93B03976FBd4a3dDBc9f7D176c22".toLowerCase();
-    public static MOONWELL_USDbC = "0x703843C3379b52F9FF486c9f5892218d2a065cC8".toLowerCase();
+    public static MOONWELL_USDBC = "0x703843C3379b52F9FF486c9f5892218d2a065cC8".toLowerCase();
     public static MOONWELL_WETH = "0x628ff693426583D9a7FB391E54366292F509D457".toLowerCase();
-    public static MOONWELL_cbETH = "0x3bf93770f2d4a794c3d9EBEfBAeBAE2a8f09A5E5".toLowerCase();
+    public static MOONWELL_CBETH = "0x3bf93770f2d4a794c3d9EBEfBAeBAE2a8f09A5E5".toLowerCase();
 
 //endregion ----------------------------------------------------- Moonwell
 }

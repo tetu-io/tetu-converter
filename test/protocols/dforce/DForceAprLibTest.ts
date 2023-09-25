@@ -5,7 +5,7 @@ import {expect} from "chai";
 import {
   IBorrowRewardsPredictionInput,
   ISupplyRewardsStatePoint
-} from "../../../scripts/chains/polygon/integration/helpers/DForceHelper";
+} from "../../../scripts/integration/dforce/DForceHelper";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";

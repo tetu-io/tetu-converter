@@ -10,7 +10,7 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {Aave3Helper, IAave3ReserveInfo} from "../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
+import {Aave3Helper, IAave3ReserveInfo} from "../../../scripts/integration/aave3/Aave3Helper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
@@ -79,7 +79,7 @@ describe("Aave3PlatformAdapterTest", () => {
       collateralAsset: string,
       borrowAsset: string
     ) {
-      this.h = new Aave3Helper(deployer);
+      this.h = new Aave3Helper(deployer, MaticAddresses.AAVE_V3_POOL);
       this.dp = dataProvider;
       this.pool = pool;
       this.collateralAsset = collateralAsset;
@@ -265,7 +265,7 @@ describe("Aave3PlatformAdapterTest", () => {
       badPathsParams?: IGetConversionPlanBadPaths,
       entryData?: string
     ): Promise<IPreparePlanResults> {
-      const h = new Aave3Helper(deployer);
+      const h = new Aave3Helper(deployer, MaticAddresses.AAVE_V3_POOL);
       const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
       const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
         deployer,

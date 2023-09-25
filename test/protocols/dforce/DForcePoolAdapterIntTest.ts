@@ -19,7 +19,7 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {DForceTestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
-import {DForceHelper} from "../../../scripts/chains/polygon/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";

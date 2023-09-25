@@ -2,7 +2,7 @@ import {IBorrowManager, IBorrowManager__factory, IConverterController, IERC20, I
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {HundredFinanceHelper} from "../../../scripts/chains/polygon/integration/helpers/HundredFinanceHelper";
+import {HundredFinanceHelper} from "../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 

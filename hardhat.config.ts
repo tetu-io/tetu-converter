@@ -36,6 +36,7 @@ export default {
       blockGasLimit: 0x1fffffffffffff,
       gas: EnvSetup.getEnv().hardhatChainId === 1 ? 19_000_000 :
         EnvSetup.getEnv().hardhatChainId === 137 ? 19_000_000 :
+        EnvSetup.getEnv().hardhatChainId === 8453 ? 19_000_000 :
           9_000_000,
       forking: EnvSetup.getEnv().hardhatChainId !== 31337 ? {
         url:
@@ -72,10 +73,11 @@ export default {
       // gas: 50_000_000_000,
       accounts: [EnvSetup.getEnv().privateKey],
     },
-    base: {
+		"base-mainnet": {
       url: EnvSetup.getEnv().baseRpcUrl || '',
       chainId: 8453,
       accounts: [EnvSetup.getEnv().privateKey],
+      gasPrice: 1000000000,
     },
   },
   etherscan: {

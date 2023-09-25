@@ -11,7 +11,7 @@ import {
   DForceHelper, IBorrowRewardsPredictionInput,
   IRewardsStatePoint,
   ISupplyRewardsStatePoint
-} from "../../../scripts/chains/polygon/integration/helpers/DForceHelper";
+} from "../../../scripts/integration/dforce/DForceHelper";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";

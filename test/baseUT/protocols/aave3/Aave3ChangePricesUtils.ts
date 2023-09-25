@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {Aave3Helper} from "../../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
+import {Aave3Helper} from "../../../../scripts/integration/aave3/Aave3Helper";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {

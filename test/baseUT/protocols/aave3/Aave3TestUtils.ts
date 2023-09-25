@@ -6,7 +6,7 @@ import {
   IAavePriceOracle,
   IAaveProtocolDataProvider, IERC20__factory, IERC20Metadata__factory
 } from "../../../../typechain";
-import {Aave3Helper, IAave3ReserveInfo} from "../../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
+import {Aave3Helper, IAave3ReserveInfo} from "../../../../scripts/integration/aave3/Aave3Helper";
 import {IConversionPlan} from "../../apr/aprDataTypes";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
@@ -170,7 +170,7 @@ export class Aave3TestUtils {
     const periodInBlocks = 1000;
 
     // initialize pool, adapters and helper for the adapters
-    const h: Aave3Helper = new Aave3Helper(deployer);
+    const h: Aave3Helper = new Aave3Helper(deployer, MaticAddresses.AAVE_V3_POOL);
 
     const aavePool = additionalParams?.useAave3PoolMock
       ? await MocksHelper.getAave3PoolMock(deployer, collateralToken.address, borrowToken.address, MaticAddresses.AAVE_V3_POOL)

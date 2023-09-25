@@ -1,5 +1,5 @@
 import {TokenDataTypes} from "../types/TokenDataTypes";
-import {Aave3Helper} from "../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
+import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {

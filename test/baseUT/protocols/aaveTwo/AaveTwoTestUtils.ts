@@ -9,7 +9,7 @@ import {
   IERC20__factory,
   IPoolAdapter__factory, Aave3PoolMock__factory
 } from "../../../../typechain";
-import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../../scripts/chains/polygon/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {ethers} from "hardhat";

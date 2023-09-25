@@ -12,7 +12,7 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {
   HundredFinanceHelper,
   IHundredFinanceMarketData
-} from "../../../scripts/chains/polygon/integration/helpers/HundredFinanceHelper";
+} from "../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
@@ -38,7 +38,7 @@ import {
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
-import {DForceHelper} from "../../../scripts/chains/polygon/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 
 describe.skip("Hundred finance, platform adapter", () => {
 //region Global vars for all tests

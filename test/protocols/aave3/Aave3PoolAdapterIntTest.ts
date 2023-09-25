@@ -9,7 +9,7 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {IAave3ReserveInfo} from "../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
+import {IAave3ReserveInfo} from "../../../scripts/integration/aave3/Aave3Helper";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";

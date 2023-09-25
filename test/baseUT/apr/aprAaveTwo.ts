@@ -16,7 +16,7 @@ import {
 } from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
-import {AaveTwoHelper} from "../../../scripts/chains/polygon/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper} from "../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {
   convertUnits,

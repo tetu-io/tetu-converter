@@ -1,6 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
-import {HundredFinanceHelper} from "../../../../scripts/chains/polygon/integration/helpers/HundredFinanceHelper";
+import {HundredFinanceHelper} from "../../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {HfPriceOracleMock, IHfComptroller__factory} from "../../../../typechain";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";

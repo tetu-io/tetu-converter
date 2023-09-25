@@ -1,5 +1,5 @@
-import {IFusePoolDirectory__factory, IFusePoolLens__factory} from "../../../../../../typechain";
-import {MaticAddresses} from "../../../../../addresses/MaticAddresses";
+import {IFusePoolDirectory__factory, IFusePoolLens__factory} from "../../../typechain";
+import {MaticAddresses} from "../../addresses/MaticAddresses";
 import {ethers, network} from "hardhat";
 import {utils} from "ethers";
 import {writeFileSync} from "fs";

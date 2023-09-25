@@ -2,7 +2,7 @@ import {BigNumber} from "ethers";
 import {IBorrowResults, IPointResults} from "./aprDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
-import {HundredFinanceHelper} from "../../../scripts/chains/polygon/integration/helpers/HundredFinanceHelper";
+import {HundredFinanceHelper} from "../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {
   HfAprLibFacade, HfTestHelper, IERC20Metadata__factory, IHfComptroller,
   IHfCToken,

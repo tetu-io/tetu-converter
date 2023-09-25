@@ -10,7 +10,7 @@ import {
   IERC20__factory
 } from "../../../typechain";
 import {expect} from "chai";
-import {DForceHelper} from "../../../scripts/chains/polygon/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 import {AprAave3} from "../../baseUT/apr/aprAave3";
 import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
 import {AprDForce} from "../../baseUT/apr/aprDForce";

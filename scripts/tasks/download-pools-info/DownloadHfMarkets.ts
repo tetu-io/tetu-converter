@@ -1,11 +1,11 @@
 import {ethers, network} from "hardhat";
 import {writeFileSync} from "fs";
-import {IHfComptroller} from "../../../../../../typechain";
-import {HundredFinanceHelper} from "../../helpers/HundredFinanceHelper";
+import {IHfComptroller} from "../../../typechain";
+import {HundredFinanceHelper} from "./HundredFinanceHelper";
 
 /**
  * Download detailed info for all available Hundred-finance pool(s) and tokens
- *      npx hardhat run scripts/chains/polygon/integration/lending/hundred-finance/DownloadHfMarkets.ts
+ *      npx hardhat run scripts/tasks/download-pools-info/DownloadHfMarkets.ts
  */
 async function main() {
     const signer = (await ethers.getSigners())[0];

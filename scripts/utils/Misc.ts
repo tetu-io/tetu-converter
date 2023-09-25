@@ -26,6 +26,15 @@ const FANTOM_CHAIN = Common.forCustomChain(
   'petersburg',
 );
 
+const BASE_CHAIN = Common.forCustomChain(
+  'mainnet', {
+    name: 'base-mainnet',
+    networkId: 8453,
+    chainId: 8453,
+  },
+  'petersburg',
+);
+
 export class Misc {
   public static readonly MAX_UINT = BigNumber.from('115792089237316195423570985008687907853269984665640564039457584007913129639935');  // BigNumber.from(2).pow(256).sub(1), // === type(uint).max
   public static readonly SECONDS_OF_DAY = 60 * 60 * 24;
@@ -58,6 +67,8 @@ export class Misc {
         return MATIC_CHAIN;
       case 250:
         return FANTOM_CHAIN;
+      case 8453:
+        return BASE_CHAIN;
       default:
         throw new Error('Unknown net ' + chainId);
     }

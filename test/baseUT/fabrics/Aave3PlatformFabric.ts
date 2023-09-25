@@ -1,5 +1,5 @@
 import {IBorrowManager, IBorrowManager__factory, IConverterController, IERC20__factory} from "../../../typechain";
-import {Aave3Helper} from "../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
+import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";

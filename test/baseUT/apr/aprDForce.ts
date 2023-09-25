@@ -2,7 +2,7 @@ import {BigNumber} from "ethers";
 import {IBorrowResults, IPointResults} from "./aprDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
-import {DForceHelper} from "../../../scripts/chains/polygon/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 import {
   DForceAprLibFacade, DForceTestHelper,
   IDForceController,

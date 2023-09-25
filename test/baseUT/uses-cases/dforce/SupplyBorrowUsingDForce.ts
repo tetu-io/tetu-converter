@@ -6,7 +6,7 @@ import {
   DForceHelper, IBorrowRewardsPredictionInput, IBorrowRewardsStatePoint,
   IDForceMarketAccount,
   IDForceMarketRewards, IRewardsStatePoint, ISupplyRewardsStatePoint
-} from "../../../../scripts/chains/polygon/integration/helpers/DForceHelper";
+} from "../../../../scripts/integration/dforce/DForceHelper";
 import {
   IDForceController, IDForceCToken,
   IDForceCToken__factory, IDForceInterestRateModel, IDForceInterestRateModel__factory,

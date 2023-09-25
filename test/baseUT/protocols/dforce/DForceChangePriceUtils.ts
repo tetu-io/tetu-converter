@@ -4,7 +4,7 @@ import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {DForcePriceOracleMock, IDForceController__factory} from "../../../../typechain";
-import {DForceHelper} from "../../../../scripts/chains/polygon/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../../scripts/integration/dforce/DForceHelper";
 
 export class DForceChangePriceUtils {
   public static async setupPriceOracleMock(deployer: SignerWithAddress, copyPrices: boolean = true) : Promise<DForcePriceOracleMock> {

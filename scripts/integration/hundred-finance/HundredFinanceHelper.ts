@@ -7,10 +7,10 @@ import {
     IHfInterestRateModel,
     IHfInterestRateModel__factory,
     IERC20Metadata__factory, IHfPriceOracle, IHfPriceOracle__factory,
-} from "../../../../../typechain";
+} from "../../../typechain";
 import {BigNumber} from "ethers";
-import {Aave3Helper} from "./Aave3Helper";
-import {MaticAddresses} from "../../../../addresses/MaticAddresses";
+import {Aave3Helper} from "../aave3/Aave3Helper";
+import {MaticAddresses} from "../../addresses/MaticAddresses";
 
 //region Constants
 

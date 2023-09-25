@@ -8,10 +8,9 @@ import {
   IAaveProtocolDataProvider,
   IAaveProtocolDataProvider__factory,
   IERC20Metadata__factory
-} from "../../../../../typechain";
+} from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {Aave3DataTypes} from "../../../../../typechain/contracts/integrations/aave3/IAavePool";
-import {MaticAddresses} from "../../../../addresses/MaticAddresses";
+import {Aave3DataTypes} from "../../../typechain/contracts/integrations/aave3/IAavePool";
 
 const FULL_MASK =                      "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
@@ -149,9 +148,9 @@ export class Aave3Helper {
 //region Instance
   private funcGetECategoryData: (category: number) => Promise<IAave3CategoryData>;
 
-  constructor(signer: SignerWithAddress) {
+  constructor(signer: SignerWithAddress, aavePool: string) {
     this.funcGetECategoryData = Aave3Helper.memoize(category => Aave3Helper.getEModeCategory(
-      Aave3Helper.getAavePool(signer, MaticAddresses.AAVE_V3_POOL), category
+      Aave3Helper.getAavePool(signer, aavePool), category
     ));
   }
 
@@ -173,7 +172,7 @@ export class Aave3Helper {
     reserve: string
   ) : Promise<IAave3ReserveInfo> {
     const rd: Aave3DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
-    const priceOracle = await Aave3Helper.getAavePriceOracle(signer, MaticAddresses.AAVE_V3_POOL);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(signer, aavePool.address);
 
     const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 

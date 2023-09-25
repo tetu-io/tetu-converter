@@ -9,7 +9,7 @@ import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatfo
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {AaveTwoHelper} from "../../../scripts/chains/polygon/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper} from "../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class AaveTwoPlatformFabric implements ILendingPlatformFabric {

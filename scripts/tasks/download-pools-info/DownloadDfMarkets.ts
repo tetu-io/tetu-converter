@@ -1,11 +1,11 @@
 import {ethers, network} from "hardhat";
 import {writeFileSync} from "fs";
-import {IDForceController} from "../../../../../../typechain";
-import {DForceHelper} from "../../helpers/DForceHelper";
+import {IDForceController} from "../../../typechain";
+import {DForceHelper} from "../../integration/dforce/DForceHelper";
 
 /**
  * Download detailed info for all available Hundred-finance pool(s) and tokens
- *    npx hardhat run scripts/chains/polygon/integration/lending/dforce/downloaddfmarkets.ts
+ *    npx hardhat run scripts/tasks/download-pools-info/DownloadDfMarkets.ts
  */
 async function main() {
     const signer = (await ethers.getSigners())[0];

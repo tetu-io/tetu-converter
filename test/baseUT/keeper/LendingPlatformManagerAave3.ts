@@ -6,7 +6,7 @@ import {
   IAaveAddressesProvider__factory,
   IAavePoolConigurator__factory, IERC20__factory, ITetuConverter
 } from "../../../typechain";
-import {Aave3Helper} from "../../../scripts/chains/polygon/integration/helpers/Aave3Helper";
+import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ITokenWithHolder} from "../types/TokenDataTypes";
