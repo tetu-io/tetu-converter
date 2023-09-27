@@ -14,6 +14,7 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../scripts/utils/Misc";
 import {GAS_LIMIT} from "../baseUT/GasLimit";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe("Keeper test for reconversion @skip-on-coverage", () => {
 //region Global vars for all tests
@@ -27,6 +28,8 @@ describe("Keeper test for reconversion @skip-on-coverage", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

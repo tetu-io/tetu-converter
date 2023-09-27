@@ -17,7 +17,7 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
-import "hardhat/console.sol";
+import "../../libs/AppUtils.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -38,6 +38,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   /// @notice repay allows to reduce health factor of following value (decimals 18):
   uint constant public MAX_ALLOWED_HEALTH_FACTOR_REDUCTION = 1e13; // 0.001%
+
+  /// @notice amount of collateral in terms of base currency that cannot be used in any case during partial repayment
+  ///         we need such reserve because of SCB-796
+  ///         without it health factor can reduce after partial repayment in edge cases because of rounding
+  ///         Base currency has 8 decimals, usdc/usdt have 6 decimals.. we need > 100 tokens in reserve
+  uint constant internal COLLATERAL_RESERVE_BASE_CURRENCY = 1000;
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Variables
@@ -285,17 +291,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // withdraw the collateral; if the borrow was liquidated the collateral is zero and we should have revert here
     // because it's not worth to make repayment in this case
-    if (closePosition_) {
+    {
       // in the case of full repay {amountCollateralToWithdraw} contains type(uint).max
       // so, we need to calculate actual amount of returned collateral through balance difference
       uint balanceUserCollateralBefore = IERC20(assetCollateral).balanceOf(receiver_);
-      pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_); // amountCollateralToWithdraw == type(uint).max
+      pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_); // amountCollateralToWithdraw can be equal to type(uint).max
       uint balanceUserCollateralAfter = IERC20(assetCollateral).balanceOf(receiver_);
-      amountCollateralToWithdraw = balanceUserCollateralAfter < balanceUserCollateralBefore
-        ? 0
-        : balanceUserCollateralAfter - balanceUserCollateralBefore;
-    } else {
-      pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
+      amountCollateralToWithdraw = AppUtils.sub0(balanceUserCollateralAfter, balanceUserCollateralBefore);
     }
 
     // close position in debt monitor / validate result health factor
@@ -332,9 +334,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     require(aTokensBalanceBeforeRepay >= aTokensBalanceAfterRepay, AppErrors.WEIRD_OVERFLOW);
 
     uint localCollateralBalanceATokens = collateralBalanceATokens;
-    localCollateralBalanceATokens = aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay > localCollateralBalanceATokens
-      ? 0
-      : localCollateralBalanceATokens - (aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
+    localCollateralBalanceATokens = AppUtils.sub0(localCollateralBalanceATokens, aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
     collateralBalanceATokens = localCollateralBalanceATokens;
 
     emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactorAfter, localCollateralBalanceATokens);
@@ -370,7 +370,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     uint amountToRepayBase = amountToRepay_ * borrowPrice / (10 ** IERC20Metadata(assetBorrow_).decimals());
 
-    if (closePosition_) {
+    if (closePosition_ || amountToRepayBase >= totalDebtBase) {
       // we cannot close position and pay the debt only partly
       require(totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_PARTIAL);
       return (type(uint).max, healthFactor18);
@@ -379,13 +379,24 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
       require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
-      uint part = amountToRepayBase >= totalDebtBase
-        ? 1e18
-        : 1e18 * amountToRepayBase / totalDebtBase;
-
       return (
-      // == totalCollateral * amountToRepay / totalDebt
-        totalCollateralBase * (10 ** collateralDecimals) * part / 1e18 / collateralPrice,
+      // SCB-796:
+      //   We need to calculate total amount in terms of the collateral asset at first and only then take part of it.
+      //   Also we should keep a few tokens untouched as a reserve
+      //   to prevent decreasing of health factor in edge cases because of rounding error
+      //   (we are going to return 0.000014 usdc, but 0.000015 are returned)
+      //
+      // totalCollateralBase and collateralPrice have decimals of base current, part has decimals 18
+      // in result we have an amount in terms of collateral asset.
+      // == totalCollateral * part, part = amountToRepay / totalDebt < 1; "part" is collateral that should be returned
+        (
+          (totalCollateralBase > COLLATERAL_RESERVE_BASE_CURRENCY
+            ? totalCollateralBase - COLLATERAL_RESERVE_BASE_CURRENCY
+            : totalCollateralBase
+          ) * (10 ** collateralDecimals) / collateralPrice
+        ) * amountToRepayBase / totalDebtBase,
+        // WRONG: totalCollateralBase * (10 ** collateralDecimals) * part / 1e18 / collateralPrice,
+
         healthFactor18
       );
     }
@@ -552,9 +563,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint healthFactorBefore
   ) internal view {
     uint threshold = uint(controller_.minHealthFactor2()) * 10 ** (18 - 2);
-    console.log("_validateHealthFactor.hf18", healthFactorAfter);
-    console.log("_validateHealthFactor.healthFactorBefore", healthFactorBefore);
-    console.log("_validateHealthFactor.min health factor", threshold);
     uint reduction = healthFactorBefore > healthFactorAfter
       ? healthFactorBefore - healthFactorAfter
       : 0;

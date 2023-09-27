@@ -1,15 +1,15 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
 import {expect} from "chai";
-import {ConverterController, ConverterController__factory, IConverterController__factory} from "../../typechain";
+import {ConverterController, ConverterController__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
-import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_CONTROLLER_INITIALIZE} from "../baseUT/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {randomInt} from "crypto";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 
 describe("Controller", () => {
 //region Global vars for all tests
@@ -21,6 +21,8 @@ describe("Controller", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -111,7 +113,7 @@ describe("Controller", () => {
   ) : Promise<{controller: ConverterController, gasUsed: BigNumber}> {
     const controller = ConverterController__factory.connect(await CoreContractsHelper.deployController(deployer), deployer);
 
-    const gasUsed = await getGasUsed(
+    const gasUsed = await HardhatUtils.getGasUsed(
       controller.init(
         a.proxyUpdater,
         a.governance,

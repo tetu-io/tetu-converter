@@ -10,7 +10,6 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/helpers/AaveTwoHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
@@ -29,6 +28,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("AaveTwoPoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -40,6 +40,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -119,18 +120,15 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             return AaveBorrowUtils.daiWMatic(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
           }
           it("should send borrowed amount to user", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiWMatic);
             expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
           });
           it("should send collateral to pool adapter", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiWMatic);
             // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
             expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
           });
           it("should set expected totalDebtBase value", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiWMatic);
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
@@ -141,7 +139,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             )).eq(true);
           });
           it("should set expected totalCollateralBase", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiWMatic);
             expect(areAlmostEqual(
               r.totalCollateralBase,
@@ -161,18 +158,15 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             return AaveBorrowUtils.daiUsdc(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
           }
           it("should send borrowed amount to user", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiUsdc);
             expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
           });
           it("should send collateral to pool adapter", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiUsdc);
             // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
             expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
           });
           it("should set expected totalDebtBase value", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiUsdc);
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
@@ -183,7 +177,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             )).eq(true);
           });
           it("should set expected totalCollateralBase", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiUsdc);
             expect(areAlmostEqual(
               r.totalCollateralBase,
@@ -203,18 +196,15 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             return AaveBorrowUtils.usdcDai(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
           }
           it("should send borrowed amount to user", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowUsdcDai);
             expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
           });
           it("should send collateral to pool adapter", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowUsdcDai);
             // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
             expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
           });
           it("should set expected totalDebtBase value", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowUsdcDai);
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
@@ -225,7 +215,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             )).eq(true);
           });
           it("should set expected totalCollateralBase", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowUsdcDai);
             expect(areAlmostEqual(
               r.totalCollateralBase,
@@ -245,18 +234,15 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             return AaveBorrowUtils.wbtcTether(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
           }
           it("should send borrowed amount to user", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowWbtcTether);
             expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
           });
           it("should send collateral to pool adapter", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowWbtcTether);
             // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
             expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
           });
           it("should set expected totalDebtBase value", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowWbtcTether);
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
@@ -268,7 +254,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             )).eq(true);
           });
           it("should set expected totalCollateralBase", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowWbtcTether);
             expect(areAlmostEqual(
               r.totalCollateralBase,
@@ -290,18 +275,15 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             return AaveBorrowUtils.daiUsdc(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
           }
           it("should send borrowed amount to user", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiUsdc);
             expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
           });
           it("should send collateral to pool adapter", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiUsdc);
             // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
             expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
           });
           it("should set expected totalDebtBase value", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiUsdc);
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
@@ -312,7 +294,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             )).eq(true);
           });
           it("should set expected totalCollateralBase", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiUsdc);
             expect(areAlmostEqual(
               r.totalCollateralBase,
@@ -332,18 +313,15 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             return AaveBorrowUtils.daiWMatic(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
           }
           it("should send borrowed amount to user", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiWMatic);
             expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
           });
           it("should send collateral to pool adapter", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiWMatic);
             // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
             expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
           });
           it("should set expected totalDebtBase value", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiWMatic);
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
@@ -354,7 +332,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             )).eq(true);
           });
           it("should set expected totalCollateralBase", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiWMatic);
             expect(areAlmostEqual(
               r.totalCollateralBase,
@@ -374,18 +351,15 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             return AaveBorrowUtils.usdcDai(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
           }
           it("should send borrowed amount to user", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowUsdcDai);
             expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
           });
           it("should send collateral to pool adapter", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowUsdcDai);
             // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
             expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
           });
           it("should set expected totalDebtBase value", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowUsdcDai);
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
@@ -396,7 +370,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             )).eq(true);
           });
           it("should set expected totalCollateralBase", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowUsdcDai);
             expect(areAlmostEqual(
               r.totalCollateralBase,
@@ -416,18 +389,15 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             return AaveBorrowUtils.wbtcTether(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
           }
           it("should send borrowed amount to user", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowWbtcTether);
             expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
           });
           it("should send collateral to pool adapter", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowWbtcTether);
             // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
             expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
           });
           it("should set expected totalDebtBase value", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowWbtcTether);
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
@@ -438,7 +408,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             )).eq(true);
           });
           it("should set expected totalCollateralBase", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowWbtcTether);
             expect(areAlmostEqual(
               r.totalCollateralBase,
@@ -658,8 +627,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
     }
     describe("Good paths", () => {
       it("should move user account in the pool to expected state", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralAsset = MaticAddresses.DAI;
         const collateralHolder = MaticAddresses.HOLDER_DAI;
         const borrowAsset = MaticAddresses.WMATIC;
@@ -828,7 +795,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         describe("Partial repay of borrowed amount", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
@@ -840,7 +806,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           });
           describe("WMATIC => DAI", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
@@ -853,7 +818,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         });
         describe("Full repay of borrowed amount", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
             const initialBorrowAmountOnUserBalance = 1;
             const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
               deployer,
@@ -870,7 +834,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         describe("Full repay of borrowed amount", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const initialBorrowAmountOnUserBalance = 20_000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
@@ -884,7 +847,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           });
           describe("WMATIC => DAI", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
               const initialBorrowAmountOnUserBalance = 20_000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
@@ -902,8 +864,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
     describe("Bad paths", () => {
       describe("Transfer amount less than specified amount to repay", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const daiDecimals = await IERC20Metadata__factory.connect(MaticAddresses.DAI, deployer).decimals();
           await expect(
             AaveMakeBorrowAndRepayUtils.wmaticDai(
@@ -922,7 +882,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
       });
       describe("Try to repay not opened position", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           const initialBorrowAmountOnUserBalanceNumber = 1000;
           await expect(
             AaveMakeBorrowAndRepayUtils.daiWmatic(
@@ -938,7 +897,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
       });
       describe("Try to close position with not zero debt", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             AaveMakeBorrowAndRepayUtils.daiWmatic(
               deployer,

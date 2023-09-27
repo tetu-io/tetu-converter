@@ -10,6 +10,7 @@ import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {AaveTwoTestUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
 //region Global vars for all tests
@@ -20,6 +21,8 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

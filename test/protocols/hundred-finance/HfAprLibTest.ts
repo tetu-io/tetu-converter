@@ -6,7 +6,7 @@ import {HfAprLibFacade} from "../../../typechain";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {expect} from "chai";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("HfAprLib unit tests", () => {
 //region Global vars for all tests
@@ -19,11 +19,11 @@ describe.skip("HfAprLib unit tests", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    if (!await isPolygonForkInUse()) return;
     libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
   });
 
@@ -43,7 +43,6 @@ describe.skip("HfAprLib unit tests", () => {
 //region Unit tests
   describe("getPrice", () => {
     it("should revert if zero", async () => {
-      if (!await isPolygonForkInUse()) return;
       const priceOracle = await HundredFinanceChangePriceUtils.setupPriceOracleMock(
         deployer,
         false // we don't copy prices, so all prices are zero
@@ -57,11 +56,9 @@ describe.skip("HfAprLib unit tests", () => {
 
   describe("getUnderlying", () => {
     it("should return DAI for hDAI", async () => {
-      if (!await isPolygonForkInUse()) return;
       expect(await libFacade.getUnderlying(MaticAddresses.hDAI), MaticAddresses.DAI);
     });
     it("should return WMATIC for hMATIC", async () => {
-      if (!await isPolygonForkInUse()) return;
       expect(await libFacade.getUnderlying(MaticAddresses.hMATIC), MaticAddresses.WMATIC);
     });
   });

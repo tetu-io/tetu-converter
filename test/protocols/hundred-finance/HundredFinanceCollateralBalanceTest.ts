@@ -4,7 +4,6 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
@@ -13,6 +12,7 @@ import {
   HundredFinanceTestUtils, IInitialBorrowResults
 } from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("HundredFinanceCollateralBalanceTest", () => {
 //region Constants
@@ -35,12 +35,12 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
 
-    if (!await isPolygonForkInUse()) return;
     init = await makeInitialBorrow();
   });
 
@@ -95,8 +95,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
   describe("Check collateralBalanceBase and status.collateralAmountLiquidated", () => {
     describe("Make second borrow", () => {
       it("should return expected collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await HundredFinanceTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined);
         const stateAfterSecondBorrow = await HundredFinanceTestUtils.getState(init.d);
@@ -116,8 +114,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await HundredFinanceTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined);
         await HundredFinanceTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
@@ -143,8 +139,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
     });
     describe("Make partial repay", () => {
       it("should return expected collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await HundredFinanceTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await HundredFinanceTestUtils.makeRepay(
           init.d,
@@ -167,8 +161,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await HundredFinanceTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined);
 
@@ -200,7 +192,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
     });
     describe("Make repay to rebalance using collateral asset", () => {
       it("add collateral, should return updated collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.collateralAmount.mul(2).div(3);
@@ -240,7 +231,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.collateralAmount.mul(2).div(3);
@@ -284,7 +274,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
     });
     describe("Make repay to rebalance using borrow asset", () => {
       it("add borrow, should not change internal collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.amountToBorrow.mul(2).div(3);
@@ -317,7 +306,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
-        if (!await isPolygonForkInUse()) return;
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.amountToBorrow.mul(2).div(3);
@@ -353,8 +341,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
     });
     describe("Make liquidation", () => {
       it("should return not-zero collateralAmountLiquidated", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const priceOracleMock = await HundredFinanceChangePriceUtils.setupPriceOracleMock(deployer);
         console.log("HundredFinanceChangePriceUtils.changeCTokenPrice");
         await HundredFinanceChangePriceUtils.changeCTokenPrice(
@@ -389,7 +375,6 @@ describe.skip("HundredFinanceCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it.skip("try to make full repay, protocol reverts", async () => {
-        if (!await isPolygonForkInUse()) return;
         await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const stateAfterLiquidation = await HundredFinanceTestUtils.getState(init.d);
 

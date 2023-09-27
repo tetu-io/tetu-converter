@@ -10,7 +10,6 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
@@ -22,6 +21,7 @@ import {
 } from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("HfPoolAdapterIntTest", () => {
 
@@ -33,6 +33,7 @@ describe.skip("HfPoolAdapterIntTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -176,7 +177,6 @@ describe.skip("HfPoolAdapterIntTest", () => {
       describe("Borrow small fixed amount", () => {
         describe("DAI-18 : usdc-6", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await testDaiUsdc(100_000, 10);
             expect(r.ret).eq(r.expected);
           });
@@ -185,14 +185,12 @@ describe.skip("HfPoolAdapterIntTest", () => {
       describe("Borrow max available amount using all available collateral", () => {
         describe("DAI-18 : usdc-6", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await testDaiUsdc(undefined, undefined);
             expect(r.ret).eq(r.expected);
           });
         });
         describe("Matic-18 : ETH-18", () => {
           it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
             const r = await testMaticEth(undefined, undefined);
             expect(r.ret).eq(r.expected);
           });
@@ -670,24 +668,18 @@ describe.skip("HfPoolAdapterIntTest", () => {
         describe("Partial repay of borrowed amount", () => {
           describe("DAI => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await daiUSDC(false, false);
               expect(r.ret).eq(r.expected);
             });
           });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await daiWMatic(false, false);
               expect(r.ret).eq(r.expected);
             });
           });
           describe("WBTC => USDT", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await wbtcUSDT(
                 false,
                 false,
@@ -699,8 +691,6 @@ describe.skip("HfPoolAdapterIntTest", () => {
         describe("Full repay of borrowed amount", () => {
           describe("DAI => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await daiUSDC(
                 false,
@@ -712,8 +702,6 @@ describe.skip("HfPoolAdapterIntTest", () => {
           });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await daiWMatic(
                 false,
@@ -729,16 +717,12 @@ describe.skip("HfPoolAdapterIntTest", () => {
         describe("Partial repay of borrowed amount", () => {
           describe("DAI => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await daiUSDC(false, false);
               expect(r.ret).eq(r.expected);
             });
           });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const r = await daiWMatic(false, false);
               expect(r.ret).eq(r.expected);
             });
@@ -747,8 +731,6 @@ describe.skip("HfPoolAdapterIntTest", () => {
         describe("Full repay of borrowed amount", () => {
           describe("DAI => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await daiUSDC(
                 false,
@@ -760,8 +742,6 @@ describe.skip("HfPoolAdapterIntTest", () => {
           });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await daiWMatic(
                 false,
@@ -773,8 +753,6 @@ describe.skip("HfPoolAdapterIntTest", () => {
           });
           describe("USDT => USDC", () => {
             it("should return expected balances", async () => {
-              if (!await isPolygonForkInUse()) return;
-
               const initialBorrowAmountOnUserBalance = 100;
               const r = await usdtUSDC(
                 false,
@@ -790,8 +768,6 @@ describe.skip("HfPoolAdapterIntTest", () => {
     describe("Bad paths", () => {
       describe("Transfer amount less than specified amount to repay", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const usdcDecimals = await IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer).decimals();
           await expect(
             daiUSDC(
@@ -808,7 +784,6 @@ describe.skip("HfPoolAdapterIntTest", () => {
       });
       describe("Try to repay not opened position", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           const initialBorrowAmountOnUserBalanceNumber = 1000;
           await expect(
             daiUSDC(
@@ -822,7 +797,6 @@ describe.skip("HfPoolAdapterIntTest", () => {
       });
       describe("Try to close position with not zero debt", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
           await expect(
             daiUSDC(
               false,

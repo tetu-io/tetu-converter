@@ -8,7 +8,6 @@ import {
 } from "../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {
   HundredFinanceHelper,
@@ -29,7 +28,7 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
-import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {
   GAS_LIMIT,
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
@@ -47,6 +46,7 @@ describe.skip("Hundred finance, platform adapter", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -367,8 +367,6 @@ describe.skip("Hundred finance, platform adapter", () => {
     }
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await initializePlatformAdapter();
 
         const ret = [
@@ -393,19 +391,16 @@ describe.skip("Hundred finance, platform adapter", () => {
     });
     describe("Bad paths", () => {
       it("should revert if aave-pool is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroComptroller: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if controller is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroController: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if template normal is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroConverter: true})
         ).revertedWith("TC-1 zero address");
@@ -428,8 +423,6 @@ describe.skip("Hundred finance, platform adapter", () => {
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.hDAI;
           const collateralAmount = getBigNumberFrom(1000, 18);
@@ -451,8 +444,6 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("WMATIC : USDC", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.WMATIC;
           const collateralCToken = MaticAddresses.hMATIC;
           const collateralAmount = getBigNumberFrom(1000, 18);
@@ -475,8 +466,6 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("USDC : WETH", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.WMATIC;
           const collateralCToken = MaticAddresses.hMATIC;
           const collateralAmount = getBigNumberFrom(10, 18);
@@ -499,8 +488,6 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("Try to use huge collateral amount", () => {
         it("should return borrow amount equal to max available amount", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -517,8 +504,6 @@ describe.skip("Hundred finance, platform adapter", () => {
          *      totalBorrows    <    borrowCap       <       totalBorrows + available cash
          */
         it("maxAmountToBorrow is equal to borrowCap - totalBorrows", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -535,8 +520,6 @@ describe.skip("Hundred finance, platform adapter", () => {
          *      totalBorrows    <     totalBorrows + available cash    <     borrowCap
          */
         it("maxAmountToBorrow is equal to available cash if borrowCap is huge", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -556,8 +539,6 @@ describe.skip("Hundred finance, platform adapter", () => {
          *      borrowCap   <     totalBorrows    <   totalBorrows + available cash
          */
         it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.DAI,
@@ -572,7 +553,6 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("Frozen", () => {
         it("should return no plan", async () => {
-          if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
             controller,
@@ -591,8 +571,6 @@ describe.skip("Hundred finance, platform adapter", () => {
       describe("EntryKinds", () => {
         describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
           it("should return not zero borrow amount", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAmount = parseUnits("6338.199834", 6);
 
             const r = await preparePlan(
@@ -613,8 +591,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         });
         describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
           it("should split source amount on the parts with almost same cost", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAmount = parseUnits("1000", 18);
 
             const r = await preparePlan(
@@ -654,7 +630,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         });
         describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
           it("should return expected collateral amount", async () => {
-            if (!await isPolygonForkInUse()) return;
 
             // let's calculate borrow amount by known collateral amount
             const collateralAmount = parseUnits("10", 18);
@@ -709,8 +684,6 @@ describe.skip("Hundred finance, platform adapter", () => {
          */
         describe.skip("Allowed collateral exceeds available collateral", () => {
           it("should return expected borrow and collateral amounts", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // let's get max available supply amount
             const sample = await preparePlan(
               controller,
@@ -760,8 +733,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         });
         describe("Allowed borrow amounts exceeds available borrow amount", () => {
           it("should return expected borrow and collateral amounts", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             // let's get max available borrow amount
             const sample = await preparePlan(
               controller,
@@ -833,7 +804,6 @@ describe.skip("Hundred finance, platform adapter", () => {
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
 
             await expect(
               tryGetConversionPlan({ zeroCollateralAsset: true })
@@ -842,8 +812,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         });
         describe("borrow token is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroBorrowAsset: true })
             ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
@@ -851,7 +819,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         });
         describe("healthFactor2_ is less than min allowed", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
             await expect(
               tryGetConversionPlan({ incorrectHealthFactor2: 100 })
             ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
@@ -859,7 +826,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         });
         describe("countBlocks_ is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
             await expect(
               tryGetConversionPlan({ zeroCountBlocks: true })
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
@@ -867,7 +833,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         });
         describe("collateralAmount_ is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
             await expect(
               tryGetConversionPlan({ zeroCollateralAmount: true })
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
@@ -876,15 +841,12 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("cToken is not registered", () => {
         it("should fail if collateral token is not registered", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           expect((await tryGetConversionPlan(
             {},
             MaticAddresses.agEUR
           )).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrow token is not registered", async () => {
-          if (!await isPolygonForkInUse()) return;
 
           expect((await tryGetConversionPlan(
             {},
@@ -895,7 +857,6 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("capacity", () => {
         it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () => {
-          if (!await isPolygonForkInUse()) return;
           const planBorrowCapacityNotLimited = await tryGetConversionPlan(
             {},
             MaticAddresses.DAI,
@@ -925,18 +886,15 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("paused", () => {
         it("should fail if mintPaused is true for collateral", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({setCollateralMintPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrowPaused for borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
     });
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits @skip-on-coverage", async () => {
-        if (!await isPolygonForkInUse()) return;
         const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
           deployer,
           controller.address,
@@ -991,8 +949,6 @@ describe.skip("Hundred finance, platform adapter", () => {
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.hDAI;
           const borrowAsset = MaticAddresses.USDC;
@@ -1024,8 +980,6 @@ describe.skip("Hundred finance, platform adapter", () => {
 
       describe("Huge amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.hDAI;
           const borrowAsset = MaticAddresses.USDC;
@@ -1127,15 +1081,12 @@ describe.skip("Hundred finance, platform adapter", () => {
 
     describe("Good paths", () => {
       it("initialized pool adapter should has expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await makeInitializePoolAdapterTest();
         expect(r.ret).eq(r.expected);
       });
     });
     describe("Bad paths", () => {
       it("should revert if converter address is not registered", async () => {
-        if (!await isPolygonForkInUse()) return;
 
         await expect(
           makeInitializePoolAdapterTest(
@@ -1144,8 +1095,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         ).revertedWith("TC-25 converter not found"); // CONVERTER_NOT_FOUND
       });
       it("should revert if it's called by not borrow-manager", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeInitializePoolAdapterTest(
             {wrongCallerOfInitializePoolAdapter: true}
@@ -1158,8 +1107,6 @@ describe.skip("Hundred finance, platform adapter", () => {
   describe("registerCTokens", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const controller = await TetuConverterApp.createController(deployer);
         const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
           deployer,
@@ -1192,8 +1139,6 @@ describe.skip("Hundred finance, platform adapter", () => {
     describe("Bad paths", () => {
       describe("Not governance", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const controller = await TetuConverterApp.createController(deployer);
           const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
             deployer,
@@ -1213,8 +1158,6 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("Try to add not CToken", () => {
         it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const controller = await TetuConverterApp.createController(deployer);
           const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
             deployer,
@@ -1235,8 +1178,6 @@ describe.skip("Hundred finance, platform adapter", () => {
 
   describe("events", () => {
     it("should emit expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const user = ethers.Wallet.createRandom().address;
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
@@ -1281,22 +1222,18 @@ describe.skip("Hundred finance, platform adapter", () => {
   describe("getMarketsInfo", () => {
     let platformAdapter: HfPlatformAdapter;
     before(async function () {
-      if (await isPolygonForkInUse()) {
-        const controller = await TetuConverterApp.createController(deployer);
-        const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
-        platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-          deployer,
-          controller.address,
-          MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-          converterNormal.address,
-          [MaticAddresses.hDAI, MaticAddresses.hUSDC]
-        );
-      }
+      const controller = await TetuConverterApp.createController(deployer);
+      const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
+      platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+        converterNormal.address,
+        [MaticAddresses.hDAI, MaticAddresses.hUSDC]
+      );
     });
     describe("Good paths", () => {
       it("should return not zero ltv and liquidityThreshold", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await platformAdapter.getMarketsInfo(MaticAddresses.hMATIC, MaticAddresses.hDAI);
         expect(r.ltv18.eq(0) || r.liquidityThreshold18.eq(0)).eq(false);
       });
@@ -1304,8 +1241,6 @@ describe.skip("Hundred finance, platform adapter", () => {
     describe("Bad paths", () => {
       describe("Collateral token is unregistered in the protocol", () => {
         it("should return zero ltv and zero liquidityThreshold", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await platformAdapter.getMarketsInfo(ethers.Wallet.createRandom().address, MaticAddresses.hDAI);
           console.log(r);
           expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
@@ -1313,8 +1248,6 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("Borrow token is unregistered in the protocol", () => {
         it("should return zero ltv and zero liquidityThreshold", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await platformAdapter.getMarketsInfo(MaticAddresses.hDAI, ethers.Wallet.createRandom().address);
           console.log(r);
           console.log(r.ltv18.eq(0));
@@ -1327,8 +1260,6 @@ describe.skip("Hundred finance, platform adapter", () => {
 
   describe("setFrozen", () => {
     it("should assign expected value to frozen", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
@@ -1357,8 +1288,6 @@ describe.skip("Hundred finance, platform adapter", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const controller = await TetuConverterApp.createController(deployer);
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
       const pa = await AdaptersHelper.createHundredFinancePlatformAdapter(

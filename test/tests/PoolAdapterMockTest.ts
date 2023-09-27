@@ -18,6 +18,7 @@ import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {makeInfinityApprove} from "../baseUT/utils/transferUtils";
 import {GAS_LIMIT} from "../baseUT/GasLimit";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe("PoolAdapterMock", () => {
 //region Global vars for all tests
@@ -33,6 +34,8 @@ describe("PoolAdapterMock", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

@@ -7,7 +7,7 @@ import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {
   GAS_APP_UTILS_SHRINK_AND_ORDER
 } from "../baseUT/GasLimit";
@@ -23,6 +23,8 @@ describe("AppUtils", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();

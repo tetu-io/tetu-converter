@@ -3,7 +3,6 @@ import {parseUnits} from "ethers/lib/utils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Compound3TestUtils, IInitialBorrowResults} from "../../baseUT/protocols/compound3/Compound3TestUtils";
 import {expect} from "chai";
@@ -11,6 +10,7 @@ import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedR
 import {BigNumber} from "ethers";
 import {Compound3ChangePriceUtils} from "../../baseUT/protocols/compound3/Compound3ChangePriceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 
 describe("Compound3CollateralBalanceTest", () => {
@@ -32,12 +32,12 @@ describe("Compound3CollateralBalanceTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-
-    if (!await isPolygonForkInUse()) return;
 
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
@@ -80,8 +80,6 @@ describe("Compound3CollateralBalanceTest", () => {
     describe("Good paths", () => {
       describe("Make second borrow", () => {
         it("should return expected collateral balance", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           await Compound3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
           await Compound3TestUtils.makeBorrow(deployer, init.prepareResults, undefined)
           const stateAfterSecondBorrow = await Compound3TestUtils.getState(init.prepareResults)
@@ -91,8 +89,6 @@ describe("Compound3CollateralBalanceTest", () => {
           expect(init.stateAfterBorrow.collateralBalanceBase).lt(stateAfterSecondBorrow.collateralBalanceBase)
         })
         it("make full repay, should return zero collateral balance", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           await Compound3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
           await Compound3TestUtils.makeBorrow(deployer, init.prepareResults, undefined)
           await Compound3TestUtils.putDoubleBorrowAmountOnUserBalance(init.prepareResults, borrowHolder)
@@ -107,8 +103,6 @@ describe("Compound3CollateralBalanceTest", () => {
       })
       describe("Make partial+full repay", () => {
         it("should return expected collateral balance", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           await Compound3TestUtils.putDoubleBorrowAmountOnUserBalance(init.prepareResults, borrowHolder)
           await Compound3TestUtils.makeRepay(init.prepareResults, init.prepareResults.amountToBorrow.div(2))
           const stateAfterRepay = await Compound3TestUtils.getState(init.prepareResults)
@@ -117,8 +111,6 @@ describe("Compound3CollateralBalanceTest", () => {
           expect(init.stateAfterBorrow.collateralBalanceBase).gt(stateAfterRepay.collateralBalanceBase)
         })
         it("make full repay, should return zero collateral balance", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           await Compound3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
           await Compound3TestUtils.makeBorrow(deployer, init.prepareResults, undefined)
           await Compound3TestUtils.putDoubleBorrowAmountOnUserBalance(init.prepareResults, borrowHolder)
@@ -132,8 +124,6 @@ describe("Compound3CollateralBalanceTest", () => {
       })
       describe("Make repay to rebalance using collateral asset", () => {
         it("add collateral, should return updated collateral balance", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           // increase target health factor from 200 to 300
           await init.prepareResults.controller.setTargetHealthFactor2(300);
           const amountToRepay = await init.prepareResults.amountToBorrow.mul(2).div(3);
@@ -159,8 +149,6 @@ describe("Compound3CollateralBalanceTest", () => {
           expect(stateAfterRepayToRebalance.collateralBalanceBase).gt(init.stateAfterBorrow.collateralBalanceBase)
         })
         it("make full repay, should return zero collateral balance", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           // increase target health factor from 200 to 300
           await init.prepareResults.controller.setTargetHealthFactor2(300);
           const amountToRepay = await init.prepareResults.amountToBorrow.mul(2).div(3);
@@ -192,8 +180,6 @@ describe("Compound3CollateralBalanceTest", () => {
       })
       describe("Make repay to rebalance using borrow asset", () => {
         it("add borrow, should not change internal collateral balance", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           // increase target health factor from 200 to 300
           await init.prepareResults.controller.setTargetHealthFactor2(300);
           const amountToRepay = await init.prepareResults.amountToBorrow.mul(2).div(3);
@@ -217,7 +203,6 @@ describe("Compound3CollateralBalanceTest", () => {
           expect(init.stateAfterBorrow.collateralBalanceBase).eq(stateAfterRepayToRebalance.collateralBalanceBase)
         })
         it("make full repay, should return zero collateral balance", async () => {
-          if (!await isPolygonForkInUse()) return;
           // increase target health factor from 200 to 300
           await init.prepareResults.controller.setTargetHealthFactor2(300);
           const amountToRepay = await init.prepareResults.amountToBorrow.mul(2).div(3);
@@ -247,8 +232,6 @@ describe("Compound3CollateralBalanceTest", () => {
       })
       describe("Make liquidation", () => {
         it("should return not-zero collateralAmountLiquidated", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const priceOracleMock = await Compound3ChangePriceUtils.setupAndInjectPriceOracleMock(deployer, comet, collateralAsset)
           await Compound3ChangePriceUtils.changePrice(priceOracleMock, false, 2)
 
@@ -262,8 +245,6 @@ describe("Compound3CollateralBalanceTest", () => {
     });
     describe("Bad paths", () => {
       it("repayToRebalance reverts if not tetu converter", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         // increase target health factor from 200 to 300
         await init.prepareResults.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.prepareResults.amountToBorrow.mul(2).div(3);
@@ -289,8 +270,6 @@ describe("Compound3CollateralBalanceTest", () => {
         ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("repayToRebalance reverts if the position is closed", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         // make full repayment - the postion will be closed in the DebtMonitor
         await Compound3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await Compound3TestUtils.makeBorrow(deployer, init.prepareResults, undefined)
@@ -307,8 +286,6 @@ describe("Compound3CollateralBalanceTest", () => {
         ).revertedWith("TC-11 position not registered"); // BORROW_POSITION_IS_NOT_REGISTERED
       });
       it("repayToRebalance reverts if repay amount is enough to make full repay", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         // increase target health factor from 200 to 300
         await init.prepareResults.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.prepareResults.amountToBorrow.mul(20); // (!) too big amount

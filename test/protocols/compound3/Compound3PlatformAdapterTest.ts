@@ -2,15 +2,13 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {
   BorrowManager__factory,
-  Compound3AprLibFacade,
   Compound3PlatformAdapter,
   Compound3PlatformAdapter__factory,
   ConverterController,
   IComet,
-  IComet__factory, ICometRewards, ICometRewards__factory, ICompound3Configurator__factory, IERC20__factory,
+  IComet__factory, ICometRewards, ICometRewards__factory, IERC20__factory,
   IERC20Metadata__factory, IPriceFeed__factory
 } from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
@@ -35,6 +33,7 @@ import {AppConstants} from "../../baseUT/AppConstants";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -46,6 +45,8 @@ describe("Compound3PlatformAdapterTest", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
+
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -367,8 +368,6 @@ describe("Compound3PlatformAdapterTest", () => {
 
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await initializePlatformAdapter();
 
         expect(await r.platformAdapter.controller()).eq(r.data.controller)
@@ -378,25 +377,21 @@ describe("Compound3PlatformAdapterTest", () => {
     })
     describe("Bad paths", () => {
       it("should revert if comets array length is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroComets: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if cometRewards is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroCometRewards: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if controller is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroController: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if template normal is zero", async () => {
-        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroConverter: true})
         ).revertedWith("TC-1 zero address");
@@ -428,8 +423,6 @@ describe("Compound3PlatformAdapterTest", () => {
     describe("Good paths", () => {
       describe("WETH : USDC", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.WETH;
           const borrowAsset = MaticAddresses.USDC;
 
@@ -457,8 +450,6 @@ describe("Compound3PlatformAdapterTest", () => {
       })
       describe("WBTC : USDC", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.WBTC;
           const borrowAsset = MaticAddresses.USDC;
 
@@ -486,8 +477,6 @@ describe("Compound3PlatformAdapterTest", () => {
       })
       describe("WMATIC : USDC", () => {
         it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const collateralAsset = MaticAddresses.WMATIC;
           const borrowAsset = MaticAddresses.USDC;
 
@@ -515,8 +504,6 @@ describe("Compound3PlatformAdapterTest", () => {
       })
       describe("Try to use huge collateral amount", () => {
         it("should return borrow amount equal to max available amount", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.WMATIC,
@@ -527,8 +514,6 @@ describe("Compound3PlatformAdapterTest", () => {
           expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
         })
         it("should return collateral amount equal to max collateral amount if borrow reserve is enough", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const borrowAsset = MaticAddresses.USDC;
 
           const borrowAssetContract = IERC20Metadata__factory.connect(borrowAsset, await DeployerUtils.startImpersonate(MaticAddresses.HOLDER_USDC))
@@ -547,8 +532,6 @@ describe("Compound3PlatformAdapterTest", () => {
       describe("EntryKinds", () => {
         describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
           it("should return expected collateral amount", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const r = await preparePlan(
               controller,
               MaticAddresses.WMATIC,
@@ -563,8 +546,6 @@ describe("Compound3PlatformAdapterTest", () => {
         })
         describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
           it("should split source amount on the parts with almost same cost", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAmount = parseUnits("1000")
 
             const r = await preparePlan(
@@ -602,8 +583,6 @@ describe("Compound3PlatformAdapterTest", () => {
         })
         describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
           it("should return expected collateral amount", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             const collateralAmount = parseUnits("1000", 6)
 
             const r = await preparePlan(
@@ -638,8 +617,6 @@ describe("Compound3PlatformAdapterTest", () => {
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroCollateralAsset: true })
             ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
@@ -647,8 +624,6 @@ describe("Compound3PlatformAdapterTest", () => {
         });
         describe("borrow token is zero", () => {
           it("should revert", async () =>{
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroBorrowAsset: true })
             ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
@@ -656,8 +631,6 @@ describe("Compound3PlatformAdapterTest", () => {
         });
         describe("healthFactor2_ is less than min allowed", () => {
           it("should revert", async () =>{
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ incorrectHealthFactor2: 100 })
             ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
@@ -665,8 +638,6 @@ describe("Compound3PlatformAdapterTest", () => {
         });
         describe("countBlocks_ is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroCountBlocks: true })
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
@@ -674,8 +645,6 @@ describe("Compound3PlatformAdapterTest", () => {
         });
         describe("collateralAmount_ is zero", () => {
           it("should revert", async () => {
-            if (!await isPolygonForkInUse()) return;
-
             await expect(
               tryGetConversionPlan({ zeroCollateralAmount: true })
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
@@ -684,8 +653,6 @@ describe("Compound3PlatformAdapterTest", () => {
       });
       describe("borrow less then min amount", () => {
         it("should fail", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           expect((await tryGetConversionPlan(
             {},
             MaticAddresses.WETH,
@@ -696,16 +663,12 @@ describe("Compound3PlatformAdapterTest", () => {
       })
       describe("asset is not registered", () => {
         it("should fail if collateral token is not registered", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           expect((await tryGetConversionPlan(
             {},
             MaticAddresses.agEUR
           )).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrow token is not registered", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           expect((await tryGetConversionPlan(
             {},
             MaticAddresses.WETH,
@@ -715,18 +678,14 @@ describe("Compound3PlatformAdapterTest", () => {
       });
       describe("paused", () => {
         it("should fail if supplyPaused is true for collateral", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({setSupplyPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if withdrawPaused for borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({setWithdrawPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
       describe("Use unsupported entry kind 999", () => {
         it("should return zero plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.WMATIC,
@@ -742,8 +701,6 @@ describe("Compound3PlatformAdapterTest", () => {
       });
       describe("Frozen", () => {
         it("should return zero plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await preparePlan(
             controller,
             MaticAddresses.WMATIC,
@@ -759,8 +716,6 @@ describe("Compound3PlatformAdapterTest", () => {
       });
       describe("supply cap is reached", () => {
         it("should return zero plan", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           // get normal (not empty) plan
           const r0 = await preparePlan(
             controller,
@@ -831,8 +786,6 @@ describe("Compound3PlatformAdapterTest", () => {
     describe("Good paths", () => {
       describe("small amount WETH => USDC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await makePredictBrTest(
             MaticAddresses.WETH,
             MaticAddresses.COMPOUND3_COMET_USDC,
@@ -857,8 +810,6 @@ describe("Compound3PlatformAdapterTest", () => {
       })
       describe("huge amount WETH => USDC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          if (!await isPolygonForkInUse()) return;
-
           const r = await makePredictBrTest(
             MaticAddresses.WETH,
             MaticAddresses.COMPOUND3_COMET_USDC,
@@ -878,8 +829,6 @@ describe("Compound3PlatformAdapterTest", () => {
     })
     describe("Bad paths", () => {
       it("incorrect asset", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const controller = await TetuConverterApp.createController(
           deployer,
           {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
@@ -977,8 +926,6 @@ describe("Compound3PlatformAdapterTest", () => {
 
     describe("Good paths", () => {
       it("initialized pool adapter should has expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         const r = await makeInitializePoolAdapterTest();
         expect(r.config.originConverter).eq(r.expectedConfig.originConverter)
         expect(r.config.user).eq(r.expectedConfig.user)
@@ -988,8 +935,6 @@ describe("Compound3PlatformAdapterTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if converter address is not registered", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeInitializePoolAdapterTest(
             {useWrongConverter: true}
@@ -997,8 +942,6 @@ describe("Compound3PlatformAdapterTest", () => {
         ).revertedWith("TC-25 converter not found"); // CONVERTER_NOT_FOUND
       });
       it("should revert if it's called by not borrow-manager", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeInitializePoolAdapterTest(
             {wrongCallerOfInitializePoolAdapter: true}
@@ -1006,8 +949,6 @@ describe("Compound3PlatformAdapterTest", () => {
         ).revertedWith("TC-45 borrow manager only"); // BORROW_MANAGER_ONLY
       });
       it("should revert if borrowAsset is incorrect", async () => {
-        if (!await isPolygonForkInUse()) return;
-
         await expect(
           makeInitializePoolAdapterTest(
             {borrowAsset: MaticAddresses.DAI}
@@ -1133,8 +1074,6 @@ describe("Compound3PlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const controller = await TetuConverterApp.createController(deployer);
       const pa = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,

@@ -7,7 +7,6 @@ import {
   IPrepareToLiquidationResults
 } from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {BigNumber} from "ethers";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
@@ -15,6 +14,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {ConverterController} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -39,6 +39,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
 
 //region before, after
   before(async function () {
+    await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -64,7 +65,6 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
   describe("Full liquidation: make borrow, change prices, make health factor < 1", () => {
     let init: IPrepareToLiquidationResults;
     before(async function () {
-      if (!await isPolygonForkInUse()) return;
       const converter = await loadFixture(createControllerDefaultFixture);
       init = await Aave3TestUtils.prepareToLiquidation(
         deployer,
@@ -83,15 +83,11 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       await TimeUtils.rollback(snapshotForEach);
     });
     it("health factor is less 1 before liquidation", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
       expect(healthFactorNum).below(1);
     });
 
     it("liquidator receives all collateral", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const r = await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
       const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
         r.collateralAmountReceivedByLiquidator,
@@ -125,8 +121,6 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     });
 
     it("Try to make new borrow after liquidation", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder)
 
       // put collateral amount on user's balance
@@ -143,8 +137,6 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     });
 
     it("Try to repay before liquidation", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       // make repayment to rebalance
       const amountsToRepay = {
         useCollateral: true,
@@ -190,7 +182,6 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
   describe("Partial liquidation: make borrow, change prices, make health factor < 1", () => {
     let init: IPrepareToLiquidationResults;
     before(async function () {
-      if (!await isPolygonForkInUse()) return;
       const converter = await loadFixture(createControllerDefaultFixture);
       init = await Aave3TestUtils.prepareToLiquidation(
         deployer,
@@ -209,15 +200,11 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       await TimeUtils.rollback(snapshotForEach);
     });
     it("health factor is less 1 before liquidation", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
       expect(healthFactorNum).below(1);
     });
 
     it("liquidator receives all collateral", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       const r = await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
       const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
         r.collateralAmountReceivedByLiquidator,
@@ -250,8 +237,6 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     });
 
     it.skip("Try to make new borrow after liquidation", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder)
 
       // put collateral amount on user's balance
@@ -268,8 +253,6 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     });
 
     it("Try to repay before liquidation", async () => {
-      if (!await isPolygonForkInUse()) return;
-
       // make repayment to rebalance
       const amountsToRepay = {
         useCollateral: true,
