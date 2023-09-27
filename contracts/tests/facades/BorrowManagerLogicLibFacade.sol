@@ -34,14 +34,15 @@ contract BorrowManagerLogicLibFacade {
 
   function _findConverter(
     AppDataTypes.InputConversionParams memory p_,
-    BorrowManagerLogicLib.InputParamsAdditional memory addParams_
+    BorrowManagerLogicLib.InputParamsAdditional memory addParams_,
+    address user_
   ) external view returns (
     address[] memory convertersOut,
     uint[] memory collateralAmountsOut,
     uint[] memory amountsToBorrowOut,
     int[] memory aprs18Out
   ) {
-    return BorrowManagerLogicLib.findConverter(p_, addParams_, _pas);
+    return BorrowManagerLogicLib.findConverter(p_, addParams_, _pas, user_);
   }
 
   function _prepareOutput(
@@ -60,10 +61,11 @@ contract BorrowManagerLogicLibFacade {
   function _findCandidatesForExistDebts(
     IPlatformAdapter[] memory platformAdapters,
     AppDataTypes.InputConversionParams memory p_,
-    BorrowManagerLogicLib.InputParamsAdditional memory addParams_,
-    BorrowManagerLogicLib.BorrowCandidate[] memory input
+    BorrowManagerLogicLib.InputParamsAdditional memory pa_,
+    BorrowManagerLogicLib.BorrowCandidate[] memory input,
+    address user_
   ) external view returns (FindExistDebtsToRebalanceLocal memory) {
-    (uint count, bool needMore) = BorrowManagerLogicLib._findCandidatesForExistDebts(platformAdapters, p_, addParams_, input);
+    (uint count, bool needMore) = BorrowManagerLogicLib._findCandidatesForExistDebts(platformAdapters, p_, pa_, input, user_);
     return FindExistDebtsToRebalanceLocal({
       count: count,
       needMore: needMore,
@@ -99,12 +101,12 @@ contract BorrowManagerLogicLibFacade {
     IPoolAdapter poolAdapter_,
     IPlatformAdapter platformAdapter_,
     AppDataTypes.InputConversionParams memory p_,
-    BorrowManagerLogicLib.InputParamsAdditional memory addParams_
+    BorrowManagerLogicLib.InputParamsAdditional memory pa_
   ) external view returns (
     BorrowManagerLogicLib.BorrowCandidate memory dest,
     bool partialBorrow
   ) {
-    return BorrowManagerLogicLib._findConversionStrategyForExistDebt(poolAdapter_, platformAdapter_, p_, addParams_);
+    return BorrowManagerLogicLib._findConversionStrategyForExistDebt(poolAdapter_, platformAdapter_, p_, pa_);
   }
 
   function _getPlanWithRebalancing(

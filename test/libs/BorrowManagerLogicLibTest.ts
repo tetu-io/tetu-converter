@@ -134,7 +134,6 @@ describe("BorrowManagerLogicLibTest", () => {
         {
           collateralAsset: p.collateralAsset.address,
           borrowAsset: p?.borrowAsset.address,
-          user: facade.address,
           amountIn: finalAmountIn,
           entryData,
           countBlocks: 1
@@ -147,7 +146,6 @@ describe("BorrowManagerLogicLibTest", () => {
         {
           collateralAsset: p.collateralAsset.address,
           borrowAsset: p?.borrowAsset.address,
-          user: facade.address,
           amountIn,
           entryData,
           countBlocks: 1
@@ -1177,7 +1175,6 @@ describe("BorrowManagerLogicLibTest", () => {
         {
           collateralAsset: collateralAsset.address,
           borrowAsset: borrowAsset.address,
-          user: facade.address,
           amountIn: finalAmountIn,
           entryData,
           countBlocks: 1
@@ -1191,7 +1188,6 @@ describe("BorrowManagerLogicLibTest", () => {
         {
           collateralAsset: collateralAsset.address,
           borrowAsset: borrowAsset.address,
-          user: facade.address,
           amountIn,
           entryData,
           countBlocks: 1
@@ -1494,7 +1490,6 @@ describe("BorrowManagerLogicLibTest", () => {
           {
             collateralAsset: collateralAsset.address,
             borrowAsset: borrowAsset.address,
-            user: facade.address,
             amountIn: finalAmountIn,
             entryData: "0x",
             countBlocks: 1
@@ -1531,7 +1526,6 @@ describe("BorrowManagerLogicLibTest", () => {
         {
           collateralAsset: collateralAsset.address,
           borrowAsset: borrowAsset.address,
-          user: facade.address,
           amountIn,
           entryData: "0x",
           countBlocks: 1
@@ -1548,7 +1542,8 @@ describe("BorrowManagerLogicLibTest", () => {
           amountToBorrow: BigNumber.from(0),
           apr18: BigNumber.from(0),
           healthFactor18: BigNumber.from(0),
-        }))
+        })),
+        facade.address,
       );
 
       return {
@@ -1833,7 +1828,6 @@ describe("BorrowManagerLogicLibTest", () => {
               {
                 collateralAsset: collateralAsset.address,
                 borrowAsset: borrowAsset.address,
-                user: facade.address,
                 amountIn: finalAmountIn,
                 entryData: "0x",
                 countBlocks: 1
@@ -1854,7 +1848,6 @@ describe("BorrowManagerLogicLibTest", () => {
         {
           collateralAsset: collateralAsset.address,
           borrowAsset: borrowAsset.address,
-          user: facade.address,
           amountIn,
           entryData: "0x",
           countBlocks: 1
@@ -2135,7 +2128,6 @@ describe("BorrowManagerLogicLibTest", () => {
           {
             collateralAsset: collateralAsset.address,
             borrowAsset: borrowAsset.address,
-            user: facade.address,
             amountIn: finalAmountIn,
             entryData: "0x",
             countBlocks: 1
@@ -2174,7 +2166,6 @@ describe("BorrowManagerLogicLibTest", () => {
         {
           collateralAsset: collateralAsset.address,
           borrowAsset: borrowAsset.address,
-          user: facade.address,
           amountIn,
           entryData: "0x",
           countBlocks: 1
@@ -2187,6 +2178,7 @@ describe("BorrowManagerLogicLibTest", () => {
             ? [0, 0]
             : [AppConstants.THRESHOLD_REBALANCE_TOO_HEALTHY, AppConstants.THRESHOLD_REBALANCE_UNHEALTHY],
         },
+        facade.address,
       );
       console.log("ret", ret);
 
