@@ -260,7 +260,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       address poolAdapter = borrowManager.getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
 
       if (poolAdapter != address(0)) {
-        (,, uint healthFactor18,,,) = IPoolAdapter(IPoolAdapter(poolAdapter)).getStatus();
+        (,, uint healthFactor18,,,) = IPoolAdapter(poolAdapter).getStatus();
         ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(healthFactor18, _controller.minHealthFactor2());
         if (status == ConverterLogicLib.HealthStatus.DIRTY_1) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow

@@ -266,7 +266,7 @@ library BorrowManagerLogicLib {
       for (uint j; j < converters.length; j = j.uncheckedInc()) {
         poolAdapter = borrowManager_.getPoolAdapter(converters[j], user_, collateralAsset_, borrowAsset_);
         if (poolAdapter != address(0)) {
-          (,, healthFactor18,,,) = IPoolAdapter(IPoolAdapter(poolAdapter)).getStatus();
+          (,, healthFactor18,,,) = IPoolAdapter(poolAdapter).getStatus();
           ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(healthFactor18, minHealthFactor2);
           if (status != ConverterLogicLib.HealthStatus.DIRTY_1) {
             return (i, poolAdapter, healthFactor18); // health factor > 1
