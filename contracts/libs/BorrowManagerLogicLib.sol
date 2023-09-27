@@ -49,6 +49,7 @@ library BorrowManagerLogicLib {
 
   struct InputParamsAdditional {
     IConverterController controller;
+    IBorrowManager borrowManager;
 
     /// @notice Reward APR is taken into account with given factor, decimals 18.
     uint rewardsFactor;
@@ -64,7 +65,6 @@ library BorrowManagerLogicLib {
   }
 
   struct FindCandidatesForExistDebtsLocal {
-    IBorrowManager borrowManager;
     uint16 minHealthFactor2;
 
     uint fullBorrowCounter;
@@ -198,7 +198,6 @@ library BorrowManagerLogicLib {
     bool needMore
   ) {
     FindCandidatesForExistDebtsLocal memory v;
-    v.borrowManager = IBorrowManager(pa_.controller.borrowManager());
     v.minHealthFactor2 = pa_.controller.minHealthFactor2();
 
     v.fullBorrowCounter = 0;
@@ -212,7 +211,7 @@ library BorrowManagerLogicLib {
         user_,
         p_.collateralAsset,
         p_.borrowAsset,
-        v.borrowManager,
+        pa_.borrowManager,
         v.minHealthFactor2
       );
       if (poolAdapter != address(0)) {

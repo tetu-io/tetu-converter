@@ -277,6 +277,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     });
     BorrowManagerLogicLib.InputParamsAdditional memory addParams = BorrowManagerLogicLib.InputParamsAdditional({
       rewardsFactor: rewardsFactor,
+      borrowManager: this,
       targetHealthFactor2: getTargetHealthFactor2(sourceToken_),
       controller: IConverterController(controller()),
       thresholds: [THRESHOLD_REBALANCE_TOO_HEALTHY, THRESHOLD_REBALANCE_UNHEALTHY]

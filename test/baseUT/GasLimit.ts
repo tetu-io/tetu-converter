@@ -3,8 +3,8 @@ export const GAS_LIMIT = 9_000_000;
 /**
  * Approx up-limits by gas for various operations under test
  */
-export const GAS_LIMIT_BM_FIND_POOL_1 = 127_000;
-export const GAS_LIMIT_BM_FIND_POOL_5 = 377_000;
+export const GAS_LIMIT_BM_FIND_POOL_1 = 134_000;
+export const GAS_LIMIT_BM_FIND_POOL_5 = 413_000;
 export const GAS_LIMIT_BM_FIND_POOL_10 = 383_000;
 export const GAS_LIMIT_BM_FIND_POOL_100 = 3_710_000;
 

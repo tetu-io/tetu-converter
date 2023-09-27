@@ -58,6 +58,7 @@ interface IBorrowManager {
   /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
   ///                  See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
   /// @param user_ The user who is going to make a borrow
+  ///              Pass 0 to disable rebalance-on-borrowing
   /// @param amountIn_ The meaning depends on entryData kind, see EntryKinds library for details.
   ///         For entry kind = 0: Amount of {sourceToken} to be converted to {targetToken}
   ///         For entry kind = 1: Available amount of {sourceToken}
