@@ -234,7 +234,6 @@ export class Aave3TestUtils {
           borrowAsset: collateralToken.address,
           countBlocks: 1,
           entryData: "0x",
-          user: userContract.address
         },
         additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
         {gasLimit: GAS_LIMIT}
@@ -268,7 +267,6 @@ export class Aave3TestUtils {
         borrowAsset: borrowToken.address,
         countBlocks,
         entryData: "0x",
-        user: userContract.address
       },
       additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
       {gasLimit: GAS_LIMIT}
