@@ -5,7 +5,7 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {
   BorrowRepayUsesCase
-} from "../baseUT/uses-cases/BorrowRepayUsesCase";
+} from "../baseUT/uses-cases/app/BorrowRepayUsesCase";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {
   ConverterController__factory,

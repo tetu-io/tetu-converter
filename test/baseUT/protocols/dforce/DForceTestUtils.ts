@@ -21,7 +21,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {IDForceCalcAccountEquityResults} from "./aprDForce";
 import {DForceChangePriceUtils} from "./DForceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
-import {GAS_LIMIT} from "../../GasLimit";
+import {GAS_LIMIT} from "../../types/GasLimit";
 import {IConversionPlan} from "../shared/aprDataTypes";
 
 //region Data types

@@ -6,7 +6,7 @@ import {
   IBorrowTask,
   IBorrowingTestResults,
   ISwapTestResults
-} from "../../baseUT/uses-cases/CompareAprUsesCase";
+} from "../../baseUT/uses-cases/app/CompareAprUsesCase";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {IAssetInfo} from "../../baseUT/protocols/shared/aprDataTypes";
 import {BigNumber} from "ethers";

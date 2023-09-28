@@ -17,9 +17,9 @@ import {
   changeDecimals,
   convertUnits, getExpectedApr18, makeBorrow
 } from "../shared/aprUtils";
-import {DForcePlatformFabric} from "../../fabrics/DForcePlatformFabric";
+import {DForcePlatformFabric} from "../../parts/fabrics/DForcePlatformFabric";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {DForceUtils} from "../../utils/DForceUtils";
+import {DForceUtils} from "./DForceUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
 

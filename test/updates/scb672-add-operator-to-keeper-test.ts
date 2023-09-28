@@ -8,10 +8,11 @@ import {
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
-import {PriceOracleManagerUtils} from "../baseUT/utils/PriceOracleManagerUtils";
+import {PriceOracleManagerUtils} from "../baseUT/protocols/aave3/PriceOracleManagerUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {MaticCore} from "../baseUT/chains/maticCore";
 
 describe.skip("study, SCB672 - update keeper, check fixHealth", () => {
   before(async function () {
@@ -55,7 +56,9 @@ describe.skip("study, SCB672 - update keeper, check fixHealth", () => {
     await keeper.changeOperatorStatus(keeperCaller.address, true);
 
     // get current statuses
-    const priceManager = await PriceOracleManagerUtils.build(signer, await controller.tetuConverter());
+    const core = MaticCore.getCoreAave3();
+    const tokens = [MaticAddresses.DAI, MaticAddresses.USDC, MaticAddresses.USDT]
+    const priceManager = await PriceOracleManagerUtils.build(signer, core, await controller.tetuConverter(), tokens);
     const dForcePriceOracle = await DForceChangePriceUtils.setupPriceOracleMock(signer, true);
 
     const before = await keeper.checker();

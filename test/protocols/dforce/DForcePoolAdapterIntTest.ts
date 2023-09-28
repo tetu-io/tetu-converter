@@ -21,7 +21,7 @@ import {DForceTestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/d
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 

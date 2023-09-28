@@ -9,7 +9,7 @@ import {
 } from "../../typechain";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {AppConstants} from "../baseUT/AppConstants";
+import {AppConstants} from "../baseUT/types/AppConstants";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";

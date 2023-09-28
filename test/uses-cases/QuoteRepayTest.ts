@@ -3,14 +3,14 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
+import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {
   BorrowRepayUsesCase,
   IQuoteRepayResults
-} from "../baseUT/uses-cases/BorrowRepayUsesCase";
-import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
-import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
+} from "../baseUT/uses-cases/app/BorrowRepayUsesCase";
+import {HundredFinancePlatformFabric} from "../baseUT/parts/fabrics/HundredFinancePlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/parts/fabrics/DForcePlatformFabric";
+import {AaveTwoPlatformFabric} from "../baseUT/parts/fabrics/AaveTwoPlatformFabric";
 import {
   GAS_LIMIT_QUOTE_REPAY_AAVE3,
   GAS_LIMIT_QUOTE_REPAY_AAVE_TWO,
@@ -20,7 +20,7 @@ import {
   GAS_LIMIT_QUOTE_REPAY_DFORCE_WITH_SWAP,
   GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE_WITH_SWAP,
   GAS_LIMIT_QUOTE_REPAY_AAVE_TWO_WITH_SWAP
-} from "../baseUT/GasLimit";
+} from "../baseUT/types/GasLimit";
 import {controlGasLimitsEx2, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";

@@ -9,7 +9,7 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {AaveTwoTestUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 import {parseUnits} from "ethers/lib/utils";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {

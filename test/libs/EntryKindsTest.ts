@@ -14,7 +14,7 @@ import {
   GAS_LIMIT_ENTRY_KINDS_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN,
   GAS_LIMIT_ENTRY_KINDS_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT, GAS_LIMIT_ENTRY_KINDS_EXACT_PROPORTIONS,
   GAS_LIMIT_ENTRY_KINDS_GET_ENTRY_KIND
-} from "../baseUT/GasLimit";
+} from "../baseUT/types/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {BigNumber} from "ethers";

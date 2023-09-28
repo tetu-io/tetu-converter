@@ -18,13 +18,13 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
-import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
+import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/app/PredictBrUsesCase";
 import {DForceHelper, IDForceMarketData} from "../../../scripts/integration/dforce/DForceHelper";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
-import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
+import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/protocols/dforce/SupplyBorrowUsingDForce";
+import {DForcePlatformFabric} from "../../baseUT/parts/fabrics/DForcePlatformFabric";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {AprDForce, getDForceStateInfo} from "../../baseUT/protocols/dforce/aprDForce";
@@ -40,8 +40,8 @@ import {
   HardhatUtils,
   POLYGON_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
-import {GAS_LIMIT, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
-import {AppConstants} from "../../baseUT/AppConstants";
+import {GAS_LIMIT, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/types/GasLimit";
+import {AppConstants} from "../../baseUT/types/AppConstants";
 
 describe("DForcePlatformAdapterTest", () => {
 //region Global vars for all tests

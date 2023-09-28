@@ -13,7 +13,7 @@ import {
   IERC20Metadata__factory, IPoolAdapter__factory,
   ITetuConverter
 } from "../../typechain";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
+import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {Misc} from "../../scripts/utils/Misc";

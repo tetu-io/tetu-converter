@@ -16,7 +16,7 @@ import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils
 import {ethers} from "hardhat";
 import {BalanceUtils, IUserBalances} from "../../utils/BalanceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
-import {GAS_LIMIT} from "../../GasLimit";
+import {GAS_LIMIT} from "../../types/GasLimit";
 
 
 export interface IPrepareToBorrowResults {

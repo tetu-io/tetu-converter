@@ -20,7 +20,7 @@ import {
   GAS_LIMIT_BM_FIND_POOL_1,
   GAS_LIMIT_BM_FIND_POOL_10,
   GAS_LIMIT_BM_FIND_POOL_100, GAS_LIMIT_BM_FIND_POOL_5
-} from "../baseUT/GasLimit";
+} from "../baseUT/types/GasLimit";
 import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";

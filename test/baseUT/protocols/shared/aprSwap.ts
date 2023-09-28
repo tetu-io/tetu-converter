@@ -11,7 +11,7 @@ import {
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {MocksHelper} from "../../helpers/MocksHelper";
-import {CompareAprUsesCase} from "../../uses-cases/CompareAprUsesCase";
+import {CompareAprUsesCase} from "../../uses-cases/app/CompareAprUsesCase";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 

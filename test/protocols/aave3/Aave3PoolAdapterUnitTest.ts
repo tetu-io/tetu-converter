@@ -50,7 +50,7 @@ import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {controlGasLimitsEx2, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {GAS_FULL_REPAY, GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_FULL_REPAY, GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
 import {MaticCore} from "../../baseUT/cores/maticCore";

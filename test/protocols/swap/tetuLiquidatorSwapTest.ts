@@ -21,7 +21,7 @@ import {
   HardhatUtils,
   POLYGON_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
-import {GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER} from "../../baseUT/GasLimit";
+import {GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER} from "../../baseUT/types/GasLimit";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 
 describe("TetuLiquidatorSwapTest", () => {

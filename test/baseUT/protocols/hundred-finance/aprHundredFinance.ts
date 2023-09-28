@@ -16,8 +16,8 @@ import {
   convertUnits, getExpectedApr18, makeBorrow
 } from "../shared/aprUtils";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {HundredFinancePlatformFabric} from "../../fabrics/HundredFinancePlatformFabric";
-import {HundredFinanceUtils} from "../../utils/HundredFinanceUtils";
+import {HundredFinancePlatformFabric} from "../../parts/fabrics/HundredFinancePlatformFabric";
+import {HundredFinanceUtils} from "./HundredFinanceUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
 
