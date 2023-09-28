@@ -1,93 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-/// @notice Restored from implementation 0x1FADFF493529C3Fcc7EE04F1f15D19816ddA45B7
-/// of 0xEdc817A28E8B93B03976FBd4a3dDBc9f7D176c22
-interface IMoonwellMToken {
-  event AccrueInterest(
-    uint256 cashPrior,
-    uint256 interestAccumulated,
-    uint256 borrowIndex,
-    uint256 totalBorrows
-  );
-  event Approval(
-    address indexed owner,
-    address indexed spender,
-    uint256 amount
-  );
-  event Borrow(
-    address borrower,
-    uint256 borrowAmount,
-    uint256 accountBorrows,
-    uint256 totalBorrows
-  );
-  event Failure(uint256 error, uint256 info, uint256 detail);
-  event LiquidateBorrow(
-    address liquidator,
-    address borrower,
-    uint256 repayAmount,
-    address mTokenCollateral,
-    uint256 seizeTokens
-  );
-  event Mint(address minter, uint256 mintAmount, uint256 mintTokens);
-  event NewAdmin(address oldAdmin, address newAdmin);
-  event NewComptroller(address oldComptroller, address newComptroller);
-  event NewMarketInterestRateModel(
-    address oldInterestRateModel,
-    address newInterestRateModel
-  );
-  event NewPendingAdmin(address oldPendingAdmin, address newPendingAdmin);
-  event NewProtocolSeizeShare(
-    uint256 oldProtocolSeizeShareMantissa,
-    uint256 newProtocolSeizeShareMantissa
-  );
-  event NewReserveFactor(
-    uint256 oldReserveFactorMantissa,
-    uint256 newReserveFactorMantissa
-  );
-  event Redeem(address redeemer, uint256 redeemAmount, uint256 redeemTokens);
-  event RepayBorrow(
-    address payer,
-    address borrower,
-    uint256 repayAmount,
-    uint256 accountBorrows,
-    uint256 totalBorrows
-  );
-  event ReservesAdded(
-    address benefactor,
-    uint256 addAmount,
-    uint256 newTotalReserves
-  );
-  event ReservesReduced(
-    address admin,
-    uint256 reduceAmount,
-    uint256 newTotalReserves
-  );
-  event Transfer(address indexed from, address indexed to, uint256 amount);
-
-  function _acceptAdmin() external returns (uint256);
-
-  function _addReserves(uint256 addAmount) external returns (uint256);
-
-  function _becomeImplementation(bytes memory data) external;
-
-  function _reduceReserves(uint256 reduceAmount) external returns (uint256);
-
-  function _resignImplementation() external;
-
-  function _setComptroller(address newComptroller) external returns (uint256);
-
-  function _setInterestRateModel(address newInterestRateModel) external returns (uint256);
-
-  function _setPendingAdmin(address newPendingAdmin) external returns (uint256);
-
-  function _setProtocolSeizeShare(uint256 newProtocolSeizeShareMantissa) external returns (uint256);
-
-  function _setReserveFactor(uint256 newReserveFactorMantissa) external returns (uint256);
-
-  /// @notice Block number that interest was last accrued at
-  function accrualBlockTimestamp() external view returns (uint256);
-
+/// @notice Common interface for any implementation of compound cTokens
+/// @dev Created from Moonwell IMToken
+interface ICTokenBase {
   /// @notice Applies accrued interest to total borrows and reserves
   /// @dev This calculates interest accrued from the last checkpointed block
   ///      up to the current block and writes new checkpoint to storage.
@@ -121,8 +37,6 @@ interface IMoonwellMToken {
 
   /// @notice Accumulator of the total earned interest rate since the opening of the market
   function borrowIndex() external view returns (uint256);
-
-  function borrowRatePerTimestamp() external view returns (uint256);
 
   function comptroller() external view returns (address);
 
@@ -173,9 +87,8 @@ interface IMoonwellMToken {
     uint8 decimals_
   ) external;
 
+  /// @notice Model which tells what the current interest rate should be
   function interestRateModel() external view returns (address);
-
-  function isMToken() external view returns (bool);
 
   function liquidateBorrow(address borrower, uint256 repayAmount, address mTokenCollateral) external returns (uint256);
 
@@ -185,19 +98,11 @@ interface IMoonwellMToken {
    /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
   function mint(uint256 mintAmount) external returns (uint256);
 
-  function mintWithPermit(
-    uint256 mintAmount,
-    uint256 deadline,
-    uint8 v,
-    bytes32 r,
-    bytes32 s
-  ) external returns (uint256);
+  function mintWithPermit(uint256 mintAmount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external returns (uint256);
 
   function name() external view returns (string memory);
 
   function pendingAdmin() external view returns (address);
-
-  function protocolSeizeShareMantissa() external view returns (uint256);
 
   /// @notice Sender redeems mTokens in exchange for the underlying asset
   /// @dev Accrues interest whether or not the operation succeeds, unless reverted
@@ -222,16 +127,13 @@ interface IMoonwellMToken {
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
   function repayBorrowBehalf(address borrower, uint256 repayAmount) external returns (uint256);
 
+  /// @notice Fraction of interest currently set aside for reserves
   function reserveFactorMantissa() external view returns (uint256);
 
-  function seize(
-    address liquidator,
-    address borrower,
-    uint256 seizeTokens
-  ) external returns (uint256);
+  function seize(address liquidator, address borrower, uint256 seizeTokens) external returns (uint256);
 
-  function supplyRatePerTimestamp() external view returns (uint256);
-
+  /// @notice A public function to sweep accidental ERC-20 transfers to this contract. Tokens are sent to admin (timelock)
+  /// @param token The address of the ERC-20 token to sweep
   function sweepToken(address token) external;
 
   function symbol() external view returns (string memory);
@@ -239,10 +141,13 @@ interface IMoonwellMToken {
   /// @notice Total amount of outstanding borrows of the underlying in this market
   function totalBorrows() external view returns (uint256);
 
+  /// @notice Returns the current total borrows plus accrued interest
+  /// @return The total borrows with interest
   function totalBorrowsCurrent() external returns (uint256);
 
   function totalReserves() external view returns (uint256);
 
+  /// @notice Total number of tokens in circulation
   function totalSupply() external view returns (uint256);
 
   function transfer(address dst, uint256 amount) external returns (bool);
