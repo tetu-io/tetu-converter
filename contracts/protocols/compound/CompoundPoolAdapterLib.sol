@@ -1,27 +1,15 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.17;
 
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
-import "../../libs/AppErrors.sol";
-import "../../libs/AppUtils.sol";
-import "../../interfaces/IDebtMonitor.sol";
-import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IConverterController.sol";
-import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
-import "../../interfaces/ITokenAddressProvider.sol";
-import "../../integrations/hundred-finance/IHfComptroller.sol";
-import "../../integrations/hundred-finance/IHfCToken.sol";
-import "../../integrations/hundred-finance/IHfPriceOracle.sol";
-import "../../integrations/hundred-finance/IHfHMatic.sol";
-import "../../integrations/IWmatic.sol";
+import "../../integrations/compound/ICompoundComptrollerBase.sol";
+import "../../integrations/compound/ICTokenBase.sol";
 
-/// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
-/// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
+library CompoundPoolAdapterLib {
   using SafeERC20 for IERC20;
 
   //region ----------------------------------------------------- Data types
@@ -50,7 +38,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   address public user;
 
   IConverterController public controller;
-  IHfComptroller private _comptroller;
+  ICompoundComptrollerBase private _comptroller;
 
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address public originConverter;
@@ -116,7 +104,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
 
     collateralCToken = cTokenCollateral;
     borrowCToken = cTokenBorrow;
-    _comptroller = IHfComptroller(comptroller_);
+    _comptroller = ICompoundComptrollerBase(comptroller_);
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
@@ -139,8 +127,8 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   function updateStatus() external override {
     // Update borrowBalance to actual value
     _onlyTetuConverter(controller);
-    IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
-    IHfCToken(collateralCToken).exchangeRateCurrent();
+    ICTokenBase(borrowCToken).borrowBalanceCurrent(address(this));
+    ICTokenBase(collateralCToken).exchangeRateCurrent();
   }
 
   /// @notice Supply collateral to the pool and borrow specified amount
@@ -149,16 +137,12 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   /// @param borrowAmount_ Amount that should be borrowed in result
   /// @param receiver_ Receiver of the borrowed amount
   /// @return Result borrowed amount sent to the {receiver_}
-  function borrow(
-    uint collateralAmount_,
-    uint borrowAmount_,
-    address receiver_
-  ) external override returns (uint) {
+  function borrow(uint collateralAmount_, uint borrowAmount_, address receiver_) internal returns (uint) {
     IConverterController c = controller;
     _onlyTetuConverter(c);
 
     uint error;
-    IHfComptroller comptroller = _comptroller;
+    ICompoundComptrollerBase comptroller = _comptroller;
 
     address cTokenCollateral = collateralCToken;
     address cTokenBorrow = borrowCToken;
@@ -179,7 +163,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     // make borrow
     {
       uint balanceBorrowAsset0 = _getBalance(assetBorrow);
-      error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
+      error = ICTokenBase(cTokenBorrow).borrow(borrowAmount_);
       require(error == 0, AppErrors.BORROW_FAILED);
 
       // ensure that we have received required borrowed amount, send the amount to the receiver
@@ -223,7 +207,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
       IHfHMatic(payable(cTokenCollateral_)).mint{value: collateralAmount_}();
     } else {
       // replaced by infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
-      uint error = IHfCToken(cTokenCollateral_).mint(collateralAmount_);
+      uint error = ICTokenBase(cTokenCollateral_).mint(collateralAmount_);
       require(error == 0, AppErrors.MINT_FAILED);
     }
     return tokenBalanceBefore;
@@ -232,7 +216,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   /// @return (Health factor, decimal 18; collateral-token-balance)
   function _validateHealthStatusAfterBorrow(
     IConverterController controller_,
-    IHfComptroller comptroller_,
+    ICompoundComptrollerBase comptroller_,
     address cTokenCollateral_,
     address cTokenBorrow_
   ) internal view returns (uint, uint) {
@@ -253,10 +237,10 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     require(
       sumCollateralSafe > borrowBase
       && borrowBase != 0,
-    // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
-    // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
-    // let's ensure that liquidity has a reasonable value
-    // && AppUtils.approxEqual(liquidity + borrowBase, sumCollateralSafe, MAX_DIVISION18), // it doesn't work correctly with WBTC
+      // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
+      // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
+      // let's ensure that liquidity has a reasonable value
+      // && AppUtils.approxEqual(liquidity + borrowBase, sumCollateralSafe, MAX_DIVISION18), // it doesn't work correctly with WBTC
       AppErrors.INCORRECT_RESULT_LIQUIDITY
     );
 
@@ -279,7 +263,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     _onlyTetuConverter(c);
 
     uint error;
-    IHfComptroller comptroller = _comptroller;
+    ICompoundComptrollerBase comptroller = _comptroller;
 
     address cTokenBorrow = borrowCToken;
     address assetBorrow = borrowAsset;
@@ -289,7 +273,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
 
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(assetBorrow);
-    error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
+    error = ICTokenBase(cTokenBorrow).borrow(borrowAmount_);
     require(error == 0, AppErrors.BORROW_FAILED);
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
@@ -336,7 +320,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     IERC20(vars.assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
     // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
-    IHfCToken(vars.cTokenBorrow).borrowBalanceCurrent(address(this));
+    ICTokenBase(vars.cTokenBorrow).borrowBalanceCurrent(address(this));
     // how much collateral we are going to return
     (uint collateralTokensToWithdraw, uint tokenBalanceBefore) = _getCollateralTokensToRedeem(
       vars.cTokenCollateral,
@@ -351,13 +335,13 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
       IHfHMatic(payable(vars.cTokenBorrow)).repayBorrow{value: amountToRepay_}();
     } else {
       // replaced by infinity approve: IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
-      vars.error = IHfCToken(vars.cTokenBorrow).repayBorrow(amountToRepay_);
+      vars.error = ICTokenBase(vars.cTokenBorrow).repayBorrow(amountToRepay_);
       require(vars.error == 0, AppErrors.REPAY_FAILED);
     }
 
     // withdraw the collateral
     uint balanceCollateralAssetBeforeRedeem = _getBalance(vars.assetCollateral);
-    vars.error = IHfCToken(vars.cTokenCollateral).redeem(collateralTokensToWithdraw);
+    vars.error = ICTokenBase(vars.cTokenCollateral).redeem(collateralTokensToWithdraw);
     require(vars.error == 0, AppErrors.REDEEM_FAILED);
 
     // transfer collateral back to the user
@@ -403,10 +387,10 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     bool closePosition_,
     uint amountToRepay_
   ) internal view returns (uint, uint) {
-    (uint error, uint tokenBalance,,) = IHfCToken(cTokenCollateral_).getAccountSnapshot(address(this));
+    (uint error, uint tokenBalance,,) = ICTokenBase(cTokenCollateral_).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
-    (uint error2,, uint borrowBalance,) = IHfCToken(cTokenBorrow_).getAccountSnapshot(address(this));
+    (uint error2,, uint borrowBalance,) = ICTokenBase(cTokenBorrow_).getAccountSnapshot(address(this));
     require(error2 == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
     require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
     if (closePosition_) {
@@ -465,7 +449,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
         IHfHMatic(payable(cTokenBorrow)).repayBorrow{value: amount_}();
       } else {
         // replaced by infinity approve: IERC20(assetBorrow).approve(cTokenBorrow, amount_);
-        error = IHfCToken(cTokenBorrow).repayBorrow(amount_);
+        error = ICTokenBase(cTokenBorrow).repayBorrow(amount_);
         require(error == 0, AppErrors.REPAY_FAILED);
       }
     }
@@ -490,7 +474,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
     address cTokenCollateral = collateralCToken;
 
-    (uint error,,, uint cExchangeRateMantissa) = IHfCToken(cTokenCollateral).getAccountSnapshot(address(this));
+    (uint error,,, uint cExchangeRateMantissa) = ICTokenBase(cTokenCollateral).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
     (uint tokensToReturn,) = _getCollateralTokensToRedeem(cTokenCollateral, borrowCToken, closePosition_, amountToRepay_);
@@ -586,11 +570,11 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     uint cExchangeRateMantissa;
     uint error;
 
-    (error, tokenBalanceOut,, cExchangeRateMantissa) = IHfCToken(cTokenCollateral)
+    (error, tokenBalanceOut,, cExchangeRateMantissa) = ICTokenBase(cTokenCollateral)
     .getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
-    (error,, borrowBalanceOut,) = IHfCToken(cTokenBorrow).getAccountSnapshot(address(this));
+    (error,, borrowBalanceOut,) = ICTokenBase(cTokenBorrow).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
     IHfPriceOracle priceOracle = IHfPriceOracle(_comptroller.oracle());
@@ -622,7 +606,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
 
 //  /// @notice Compute current cost of the money
 //  function getAPR18() external view override returns (int) {
-//    return int(IHfCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
+//    return int(ICTokenBase(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
 //  }
   //endregion ----------------------------------------------------- View current status
 
@@ -664,4 +648,5 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     // no restrictions because this adpater is not used in production, it's for tests only
   }
   //endregion ----------------------------------------------------- Native tokens
+
 }
