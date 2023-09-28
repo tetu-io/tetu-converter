@@ -17,19 +17,16 @@ library HfAprLib {
   address internal constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   address internal constant hMATIC = address(0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31);
 
-  //-----------------------------------------------------
-  //                  Data type
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Data type
   struct HfCore {
     IHfCToken cTokenCollateral;
     IHfCToken cTokenBorrow;
     address collateralAsset;
     address borrowAsset;
   }
+  //endregion ----------------------------------------------------- Data type
 
-  //-----------------------------------------------------
-  //                  Addresses
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Addresses
 
   /// @notice Get core address of DForce
   function getCore(
@@ -43,10 +40,9 @@ library HfAprLib {
       borrowAsset: getUnderlying(cTokenBorrow_)
     });
   }
+  //endregion ----------------------------------------------------- Addresses
 
-  //-----------------------------------------------------
-  //                  Estimate APR
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Estimate APR
 
   /// @notice Calculate cost and incomes, take into account borrow rate and supply rate.
   /// @return borrowCost36 Estimated borrow cost for the period, borrow tokens, decimals 36
@@ -125,10 +121,9 @@ library HfAprLib {
       * 1e18 // not 36 because we replaced rmul by mul
       / borrow10PowDecimals;
   }
+  //endregion ----------------------------------------------------- Estimate APR
 
-  //-----------------------------------------------------
-  //         Estimate borrow rate
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Estimate borrow rate
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   /// @dev repeats compound-protocol, CToken.sol, borrowRatePerBlock() impl
@@ -143,10 +138,9 @@ library HfAprLib {
       cTokenBorrow_.totalReserves()
     );
   }
+  //endregion ----------------------------------------------------- Estimate borrow rate
 
-  //-----------------------------------------------------
-  //         Estimate supply rate
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Estimate supply rate
 
   /// @dev repeats compound-protocol, CToken.sol, supplyRatePerBlock() impl
   function getEstimatedSupplyRate(
@@ -163,10 +157,9 @@ library HfAprLib {
       cToken_.reserveFactorMantissa()
     );
   }
+  //endregion ----------------------------------------------------- Estimate supply rate
 
-  //-----------------------------------------------------
-  ///                 Utils to inline
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Utils to inline
   function getPrice(IHfPriceOracle priceOracle, address token) internal view returns (uint) {
     uint price = priceOracle.getUnderlyingPrice(token);
     require(price != 0, AppErrors.ZERO_PRICE);
@@ -178,5 +171,6 @@ library HfAprLib {
       ? WMATIC
       : IHfCToken(token).underlying();
   }
+  //endregion ----------------------------------------------------- Utils to inline
 
 }
