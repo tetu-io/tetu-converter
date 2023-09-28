@@ -20,9 +20,9 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 import {Misc} from "../../../scripts/utils/Misc";
-import {IDForceCalcAccountEquityResults} from "../../baseUT/apr/aprDForce";
+import {IDForceCalcAccountEquityResults} from "../../baseUT/protocols/dforce/aprDForce";
 import {areAlmostEqual, toStringWithRound} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {
@@ -140,7 +140,8 @@ describe("DForcePoolAdapterUnitTest", () => {
       collateralCToken,
       borrowCToken,
       mockedCollateralCToken.address,
-      mockedBorrowCToken.address
+      mockedBorrowCToken.address,
+      MaticAddresses.DFORCE_CONTROLLER
     );
 
     await mockedCollateralCToken.init(mockedComptroller.address, collateralAsset, collateralCToken);

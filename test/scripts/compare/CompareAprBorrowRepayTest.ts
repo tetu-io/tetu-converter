@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {IStrategyToConvert} from "../../baseUT/apr/aprDataTypes";
+import {IStrategyToConvert} from "../../baseUT/protocols/shared/aprDataTypes";
 import {BigNumber} from "ethers";
 import {ConverterController, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
@@ -17,7 +17,7 @@ import {ITokenParams} from "../../baseUT/types/BorrowRepayDataTypes";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {existsSync, writeFileSync} from "fs";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
+import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
 import {writeFileSyncRestoreFolder} from "../../baseUT/utils/FileUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
@@ -172,7 +172,7 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       controller,
       countBlocks
     );
-    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
     const prices = await priceOracle.getAssetsPrices([collateral.asset, borrow.asset]);
 
     return {

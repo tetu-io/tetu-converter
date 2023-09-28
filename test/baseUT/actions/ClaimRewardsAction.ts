@@ -12,7 +12,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {ethers} from "hardhat";
 import {parseUnits} from "ethers/lib/utils";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 import {DForceUtils} from "../utils/DForceUtils";
 
 export interface IRepayActionOptionalParams {

@@ -9,7 +9,7 @@ import {
   IERC20__factory,
   IPoolAdapter__factory, Aave3PoolMock__factory
 } from "../../../../typechain";
-import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {ethers} from "hardhat";
@@ -19,13 +19,14 @@ import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
-import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
+import {IAaveTwoUserAccountDataResults} from "./aprAaveTwo";
 import {AaveTwoChangePricesUtils} from "./AaveTwoChangePricesUtils";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {GAS_LIMIT} from "../../GasLimit";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -129,7 +130,7 @@ export class AaveTwoTestUtils {
     const periodInBlocks = 1000;
 
     const aavePool = additionalParams?.useAaveTwoPoolMock
-      ? await MocksHelper.getAaveTwoPoolMock(deployer, collateralToken.address, borrowToken.address)
+      ? await MocksHelper.getAaveTwoPoolMock(deployer, collateralToken.address, borrowToken.address, MaticAddresses.AAVE_TWO_POOL)
       : await AaveTwoHelper.getAavePool(deployer);
     if (additionalParams?.useMockedAavePriceOracle) {
       await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);

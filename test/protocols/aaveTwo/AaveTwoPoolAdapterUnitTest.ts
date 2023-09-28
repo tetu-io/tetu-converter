@@ -13,10 +13,10 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
-import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper} from "../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
+import {IAaveTwoUserAccountDataResults} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
 import {
   AaveRepayToRebalanceUtils, IAaveMakeRepayToRebalanceResults,
   IMakeRepayToRebalanceResults
@@ -1004,7 +1004,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         p.borrowToken,
         {
           targetHealthFactor2: targetHealthFactorInitial2,
-          useAaveTwoPoolMock: p?.badPathsParams?.useAavePoolMock ?? false
+          useAaveTwoPoolMock: p?.badPathsParams?.poolMocked ?? false
         }
       );
       const collateralAssetData = await AaveTwoHelper.getReserveInfo(deployer,
@@ -1075,7 +1075,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         await d.controller.tetuConverter()
       );
 
-      if (p?.badPathsParams?.useAavePoolMock) {
+      if (p?.badPathsParams?.poolMocked) {
         if (p?.badPathsParams?.addToHealthFactorAfterRepay) {
           await AaveTwoPoolMock__factory.connect(d.aavePool.address, deployer).setHealthFactorAddonAfterRepay(
             parseUnits(p?.badPathsParams?.addToHealthFactorAfterRepay, 18)
@@ -1304,7 +1304,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         describe("RepayToRebalance reduces health factor by a value greater than the limit", () => {
           it("should NOT revert", async () => {
             await testRepayToRebalanceDaiWMatic({
-              useAavePoolMock: true,
+              poolMocked: true,
 
               // the state is healthy
               skipHealthFactors2: true,
@@ -1333,7 +1333,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         describe("RepayToRebalance reduces health factor by a value lesser than the limit", () => {
           it("should NOT revert", async () => {
             await testRepayToRebalanceDaiWMatic({
-              useAavePoolMock: true,
+              poolMocked: true,
 
               // healthFactor before repay = 9999999949101140296
               // healthFactor after repay =  9999990449101434776
@@ -1349,7 +1349,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           it("should revert", async () => {
             await expect(
               testRepayToRebalanceDaiWMatic({
-                useAavePoolMock: true,
+                poolMocked: true,
 
                 // healthFactor before repay = 9999999955468282000
                 // healthFactor after repay =  9900000455468577544

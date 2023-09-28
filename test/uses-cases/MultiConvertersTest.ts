@@ -50,7 +50,7 @@ describe("MultiConvertersTest", () => {
         new DForcePlatformFabric(),
         // new HundredFinancePlatformFabric()
       ],
-      {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
+      {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address} // disable swap, enable price oracle
     );
     platformAdapters = app.pools.map(x => IPlatformAdapter__factory.connect(x.platformAdapter, deployer));
     tetuConverter = app.tc;

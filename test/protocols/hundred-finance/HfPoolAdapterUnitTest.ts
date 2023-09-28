@@ -15,11 +15,11 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
+import {HundredFinanceHelper} from "../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
-import {IHfAccountLiquidity} from "../../baseUT/apr/aprHundredFinance";
+import {IHfAccountLiquidity} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {
@@ -131,7 +131,8 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       collateralCToken,
       borrowCToken,
       mockedCollateralCToken.address,
-      mockedBorrowCToken.address
+      mockedBorrowCToken.address,
+      MaticAddresses.HUNDRED_FINANCE_COMPTROLLER
     );
 
     await mockedCollateralCToken.init(mockedComptroller.address, collateralAsset, collateralCToken);

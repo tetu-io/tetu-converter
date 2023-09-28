@@ -14,7 +14,7 @@ import "hardhat-tracer";
 import "solidity-coverage"
 import "hardhat-abi-exporter"
 import {task} from "hardhat/config";
-import {deployContract} from "./scripts/deploy/DeployContract";
+import {deployContract} from "./scripts/utils/DeployContract";
 import "hardhat-change-network";
 import { EnvSetup } from './scripts/utils/EnvSetup';
 
@@ -36,16 +36,19 @@ export default {
       blockGasLimit: 0x1fffffffffffff,
       gas: EnvSetup.getEnv().hardhatChainId === 1 ? 19_000_000 :
         EnvSetup.getEnv().hardhatChainId === 137 ? 19_000_000 :
+        EnvSetup.getEnv().hardhatChainId === 8453 ? 19_000_000 :
           9_000_000,
       forking: EnvSetup.getEnv().hardhatChainId !== 31337 ? {
         url:
           EnvSetup.getEnv().hardhatChainId === 1 ? EnvSetup.getEnv().ethRpcUrl :
             EnvSetup.getEnv().hardhatChainId === 137 ? EnvSetup.getEnv().maticRpcUrl :
-            undefined,
+              EnvSetup.getEnv().hardhatChainId === 8453 ? EnvSetup.getEnv().baseRpcUrl :
+              undefined,
         blockNumber:
           EnvSetup.getEnv().hardhatChainId === 1 ? EnvSetup.getEnv().ethForkBlock !== 0 ? EnvSetup.getEnv().ethForkBlock : undefined :
             EnvSetup.getEnv().hardhatChainId === 137 ? EnvSetup.getEnv().maticForkBlock !== 0 ? EnvSetup.getEnv().maticForkBlock : undefined :
-            undefined,
+              EnvSetup.getEnv().hardhatChainId === 8453 ? EnvSetup.getEnv().baseForkBlock !== 0 ? EnvSetup.getEnv().baseForkBlock : undefined :
+              undefined,
       } : undefined,
       accounts: {
         mnemonic: 'test test test test test test test test test test test junk',
@@ -70,6 +73,12 @@ export default {
       // gas: 50_000_000_000,
       accounts: [EnvSetup.getEnv().privateKey],
     },
+		"base-mainnet": {
+      url: EnvSetup.getEnv().baseRpcUrl || '',
+      chainId: 8453,
+      accounts: [EnvSetup.getEnv().privateKey],
+      gasPrice: 1000000000,
+    },
   },
   etherscan: {
     //  https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html#multiple-api-keys-and-alternative-block-explorers
@@ -78,6 +87,7 @@ export default {
       goerli: EnvSetup.getEnv().networkScanKey,
       sepolia: EnvSetup.getEnv().networkScanKey,
       polygon: EnvSetup.getEnv().networkScanKeyMatic || EnvSetup.getEnv().networkScanKey,
+      base: EnvSetup.getEnv().networkScanKeyBase || EnvSetup.getEnv().networkScanKey,
     },
   },
   verify: {

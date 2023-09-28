@@ -142,12 +142,8 @@ export class CoreContractsHelper {
 //endregion Initialize core contracts
 
 //region Create core contracts
-  public static async createPriceOracle(signer: SignerWithAddress, priceOracleAave3?: string): Promise<PriceOracle> {
-    return (await DeployUtils.deployContract(
-      signer,
-      "PriceOracle",
-      priceOracleAave3 || MaticAddresses.AAVE_V3_PRICE_ORACLE
-    )) as PriceOracle;
+  public static async createPriceOracle(signer: SignerWithAddress, priceOracleAave3: string): Promise<PriceOracle> {
+    return (await DeployUtils.deployContract(signer, "PriceOracle",priceOracleAave3)) as PriceOracle;
   }
 //endregion Create core contracts
 }

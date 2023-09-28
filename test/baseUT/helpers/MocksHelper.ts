@@ -59,7 +59,6 @@ import {
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export interface IPooAdapterStabInitParams {
   controller: string;
@@ -279,11 +278,7 @@ export class MocksHelper {
     signer: SignerWithAddress,
     valueIsPoolAdapter: boolean
   ) : Promise<BorrowManagerStub> {
-    return await DeployUtils.deployContract(
-      signer
-      , "BorrowManagerStub"
-      , valueIsPoolAdapter
-    ) as BorrowManagerStub;
+    return await DeployUtils.deployContract(signer, "BorrowManagerStub", valueIsPoolAdapter) as BorrowManagerStub;
   }
 
   public static async createBorrowManagerMock(signer: SignerWithAddress) : Promise<BorrowManagerMock> {
@@ -294,22 +289,14 @@ export class MocksHelper {
     signer: SignerWithAddress,
     valueIsConverterInUse: boolean
   ) : Promise<DebtMonitorStub> {
-    return await DeployUtils.deployContract(
-      signer
-      , "DebtMonitorStub"
-      , valueIsConverterInUse
-    ) as DebtMonitorStub;
+    return await DeployUtils.deployContract(signer, "DebtMonitorStub", valueIsConverterInUse) as DebtMonitorStub;
   }
 
   public static async createPlatformAdapterStub(
     signer: SignerWithAddress,
     converters: string[]
   ) : Promise<PlatformAdapterStub> {
-    return await DeployUtils.deployContract(
-      signer
-      , "PlatformAdapterStub"
-      , converters
-    ) as PlatformAdapterStub;
+    return await DeployUtils.deployContract(signer, "PlatformAdapterStub", converters) as PlatformAdapterStub;
   }
 //endregion Core contracts
 
@@ -336,13 +323,12 @@ export class MocksHelper {
     baseCurrencyUnit: BigNumber,
     fallbackOracle: string
   ) : Promise<Aave3PriceOracleMock> {
-    return await DeployUtils.deployContract(
-      signer
-      , "Aave3PriceOracleMock"
-      , addressProvider
-      , baseCurrency
-      , baseCurrencyUnit
-      , fallbackOracle
+    return await DeployUtils.deployContract(signer,
+      "Aave3PriceOracleMock",
+      addressProvider,
+      baseCurrency,
+      baseCurrencyUnit,
+      fallbackOracle
     ) as Aave3PriceOracleMock;
   }
 
@@ -353,11 +339,11 @@ export class MocksHelper {
     fallbackOracle: string
   ) : Promise<Aave3PriceOracleMock> {
     return await DeployUtils.deployContract(
-      signer
-      , "Aave2PriceOracleMock"
-      , owner
-      , weth
-      , fallbackOracle
+      signer,
+      "Aave2PriceOracleMock",
+      owner,
+      weth,
+      fallbackOracle
     ) as Aave3PriceOracleMock;
   }
 //endregion Price mocks
@@ -522,11 +508,12 @@ export class MocksHelper {
   public static async getAave3PoolMock(
     deployer: SignerWithAddress,
     collateralAsset: string,
-    borrowAsset: string
+    borrowAsset: string,
+    aavePool: string
   ) : Promise<Aave3PoolMock> {
     return await DeployUtils.deployContract(deployer,
       "Aave3PoolMock",
-      MaticAddresses.AAVE_V3_POOL,
+      aavePool,
       collateralAsset,
       borrowAsset
     ) as Aave3PoolMock;
@@ -535,11 +522,12 @@ export class MocksHelper {
   public static async getAaveTwoPoolMock(
     deployer: SignerWithAddress,
     collateralAsset: string,
-    borrowAsset: string
+    borrowAsset: string,
+    aavePool: string
   ) : Promise<AaveTwoPoolMock> {
     return await DeployUtils.deployContract(deployer,
       "AaveTwoPoolMock",
-      MaticAddresses.AAVE_TWO_POOL,
+      aavePool,
       collateralAsset,
       borrowAsset
     ) as AaveTwoPoolMock;
@@ -552,11 +540,12 @@ export class MocksHelper {
     collateralCToken: string,
     borrowCToken: string,
     mockedCollateralCToken: string,
-    mockedBorrowCToken: string
+    mockedBorrowCToken: string,
+    dForceController: string
   ) : Promise<DForceControllerMock> {
     return await DeployUtils.deployContract(deployer,
       "DForceControllerMock",
-      MaticAddresses.DFORCE_CONTROLLER,
+      dForceController,
       collateralAsset,
       borrowAsset,
       collateralCToken,
@@ -579,11 +568,12 @@ export class MocksHelper {
     collateralCToken: string,
     borrowCToken: string,
     mockedCollateralCToken: string,
-    mockedBorrowCToken: string
+    mockedBorrowCToken: string,
+    comptroller: string
   ) : Promise<HfComptrollerMock> {
     return await DeployUtils.deployContract(deployer,
       "HfComptrollerMock",
-      MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+      comptroller,
       collateralAsset,
       borrowAsset,
       collateralCToken,

@@ -13,7 +13,7 @@ import {
   IERC20__factory,
   ITetuConverter
 } from "../../../typechain";
-import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper} from "../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {AaveTwoChangePricesUtils} from "../protocols/aaveTwo/AaveTwoChangePricesUtils";
 
 export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {

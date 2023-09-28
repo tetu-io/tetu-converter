@@ -15,6 +15,8 @@ import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePr
 import {ConverterController} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {ICoreAave3} from "../../baseUT/protocols/aave3/Aave3DataTypes";
+import {MaticCore} from "../../baseUT/cores/maticCore";
 
 describe("Aave3CollateralBalanceTest", () => {
 //region Constants
@@ -344,9 +346,10 @@ describe("Aave3CollateralBalanceTest", () => {
        */
       it.skip("should return not-zero collateralAmountLiquidated", async () => {
         // reduce price of collateral to reduce health factor below 1
-        await Aave3ChangePricesUtils.changeAssetPrice(deployer, init.d.collateralToken.address, false, 10);
+        const core = MaticCore.getCoreAave3();
+        await Aave3ChangePricesUtils.changeAssetPrice(deployer, core, init.d.collateralToken.address, false, 10);
 
-        await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder);
         const stateAfterLiquidation = await Aave3TestUtils.getState(init.d);
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -367,7 +370,9 @@ describe("Aave3CollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it.skip("try to make full repay, aave reverts", async () => {
-        await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        const core = MaticCore.getCoreAave3();
+
+        await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder);
         const stateAfterLiquidation = await Aave3TestUtils.getState(init.d);
 
         await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);

@@ -8,6 +8,7 @@ import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "../fabrics/ILendingPlatformFabric";
 import {MocksHelper} from "./MocksHelper";
 import {ethers} from "hardhat";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export interface IDeployInitFabricsSet {
   deploy: () => Promise<string>,
@@ -89,7 +90,7 @@ export class TetuConverterApp {
     const tetuLiquidatorFabric = async () => p?.tetuLiquidatorAddress
         || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address;
     const priceOracleFabric = p?.priceOracleFabric
-        || (async () => (await CoreContractsHelper.createPriceOracle(deployer)).address
+        || (async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address
       );
 
     return CoreContractsHelper.createController(

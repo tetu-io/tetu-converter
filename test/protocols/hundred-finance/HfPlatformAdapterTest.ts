@@ -12,20 +12,20 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {
   HundredFinanceHelper,
   IHundredFinanceMarketData
-} from "../../../scripts/integration/helpers/HundredFinanceHelper";
+} from "../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
+import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
-import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {convertUnits} from "../../baseUT/protocols/shared/aprUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
+import {IConversionPlan} from "../../baseUT/protocols/shared/aprDataTypes";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {
@@ -38,7 +38,7 @@ import {
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 
 describe.skip("Hundred finance, platform adapter", () => {
 //region Global vars for all tests

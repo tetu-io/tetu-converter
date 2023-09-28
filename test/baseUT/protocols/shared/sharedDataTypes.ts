@@ -14,7 +14,7 @@ export interface IMakeRepayRebalanceBadPathParams {
   additionalAmountCorrectionFactorDiv?: number;
   repayBorrowFails?: boolean;
 
-  useAavePoolMock?: boolean;
+  poolMocked?: boolean;
   /**
    * After call of repay() get current user status, save it and add given value to the saved health factor.
    * So, next call of the status will return modified health factor.
