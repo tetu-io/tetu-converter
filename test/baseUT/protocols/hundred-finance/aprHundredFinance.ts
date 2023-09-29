@@ -455,9 +455,9 @@ export class AprHundredFinance {
     amountCollateral: BigNumber,
   ) : Promise<BigNumber> {
     return libFacade.getEstimatedSupplyRate(
-      await token.interestRateModel()
-      , token.address
-      , amountCollateral
+      await token.interestRateModel(),
+      token.address,
+      amountCollateral
     );
   }
 
@@ -467,9 +467,9 @@ export class AprHundredFinance {
     borrowAmount: BigNumber
   ) : Promise<BigNumber> {
     return libFacade.getEstimatedBorrowRate(
-      await token.interestRateModel()
-      , token.address
-      , borrowAmount
+      await token.interestRateModel(),
+      token.address,
+      borrowAmount
     );
 
   }

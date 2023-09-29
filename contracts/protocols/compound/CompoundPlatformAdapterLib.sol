@@ -293,7 +293,6 @@ library CompoundPlatformAdapterLib {
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function getBorrowRateAfterBorrow(
     State storage state,
-    CompoundLib.ProtocolFeatures memory f_,
     address borrowAsset_,
     uint amountToBorrow_
   ) internal view returns (uint) {

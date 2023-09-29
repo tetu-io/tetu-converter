@@ -41,7 +41,7 @@ library CompoundAprLib {
   }
   //endregion ----------------------------------------------------- Addresses
 
-  //region ----------------------------------------------------- Estimate APR
+  //region ----------------------------------------------------- Estimate APR (rates per block)
 
   /// @notice Calculate cost and incomes, take into account borrow rate and supply rate.
   /// @return borrowCost36 Estimated borrow cost for the period, borrow tokens, decimals 36
@@ -103,6 +103,7 @@ library CompoundAprLib {
 
   /// @notice Calculate borrow cost in terms of borrow tokens with decimals 36
   /// @dev see LendingContractsV2, Base.sol, _updateInterest
+  ///      see Compound-protocol, CToken.sol, accrueInterest
   function getBorrowCost36(
     uint borrowRatePerBlock,
     uint borrowedAmount,
@@ -120,7 +121,7 @@ library CompoundAprLib {
       * 1e18 // not 36 because we replaced rmul by mul
       / borrow10PowDecimals;
   }
-  //endregion ----------------------------------------------------- Estimate APR
+  //endregion ----------------------------------------------------- Estimate APR (rates per block)
 
   //region ----------------------------------------------------- Estimate borrow rate
 
