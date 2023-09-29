@@ -29,7 +29,7 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("Aave3PoolAdapterIntTest", () => {

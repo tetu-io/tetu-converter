@@ -39,7 +39,7 @@ import {
   HARDHAT_NETWORK_ID,
   HardhatUtils
 } from "../../scripts/utils/HardhatUtils";
-import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
+import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/types/GasLimit";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests

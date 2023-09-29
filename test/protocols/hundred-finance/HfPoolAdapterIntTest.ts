@@ -20,7 +20,7 @@ import {
   IPrepareToBorrowResults
 } from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe.skip("HfPoolAdapterIntTest", () => {

@@ -8,12 +8,12 @@ import {
   IERC20__factory, IERC20Metadata__factory, Keeper__factory
 } from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
+import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../scripts/utils/Misc";
-import {GAS_LIMIT} from "../baseUT/GasLimit";
+import {GAS_LIMIT} from "../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe("Keeper test for reconversion @skip-on-coverage", () => {

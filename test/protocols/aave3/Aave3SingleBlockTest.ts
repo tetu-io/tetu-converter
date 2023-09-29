@@ -13,7 +13,7 @@ import {Aave3TestUtils} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";

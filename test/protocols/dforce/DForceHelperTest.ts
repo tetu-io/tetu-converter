@@ -14,8 +14,8 @@ import {
 } from "../../../scripts/integration/dforce/DForceHelper";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
-import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
+import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/protocols/dforce/SupplyBorrowUsingDForce";
+import {DForcePlatformFabric} from "../../baseUT/parts/fabrics/DForcePlatformFabric";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";

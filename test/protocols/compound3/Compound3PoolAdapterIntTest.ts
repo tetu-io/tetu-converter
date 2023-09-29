@@ -17,7 +17,7 @@ import {IBorrowAndRepayBadParams} from "../../baseUT/protocols/aaveShared/aaveBo
 import {IComet__factory, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {Misc} from "../../../scripts/utils/Misc";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";

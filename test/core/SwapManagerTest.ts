@@ -21,7 +21,7 @@ import {
   GAS_FIND_SWAP_STRATEGY,
   GAS_SWAP, GAS_SWAP_APR18,
   GAS_SWAP_SIMULATE
-} from "../baseUT/GasLimit";
+} from "../baseUT/types/GasLimit";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 

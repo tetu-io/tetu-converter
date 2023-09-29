@@ -3,15 +3,15 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
+import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
+import {AaveTwoPlatformFabric} from "../baseUT/parts/fabrics/AaveTwoPlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/parts/fabrics/DForcePlatformFabric";
 import {IPlatformAdapter, IPlatformAdapter__factory, ITetuConverter} from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
-import {GAS_LIMIT} from "../baseUT/GasLimit";
+import {GAS_LIMIT} from "../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe("MultiConvertersTest", () => {

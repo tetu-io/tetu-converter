@@ -17,7 +17,7 @@ import {
   IERC20Metadata__factory
 } from "../../../typechain";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
+import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/app/PredictBrUsesCase";
 import {AprAaveTwo, getAaveTwoStateInfo, IAaveTwoStateInfo, IAaveTwoReserveData} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
 import {Misc} from "../../../scripts/utils/Misc";
 import {convertUnits} from "../../baseUT/protocols/shared/aprUtils";
@@ -32,8 +32,8 @@ import {
   HardhatUtils,
   POLYGON_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
-import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
-import {AppConstants} from "../../baseUT/AppConstants";
+import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/types/GasLimit";
+import {AppConstants} from "../../baseUT/types/AppConstants";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests

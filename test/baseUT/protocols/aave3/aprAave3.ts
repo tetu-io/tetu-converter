@@ -13,7 +13,7 @@ import {
   IBaseToBorrowParams,
   makeBorrow, baseToBt, getExpectedApr18
 } from "../shared/aprUtils";
-import {Aave3PlatformFabric} from "../../fabrics/Aave3PlatformFabric";
+import {Aave3PlatformFabric} from "../../parts/fabrics/Aave3PlatformFabric";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";

@@ -8,7 +8,7 @@ import {
   IPoolAdapter__factory
 } from "../../typechain";
 import {readFileSync, writeFileSync} from "fs";
-import {CollectStatusesImpl, IGetStatus} from "../../test/baseUT/analyse/CollectStatusesImpl";
+import {CollectStatusesImpl, IGetStatus} from "../../test/baseUT/utils/CollectStatusesImpl";
 import {formatUnits} from "ethers/lib/utils";
 import {getCurrentTimestamp} from "hardhat/internal/hardhat-network/provider/utils/getCurrentTimestamp";
 

@@ -6,13 +6,13 @@ import {IStrategyToConvert} from "../../baseUT/protocols/shared/aprDataTypes";
 import {BigNumber} from "ethers";
 import {ConverterController, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {Aave3PlatformFabric} from "../../baseUT/fabrics/Aave3PlatformFabric";
-import {AaveTwoPlatformFabric} from "../../baseUT/fabrics/AaveTwoPlatformFabric";
-import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
-import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
+import {Aave3PlatformFabric} from "../../baseUT/parts/fabrics/Aave3PlatformFabric";
+import {AaveTwoPlatformFabric} from "../../baseUT/parts/fabrics/AaveTwoPlatformFabric";
+import {DForcePlatformFabric} from "../../baseUT/parts/fabrics/DForcePlatformFabric";
+import {HundredFinancePlatformFabric} from "../../baseUT/parts/fabrics/HundredFinancePlatformFabric";
 import {
   BorrowRepayUsesCase,
-} from "../../baseUT/uses-cases/BorrowRepayUsesCase";
+} from "../../baseUT/uses-cases/app/BorrowRepayUsesCase";
 import {ITokenParams} from "../../baseUT/types/BorrowRepayDataTypes";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {existsSync, writeFileSync} from "fs";

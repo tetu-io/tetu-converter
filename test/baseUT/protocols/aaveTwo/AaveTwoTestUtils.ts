@@ -25,7 +25,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
-import {GAS_LIMIT} from "../../GasLimit";
+import {GAS_LIMIT} from "../../types/GasLimit";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 
 //region Data types

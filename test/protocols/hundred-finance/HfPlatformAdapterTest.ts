@@ -16,7 +16,7 @@ import {
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
+import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/app/PredictBrUsesCase";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
@@ -36,8 +36,8 @@ import {
 import {
   GAS_LIMIT,
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
-} from "../../baseUT/GasLimit";
-import {AppConstants} from "../../baseUT/AppConstants";
+} from "../../baseUT/types/GasLimit";
+import {AppConstants} from "../../baseUT/types/AppConstants";
 import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 
 describe.skip("Hundred finance, platform adapter", () => {

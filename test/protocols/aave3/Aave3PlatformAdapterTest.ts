@@ -15,7 +15,7 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
+import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/app/PredictBrUsesCase";
 import {AprAave3, getAave3StateInfo, IAave3StateInfo, IAaveReserveData} from "../../baseUT/protocols/aave3/aprAave3";
 import {Misc} from "../../../scripts/utils/Misc";
 import {convertUnits} from "../../baseUT/protocols/shared/aprUtils";
@@ -31,8 +31,8 @@ import {
   HardhatUtils,
   POLYGON_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
-import {GAS_LIMIT, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
-import {AppConstants} from "../../baseUT/AppConstants";
+import {GAS_LIMIT, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/types/GasLimit";
+import {AppConstants} from "../../baseUT/types/AppConstants";
 import {MaticCore} from "../../baseUT/cores/maticCore";
 import {ICoreAave3} from "../../baseUT/protocols/aave3/Aave3DataTypes";
 

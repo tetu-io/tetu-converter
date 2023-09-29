@@ -21,7 +21,7 @@ import {
   IBaseToBorrowParams,
   makeBorrow, baseToBt, getExpectedApr18
 } from "../shared/aprUtils";
-import {AaveTwoPlatformFabric} from "../../fabrics/AaveTwoPlatformFabric";
+import {AaveTwoPlatformFabric} from "../../parts/fabrics/AaveTwoPlatformFabric";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {getDifference} from "../../utils/CommonUtils";

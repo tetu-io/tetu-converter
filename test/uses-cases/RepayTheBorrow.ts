@@ -3,8 +3,8 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
+import {BorrowRepayUsesCase} from "../baseUT/uses-cases/app/BorrowRepayUsesCase";
+import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {
@@ -18,7 +18,7 @@ import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {ITestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
-import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
+import {AaveTwoPlatformFabric} from "../baseUT/parts/fabrics/AaveTwoPlatformFabric";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {Misc} from "../../scripts/utils/Misc";
 

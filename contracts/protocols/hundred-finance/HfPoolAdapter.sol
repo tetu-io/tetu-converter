@@ -24,9 +24,7 @@ import "../../integrations/IWmatic.sol";
 contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
   using SafeERC20 for IERC20;
 
-  //-----------------------------------------------------
-  ///    Data types
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Data types
 
   /// @notice To avoid stack too deep
   struct LocalRepayVars {
@@ -37,9 +35,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     address cTokenBorrow;
     address cTokenCollateral;
   }
-  //-----------------------------------------------------
-  ///    Constants and variables
-  //-----------------------------------------------------
+  //endregion ----------------------------------------------------- Data types
+
+  //region ----------------------------------------------------- Constants and variables
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   /// @notice Max allowed value of (sumCollateralSafe - sumBorrowPlusEffects) / liquidity, decimals 18
   uint private constant MAX_DIVISION18 = 1e10;
@@ -59,10 +57,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in collateral tokens
   uint public collateralTokensBalance;
+  //endregion ----------------------------------------------------- Constants and variables
 
-  //-----------------------------------------------------
-  ///                Events
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Events
   event OnInitialized(
     address controller,
     address cTokenAddressProvider,
@@ -76,10 +73,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  ///                Initialization
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Initialization
 
   function initialize(
     address controller_,
@@ -129,19 +125,17 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 
     emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
+  //endregion ----------------------------------------------------- Initialization
 
-  //-----------------------------------------------------
-  ///                 Restrictions
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Restrictions
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
     require(controller_.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
+  //endregion ----------------------------------------------------- Restrictions
 
-  //-----------------------------------------------------
-  ///                 Borrow logic
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Borrow logic
   function updateStatus() external override {
     // Update borrowBalance to actual value
     _onlyTetuConverter(controller);
@@ -315,10 +309,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
+  //endregion ----------------------------------------------------- Borrow logic
 
-  //-----------------------------------------------------
-  ///                 Repay logic
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Repay logic
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
@@ -503,9 +496,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     (uint tokensToReturn,) = _getCollateralTokensToRedeem(cTokenCollateral, borrowCToken, closePosition_, amountToRepay_);
     return tokensToReturn * cExchangeRateMantissa / 10 ** 18;
   }
-  //-----------------------------------------------------
-  ///                 Rewards
-  //-----------------------------------------------------
+  //endregion ----------------------------------------------------- Repay logic
+
+  //region ----------------------------------------------------- Rewards
   function claimRewards(address receiver_) external pure override returns (
     address rewardToken,
     uint amount
@@ -514,10 +507,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     receiver_; // hide warning
     return (rewardToken, amount);
   }
+  //endregion ----------------------------------------------------- Rewards
 
-  //-----------------------------------------------------
-  ///         View current status
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- View current status
 
   /// @inheritdoc IPoolAdapter
   function getConfig() external view override returns (
@@ -632,10 +624,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 //  function getAPR18() external view override returns (int) {
 //    return int(IHfCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
 //  }
+  //endregion ----------------------------------------------------- View current status
 
-  //-----------------------------------------------------
-  ///                   Utils
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Utils
   function _getHealthFactor(address cTokenCollateral_, uint sumCollateral_, uint sumBorrowPlusEffects_)
   internal view returns (
     uint sumCollateralSafe,
@@ -654,10 +645,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 > uint(controller_.minHealthFactor2()) * 10 ** (18 - 2), AppErrors.WRONG_HEALTH_FACTOR);
   }
+  //endregion ----------------------------------------------------- Utils
 
-  //-----------------------------------------------------
-  ///                Native tokens
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Native tokens
 
   function _isMatic(address asset_) internal pure returns (bool) {
     return asset_ == WMATIC;
@@ -673,4 +663,5 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     // this is needed for the native token unwrapping
     // no restrictions because this adpater is not used in production, it's for tests only
   }
+  //endregion ----------------------------------------------------- Native tokens
 }

@@ -17,7 +17,7 @@ import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {makeInfinityApprove} from "../baseUT/utils/transferUtils";
-import {GAS_LIMIT} from "../baseUT/GasLimit";
+import {GAS_LIMIT} from "../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
 describe("PoolAdapterMock", () => {

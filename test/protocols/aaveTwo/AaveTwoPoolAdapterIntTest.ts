@@ -27,7 +27,7 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 describe("AaveTwoPoolAdapterIntTest", () => {

@@ -4,11 +4,11 @@ import {expect} from "chai";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {BorrowRepayUsesCase, IMakeTestSingleBorrowInstantRepayResults} from "../baseUT/uses-cases/BorrowRepayUsesCase";
-import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
-import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
+import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
+import {BorrowRepayUsesCase, IMakeTestSingleBorrowInstantRepayResults} from "../baseUT/uses-cases/app/BorrowRepayUsesCase";
+import {HundredFinancePlatformFabric} from "../baseUT/parts/fabrics/HundredFinancePlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/parts/fabrics/DForcePlatformFabric";
+import {AaveTwoPlatformFabric} from "../baseUT/parts/fabrics/AaveTwoPlatformFabric";
 import {
   GAS_LIMIT_INIT_BORROW_AAVE3,
   GAS_LIMIT_REPAY_AAVE3,
@@ -18,7 +18,7 @@ import {
   GAS_LIMIT_REPAY_DFORCE,
   GAS_LIMIT_INIT_BORROW_HUNDRED_FINANCE,
   GAS_LIMIT_REPAY_HUNDRED_FINANCE
-} from "../baseUT/GasLimit";
+} from "../baseUT/types/GasLimit";
 import {
   controlGasLimitsEx2,
   HardhatUtils,

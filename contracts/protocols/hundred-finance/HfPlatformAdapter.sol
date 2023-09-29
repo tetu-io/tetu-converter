@@ -24,14 +24,11 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
-  //-----------------------------------------------------
-  ///   Constants
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Constants
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
+  //endregion ----------------------------------------------------- Constants
 
-  //-----------------------------------------------------
-  ///   Data types
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Data types
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
@@ -41,10 +38,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address cTokenBorrow;
     uint entryKind;
   }
+  //endregion ----------------------------------------------------- Data types
 
-  //-----------------------------------------------------
-  ///   Variables
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Variables
   IConverterController immutable public controller;
   IHfComptroller immutable public comptroller;
   /// @notice Template of pool adapter
@@ -60,9 +56,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
 
-  //-----------------------------------------------------
-  ///               Events
-  //-----------------------------------------------------
+  //endregion ----------------------------------------------------- Variables
+
+  //region ----------------------------------------------------- Events
   event OnPoolAdapterInitialized(
     address converter,
     address poolAdapter,
@@ -71,11 +67,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address borrowAsset
   );
   event OnRegisterCTokens(address[] cTokens);
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  ///       Constructor and initialization
-  //-----------------------------------------------------
-
+  //region ----------------------------------------------------- Constructor and initialization
   constructor (
     address controller_,
     address borrowManager_,
@@ -144,20 +138,17 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       activeAssets[HfAprLib.getUnderlying(cTokens_[i])] = cTokens_[i];
     }
   }
+  //endregion ----------------------------------------------------- Constructor and initialization
 
-  //-----------------------------------------------------
-  ///                    Access
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Access
 
   /// @notice Ensure that the caller is governance
   function _onlyGovernance() internal view {
     require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
   }
+  //endregion ----------------------------------------------------- Access
 
-  //-----------------------------------------------------
-  ///                     View
-  //-----------------------------------------------------
-
+  //region ----------------------------------------------------- View
   function converters() external view override returns (address[] memory) {
     address[] memory dest = new address[](1);
     dest[0] = converter;
@@ -173,12 +164,10 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
     return AppDataTypes.LendingPlatformKinds.HUNDRED_FINANCE_4;
   }
+  //endregion ----------------------------------------------------- View
 
 
-  //-----------------------------------------------------
-  ///       Get conversion plan
-  //-----------------------------------------------------
-
+  //region ----------------------------------------------------- Get conversion plan
   function getConversionPlan (
     AppDataTypes.InputConversionParams memory p_,
     uint16 healthFactor2_
@@ -303,10 +292,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       return plan;
     }
   }
+  //endregion ----------------------------------------------------- Get conversion plan
 
-  //-----------------------------------------------------
-  ///  Calculate borrow rate after borrowing in advance
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Calculate borrow rate after borrowing in advance
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view returns (uint) {
@@ -317,10 +305,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       amountToBorrow_
     );
   }
+  //endregion ----------------------------------------------------- Calculate borrow rate after borrowing in advance
 
-  //-----------------------------------------------------
-  ///                    Utils
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Utils
 
   /// @notice Check if the c-tokens are active and return LTV and liquidityThreshold values for the borrow
   function getMarketsInfo(address cTokenCollateral_, address cTokenBorrow_) public view returns (
@@ -346,4 +333,5 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
     return (ltv18, liquidityThreshold18);
   }
+  //endregion ----------------------------------------------------- Utils
 }
