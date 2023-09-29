@@ -168,7 +168,6 @@ export class Compound3TestUtils {
         borrowAsset: borrowToken.address,
         countBlocks,
         entryData: "0x",
-        user: userContract.address
       },
       p?.targetHealthFactor2 || await controller.targetHealthFactor2(),
       {gasLimit: GAS_LIMIT}

@@ -217,7 +217,6 @@ export class DForceTestUtils {
         borrowAsset: borrowToken.address,
         countBlocks,
         entryData: "0x",
-        user: userContract.address
       },
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
       {gasLimit: GAS_LIMIT}

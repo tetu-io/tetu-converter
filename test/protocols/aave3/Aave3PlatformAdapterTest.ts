@@ -315,7 +315,6 @@ describe("Aave3PlatformAdapterTest", () => {
           borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
           countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
           entryData: entryData || "0x",
-          user: Misc.ZERO_ADDRESS
         },
         healthFactor2,
         {gasLimit: GAS_LIMIT}

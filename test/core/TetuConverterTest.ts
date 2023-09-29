@@ -4,12 +4,7 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {IERC20__factory, MockERC20, MockERC20__factory, TetuConverter, Borrower, PoolAdapterMock__factory, LendingPlatformMock__factory, BorrowManager__factory, IPoolAdapter__factory, PoolAdapterMock, ITetuConverter__factory, TetuConverter__factory, TetuLiquidatorMock__factory, SwapManagerMock, ConverterUnknownKind, DebtMonitorMock, ConverterController, PoolAdapterStub__factory, IPoolAdapter, DebtMonitorMock__factory, SwapManagerMock__factory, PriceOracleMock__factory, PoolAdapterMock2__factory, IERC20Metadata__factory, CTokenMock} from "../../typechain";
-import {
-  IBorrowInputParams,
-  BorrowManagerHelper,
-  IPoolInstanceInfo,
-  IPrepareContractsSetupParams
-} from "../baseUT/helpers/BorrowManagerHelper";
+import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo, IPrepareContractsSetupParams} from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
@@ -36,8 +31,8 @@ describe("TetuConverterTest", () => {
 //endregion Constants
 
 //region Global vars for all tests
+  let snapshotRoot: string;
   let snapshot: string;
-  let snapshotForEach: string;
   let deployer: SignerWithAddress;
 //endregion Global vars for all tests
 
@@ -46,13 +41,13 @@ describe("TetuConverterTest", () => {
     await HardhatUtils.setupBeforeTest(HARDHAT_NETWORK_ID);
 
     this.timeout(1200000);
-    snapshot = await TimeUtils.snapshot();
+    snapshotRoot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
   });
 
   after(async function () {
-    await TimeUtils.rollback(snapshot);
+    await TimeUtils.rollback(snapshotRoot);
   });
 //endregion before, after
 
@@ -488,352 +483,13 @@ describe("TetuConverterTest", () => {
 
 //endregion Predict conversion results
 
-//region findConversionStrategy test impl
-  interface IFindConversionStrategyInputParams {
-    /** Borrow rate (as num, no decimals); undefined if there is no lending pool */
-    borrowRateNum?: number;
-    /** Swap manager config; undefined if there is no DEX */
-    swapConfig?: IPrepareContractsSetupParams;
-    entryData?: string;
-    setConverterToPauseState?: boolean;
-    notWhitelisted?: boolean;
-  }
-
-  interface IFindConversionStrategyBadParams {
-    zeroSourceAmount?: boolean;
-    zeroPeriod?: boolean;
-    notWhitelisted?: boolean;
-  }
-
-  interface IMakeFindConversionStrategySwapAndBorrowResults {
-    results: IFindConversionStrategySingle;
-    expectedSwap: IFindConversionStrategySingle;
-    expectedBorrowing: IFindConversionStrategySingle;
-  }
-
-  /**
-   * Set up test for findConversionStrategy
-   */
-  async function makeFindConversionStrategy(
-    sourceAmountNum: number,
-    periodInBlocks: number,
-    p?: IFindConversionStrategyInputParams
-  ): Promise<IMakeFindConversionStrategyResults> {
-    const core = await CoreContracts.build(
-      await TetuConverterApp.createController(deployer, {
-        priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
-      })
-    );
-    const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
-      p?.borrowRateNum ? 1 : 0,
-      {tetuAppSetupParams: p?.swapConfig}
-    );
-    if (p?.setConverterToPauseState) {
-      await core.controller.connect(
-        await DeployerUtils.startImpersonate(await core.controller.governance())
-      ).setPaused(true)
-    }
-
-    await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
-      [init.sourceToken.address, init.targetToken.address],
-      [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
-    );
-
-    if (p?.borrowRateNum) {
-      await PoolAdapterMock__factory.connect(
-        init.poolAdapters[0],
-        deployer
-      ).changeBorrowRate(p?.borrowRateNum);
-      await LendingPlatformMock__factory.connect(
-        init.poolInstances[0].platformAdapter,
-        deployer
-      ).changeBorrowRate(init.targetToken.address, p?.borrowRateNum);
-    }
-
-    // source amount must be approved to TetuConverter before calling findConversionStrategy
-    const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
-    const user = await Misc.impersonate(init.userContract.address);
-    await MockERC20__factory.connect(init.sourceToken.address, user).mint(user.address, sourceAmount);
-    await MockERC20__factory.connect(init.sourceToken.address, user).approve(core.tc.address, sourceAmount);
-
-    const tcAsCaller = p?.notWhitelisted
-      ? init.core.tc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
-      : init.core.tc.connect(user);
-
-    const results = await tcAsCaller.callStatic.findConversionStrategy(
-      p?.entryData || "0x",
-      init.sourceToken.address,
-      sourceAmount,
-      init.targetToken.address,
-      periodInBlocks
-    );
-    const tx = await tcAsCaller.findConversionStrategy(
-      p?.entryData || "0x",
-      init.sourceToken.address,
-      sourceAmount,
-      init.targetToken.address,
-      periodInBlocks
-    );
-    const gas = (await tx.wait()).gasUsed;
-
-    const poolAdapterConverter = init.poolAdapters.length
-      ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
-      : Misc.ZERO_ADDRESS;
-
-    return {
-      init,
-      results: {
-        converter: results.converter,
-        apr18: results.apr18,
-        amountToBorrowOut: results.amountToBorrowOut,
-        collateralAmountOut: results.collateralAmountOut
-      },
-      poolAdapterConverter,
-      gas
-    }
-  }
-
-  async function makeFindConversionStrategyTest(
-    useLendingPool: boolean,
-    useDexPool: boolean,
-    p?: IFindConversionStrategyBadParams
-  ): Promise<IMakeFindConversionStrategyResults> {
-    return makeFindConversionStrategy(
-      p?.zeroSourceAmount ? 0 : 1000,
-      p?.zeroPeriod ? 0 : 100,
-      {
-        borrowRateNum: useLendingPool ? 1000 : undefined,
-        swapConfig: useDexPool
-          ? {
-            priceImpact: 1_000,
-            setupTetuLiquidatorToSwapBorrowToCollateral: true,
-          }
-          : undefined,
-        notWhitelisted: p?.notWhitelisted
-      }
-    );
-  }
-
-  async function makeFindConversionStrategySwapAndBorrow(
-    period: number,
-    priceImpact: number,
-  ): Promise<IMakeFindConversionStrategySwapAndBorrowResults> {
-    const sourceAmountNum = 100_000;
-    const borrowRateNum = 1000;
-    const r = await makeFindConversionStrategy(
-      sourceAmountNum,
-      period,
-      {
-        borrowRateNum,
-        swapConfig: {
-          priceImpact,
-          setupTetuLiquidatorToSwapBorrowToCollateral: true
-        }
-      },
-    )
-    const expectedSwap = await getExpectedSwapResults(r, sourceAmountNum);
-    const expectedBorrowing = await getExpectedBorrowingResults(r, sourceAmountNum, period);
-    return {
-      results: r.results,
-      expectedSwap,
-      expectedBorrowing
-    }
-  }
-
-//endregion findConversionStrategy test impl
-
-//region findBorrowStrategies test impl
-  interface IMakeFindBorrowStrategyParams {
-    borrowRateNum?: number;
-    entryData?: string;
-    setConverterToPauseState?: boolean;
-  }
-
-  /**
-   * Set up test for findBorrowStrategies
-   */
-  async function makeFindBorrowStrategy(
-    sourceAmountNum: number,
-    periodInBlocks: number,
-    params?: IMakeFindBorrowStrategyParams
-  ): Promise<IMakeFindConversionStrategyResults | undefined> {
-    const core = await CoreContracts.build(
-      await TetuConverterApp.createController(deployer, {
-        priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
-      })
-    );
-    const init = await prepareTetuAppWithMultipleLendingPlatforms(core, params?.borrowRateNum ? 1 : 0);
-
-    if (params?.setConverterToPauseState) {
-      await core.controller.connect(
-        await DeployerUtils.startImpersonate(await core.controller.governance())
-      ).setPaused(true)
-    }
-
-    if (params?.borrowRateNum) {
-      await PoolAdapterMock__factory.connect(
-        init.poolAdapters[0],
-        deployer
-      ).changeBorrowRate(params?.borrowRateNum);
-      await LendingPlatformMock__factory.connect(
-        init.poolInstances[0].platformAdapter,
-        deployer
-      ).changeBorrowRate(init.targetToken.address, params?.borrowRateNum);
-    }
-
-    const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
-
-    const results = await init.core.tc.findBorrowStrategies(
-      params?.entryData || "0x",
-      init.sourceToken.address,
-      sourceAmount,
-      init.targetToken.address,
-      periodInBlocks,
-    );
-    const gas = await init.core.tc.estimateGas.findBorrowStrategies(
-      params?.entryData || "0x",
-      init.sourceToken.address,
-      sourceAmount,
-      init.targetToken.address,
-      periodInBlocks,
-    );
-
-    const poolAdapterConverter = init.poolAdapters.length
-      ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
-      : Misc.ZERO_ADDRESS;
-
-    return results.converters.length
-      ? {
-        init,
-        results: {
-          converter: results.converters[0],
-          amountToBorrowOut: results.amountToBorrowsOut[0],
-          apr18: results.aprs18[0],
-          collateralAmountOut: results.collateralAmountsOut[0]
-        },
-        poolAdapterConverter,
-        gas
-      }
-      : undefined;
-  }
-
-  async function makeFindBorrowStrategyTest(
-    badPathsParams?: IFindConversionStrategyBadParams
-  ): Promise<IMakeFindConversionStrategyResults | undefined> {
-    return makeFindBorrowStrategy(
-      badPathsParams?.zeroSourceAmount ? 0 : 1000,
-      badPathsParams?.zeroPeriod ? 0 : 100,
-      {borrowRateNum: 1000}
-    );
-  }
-
-//endregion findBorrowStrategies test impl
-
-//region findSwapStrategy test impl
-  interface IMakeFindSwapStrategyParams {
-    setConverterToPauseState?: boolean;
-    notWhitelisted?: boolean;
-  }
-  /**
-   * Set up test for findConversionStrategy
-   * @param sourceAmountNum
-   * @param swapConfig Swap manager config; undefined if there is no DEX
-   * @param p
-   */
-  async function makeFindSwapStrategy(
-    sourceAmountNum: number,
-    swapConfig: IPrepareContractsSetupParams,
-    p?: IMakeFindSwapStrategyParams
-  ): Promise<IMakeFindConversionStrategyResults> {
-    const core = await CoreContracts.build(
-      await TetuConverterApp.createController(deployer, {
-        priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
-      })
-    );
-    const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0, {tetuAppSetupParams: swapConfig});
-    await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
-      [init.sourceToken.address, init.targetToken.address],
-      [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
-    );
-
-    if (p?.setConverterToPauseState) {
-      await core.controller.connect(
-        await DeployerUtils.startImpersonate(await core.controller.governance())
-      ).setPaused(true)
-    }
-
-    // source amount must be approved to TetuConverter before calling findConversionStrategy
-    const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
-    const user = await Misc.impersonate(init.userContract.address);
-    await MockERC20__factory.connect(init.sourceToken.address, user).mint(user.address, sourceAmount);
-    await MockERC20__factory.connect(init.sourceToken.address, user).approve(core.tc.address, sourceAmount);
-
-    const tcAsCaller = p?.notWhitelisted
-      ? init.core.tc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
-      : init.core.tc.connect(user);
-    const results = await tcAsCaller.callStatic.findSwapStrategy(
-      swapConfig.entryData || "0x",
-      init.sourceToken.address,
-      sourceAmount,
-      init.targetToken.address,
-    );
-    const tx = await tcAsCaller.findSwapStrategy(
-      swapConfig.entryData || "0x",
-      init.sourceToken.address,
-      sourceAmount,
-      init.targetToken.address,
-    );
-    const gas = (await tx.wait()).gasUsed;
-
-    const poolAdapterConverter = init.poolAdapters.length
-      ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
-      : Misc.ZERO_ADDRESS;
-
-    return {
-      init,
-      results: {
-        converter: results.converter,
-        apr18: results.apr18,
-        amountToBorrowOut: results.targetAmountOut,
-        collateralAmountOut: results.sourceAmountOut
-      },
-      poolAdapterConverter,
-      gas
-    }
-  }
-
-  async function makeFindSwapStrategyTest(
-    sourceAmount = 1_000,
-    priceImpact = 1_000,
-    entryData?: string
-  ): Promise<IMakeFindConversionStrategyResults> {
-    return makeFindSwapStrategy(
-      sourceAmount,
-      {
-        priceImpact,
-        setupTetuLiquidatorToSwapBorrowToCollateral: true,
-        entryData
-      }
-    );
-  }
-
-//endregion findSwapStrategy test impl
-
 //region Unit tests
   describe("init", () => {
-    beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
-    });
-    afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
-    });
-
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
       useSecondInitialization?: boolean;
     }
-
-    async function makeConstructorTest(p?: IMakeConstructorTestParams): Promise<ConverterController> {
+    async function init(p?: IMakeConstructorTestParams): Promise<ConverterController> {
       const controller = await TetuConverterApp.createController(
         deployer,
         {
@@ -860,42 +516,190 @@ describe("TetuConverterTest", () => {
     }
 
     describe("Good paths", () => {
+      before(async function () {
+        snapshot = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshot);
+      });
+
+      async function initTest(): Promise<ConverterController> {
+        return init();
+      }
       it("should return expected values", async () => {
         // we can call any function of TetuConverter to ensure that it was created correctly
         // let's check it using ADDITIONAL_BORROW_DELTA_DENOMINATOR()
-        const controller = await makeConstructorTest();
+        const controller = await loadFixture(initTest);
         const tetuConverter = await TetuConverter__factory.connect(await controller.tetuConverter(), deployer);
         const ret = await tetuConverter.ADDITIONAL_BORROW_DELTA_DENOMINATOR();
 
         expect(ret.eq(0)).eq(false);
       });
       it("should initialize controller by expected value", async () => {
-        const controller = await makeConstructorTest();
+        const controller = await loadFixture(initTest);
         const controllerInTetuConverter = await ITetuConverter__factory.connect(await controller.tetuConverter(), deployer).controller();
         expect(controllerInTetuConverter).eq(controller.address);
       });
     });
     describe("Bad paths", () => {
+      beforeEach(async function () {
+        snapshot = await TimeUtils.snapshot();
+      });
+      afterEach(async function () {
+        await TimeUtils.rollback(snapshot);
+      });
+
       it("should revert if controller is zero", async () => {
         await expect(
-          makeConstructorTest({useZeroController: true})
+          init({useZeroController: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on second initialization", async () => {
         await expect(
-          makeConstructorTest({useSecondInitialization: true})
+          init({useSecondInitialization: true})
         ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });
 
   describe("findConversionStrategy", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(
+        await TetuConverterApp.createController(deployer, {
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        })
+      );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
+
+    interface IFindConversionStrategyParams {
+      /** Borrow rate (as num, no decimals); undefined if there is no lending pool */
+      borrowRateNum?: number;
+      /** Swap manager config; undefined if there is no DEX */
+      swapConfig?: IPrepareContractsSetupParams;
+      entryData?: string;
+      setConverterToPauseState?: boolean;
+      notWhitelisted?: boolean;
+    }
+
+    interface IFindConversionStrategyBadParams {
+      zeroSourceAmount?: boolean;
+      zeroPeriod?: boolean;
+      notWhitelisted?: boolean;
+    }
+
+    interface IMakeFindConversionStrategySwapAndBorrowResults {
+      results: IFindConversionStrategySingle;
+      expectedSwap: IFindConversionStrategySingle;
+      expectedBorrowing: IFindConversionStrategySingle;
+    }
+
+    async function makeFindConversionStrategy(
+      sourceAmountNum: number,
+      periodInBlocks: number,
+      p?: IFindConversionStrategyParams
+    ): Promise<IMakeFindConversionStrategyResults> {
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
+        p?.borrowRateNum ? 1 : 0,
+        {tetuAppSetupParams: p?.swapConfig}
+      );
+      if (p?.setConverterToPauseState) {
+        await core.controller.connect(
+          await DeployerUtils.startImpersonate(await core.controller.governance())
+        ).setPaused(true)
+      }
+
+      await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
+        [init.sourceToken.address, init.targetToken.address],
+        [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
+      );
+
+      if (p?.borrowRateNum) {
+        await PoolAdapterMock__factory.connect(
+          init.poolAdapters[0],
+          deployer
+        ).changeBorrowRate(p?.borrowRateNum);
+        await LendingPlatformMock__factory.connect(
+          init.poolInstances[0].platformAdapter,
+          deployer
+        ).changeBorrowRate(init.targetToken.address, p?.borrowRateNum);
+      }
+
+      // source amount must be approved to TetuConverter before calling findConversionStrategy
+      const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
+      const user = await Misc.impersonate(init.userContract.address);
+      await MockERC20__factory.connect(init.sourceToken.address, user).mint(user.address, sourceAmount);
+      await MockERC20__factory.connect(init.sourceToken.address, user).approve(core.tc.address, sourceAmount);
+
+      const tcAsCaller = p?.notWhitelisted
+        ? init.core.tc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
+        : init.core.tc.connect(user);
+
+      const results = await tcAsCaller.callStatic.findConversionStrategy(
+        p?.entryData || "0x",
+        init.sourceToken.address,
+        sourceAmount,
+        init.targetToken.address,
+        periodInBlocks
+      );
+      const tx = await tcAsCaller.findConversionStrategy(
+        p?.entryData || "0x",
+        init.sourceToken.address,
+        sourceAmount,
+        init.targetToken.address,
+        periodInBlocks
+      );
+      const gas = (await tx.wait()).gasUsed;
+
+      const poolAdapterConverter = init.poolAdapters.length
+        ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
+        : Misc.ZERO_ADDRESS;
+
+      return {
+        init,
+        results: {
+          converter: results.converter,
+          apr18: results.apr18,
+          amountToBorrowOut: results.amountToBorrowOut,
+          collateralAmountOut: results.collateralAmountOut
+        },
+        poolAdapterConverter,
+        gas
+      }
+    }
+
+    async function makeFindConversionStrategyTest(
+      useLendingPool: boolean,
+      useDexPool: boolean,
+      p?: IFindConversionStrategyBadParams
+    ): Promise<IMakeFindConversionStrategyResults> {
+      return makeFindConversionStrategy(
+        p?.zeroSourceAmount ? 0 : 1000,
+        p?.zeroPeriod ? 0 : 100,
+        {
+          borrowRateNum: useLendingPool ? 1000 : undefined,
+          swapConfig: useDexPool
+            ? {
+              priceImpact: 1_000,
+              setupTetuLiquidatorToSwapBorrowToCollateral: true,
+            }
+            : undefined,
+          notWhitelisted: p?.notWhitelisted
+        }
+      );
+    }
 
     describe("Good paths", () => {
       describe("Check output converter value", () => {
@@ -937,47 +741,73 @@ describe("TetuConverterTest", () => {
             expect(ret).eq(expected);
           });
         });
-        describe("Both borrowing and swap are available", () => {
-          describe("APR of borrowing is better", () => {
-            it("should return borrowing-converter", async () => {
-              const r = await makeFindConversionStrategySwapAndBorrow(
-                1,
-                10_000,
-              );
-              console.log(r);
-              const ret = [
-                r.results.converter,
-                r.results.amountToBorrowOut,
-                r.results.apr18
-              ].map(x => BalanceUtils.toString(x)).join("\r");
-              const expected = [
-                r.expectedBorrowing.converter,
-                r.expectedBorrowing.amountToBorrowOut,
-                r.expectedBorrowing.apr18
-              ].map(x => BalanceUtils.toString(x)).join("\r");
+      });
+      describe("Both borrowing and swap are available", () => {
+        async function makeFindConversionStrategySwapAndBorrow(
+          period: number,
+          priceImpact: number,
+        ): Promise<IMakeFindConversionStrategySwapAndBorrowResults> {
+          const sourceAmountNum = 100_000;
+          const borrowRateNum = 1000;
+          const r = await makeFindConversionStrategy(
+            sourceAmountNum,
+            period,
+            {
+              borrowRateNum,
+              swapConfig: {
+                priceImpact,
+                setupTetuLiquidatorToSwapBorrowToCollateral: true
+              }
+            },
+          )
+          const expectedSwap = await getExpectedSwapResults(r, sourceAmountNum);
+          const expectedBorrowing = await getExpectedBorrowingResults(r, sourceAmountNum, period);
+          return {
+            results: r.results,
+            expectedSwap,
+            expectedBorrowing
+          }
+        }
 
-              expect(ret).eq(expected);
-            });
+        describe("APR of borrowing is better", () => {
+          it("should return borrowing-converter", async () => {
+            const r = await makeFindConversionStrategySwapAndBorrow(
+              1,
+              10_000,
+            );
+            console.log(r);
+            const ret = [
+              r.results.converter,
+              r.results.amountToBorrowOut,
+              r.results.apr18
+            ].map(x => BalanceUtils.toString(x)).join("\r");
+            const expected = [
+              r.expectedBorrowing.converter,
+              r.expectedBorrowing.amountToBorrowOut,
+              r.expectedBorrowing.apr18
+            ].map(x => BalanceUtils.toString(x)).join("\r");
+
+            expect(ret).eq(expected);
           });
-          describe("APR of swap is better", () => {
-            it("should return swap-converter", async () => {
-              const r = await makeFindConversionStrategySwapAndBorrow(
-                10_000,
-                0,
-              );
-              const ret = [
-                r.results.converter,
-                r.results.amountToBorrowOut,
-                r.results.apr18
-              ].map(x => BalanceUtils.toString(x)).join("\r");
-              const expected = [
-                r.expectedSwap.converter,
-                r.expectedSwap.amountToBorrowOut,
-                r.expectedSwap.apr18
-              ].map(x => BalanceUtils.toString(x)).join("\r");
+        });
+        describe("APR of swap is better", () => {
+          it("should return swap-converter", async () => {
+            const r = await makeFindConversionStrategySwapAndBorrow(
+              10_000,
+              0,
+            );
+            const ret = [
+              r.results.converter,
+              r.results.amountToBorrowOut,
+              r.results.apr18
+            ].map(x => BalanceUtils.toString(x)).join("\r");
+            const expected = [
+              r.expectedSwap.converter,
+              r.expectedSwap.amountToBorrowOut,
+              r.expectedSwap.apr18
+            ].map(x => BalanceUtils.toString(x)).join("\r");
 
-              expect(ret).eq(expected);
-            });
+            expect(ret).eq(expected);
           });
         });
       });
@@ -1113,12 +943,112 @@ describe("TetuConverterTest", () => {
   });
 
   describe("findBorrowStrategies", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(
+        await TetuConverterApp.createController(deployer, {
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        })
+      );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
+
+    interface IMakeFindBorrowStrategyParams {
+      borrowRateNum?: number;
+      entryData?: string;
+      setConverterToPauseState?: boolean;
+    }
+
+    interface IFindConversionStrategyBadParams {
+      zeroSourceAmount?: boolean;
+      zeroPeriod?: boolean;
+      notWhitelisted?: boolean;
+    }
+
+    /**
+     * Set up test for findBorrowStrategies
+     */
+    async function makeFindBorrowStrategy(
+      sourceAmountNum: number,
+      periodInBlocks: number,
+      params?: IMakeFindBorrowStrategyParams
+    ): Promise<IMakeFindConversionStrategyResults | undefined> {
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core, params?.borrowRateNum ? 1 : 0);
+
+      if (params?.setConverterToPauseState) {
+        await core.controller.connect(
+          await DeployerUtils.startImpersonate(await core.controller.governance())
+        ).setPaused(true)
+      }
+
+      if (params?.borrowRateNum) {
+        await PoolAdapterMock__factory.connect(
+          init.poolAdapters[0],
+          deployer
+        ).changeBorrowRate(params?.borrowRateNum);
+        await LendingPlatformMock__factory.connect(
+          init.poolInstances[0].platformAdapter,
+          deployer
+        ).changeBorrowRate(init.targetToken.address, params?.borrowRateNum);
+      }
+
+      const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
+
+      const results = await init.core.tc.findBorrowStrategies(
+        params?.entryData || "0x",
+        init.sourceToken.address,
+        sourceAmount,
+        init.targetToken.address,
+        periodInBlocks,
+      );
+      const gas = await init.core.tc.estimateGas.findBorrowStrategies(
+        params?.entryData || "0x",
+        init.sourceToken.address,
+        sourceAmount,
+        init.targetToken.address,
+        periodInBlocks,
+      );
+
+      const poolAdapterConverter = init.poolAdapters.length
+        ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
+        : Misc.ZERO_ADDRESS;
+
+      return results.converters.length
+        ? {
+          init,
+          results: {
+            converter: results.converters[0],
+            amountToBorrowOut: results.amountToBorrowsOut[0],
+            apr18: results.aprs18[0],
+            collateralAmountOut: results.collateralAmountsOut[0]
+          },
+          poolAdapterConverter,
+          gas
+        }
+        : undefined;
+    }
+
+    async function makeFindBorrowStrategyTest(
+      badPathsParams?: IFindConversionStrategyBadParams
+    ): Promise<IMakeFindConversionStrategyResults | undefined> {
+      return makeFindBorrowStrategy(
+        badPathsParams?.zeroSourceAmount ? 0 : 1000,
+        badPathsParams?.zeroPeriod ? 0 : 100,
+        {borrowRateNum: 1000}
+      );
+    }
 
     describe("Good paths", () => {
       it("should return expected values", async () => {
@@ -1223,12 +1153,109 @@ describe("TetuConverterTest", () => {
   });
 
   describe("findSwapStrategy", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(
+        await TetuConverterApp.createController(deployer, {
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        })
+      );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
+
+    interface IMakeFindSwapStrategyParams {
+      setConverterToPauseState?: boolean;
+      notWhitelisted?: boolean;
+    }
+    /**
+     * Set up test for findConversionStrategy
+     * @param sourceAmountNum
+     * @param swapConfig Swap manager config; undefined if there is no DEX
+     * @param p
+     */
+    async function makeFindSwapStrategy(
+      sourceAmountNum: number,
+      swapConfig: IPrepareContractsSetupParams,
+      p?: IMakeFindSwapStrategyParams
+    ): Promise<IMakeFindConversionStrategyResults> {
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0, {tetuAppSetupParams: swapConfig});
+      await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
+        [init.sourceToken.address, init.targetToken.address],
+        [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
+      );
+
+      if (p?.setConverterToPauseState) {
+        await core.controller.connect(
+          await DeployerUtils.startImpersonate(await core.controller.governance())
+        ).setPaused(true)
+      }
+
+      // source amount must be approved to TetuConverter before calling findConversionStrategy
+      const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
+      const user = await Misc.impersonate(init.userContract.address);
+      await MockERC20__factory.connect(init.sourceToken.address, user).mint(user.address, sourceAmount);
+      await MockERC20__factory.connect(init.sourceToken.address, user).approve(core.tc.address, sourceAmount);
+
+      const tcAsCaller = p?.notWhitelisted
+        ? init.core.tc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
+        : init.core.tc.connect(user);
+      const results = await tcAsCaller.callStatic.findSwapStrategy(
+        swapConfig.entryData || "0x",
+        init.sourceToken.address,
+        sourceAmount,
+        init.targetToken.address,
+      );
+      const tx = await tcAsCaller.findSwapStrategy(
+        swapConfig.entryData || "0x",
+        init.sourceToken.address,
+        sourceAmount,
+        init.targetToken.address,
+      );
+      const gas = (await tx.wait()).gasUsed;
+
+      const poolAdapterConverter = init.poolAdapters.length
+        ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
+        : Misc.ZERO_ADDRESS;
+
+      return {
+        init,
+        results: {
+          converter: results.converter,
+          apr18: results.apr18,
+          amountToBorrowOut: results.targetAmountOut,
+          collateralAmountOut: results.sourceAmountOut
+        },
+        poolAdapterConverter,
+        gas
+      }
+    }
+
+    async function makeFindSwapStrategyTest(
+      sourceAmount = 1_000,
+      priceImpact = 1_000,
+      entryData?: string
+    ): Promise<IMakeFindConversionStrategyResults> {
+      return makeFindSwapStrategy(
+        sourceAmount,
+        {
+          priceImpact,
+          setupTetuLiquidatorToSwapBorrowToCollateral: true,
+          entryData
+        }
+      );
+    }
 
     describe("Good paths", () => {
       it("should return expected values if conversion exists", async () => {
@@ -1359,11 +1386,22 @@ describe("TetuConverterTest", () => {
   });
 
   describe("borrow", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
 //region Test impl
@@ -1418,12 +1456,10 @@ describe("TetuConverterTest", () => {
         ? Misc.ZERO_ADDRESS
         : ethers.Wallet.createRandom().address;
 
-      const core = await CoreContracts.build(await TetuConverterApp.createController(
-        deployer,
-        {
-          minHealthFactor2: p?.minHealthFactor2,
-        }
-      ));
+      if (p?.minHealthFactor2) {
+        await core.controller.setMinHealthFactor2(p?.minHealthFactor2);
+      }
+
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         collateralAmounts.length,
         {
@@ -1973,11 +2009,21 @@ describe("TetuConverterTest", () => {
    * All borrow/repay operations are made using Borrower-functions
    */
   describe("Check balances", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     describe("Good paths", () => {
@@ -1997,7 +2043,6 @@ describe("TetuConverterTest", () => {
       ): Promise<IMakeConversionUsingBorrowingResults> {
         const receiver = ethers.Wallet.createRandom().address;
 
-        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
         const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
           collateralAmounts.length,
           {tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral}}
@@ -2218,11 +2263,26 @@ describe("TetuConverterTest", () => {
   });
 
   describe("repay", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(
+        await TetuConverterApp.createController(deployer, {
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        })
+      );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     interface IRepayBadPathParams {
@@ -2261,11 +2321,6 @@ describe("TetuConverterTest", () => {
       p?: IRepayBadPathParams,
       priceImpact?: number,
     ): Promise<IRepayResults> {
-      const core = await CoreContracts.build(
-        await TetuConverterApp.createController(deployer, {
-          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
-        })
-      );
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         collateralAmounts.length,
         {tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral, priceImpact}}
@@ -3163,11 +3218,22 @@ describe("TetuConverterTest", () => {
   });
 
   describe("estimateRepay", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     interface IMakeEstimateRepayResults {
@@ -3186,7 +3252,6 @@ describe("TetuConverterTest", () => {
     * and amount of unobtainable collateral (not zero if we ask too much)
     * */
     async function makeEstimateRepay(p: IMakeEstimateRepayParams): Promise<IMakeEstimateRepayResults> {
-      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core, p.collateralAmounts.length);
       const collateralTokenDecimals = await init.sourceToken.decimals();
 
@@ -3378,11 +3443,29 @@ describe("TetuConverterTest", () => {
   });
 
   describe("claimRewards", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(
+        await TetuConverterApp.createController(
+          deployer,
+          {
+            debtMonitorFabric: {deploy: async () => (await MocksHelper.createDebtMonitorMock(deployer)).address}
+          }
+        )
+      );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     interface ISetupClaimRewards {
@@ -3414,14 +3497,7 @@ describe("TetuConverterTest", () => {
     async function setupClaimRewards(): Promise<ISetupClaimRewards> {
       const user = ethers.Wallet.createRandom().address;
       const receiver = ethers.Wallet.createRandom().address;
-      const core = await CoreContracts.build(
-        await TetuConverterApp.createController(
-          deployer,
-          {
-            debtMonitorFabric: {deploy: async () => (await MocksHelper.createDebtMonitorMock(deployer)).address}
-          }
-        )
-      );
+
       const poolAdapter = await setupPoolAdapter(core.controller, user);
       return {
         controller: core.controller,
@@ -3606,10 +3682,10 @@ describe("TetuConverterTest", () => {
 
   describe("events", () => {
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     describe("Borrow, partial repay", () => {
@@ -3904,10 +3980,10 @@ describe("TetuConverterTest", () => {
 
   describe("onRequireAmountBySwapManager", () => {
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     async function makeTestOnRequireAmountBySwapManager(
@@ -3970,11 +4046,25 @@ describe("TetuConverterTest", () => {
   });
 
   describe("quoteRepay", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(
+        await TetuConverterApp.createController(deployer, {
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        })
+      );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     interface IQuoteRepayParams {
@@ -3996,11 +4086,6 @@ describe("TetuConverterTest", () => {
       amountToRepayNum: number,
       p?: IQuoteRepayParams
     ): Promise<IQuoteRepayResults> {
-      const core = await CoreContracts.build(
-        await TetuConverterApp.createController(deployer, {
-          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
-        })
-      );
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
       await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
         [init.sourceToken.address, init.targetToken.address],
@@ -4139,11 +4224,25 @@ describe("TetuConverterTest", () => {
   });
 
   describe("safeLiquidate", () => {
+    let core: CoreContracts;
+    let snapshotLocal: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      core = await CoreContracts.build(
+        await TetuConverterApp.createController(deployer, {
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        })
+      );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     interface ISafeLiquidateTestInputParams {
@@ -4178,13 +4277,6 @@ describe("TetuConverterTest", () => {
       // initialize mocked tokens
       const sourceToken = await MocksHelper.createMockedCToken(deployer, p.sourceDecimals);
       const targetToken = await MocksHelper.createMockedCToken(deployer, p.targetDecimals);
-
-      // initialize TetuConverter-app
-      const core = await CoreContracts.build(
-        await TetuConverterApp.createController(deployer, {
-          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
-        })
-      );
 
       if (p?.initialConverterBalanceCollateral) {
         await sourceToken.mint(core.tc.address, parseUnits(p.initialConverterBalanceCollateral, await sourceToken.decimals()));
@@ -4486,10 +4578,10 @@ describe("TetuConverterTest", () => {
 
   describe("isConversionValid", () => {
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     // isConversionValid is tested in SwapLibTest, so there is only simple test here
@@ -4741,10 +4833,10 @@ describe("TetuConverterTest", () => {
     describe("Good paths", () => {
       describe("Normal case, single call of requirePayAmountBack", () => {
         before(async function () {
-          snapshotForEach = await TimeUtils.snapshot();
+          snapshot = await TimeUtils.snapshot();
         });
         after(async function () {
-          await TimeUtils.rollback(snapshotForEach);
+          await TimeUtils.rollback(snapshot);
         });
 
         async function makeTest(): Promise<IRepayTheBorrowResults> {
@@ -4804,10 +4896,10 @@ describe("TetuConverterTest", () => {
       });
       describe("Normal case, two calls of requirePayAmountBack", () => {
         before(async function () {
-          snapshotForEach = await TimeUtils.snapshot();
+          snapshot = await TimeUtils.snapshot();
         });
         after(async function () {
-          await TimeUtils.rollback(snapshotForEach);
+          await TimeUtils.rollback(snapshot);
         });
 
         async function makeTest(): Promise<IRepayTheBorrowResults> {
@@ -4872,10 +4964,10 @@ describe("TetuConverterTest", () => {
       describe("Single call, user returns less amount than required", () => {
         describe("Don't attempt to close position", () => {
           before(async function () {
-            snapshotForEach = await TimeUtils.snapshot();
+            snapshot = await TimeUtils.snapshot();
           });
           after(async function () {
-            await TimeUtils.rollback(snapshotForEach);
+            await TimeUtils.rollback(snapshot);
           });
 
           async function makeTest(): Promise<IRepayTheBorrowResults> {
@@ -4940,10 +5032,10 @@ describe("TetuConverterTest", () => {
       describe("Two calls, user returns less amount than required", () => {
         describe("Don't attempt to close position", () => {
           before(async function () {
-            snapshotForEach = await TimeUtils.snapshot();
+            snapshot = await TimeUtils.snapshot();
           });
           after(async function () {
-            await TimeUtils.rollback(snapshotForEach);
+            await TimeUtils.rollback(snapshot);
           });
 
           async function makeTest(): Promise<IRepayTheBorrowResults> {
@@ -5007,10 +5099,10 @@ describe("TetuConverterTest", () => {
       });
       describe("Debt is completely closed during receiving of the required amount", () => {
         before(async function () {
-          snapshotForEach = await TimeUtils.snapshot();
+          snapshot = await TimeUtils.snapshot();
         });
         after(async function () {
-          await TimeUtils.rollback(snapshotForEach);
+          await TimeUtils.rollback(snapshot);
         });
 
         async function makeTest(): Promise<IRepayTheBorrowResults> {
@@ -5072,10 +5164,10 @@ describe("TetuConverterTest", () => {
       });
       describe("Debt is partially closed during receiving of the required amount", () => {
         before(async function () {
-          snapshotForEach = await TimeUtils.snapshot();
+          snapshot = await TimeUtils.snapshot();
         });
         after(async function () {
-          await TimeUtils.rollback(snapshotForEach);
+          await TimeUtils.rollback(snapshot);
         });
 
         async function makeTest(): Promise<IRepayTheBorrowResults> {
@@ -5143,10 +5235,10 @@ describe("TetuConverterTest", () => {
 
     describe("Bad paths", () => {
       beforeEach(async function () {
-        snapshotForEach = await TimeUtils.snapshot();
+        snapshot = await TimeUtils.snapshot();
       });
       afterEach(async function () {
-        await TimeUtils.rollback(snapshotForEach);
+        await TimeUtils.rollback(snapshot);
       });
 
       it("should revert if try to close position with not enough amount - two calls", async () => {
@@ -5403,10 +5495,10 @@ describe("TetuConverterTest", () => {
     describe("Good paths", () => {
       describe("Ensure update status is called", () => {
         before(async function () {
-          snapshotForEach = await TimeUtils.snapshot();
+          snapshot = await TimeUtils.snapshot();
         });
         after(async function () {
-          await TimeUtils.rollback(snapshotForEach);
+          await TimeUtils.rollback(snapshot);
         });
 
         async function makeTest(): Promise<IRepayTheBorrowResults> {
@@ -5462,10 +5554,10 @@ describe("TetuConverterTest", () => {
 
       describe("Return a part of borrow-amount back to the user", () => {
         before(async function () {
-          snapshotForEach = await TimeUtils.snapshot();
+          snapshot = await TimeUtils.snapshot();
         });
         after(async function () {
-          await TimeUtils.rollback(snapshotForEach);
+          await TimeUtils.rollback(snapshot);
         });
 
         async function makeTest(): Promise<IRepayTheBorrowResults> {
@@ -5513,10 +5605,10 @@ describe("TetuConverterTest", () => {
       });
       describe('Debt gap is required', () => {
         before(async function () {
-          snapshotForEach = await TimeUtils.snapshot();
+          snapshot = await TimeUtils.snapshot();
         });
         after(async function () {
-          await TimeUtils.rollback(snapshotForEach);
+          await TimeUtils.rollback(snapshot);
         });
         async function makeTest(): Promise<IRepayTheBorrowResults> {
           const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
@@ -5578,10 +5670,10 @@ describe("TetuConverterTest", () => {
        */
       describe("Full repaid amount is returned back to user as unused debt gap", () => {
         before(async function () {
-          snapshotForEach = await TimeUtils.snapshot();
+          snapshot = await TimeUtils.snapshot();
         });
         after(async function () {
-          await TimeUtils.rollback(snapshotForEach);
+          await TimeUtils.rollback(snapshot);
         });
         async function makeTest(): Promise<IRepayTheBorrowResults> {
           const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
@@ -5632,10 +5724,10 @@ describe("TetuConverterTest", () => {
 
   describe("getPositions", () => {
     beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
+      snapshot = await TimeUtils.snapshot();
     });
     afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+      await TimeUtils.rollback(snapshot);
     });
 
     it("should return single open position after borrowing", async () => {
@@ -5683,7 +5775,6 @@ describe("TetuConverterTest", () => {
       });
     });
   });
-
 
   describe("requireRepay", () => {
     interface IHealthFactorParams {

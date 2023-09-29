@@ -119,9 +119,9 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
 
     FindConversionStrategyLocal memory p;
     if (!_controller.paused()) {
-      // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
       p.borrowManager = IBorrowManager(_controller.borrowManager());
 
+      // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
       p.user = _controller.rebalanceOnBorrowEnabled()
         && IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length != 0
         ? msg.sender
@@ -131,15 +131,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
         p.borrowSourceAmounts,
         p.borrowTargetAmounts,
         p.borrowAprs18
-      ) = IBorrowManager(_controller.borrowManager()).findConverter(
-        entryData_,
-      // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
-        msg.sender,
-        sourceToken_,
-        targetToken_,
-        amountIn_,
-        periodInBlocks_
-      );
+      ) = p.borrowManager.findConverter(entryData_, p.user, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
 
       (p.swapConverter,
         p.swapSourceAmount,
@@ -268,7 +260,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       address poolAdapter = borrowManager.getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
 
       if (poolAdapter != address(0)) {
-        (,, uint healthFactor18,,,) = IPoolAdapter(IPoolAdapter(poolAdapter)).getStatus();
+        (,, uint healthFactor18,,,) = IPoolAdapter(poolAdapter).getStatus();
         ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(healthFactor18, _controller.minHealthFactor2());
         if (status == ConverterLogicLib.HealthStatus.DIRTY_1) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow

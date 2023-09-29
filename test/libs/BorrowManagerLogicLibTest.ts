@@ -1124,6 +1124,7 @@ describe("BorrowManagerLogicLibTest", () => {
     async function findConversionStrategyForExistDebt(p: IFindConversionStrategyParams): Promise<IFindConversionStrategyResults> {
       const platformAdapter = await MocksHelper.createLendingPlatformMock2(signer);
       const poolAdapter = await MocksHelper.createPoolAdapterMock2(signer);
+      const borrowManager = await MocksHelper.createBorrowManagerMock(signer);
 
       const collateralAsset = (p.collateralAsset || usdc);
       const borrowAsset = (p.borrowAsset || usdt);
@@ -1197,6 +1198,7 @@ describe("BorrowManagerLogicLibTest", () => {
           rewardsFactor,
           targetHealthFactor2,
           thresholds: [AppConstants.THRESHOLD_REBALANCE_TOO_HEALTHY, AppConstants.THRESHOLD_REBALANCE_UNHEALTHY],
+          borrowManager: borrowManager.address
         }
       )
 
@@ -1535,6 +1537,7 @@ describe("BorrowManagerLogicLibTest", () => {
           rewardsFactor,
           targetHealthFactor2,
           thresholds: [AppConstants.THRESHOLD_REBALANCE_TOO_HEALTHY, AppConstants.THRESHOLD_REBALANCE_UNHEALTHY],
+          borrowManager: borrowMananger.address,
         },
         platformAdapters.map(() => ({
           converter: Misc.ZERO_ADDRESS,
@@ -1782,6 +1785,7 @@ describe("BorrowManagerLogicLibTest", () => {
       const rewardsFactor = parseUnits("1", 18);
       const targetHealthFactor2 = parseUnits(p.targetHealthFactor ?? "1", 2);
 
+      const borrowManager = await MocksHelper.createBorrowManagerMock(signer);
       const amountIn = parseUnits(p.amountIn, decimalsCollateral);
 
       // set up platform adapters
@@ -1857,6 +1861,7 @@ describe("BorrowManagerLogicLibTest", () => {
           rewardsFactor,
           targetHealthFactor2,
           thresholds: [AppConstants.THRESHOLD_REBALANCE_TOO_HEALTHY, AppConstants.THRESHOLD_REBALANCE_UNHEALTHY],
+          borrowManager: borrowManager.address,
         },
         [
           ...p.existDebtCandidatesIndices.map(
@@ -2177,6 +2182,7 @@ describe("BorrowManagerLogicLibTest", () => {
           thresholds: p.zeroRebalanceThresholds
             ? [0, 0]
             : [AppConstants.THRESHOLD_REBALANCE_TOO_HEALTHY, AppConstants.THRESHOLD_REBALANCE_UNHEALTHY],
+          borrowManager: borrowManager.address,
         },
         facade.address,
       );
