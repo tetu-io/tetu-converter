@@ -139,9 +139,9 @@ interface IMoonwellComptroller {
   function exitMarket(address mTokenAddress) external returns (uint256);
 
   /// @notice Determine the current account liquidity wrt collateral requirements
-  /// @return (possible error code (semi-opaque),
-  ///          account liquidity in excess of collateral requirements,
-  ///          account shortfall below collateral requirements)
+  /// @return errorCode possible error code (semi-opaque)
+  /// @return liquidity Account liquidity in excess of collateral requirements,
+  /// @return shortfall Account shortfall below collateral requirements)
   function getAccountLiquidity(address account) external view returns (
     uint256 errorCode,
     uint256 liquidity,
@@ -155,9 +155,9 @@ interface IMoonwellComptroller {
   function getBlockTimestamp() external view returns (uint256);
 
   /// @notice Determine the current account liquidity wrt collateral requirements
-  /// @return (possible error code,
-  ///          account liquidity in excess of collateral requirements,
-  ///          account shortfall below collateral requirements)
+  /// @return errorCode possible error code
+  /// @return liquidity account liquidity in excess of collateral requirements
+  /// @return shortfall account shortfall below collateral requirements
   function getHypotheticalAccountLiquidity(
     address account,
     address mTokenModify,

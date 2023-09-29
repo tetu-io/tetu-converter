@@ -5,21 +5,20 @@ import "../../openzeppelin/IERC20Metadata.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../libs/AppDataTypes.sol";
-import "../../integrations/moonwell/IMToken.sol";
-import "../../integrations/moonwell/IMoonwellInterestRateModel.sol";
-import "../../integrations/moonwell/IMoonwellPriceOracle.sol";
+import "../../integrations/compound/ICTokenBase.sol";
+import "../../integrations/compound/ICompoundInterestRateModel.sol";
+import "../../integrations/compound/ICompoundPriceOracle.sol";
+import "./CompoundLib.sol";
 
 /// @notice Compound utils: predict borrow and supply rate in advance, calculate borrow and supply APR
 ///         Borrow APR = the amount by which the debt increases per block; the amount is in terms of borrow tokens
 ///         Supply APR = the amount by which the income increases per block; the amount is in terms of BORROW tokens too
-library MoonwellLib {
-  address internal constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270); // todo
-  address internal constant hMATIC = address(0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31); // todo
+library CompoundAprLib {
 
   //region ----------------------------------------------------- Data type
-  struct HfCore {
-    IMToken cTokenCollateral;
-    IMToken cTokenBorrow;
+  struct Core {
+    ICTokenBase cTokenCollateral;
+    ICTokenBase cTokenBorrow;
     address collateralAsset;
     address borrowAsset;
   }
@@ -29,14 +28,15 @@ library MoonwellLib {
 
   /// @notice Get core address of DForce
   function getCore(
+    CompoundLib.ProtocolFeatures memory f_,
     address cTokenCollateral_,
     address cTokenBorrow_
-  ) internal view returns (HfCore memory) {
-    return HfCore({
-      cTokenCollateral: IMToken(cTokenCollateral_),
-      cTokenBorrow: IMToken(cTokenBorrow_),
-      collateralAsset: getUnderlying(cTokenCollateral_),
-      borrowAsset: getUnderlying(cTokenBorrow_)
+  ) internal view returns (Core memory) {
+    return Core({
+      cTokenCollateral: ICTokenBase(cTokenCollateral_),
+      cTokenBorrow: ICTokenBase(cTokenBorrow_),
+      collateralAsset: getUnderlying(f_, cTokenCollateral_),
+      borrowAsset: getUnderlying(f_, cTokenBorrow_)
     });
   }
   //endregion ----------------------------------------------------- Addresses
@@ -47,7 +47,7 @@ library MoonwellLib {
   /// @return borrowCost36 Estimated borrow cost for the period, borrow tokens, decimals 36
   /// @return supplyIncomeInBorrowAsset36 Current supply income for the period (in terms of borrow tokens), decimals 36
   function getRawCostAndIncomes(
-    HfCore memory core,
+    Core memory core,
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_,
@@ -58,7 +58,7 @@ library MoonwellLib {
   ) {
     supplyIncomeInBorrowAsset36 = getSupplyIncomeInBorrowAsset36(
       getEstimatedSupplyRate(
-        IMoonwellInterestRateModel(core.cTokenCollateral.interestRateModel()),
+        ICompoundInterestRateModel(core.cTokenCollateral.interestRateModel()),
         core.cTokenCollateral,
         collateralAmount_
       ),
@@ -72,7 +72,7 @@ library MoonwellLib {
     // estimate borrow rate value after the borrow and calculate result APR
     borrowCost36 = getBorrowCost36(
       getEstimatedBorrowRate(
-        IMoonwellInterestRateModel(core.cTokenBorrow.interestRateModel()),
+        ICompoundInterestRateModel(core.cTokenBorrow.interestRateModel()),
         core.cTokenBorrow,
         amountToBorrow_
       ),
@@ -127,8 +127,8 @@ library MoonwellLib {
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   /// @dev repeats compound-protocol, CToken.sol, borrowRatePerBlock() impl
   function getEstimatedBorrowRate(
-    IMoonwellInterestRateModel interestRateModel_,
-    IMToken cTokenBorrow_,
+    ICompoundInterestRateModel interestRateModel_,
+    ICTokenBase cTokenBorrow_,
     uint amountToBorrow_
   ) internal view returns (uint) {
     return interestRateModel_.getBorrowRate(
@@ -143,8 +143,8 @@ library MoonwellLib {
 
   /// @dev repeats compound-protocol, CToken.sol, supplyRatePerBlock() impl
   function getEstimatedSupplyRate(
-    IMoonwellInterestRateModel interestRateModel_,
-    IMToken cToken_,
+    ICompoundInterestRateModel interestRateModel_,
+    ICTokenBase cToken_,
     uint amountToSupply_
   ) internal view returns(uint) {
     return interestRateModel_.getSupplyRate(
@@ -159,16 +159,16 @@ library MoonwellLib {
   //endregion ----------------------------------------------------- Estimate supply rate
 
   //region ----------------------------------------------------- Utils to inline
-  function getPrice(IMoonwellPriceOracle priceOracle, address token) internal view returns (uint) {
+  function getPrice(ICompoundPriceOracle priceOracle, address token) internal view returns (uint) {
     uint price = priceOracle.getUnderlyingPrice(token);
     require(price != 0, AppErrors.ZERO_PRICE);
     return price;
   }
 
-  function getUnderlying(address token) internal view returns (address) {
-    return token == hMATIC
-      ? WMATIC
-      : IMToken(token).underlying();
+  function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address token) internal view returns (address) {
+    return token == f_.nativeToken
+      ? f_.nativeToken
+      : ICTokenBase(token).underlying();
   }
   //endregion ----------------------------------------------------- Utils to inline
 

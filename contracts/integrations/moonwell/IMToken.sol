@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../compound/ICToken.sol";
+import "../compound/ICTokenBase.sol";
 import "../compound/ICTokenRatesPerTimestamp.sol";
 
 /// @notice Restored from implementation 0x1FADFF493529C3Fcc7EE04F1f15D19816ddA45B7
@@ -111,16 +111,6 @@ interface IMToken is ICTokenBase, ICTokenRatesPerTimestamp {
 
   function balanceOfUnderlying(address owner) external returns (uint256);
 
-  /// @notice Sender borrows assets from the protocol to their own address
-  /// @param borrowAmount The amount of the underlying asset to borrow
-  /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function borrow(uint256 borrowAmount) external returns (uint256);
-
-
-  /// @notice Accrue interest to updated borrowIndex and then calculate account's borrow balance using the updated borrowIndex
-  /// @param account The address whose balance should be calculated after updating borrowIndex
-  /// @return The calculated balance
-  function borrowBalanceCurrent(address account) external returns (uint256);
 
   /// @notice Accrue interest to updated borrowIndex and then calculate account's borrow balance using the updated borrowIndex
   /// @param account The address whose balance should be calculated after updating borrowIndex
@@ -134,25 +124,10 @@ interface IMToken is ICTokenBase, ICTokenRatesPerTimestamp {
 
   function decimals() external view returns (uint8);
 
-  /// @notice Accrue interest then return the up-to-date exchange rate
-  /// @return Calculated exchange rate scaled by 1e18
-  function exchangeRateCurrent() external returns (uint256);
-
   /// @notice Calculates the exchange rate from the underlying to the MToken
   /// @dev This function does not accrue interest before calculating the exchange rate
   /// @return Calculated exchange rate scaled by 1e18
   function exchangeRateStored() external view returns (uint256);
-
-  /// @notice Get a snapshot of the account's balances, and the cached exchange rate
-  /// @dev This is used by comptroller to more efficiently perform liquidity checks.
-  /// @param account Address of the account to snapshot
-  /// @return (possible error, token balance, borrow balance, exchange rate mantissa)
-  function getAccountSnapshot(address account) external view returns (
-    uint256 errorCode,
-    uint256 tokenBalance,
-    uint256 borrowBalance,
-    uint256 exchangeRateMantissa
-  );
 
 
   function implementation() external view returns (address);
@@ -178,34 +153,17 @@ interface IMToken is ICTokenBase, ICTokenRatesPerTimestamp {
 
   function liquidateBorrow(address borrower, uint256 repayAmount, address mTokenCollateral) external returns (uint256);
 
-  /// @notice Sender supplies assets into the market and receives mTokens in exchange
-  /// @dev Accrues interest whether or not the operation succeeds, unless reverted
-  /// @param mintAmount The amount of the underlying asset to supply
-  /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function mint(uint256 mintAmount) external returns (uint256);
-
   function mintWithPermit(uint256 mintAmount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external returns (uint256);
 
   function name() external view returns (string memory);
 
   function pendingAdmin() external view returns (address);
 
-  /// @notice Sender redeems mTokens in exchange for the underlying asset
-  /// @dev Accrues interest whether or not the operation succeeds, unless reverted
-  /// @param redeemTokens The number of mTokens to redeem into underlying
-  /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function redeem(uint256 redeemTokens) external returns (uint256);
-
   /// @notice Sender redeems mTokens in exchange for a specified amount of underlying asset
   /// @dev Accrues interest whether or not the operation succeeds, unless reverted
   /// @param redeemAmount The amount of underlying to redeem
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
   function redeemUnderlying(uint256 redeemAmount) external returns (uint256);
-
-  /// @notice Sender repays their own borrow
-  /// @param repayAmount The amount to repay
-  /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function repayBorrow(uint256 repayAmount) external returns (uint256);
 
   /// @notice Sender repays a borrow belonging to borrower
   /// @param borrower the account with the debt being payed off

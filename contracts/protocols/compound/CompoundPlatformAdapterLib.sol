@@ -1,62 +1,53 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.17;
 
-import "./HfAprLib.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
+import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
-import "../../libs/AppDataTypes.sol";
-import "../../libs/AppErrors.sol";
-import "../../libs/AppUtils.sol";
-import "../../libs/EntryKinds.sol";
 import "../../interfaces/IConverterController.sol";
-import "../../interfaces/IPlatformAdapter.sol";
+import "../../integrations/compound/ICompoundComptrollerBase.sol";
+import "../../integrations/compound/ICTokenBase.sol";
+import "../../interfaces/IController.sol";
+import "../../integrations/compound/INativeToken.sol";
+import "../../integrations/compound/ICTokenNative.sol";
+import "../../integrations/compound/ICompoundPriceOracle.sol";
+import "../../libs/AppDataTypes.sol";
+import "./CompoundLib.sol";
+import "../../integrations/compound/ICompoundComptrollerBaseV1.sol";
+import "../../integrations/compound/ICompoundComptrollerBaseV2.sol";
+import "../../libs/AppErrors.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
-import "../../interfaces/ITokenAddressProvider.sol";
-import "../../integrations/hundred-finance/IHfComptroller.sol";
-import "../../integrations/hundred-finance/IHfCToken.sol";
-import "../../integrations/hundred-finance/IHfPriceOracle.sol";
-import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
+import "./CompoundAprLib.sol";
+import "../../libs/EntryKinds.sol";
 
-/// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
-contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
+library CompoundPlatformAdapterLib {
   using SafeERC20 for IERC20;
-  using AppUtils for uint;
-
-  //region ----------------------------------------------------- Constants
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
-  //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
+  struct State {
+    IConverterController controller;
+    ICompoundComptrollerBase comptroller;
+    /// @notice Template of pool adapter
+    address converter;
+
+    /// @notice All enabled pairs underlying : cTokens. All assets usable for collateral/to borrow.
+    /// @dev There is no underlying for native token, we store cToken-for-native-token:native-token
+    mapping(address => address) activeAssets;
+
+    /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
+    bool frozen;
+  }
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
-    IHfComptroller comptroller;
-    IHfPriceOracle priceOracle;
+    ICompoundComptrollerBase comptroller;
+    ICompoundPriceOracle priceOracle;
     address cTokenCollateral;
     address cTokenBorrow;
     uint entryKind;
   }
   //endregion ----------------------------------------------------- Data types
-
-  //region ----------------------------------------------------- Variables
-  IConverterController immutable public controller;
-  IHfComptroller immutable public comptroller;
-  /// @notice Template of pool adapter
-  address immutable public converter;
-  /// @dev Same as controller.borrowManager(); we cache it for gas optimization
-  address immutable public borrowManager;
-
-
-  /// @notice All enabled pairs underlying : cTokens. All assets usable for collateral/to borrow.
-  /// @dev There is no underlying for WMATIC, we store hMATIC:WMATIC
-  mapping(address => address) public activeAssets;
-
-  /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
-  bool public override frozen;
-
-  //endregion ----------------------------------------------------- Variables
 
   //region ----------------------------------------------------- Events
   event OnPoolAdapterInitialized(
@@ -69,46 +60,46 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   event OnRegisterCTokens(address[] cTokens);
   //endregion ----------------------------------------------------- Events
 
-  //region ----------------------------------------------------- Constructor and initialization
-  constructor (
+  //region ----------------------------------------------------- Initialization and setup
+  function init (
+    State storage state,
+    CompoundLib.ProtocolFeatures memory f_,
     address controller_,
-    address borrowManager_,
     address comptroller_,
     address templatePoolAdapter_,
     address[] memory activeCTokens_
-  ) {
+  ) internal {
     require(
       comptroller_ != address(0)
-      && borrowManager_ != address(0)
       && templatePoolAdapter_ != address(0)
       && controller_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
 
-    comptroller = IHfComptroller(comptroller_);
-    controller = IConverterController(controller_);
-    converter = templatePoolAdapter_;
-    borrowManager = borrowManager_;
+    state.comptroller = ICompoundComptrollerBase(comptroller_);
+    state.controller = IConverterController(controller_);
+    state.converter = templatePoolAdapter_;
 
-    _registerCTokens(activeCTokens_);
+    _registerCTokens(state, f_, activeCTokens_);
   }
 
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
   function initializePoolAdapter(
+    State storage state,
     address converter_,
     address poolAdapter_,
     address user_,
     address collateralAsset_,
     address borrowAsset_
-  ) external override {
-    require(msg.sender == borrowManager, AppErrors.BORROW_MANAGER_ONLY);
-    require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
+  ) internal {
+    require(msg.sender == state.controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
+    require(state.converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
-    // HF-pool-adapters support IPoolAdapterInitializer
+    // assume here that the pool adapter supports IPoolAdapterInitializer
     IPoolAdapterInitializerWithAP(poolAdapter_).initialize(
-      address(controller),
+      address(state.controller),
       address(this),
-      address(comptroller),
+      address(state.comptroller),
       user_,
       collateralAsset_,
       borrowAsset_,
@@ -118,82 +109,74 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   }
 
   /// @notice Set platform to frozen/unfrozen state. In frozen state any new borrowing is forbidden.
-  function setFrozen(bool frozen_) external {
-    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
-    frozen = frozen_;
+  function setFrozen(State storage state, bool frozen_) internal {
+    state.frozen = frozen_;
+    // todo emit
   }
 
   /// @notice Register new CTokens supported by the market
   /// @dev It's possible to add CTokens only because, we can add unregister function if necessary
-  function registerCTokens(address[] memory cTokens_) external {
-    _onlyGovernance();
-    _registerCTokens(cTokens_);
+  function registerCTokens(
+    State storage state,
+    CompoundLib.ProtocolFeatures memory f_,
+    address[] memory cTokens_
+  ) internal {
+    _registerCTokens(state, f_, cTokens_);
     emit OnRegisterCTokens(cTokens_);
   }
 
-  function _registerCTokens(address[] memory cTokens_) internal {
+  function _registerCTokens(
+    State storage state,
+    CompoundLib.ProtocolFeatures memory f_,
+    address[] memory cTokens_
+  ) internal {
     uint lenCTokens = cTokens_.length;
-    for (uint i = 0; i < lenCTokens; i = i.uncheckedInc()) {
+    for (uint i = 0; i < lenCTokens; i = AppUtils.uncheckedInc(i)) {
       // Special case: there is no underlying for WMATIC, so we store hMATIC:WMATIC
-      activeAssets[HfAprLib.getUnderlying(cTokens_[i])] = cTokens_[i];
+      state.activeAssets[CompoundAprLib.getUnderlying(f_, cTokens_[i])] = cTokens_[i];
     }
   }
-  //endregion ----------------------------------------------------- Constructor and initialization
-
-  //region ----------------------------------------------------- Access
-
-  /// @notice Ensure that the caller is governance
-  function _onlyGovernance() internal view {
-    require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
-  }
-  //endregion ----------------------------------------------------- Access
+  //endregion ----------------------------------------------------- Initialization and setup
 
   //region ----------------------------------------------------- View
-  function converters() external view override returns (address[] memory) {
-    address[] memory dest = new address[](1);
-    dest[0] = converter;
-    return dest;
-  }
-
-  function getCTokenByUnderlying(address token1_, address token2_)
-  external view override
-  returns (address cToken1, address cToken2) {
-    return (activeAssets[token1_], activeAssets[token2_]);
-  }
-
-  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
-    return AppDataTypes.LendingPlatformKinds.HUNDRED_FINANCE_4;
+  function getCTokenByUnderlying(State storage state, address token1_, address token2_) internal view returns (
+    address cToken1,
+    address cToken2
+  ) {
+    return (state.activeAssets[token1_], state.activeAssets[token2_]);
   }
   //endregion ----------------------------------------------------- View
 
 
   //region ----------------------------------------------------- Get conversion plan
   function getConversionPlan (
+    State storage state,
+    CompoundLib.ProtocolFeatures memory f_,
     AppDataTypes.InputConversionParams memory p_,
     uint16 healthFactor2_
-  ) external override view returns (
+  ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
     require(p_.amountIn != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
-    require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+    require(healthFactor2_ >= state.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-    if (! frozen) {
+    if (! state.frozen) {
       LocalsGetConversionPlan memory vars;
-      vars.comptroller = comptroller;
-      vars.cTokenCollateral = activeAssets[p_.collateralAsset];
+      vars.comptroller = state.comptroller;
+      vars.cTokenCollateral = state.activeAssets[p_.collateralAsset];
       if (vars.cTokenCollateral != address(0)) {
 
-        vars.cTokenBorrow = activeAssets[p_.borrowAsset];
+        vars.cTokenBorrow = state.activeAssets[p_.borrowAsset];
         if (vars.cTokenBorrow != address(0)) {
           //-------------------------------- LTV and liquidation threshold
-          (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(vars.cTokenCollateral, vars.cTokenBorrow);
+          (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(state, f_, vars.cTokenCollateral, vars.cTokenBorrow);
           if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
             //------------------------------- Calculate maxAmountToSupply and maxAmountToBorrow
-            plan.maxAmountToBorrow = IHfCToken(vars.cTokenBorrow).getCash();
+            plan.maxAmountToBorrow = ICTokenBase(vars.cTokenBorrow).getCash();
             uint borrowCap = vars.comptroller.borrowCaps(vars.cTokenBorrow);
             if (borrowCap != 0) {
-              uint totalBorrows = IHfCToken(vars.cTokenBorrow).totalBorrows();
+              uint totalBorrows = ICTokenBase(vars.cTokenBorrow).totalBorrows();
               if (totalBorrows > borrowCap) {
                 plan.maxAmountToBorrow = 0;
               } else {
@@ -207,16 +190,16 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
 
             if (/* plan.maxAmountToSupply != 0 && */ plan.maxAmountToBorrow != 0) {
-              plan.converter = converter;
+              plan.converter = state.converter;
 
               //-------------------------------- Prices and health factor
-              vars.priceOracle = IHfPriceOracle(vars.comptroller.oracle());
+              vars.priceOracle = ICompoundPriceOracle(vars.comptroller.oracle());
 
               AppDataTypes.PricesAndDecimals memory pd;
               pd.rc10powDec = 10**IERC20Metadata(p_.collateralAsset).decimals();
               pd.rb10powDec = 10**IERC20Metadata(p_.borrowAsset).decimals();
-              pd.priceCollateral = HfAprLib.getPrice(vars.priceOracle, vars.cTokenCollateral) * pd.rc10powDec;
-              pd.priceBorrow = HfAprLib.getPrice(vars.priceOracle, vars.cTokenBorrow) * pd.rb10powDec;
+              pd.priceCollateral = CompoundAprLib.getPrice(vars.priceOracle, vars.cTokenCollateral) * pd.rc10powDec;
+              pd.priceBorrow = CompoundAprLib.getPrice(vars.priceOracle, vars.cTokenBorrow) * pd.rb10powDec;
               // ltv and liquidation threshold are exactly the same in HundredFinance
               // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
 
@@ -264,11 +247,11 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                   plan.amountToBorrow = plan.maxAmountToBorrow;
                 }
 
-              //------------------------------- values for APR
+                //------------------------------- values for APR
                 (plan.borrowCost36,
-                 plan.supplyIncomeInBorrowAsset36
-                ) = HfAprLib.getRawCostAndIncomes(
-                  HfAprLib.getCore(vars.cTokenCollateral, vars.cTokenBorrow),
+                  plan.supplyIncomeInBorrowAsset36
+                ) = CompoundAprLib.getRawCostAndIncomes(
+                  CompoundAprLib.getCore(f_, vars.cTokenCollateral, vars.cTokenBorrow),
                   plan.collateralAmount,
                   p_.countBlocks,
                   plan.amountToBorrow,
@@ -297,11 +280,16 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   //region ----------------------------------------------------- Calculate borrow rate after borrowing in advance
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view returns (uint) {
-    address borrowCToken = activeAssets[borrowAsset_];
-    return HfAprLib.getEstimatedBorrowRate(
-      IHfInterestRateModel(IHfCToken(borrowCToken).interestRateModel()),
-      IHfCToken(borrowCToken),
+  function getBorrowRateAfterBorrow(
+    State storage state,
+    CompoundLib.ProtocolFeatures memory f_,
+    address borrowAsset_,
+    uint amountToBorrow_
+  ) internal view returns (uint) {
+    address borrowCToken = state.activeAssets[borrowAsset_];
+    return CompoundAprLib.getEstimatedBorrowRate(
+      ICompoundInterestRateModel(ICTokenBase(borrowCToken).interestRateModel()),
+      ICTokenBase(borrowCToken),
       amountToBorrow_
     );
   }
@@ -310,19 +298,35 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   //region ----------------------------------------------------- Utils
 
   /// @notice Check if the c-tokens are active and return LTV and liquidityThreshold values for the borrow
-  function getMarketsInfo(address cTokenCollateral_, address cTokenBorrow_) public view returns (
+  function getMarketsInfo(
+    State storage state,
+    CompoundLib.ProtocolFeatures memory f_,
+    address cTokenCollateral_,
+    address cTokenBorrow_
+  ) internal view returns (
     uint ltv18,
     uint liquidityThreshold18
   ) {
-    IHfComptroller _comptroller = comptroller;
+    ICompoundComptrollerBase comptroller = state.comptroller;
     if (
-      !_comptroller.borrowGuardianPaused(cTokenBorrow_) // borrowing is not paused
-      && !_comptroller.mintGuardianPaused(cTokenCollateral_) // minting is not paused
+      !comptroller.borrowGuardianPaused(cTokenBorrow_) // borrowing is not paused
+    && !comptroller.mintGuardianPaused(cTokenCollateral_) // minting is not paused
     ) {
-      (bool isListed, uint256 collateralFactorMantissa,) = _comptroller.markets(cTokenBorrow_);
+      bool isListed;
+      uint256 collateralFactorMantissa;
+      if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
+        (isListed, collateralFactorMantissa) = ICompoundComptrollerBaseV1(address(comptroller)).markets(cTokenBorrow_);
+      } else {
+        (isListed, collateralFactorMantissa,) = ICompoundComptrollerBaseV2(address(comptroller)).markets(cTokenBorrow_);
+      }
+
       if (isListed) {
         ltv18 = collateralFactorMantissa;
-        (isListed, collateralFactorMantissa,) = _comptroller.markets(cTokenCollateral_);
+        if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
+          (isListed, collateralFactorMantissa) = ICompoundComptrollerBaseV1(address(comptroller)).markets(cTokenCollateral_);
+        } else {
+          (isListed, collateralFactorMantissa,) = ICompoundComptrollerBaseV2(address(comptroller)).markets(cTokenCollateral_);
+        }
         if (isListed) {
           liquidityThreshold18 = collateralFactorMantissa;
         } else {
@@ -334,4 +338,5 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     return (ltv18, liquidityThreshold18);
   }
   //endregion ----------------------------------------------------- Utils
+
 }
