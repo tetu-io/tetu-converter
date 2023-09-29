@@ -60,6 +60,13 @@ library CompoundPlatformAdapterLib {
   event OnRegisterCTokens(address[] cTokens);
   //endregion ----------------------------------------------------- Events
 
+  //region ----------------------------------------------------- Access
+  /// @notice Ensure that the caller is governance
+  function _onlyGovernance(State storage state) internal view {
+    require(state.controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
+  }
+  //endregion ----------------------------------------------------- Access
+
   //region ----------------------------------------------------- Initialization and setup
   function init (
     State storage state,
@@ -92,12 +99,14 @@ library CompoundPlatformAdapterLib {
     address collateralAsset_,
     address borrowAsset_
   ) internal {
-    require(msg.sender == state.controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
+    IConverterController _controller = state.controller;
+
+    require(msg.sender == _controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
     require(state.converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
     // assume here that the pool adapter supports IPoolAdapterInitializer
     IPoolAdapterInitializerWithAP(poolAdapter_).initialize(
-      address(state.controller),
+      address(_controller),
       address(this),
       address(state.comptroller),
       user_,
@@ -110,6 +119,7 @@ library CompoundPlatformAdapterLib {
 
   /// @notice Set platform to frozen/unfrozen state. In frozen state any new borrowing is forbidden.
   function setFrozen(State storage state, bool frozen_) internal {
+    _onlyGovernance(state);
     state.frozen = frozen_;
     // todo emit
   }
@@ -121,6 +131,7 @@ library CompoundPlatformAdapterLib {
     CompoundLib.ProtocolFeatures memory f_,
     address[] memory cTokens_
   ) internal {
+    _onlyGovernance(state);
     _registerCTokens(state, f_, cTokens_);
     emit OnRegisterCTokens(cTokens_);
   }
