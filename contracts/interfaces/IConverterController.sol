@@ -22,6 +22,8 @@ interface IConverterController {
   // Min health factor marks the point at which a rebalancing must be made asap.
   // *****************************************************************
 
+  //#region ----------------------------------------------------- Configuration
+
   /// @notice min allowed health factor with decimals 2, must be >= 1e2
   function minHealthFactor2() external view returns (uint16);
   function setMinHealthFactor2(uint16 value_) external;
@@ -61,9 +63,15 @@ interface IConverterController {
   /// @dev Debt gap is applied as following: toPay = debt * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR
   function debtGap() external view returns (uint);
 
-  //-----------------------------------------------------
-  //        Core application contracts
-  //-----------------------------------------------------
+  /// @notice Allow to rebalance exist debts during burrow, see SCB-708
+  ///         If the user already has a debt(s) for the given pair of collateral-borrow assets,
+  ///         new borrow is made using exist pool adapter(s). Exist debt is rebalanced during the borrowing
+  ///         in both directions, but the rebalancing is asymmetrically limited by thresholds
+  ///         THRESHOLD_REBALANCE_XXX, see BorrowManager.
+  function rebalanceOnBorrowEnabled() external view returns (bool);
+
+  //#endregion ----------------------------------------------------- Configuration
+  //#region ----------------------------------------------------- Core application contracts
 
   function tetuConverter() external view returns (address);
   function borrowManager() external view returns (address);
@@ -71,12 +79,12 @@ interface IConverterController {
   function tetuLiquidator() external view returns (address);
   function swapManager() external view returns (address);
   function priceOracle() external view returns (address);
+  //#endregion ----------------------------------------------------- Core application contracts
 
-  //-----------------------------------------------------
-  //        External contracts
-  //-----------------------------------------------------
+  //#region ----------------------------------------------------- External contracts
   /// @notice A keeper to control health and efficiency of the borrows
   function keeper() external view returns (address);
   /// @notice Controller of tetu-contracts-v2, that is allowed to update proxy contracts
   function proxyUpdater() external view returns (address);
+  //#endregion ----------------------------------------------------- External contracts
 }

@@ -167,7 +167,7 @@ export class Compound3TestUtils {
         amountIn: collateralAmount,
         borrowAsset: borrowToken.address,
         countBlocks,
-        entryData: "0x"
+        entryData: "0x",
       },
       p?.targetHealthFactor2 || await controller.targetHealthFactor2(),
       {gasLimit: GAS_LIMIT}

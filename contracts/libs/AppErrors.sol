@@ -60,7 +60,7 @@ library AppErrors {
 
   string public constant DIVISION_BY_ZERO = "TC-34 division by zero";
 
-  string public constant UNSUPPORTED_CONVERSION_KIND = "TC-35: UNKNOWN CONVERSION";
+  string public constant UNSUPPORTED_VALUE = "TC-35: Unsupported value";
   string public constant SLIPPAGE_TOO_BIG = "TC-36: SLIPPAGE TOO BIG";
 
   /// @notice The relation "platform adapter - converter" is invariant.

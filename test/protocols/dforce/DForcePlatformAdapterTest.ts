@@ -35,7 +35,11 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
-import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HardhatUtils,
+  POLYGON_NETWORK_ID
+} from "../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
@@ -277,7 +281,7 @@ describe("DForcePlatformAdapterTest", () => {
         amountIn: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
         borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
         countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
-        entryData: entryData|| "0x"
+        entryData: entryData|| "0x",
       },
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
       {gasLimit: GAS_LIMIT},
@@ -1166,13 +1170,13 @@ describe("DForcePlatformAdapterTest", () => {
             amountIn: parseUnits("1", 18),
             borrowAsset: MaticAddresses.USDC,
             countBlocks: 1000,
-            entryData: "0x"
+            entryData: "0x",
+            user: Misc.ZERO_ADDRESS
           },
           200,
           {gasLimit: GAS_LIMIT},
         );
-        console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

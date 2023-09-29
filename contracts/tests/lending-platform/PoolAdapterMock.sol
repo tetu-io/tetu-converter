@@ -173,20 +173,17 @@ contract PoolAdapterMock is IPoolAdapter {
     uint8 decimalsCollateral = IERC20Metadata(_collateralAsset).decimals();
     uint8 decimalsBorrow = IERC20Metadata(_borrowAsset).decimals();
 
-    console.log("_getStatus.this", address(this));
-    console.log("_getStatus.collateralAmount = %d", collateralAmount);
-    console.log("_getStatus.amountToPay = %d", amountToPay);
-    console.log("_getStatus.priceBorrowedUSD = %d", priceBorrowedUSD);
-    console.log("_getStatus.priceCollateral = %d", priceCollateral);
-
     healthFactor18 = amountToPay == 0
         ? type(uint).max
         : _collateralFactor
       * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
       / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
 
-    console.log("getStatus.collateralAmount=%d", collateralAmount);
-    console.log("getStatus.amountToPay=%d", amountToPay);
+//    console.log("_getStatus.this", address(this));
+    console.log("_getStatus.collateralAmount = %d", collateralAmount);
+    console.log("_getStatus.amountToPay = %d", amountToPay);
+    console.log("_getStatus.priceBorrowedUSD = %d", priceBorrowedUSD);
+    console.log("_getStatus.priceCollateral = %d", priceCollateral);
     console.log("getStatus.healthFactor18=%d", healthFactor18);
 
     return (

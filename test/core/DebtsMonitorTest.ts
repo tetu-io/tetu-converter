@@ -33,8 +33,12 @@ import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {parseUnits} from "ethers/lib/utils";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {
+  controlGasLimitsEx2,
+  HARDHAT_NETWORK_ID,
+  HardhatUtils
+} from "../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
 
 describe("DebtsMonitor", () => {
@@ -875,7 +879,7 @@ describe("DebtsMonitor", () => {
         );
 
         const gasUsed = await dmAsPa.estimateGas.onOpenPosition();
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_DM_ON_OPEN_POSITION, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_DM_ON_OPEN_POSITION, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -1150,7 +1154,7 @@ describe("DebtsMonitor", () => {
         await dmAsPa.onOpenPosition();
         const gasUsed = await dmAsPa.estimateGas.onClosePosition();
 
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_DM_ON_CLOSE_POSITION, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_DM_ON_CLOSE_POSITION, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -1401,9 +1405,6 @@ describe("DebtsMonitor", () => {
 
           describe("Health factor == min", () => {
             it("should return empty", async () => {
-              const index = 0;
-              const count = 100; // find all pools
-
               const pp: ISinglePoolAdapterTestParams = {
                 amountCollateral:  10_000,
                 sourceDecimals: 6,
@@ -1415,12 +1416,14 @@ describe("DebtsMonitor", () => {
                 countPassedBlocks: 0, // no debts
                 borrowRate: 1e8
               }
-              const {dm, poolAdapterMock, controller} = await prepareSinglePoolAdapterHealthTest(pp);
+              const {
+                dm,
+                poolAdapterMock,
+                controller
+              } = await prepareSinglePoolAdapterHealthTest(pp);
 
               const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactor18;
-              const minAllowedHealthFactor2 = currentHealthFactor18
-                .div(getBigNumberFrom(1, 18-2))
-                .toNumber();
+              const minAllowedHealthFactor2 = +formatUnits(currentHealthFactor18, 18) * 100;
               await controller.setMaxHealthFactor2(minAllowedHealthFactor2 * 10);
               await controller.setTargetHealthFactor2(minAllowedHealthFactor2 * 8);
               await controller.setMinHealthFactor2(minAllowedHealthFactor2);
@@ -1431,7 +1434,7 @@ describe("DebtsMonitor", () => {
                 / (pp.priceTargetUSD.updated * pp.amountToBorrow + pp.borrowRate * pp.countPassedBlocks);
               console.log("Expected healthy factor", expectedHealthFactor);
 
-              const ret = await dm.checkHealth(index, count, count);
+              const ret = await dm.checkHealth(0, 1000, 1000);
 
               const sret = [
                 ret.nextIndexToCheck0.toNumber(),

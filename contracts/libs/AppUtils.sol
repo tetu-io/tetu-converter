@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import "./AppErrors.sol";
+
 /// @notice Common utils
 library AppUtils {
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
@@ -68,54 +70,27 @@ library AppUtils {
       : (amount2 - amount1) * 1e18 / (amount2 + 1) < divisionMax18;
   }
 
-  /// @notice Reduce size of {aa_}, {bb_}, {cc_}, {dd_} ot {count_} if necessary
-  ///         and order all arrays in ascending order of {aa_}
-  /// @dev We assume here, that {count_} is rather small (it's a number of available lending platforms) < 10
-  function shrinkAndOrder(
-    uint count_,
-    address[] memory bb_,
-    uint[] memory cc_,
-    uint[] memory dd_,
-    int[] memory aa_
-  ) internal pure returns (
-    address[] memory bbOut,
-    uint[] memory ccOut,
-    uint[] memory ddOut,
-    int[] memory aaOut
-  ) {
-    uint[] memory indices = _sortAsc(count_, aa_);
-
-    aaOut = new int[](count_);
-    bbOut = new address[](count_);
-    ccOut = new uint[](count_);
-    ddOut = new uint[](count_);
-    for (uint i = 0; i < count_; ++i) {
-      aaOut[i] = aa_[indices[i]];
-      bbOut[i] = bb_[indices[i]];
-      ccOut[i] = cc_[indices[i]];
-      ddOut[i] = dd_[indices[i]];
-    }
-  }
-
-  /// @notice Insertion sorting algorithm for using with arrays fewer than 10 elements, isert in ascending order.
-  ///         Take into account only first {length_} items of the {items_} array
+  /// @notice Insertion sorting algorithm for using with arrays fewer than 10 elements, insert in ascending order.
+  ///         Take into account only  {length_} items of the {items_} array starting from {startIndex_}
   /// @dev Based on https://medium.com/coinmonks/sorting-in-solidity-without-comparison-4eb47e04ff0d
-  /// @return indices Ordered list of indices of the {items_}, size = {length}
-  function _sortAsc(uint length_, int[] memory items_) internal pure returns (uint[] memory indices) {
-    indices = new uint[](length_);
+  /// @param startIndex_ Start index of the range to be sorted, assume {length_} + {startIndex_} <= {items_}.length
+  /// @param length_ Count items to be sorted, assume {length_} <= {items_}.length
+  /// @param destIndices Ordered list of indices of the {items_}. Assume {destIndices}.length == {items_}.length
+  ///        Index for the i-th item is stored in destIndices[i]
+  function _sortAsc(uint startIndex_, uint length_, int[] memory items_, uint[] memory destIndices) internal pure {
     unchecked {
       for (uint i; i < length_; ++i) {
-        indices[i] = i;
+        destIndices[i + startIndex_] = i + startIndex_;
       }
 
       for (uint i = 1; i < length_; i++) {
-        uint key = indices[i];
+        uint key = destIndices[i + startIndex_];
         uint j = i - 1;
-        while ((int(j) >= 0) && items_[indices[j]] > items_[key]) {
-          indices[j + 1] = indices[j];
+        while ((int(j) >= 0) && items_[destIndices[startIndex_ + j]] > items_[key]) {
+          destIndices[startIndex_ + j + 1] = destIndices[startIndex_ + j];
           j--;
         }
-        indices[j + 1] = key;
+        destIndices[startIndex_ + j + 1] = key;
       }
     }
   }

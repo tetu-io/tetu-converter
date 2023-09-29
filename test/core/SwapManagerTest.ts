@@ -12,7 +12,11 @@ import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HARDHAT_NETWORK_ID,
+  HardhatUtils
+} from "../../scripts/utils/HardhatUtils";
 import {
   GAS_FIND_SWAP_STRATEGY,
   GAS_SWAP, GAS_SWAP_APR18,
@@ -334,7 +338,7 @@ describe("SwapManager", () => {
     describe("Gas estimation @skip-on-coverage", () => {
       it("should return expected values", async () => {
         const r = await makeGetConverterTest({priceImpactPercent: 1});
-        controlGasLimitsEx(r.gasUsed, GAS_FIND_SWAP_STRATEGY, (u, t) => {
+        controlGasLimitsEx2(r.gasUsed, GAS_FIND_SWAP_STRATEGY, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -431,7 +435,7 @@ describe("SwapManager", () => {
         const sourceAmount = parseUnits("2", 18);
         const targetAmount = parseUnits("1", 6);
         const gasUsed = await swapManager.estimateGas.getApr18(dai.address, sourceAmount, usdc.address, targetAmount);
-        controlGasLimitsEx(gasUsed, GAS_SWAP_APR18, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_SWAP_APR18, (u, t) => {
           expect(u).to.be.below(t);
         });
       })
@@ -528,7 +532,7 @@ describe("SwapManager", () => {
         const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(await controller.tetuConverter()));
         const gasUsed = await swapManagerAsTetuConverter.estimateGas.swap(tokenIn.address, sourceAmount, tokenOut.address, user.address);
 
-        controlGasLimitsEx(gasUsed, GAS_SWAP, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_SWAP, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -610,7 +614,7 @@ describe("SwapManager", () => {
           sourceAmount,
           usdc.address
         );
-        controlGasLimitsEx(gasUsed, GAS_SWAP_SIMULATE, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_SWAP_SIMULATE, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

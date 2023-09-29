@@ -219,7 +219,7 @@ export class DForceTestUtils {
         amountIn: collateralAmount,
         borrowAsset: borrowToken.address,
         countBlocks,
-        entryData: "0x"
+        entryData: "0x",
       },
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
       {gasLimit: GAS_LIMIT}

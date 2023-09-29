@@ -47,11 +47,7 @@ interface IDebtMonitor {
 
   /// @notice Get active borrows of the user with given collateral/borrowToken
   /// @return poolAdaptersOut The instances of IPoolAdapter
-  function getPositions (
-    address user_,
-    address collateralToken_,
-    address borrowedToken_
-  ) external view returns (
+  function getPositions (address user, address collateralToken_, address borrowedToken_) external view returns (
     address[] memory poolAdaptersOut
   );
 

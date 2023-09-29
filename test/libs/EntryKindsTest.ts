@@ -5,7 +5,11 @@ import {EntryKindsFacade} from "../../typechain";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {defaultAbiCoder, parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HARDHAT_NETWORK_ID,
+  HardhatUtils
+} from "../../scripts/utils/HardhatUtils";
 import {
   GAS_LIMIT_ENTRY_KINDS_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN,
   GAS_LIMIT_ENTRY_KINDS_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT, GAS_LIMIT_ENTRY_KINDS_EXACT_PROPORTIONS,
@@ -79,7 +83,7 @@ describe("EntryKindsTest", () => {
     describe("Gas estimation @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
         const gasUsed = await facade.estimateGas.getEntryKind(defaultAbiCoder.encode(['uint256'], [0]));
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_ENTRY_KINDS_GET_ENTRY_KIND, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_ENTRY_KINDS_GET_ENTRY_KIND, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -195,7 +199,7 @@ describe("EntryKindsTest", () => {
           },
           false
         );
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_ENTRY_KINDS_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_ENTRY_KINDS_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -334,7 +338,7 @@ describe("EntryKindsTest", () => {
           },
           false
         );
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_ENTRY_KINDS_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_ENTRY_KINDS_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -562,7 +566,7 @@ describe("EntryKindsTest", () => {
           ),
           false
         );
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_ENTRY_KINDS_EXACT_PROPORTIONS, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_ENTRY_KINDS_EXACT_PROPORTIONS, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

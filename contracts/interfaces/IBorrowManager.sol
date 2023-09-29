@@ -57,6 +57,8 @@ interface IBorrowManager {
   ///         Results are ordered in ascending order of APR, so the best available converter is first one.
   /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
   ///                  See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
+  /// @param user_ The user who is going to make a borrow
+  ///              Pass 0 to disable rebalance-on-borrowing
   /// @param amountIn_ The meaning depends on entryData kind, see EntryKinds library for details.
   ///         For entry kind = 0: Amount of {sourceToken} to be converted to {targetToken}
   ///         For entry kind = 1: Available amount of {sourceToken}
@@ -67,6 +69,7 @@ interface IBorrowManager {
   /// @return aprs18 Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
   function findConverter(
     bytes memory entryData_,
+    address user_,
     address sourceToken_,
     address targetToken_,
     uint amountIn_,

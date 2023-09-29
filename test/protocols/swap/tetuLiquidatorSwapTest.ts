@@ -16,7 +16,11 @@ import {expect} from "chai";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../scripts/utils/Misc";
-import {controlGasLimitsEx, HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HardhatUtils,
+  POLYGON_NETWORK_ID
+} from "../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER} from "../../baseUT/GasLimit";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 
@@ -146,7 +150,7 @@ describe("TetuLiquidatorSwapTest", () => {
           MaticAddresses.USDC,
         );
         console.log("swapManager.estimateGas.getConverter.gas", gas.toString());
-        controlGasLimitsEx(gas, GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER, (u, t) => {
+        controlGasLimitsEx2(gas, GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -210,7 +214,7 @@ describe("TetuLiquidatorSwapTest", () => {
           MaticAddresses.USDT,
         );
         console.log("swapManager.estimateGas.getConverter.gas", gas.toString());
-        controlGasLimitsEx(gas, GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER, (u, t) => {
+        controlGasLimitsEx2(gas, GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER, (u, t) => {
           expect(u).to.be.below(t);
         });
       });
@@ -246,7 +250,7 @@ describe("TetuLiquidatorSwapTest", () => {
           MaticAddresses.WMATIC,
         );
         console.log("swapManager.estimateGas.getConverter.gas", gas.toString());
-        controlGasLimitsEx(gas, GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER, (u, t) => {
+        controlGasLimitsEx2(gas, GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

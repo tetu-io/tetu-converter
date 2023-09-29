@@ -28,7 +28,7 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
   }
 
   //region ---------------------------------------------- Constants
-  string public constant DEBT_MONITOR_VERSION = "1.0.2";
+  string public constant DEBT_MONITOR_VERSION = "1.0.3";
   /// @notice Allow {closeLiquidatedPosition} to close position with collateral amount less than given value
   /// @dev For simplicity, this value is same for all assets (with any decimals).
   uint public constant CLOSE_POSITION_GAP_TOKENS = 100;
