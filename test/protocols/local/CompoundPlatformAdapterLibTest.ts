@@ -6,10 +6,11 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {
   MockERC20,
   CompoundPlatformAdapterLibFacade,
-  CompoundCTokenBaseMock
+  CompoundCTokenBaseMock, PoolAdapterInitializerWithAPMock, BorrowManagerMock, ConverterControllerMock
 } from "../../../typechain";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
+import {Misc} from "../../../scripts/utils/Misc";
 
 describe("CompoundPlatformAdapterLibTest", () => {
 //region Global vars for all tests
@@ -90,7 +91,7 @@ describe("CompoundPlatformAdapterLibTest", () => {
         p.comptroller,
         p.templatePoolAdapter,
         p.cTokens.map(x => x.address)
-      )
+      );
 
       const state = await facade.getState();
       return {
@@ -136,6 +137,159 @@ describe("CompoundPlatformAdapterLibTest", () => {
       it("should set expected active assets", async () => {
         const ret = await loadFixture(initTest);
         expect(ret.cTokens.join().toLowerCase()).eq([cDai.address, cWeth.address, cUsdc.address].join().toLowerCase());
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if controller is zero", async () => {
+        await expect(init({
+          controller: Misc.ZERO_ADDRESS,
+          comptroller: ethers.Wallet.createRandom().address,
+          templatePoolAdapter: ethers.Wallet.createRandom().address,
+          cTokens: [cUsdc, cDai, cWeth],
+          underlying: [dai, weth, usdc],
+          protocolFeatures: {nativeToken: weth, cTokenNative: cWeth}
+        })).revertedWith("TC-1 zero address") // ZERO_ADDRESS
+      });
+
+      it("should revert if comptroller is zero", async () => {
+        await expect(init({
+          controller: ethers.Wallet.createRandom().address,
+          comptroller: Misc.ZERO_ADDRESS,
+          templatePoolAdapter: ethers.Wallet.createRandom().address,
+          cTokens: [cUsdc, cDai, cWeth],
+          underlying: [dai, weth, usdc],
+          protocolFeatures: {nativeToken: weth, cTokenNative: cWeth}
+        })).revertedWith("TC-1 zero address") // ZERO_ADDRESS
+      });
+
+      it("should revert if templatePoolAdapter is zero", async () => {
+        await expect(init({
+          controller: ethers.Wallet.createRandom().address,
+          comptroller: ethers.Wallet.createRandom().address,
+          templatePoolAdapter: Misc.ZERO_ADDRESS,
+          cTokens: [cUsdc, cDai, cWeth],
+          underlying: [dai, weth, usdc],
+          protocolFeatures: {nativeToken: weth, cTokenNative: cWeth}
+        })).revertedWith("TC-1 zero address") // ZERO_ADDRESS
+      });
+    });
+  });
+
+  describe("initializePoolAdapter", () => {
+    interface IParams {
+      comptroller: string;
+      converterForInit: string;
+      user: string;
+      collateralAsset: string;
+      borrowAsset: string;
+
+      senderIsNotBorrowManager?: boolean;
+      converter?: string;
+    }
+    interface IResults {
+      controllerExpected: boolean;
+      cTokenAddressProviderExpected: boolean;
+      poolExpected: boolean;
+      userExpected: boolean;
+      collateralAssetExpected: boolean;
+      borrowAssetExpected: boolean;
+      originConverterExpected: boolean;
+    }
+
+    async function init(p: IParams): Promise<IResults> {
+      const paMock = await DeployUtils.deployContract(deployer, "PoolAdapterInitializerWithAPMock") as PoolAdapterInitializerWithAPMock;
+
+      const borrowManager = await DeployUtils.deployContract(deployer, "BorrowManagerMock") as BorrowManagerMock;
+      const controller = await DeployUtils.deployContract(deployer, "ConverterControllerMock") as ConverterControllerMock;
+      await controller.setupBorrowManager(borrowManager.address);
+
+      await facade.init(
+        {
+          cTokenNative: ethers.Wallet.createRandom().address,
+          nativeToken: ethers.Wallet.createRandom().address,
+          compoundStorageVersion: 0 // not used here
+        },
+        controller.address,
+        p.comptroller,
+        p.converterForInit,
+        []
+      );
+
+      const sender = p.senderIsNotBorrowManager
+        ? await Misc.impersonate(ethers.Wallet.createRandom().address)
+        : await Misc.impersonate(borrowManager.address);
+
+      await facade.connect(sender).initializePoolAdapter(
+        p?.converter || p.converterForInit,
+        paMock.address,
+        p.user,
+        p.collateralAsset,
+        p.borrowAsset
+      );
+
+      return {
+        controllerExpected: await paMock.controller() === controller.address,
+        cTokenAddressProviderExpected: await paMock.cTokenAddressProvider() === facade.address,
+        userExpected: await paMock.user() === p.user,
+        borrowAssetExpected: await paMock.borrowAsset() === p.borrowAsset,
+        poolExpected: await paMock.pool() === p.comptroller,
+        collateralAssetExpected: await paMock.collateralAsset() === p.collateralAsset,
+        originConverterExpected: await paMock.originConverter() === p.converterForInit
+      }
+    }
+
+    describe("Normal case", () => {
+      let snapshotLocal: string;
+      before(async function () {
+        snapshotLocal = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshotLocal);
+      });
+
+      async function initTest(): Promise<IResults> {
+        return init({
+          comptroller: ethers.Wallet.createRandom().address,
+          user: ethers.Wallet.createRandom().address,
+          converterForInit: ethers.Wallet.createRandom().address,
+          collateralAsset: ethers.Wallet.createRandom().address,
+          borrowAsset: ethers.Wallet.createRandom().address,
+        });
+      }
+
+      it("should set expected addresses", async () => {
+        const ret = await loadFixture(initTest);
+        expect(ret.controllerExpected).eq(true);
+        expect(ret.userExpected).eq(true);
+        expect(ret.borrowAssetExpected).eq(true);
+        expect(ret.poolExpected).eq(true);
+        expect(ret.collateralAssetExpected).eq(true);
+        expect(ret.originConverterExpected).eq(true);
+        expect(ret.cTokenAddressProviderExpected).eq(true);
+      });
+    });
+
+    describe("Bad paths", () => {
+      it("should revert if msg sender is not borrowManager", async () => {
+        await expect(init({
+          comptroller: ethers.Wallet.createRandom().address,
+          user: ethers.Wallet.createRandom().address,
+          converterForInit: ethers.Wallet.createRandom().address,
+          collateralAsset: ethers.Wallet.createRandom().address,
+          borrowAsset: ethers.Wallet.createRandom().address,
+          senderIsNotBorrowManager: true
+        })).revertedWith("TC-45 borrow manager only"); // BORROW_MANAGER_ONLY
+      });
+
+      it("should revert if converter is incorrect", async () => {
+        await expect(init({
+          comptroller: ethers.Wallet.createRandom().address,
+          user: ethers.Wallet.createRandom().address,
+          converterForInit: ethers.Wallet.createRandom().address,
+          collateralAsset: ethers.Wallet.createRandom().address,
+          borrowAsset: ethers.Wallet.createRandom().address,
+          converter: ethers.Wallet.createRandom().address,
+        })).revertedWith("TC-25 converter not found"); // CONVERTER_NOT_FOUND
       });
     });
   });
