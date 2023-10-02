@@ -83,6 +83,8 @@ library CompoundAprLib {
   }
 
   /// @notice Calculate supply income in terms of borrow asset with decimals 36
+  /// @param supplyRatePerBlock Decimals 18
+  /// @param collateral10PowDecimals 10**collateralAssetDecimals
   function getSupplyIncomeInBorrowAsset36(
     uint supplyRatePerBlock,
     uint countBlocks,
@@ -104,6 +106,8 @@ library CompoundAprLib {
   /// @notice Calculate borrow cost in terms of borrow tokens with decimals 36
   /// @dev see LendingContractsV2, Base.sol, _updateInterest
   ///      see Compound-protocol, CToken.sol, accrueInterest
+  /// @param borrowRatePerBlock Decimals 18
+  /// @param borrow10PowDecimals 10**borrowAssetDecimals
   function getBorrowCost36(
     uint borrowRatePerBlock,
     uint borrowedAmount,
@@ -161,15 +165,18 @@ library CompoundAprLib {
 
   //region ----------------------------------------------------- Utils to inline
   function getPrice(ICompoundPriceOracle priceOracle, address token) internal view returns (uint) {
-    uint price = priceOracle.getUnderlyingPrice(token);
-    require(price != 0, AppErrors.ZERO_PRICE);
-    return price;
+    try priceOracle.getUnderlyingPrice(token) returns (uint value) {
+      require(value != 0, AppErrors.ZERO_PRICE);
+      return value;
+    } catch {
+      revert(AppErrors.ZERO_PRICE);
+    }
   }
 
-  function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address token) internal view returns (address) {
-    return token == f_.nativeToken
+  function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address cToken) internal view returns (address) {
+    return cToken == f_.cTokenNative
       ? f_.nativeToken
-      : ICTokenBase(token).underlying();
+      : ICTokenBase(cToken).underlying();
   }
   //endregion ----------------------------------------------------- Utils to inline
 

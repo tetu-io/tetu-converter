@@ -6,10 +6,11 @@ import "../../protocols/compound/CompoundAprLib.sol";
 /// @notice Facade for CompoundAprLib to make external functions available for tests
 contract CompoundLibFacade {
   function getCore(
+    CompoundLib.ProtocolFeatures memory f_,
     address cTokenCollateral_,
     address cTokenBorrow_
   ) external view returns (CompoundAprLib.Core memory) {
-    return HfAprLib.getCore(cTokenCollateral_, cTokenBorrow_);
+    return CompoundAprLib.getCore(f_, cTokenCollateral_, cTokenBorrow_);
   }
 
   function getEstimatedBorrowRate(
@@ -65,7 +66,7 @@ contract CompoundLibFacade {
     return CompoundAprLib.getPrice(priceOracle, token);
   }
 
-  function getUnderlying(address token) public view returns (address) {
-    return CompoundAprLib.getUnderlying(token);
+  function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address token) public view returns (address) {
+    return CompoundAprLib.getUnderlying(f_, token);
   }
 }

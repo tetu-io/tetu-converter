@@ -105,10 +105,7 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view returns (uint) {
-    CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
-
-    return CompoundPlatformAdapterLib.getBorrowRateAfterBorrow(_state, f, borrowAsset_, amountToBorrow_);
+    return CompoundPlatformAdapterLib.getBorrowRateAfterBorrow(_state, borrowAsset_, amountToBorrow_);
   }
   //endregion ----------------------------------------------------- Calculate borrow rate after borrowing in advance
 
