@@ -32,7 +32,7 @@ library CompoundPlatformAdapterLib {
     address converter;
 
     /// @notice All enabled pairs underlying : cTokens. All assets usable for collateral/to borrow.
-    /// @dev There is no underlying for native token, we store cToken-for-native-token:native-token
+    /// @dev There is no underlying for native token, we store native-token:cToken-for-native-token
     mapping(address => address) activeAssets;
 
     /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
