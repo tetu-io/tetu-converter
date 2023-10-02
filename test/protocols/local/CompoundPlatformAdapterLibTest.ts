@@ -59,6 +59,28 @@ describe("CompoundPlatformAdapterLibTest", () => {
 
 //endregion before, after
 
+//region Utils
+  interface ISetStateParams {
+    controller: string;
+    comptroller: string;
+    converter: string;
+    frozen: boolean;
+    underlying: MockERC20[];
+    cTokens: CompoundCTokenBaseMock[];
+  }
+  async function setState(p: ISetStateParams) {
+    await facade.setState(
+      p.controller,
+      p.comptroller,
+      p.converter,
+      p.frozen,
+      p.underlying.map(x => x.address),
+      p.cTokens.map(x => x.address)
+    );
+  }
+
+//endregion Utils
+
 //region Unit tests
   describe("init", () => {
     interface IParams {
@@ -291,6 +313,59 @@ describe("CompoundPlatformAdapterLibTest", () => {
           converter: ethers.Wallet.createRandom().address,
         })).revertedWith("TC-25 converter not found"); // CONVERTER_NOT_FOUND
       });
+    });
+  });
+
+  describe("setFrozen", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
+    interface IParams {
+      initialFrozen: boolean;
+    }
+
+    interface IResults {
+      governance: SignerWithAddress;
+    }
+
+    async function init(p: IParams): Promise<IResults> {
+      const governance = ethers.Wallet.createRandom().address;
+      const controller = await DeployUtils.deployContract(deployer, "ConverterControllerMock") as ConverterControllerMock;
+      await controller.setGovernance(governance);
+      await setState({
+        controller: controller.address,
+        comptroller: ethers.Wallet.createRandom().address,
+        converter: ethers.Wallet.createRandom().address,
+        frozen: p.initialFrozen,
+        cTokens: [],
+        underlying: []
+      })
+      return {
+        governance: await Misc.impersonate(governance)
+      }
+    }
+
+    it("should set frozen to false", async () => {
+      const {governance} = await init({initialFrozen: true});
+      await facade.connect(governance).setFrozen(false);
+      expect((await facade.getState()).frozen).eq(false);
+    });
+    it("should set frozen to true", async () => {
+      const {governance} = await init({initialFrozen: false});
+      await facade.connect(governance).setFrozen(true);
+      expect((await facade.getState()).frozen).eq(true);
+    });
+    it("should revert if not governance", async () => {
+      await init({initialFrozen: false});
+      const notGov = await Misc.impersonate(ethers.Wallet.createRandom().address);
+      await expect(
+        facade.connect(notGov).setFrozen(true)
+      ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
     });
   });
 });

@@ -66,7 +66,7 @@ contract CompoundLibFacade {
     return CompoundAprLib.getPrice(priceOracle, token);
   }
 
-  function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address token) public view returns (address) {
+  function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address token) external view returns (address) {
     return CompoundAprLib.getUnderlying(f_, token);
   }
 }
