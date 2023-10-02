@@ -42,7 +42,6 @@ library CompoundPlatformAdapterLib {
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     ICompoundComptrollerBase comptroller;
-    ICompoundPriceOracle priceOracle;
     address cTokenCollateral;
     address cTokenBorrow;
     uint entryKind;
@@ -141,9 +140,9 @@ library CompoundPlatformAdapterLib {
     CompoundLib.ProtocolFeatures memory f_,
     address[] memory cTokens_
   ) internal {
-    uint lenCTokens = cTokens_.length;
-    for (uint i = 0; i < lenCTokens; i = AppUtils.uncheckedInc(i)) {
-      // Special case: there is no underlying for WMATIC, so we store hMATIC:WMATIC
+    uint len = cTokens_.length;
+    for (uint i; i < len; i = AppUtils.uncheckedInc(i)) {
+      // Special case: there is no underlying for native token, so we store nativeToken:cTokenForNativeToken
       state.activeAssets[CompoundAprLib.getUnderlying(f_, cTokens_[i])] = cTokens_[i];
     }
   }
@@ -204,47 +203,16 @@ library CompoundPlatformAdapterLib {
               plan.converter = state.converter;
 
               //-------------------------------- Prices and health factor
-              vars.priceOracle = ICompoundPriceOracle(vars.comptroller.oracle());
-
               AppDataTypes.PricesAndDecimals memory pd;
-              pd.rc10powDec = 10**IERC20Metadata(p_.collateralAsset).decimals();
-              pd.rb10powDec = 10**IERC20Metadata(p_.borrowAsset).decimals();
-              pd.priceCollateral = CompoundAprLib.getPrice(vars.priceOracle, vars.cTokenCollateral) * pd.rc10powDec;
-              pd.priceBorrow = CompoundAprLib.getPrice(vars.priceOracle, vars.cTokenBorrow) * pd.rb10powDec;
+              _initPricesAndDecimals(pd, p_.collateralAsset, p_.borrowAsset, vars);
               // ltv and liquidation threshold are exactly the same in HundredFinance
               // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
 
               //------------------------------- Calculate collateralAmount and amountToBorrow
               // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
-              vars.entryKind = EntryKinds.getEntryKind(p_.entryData);
-              if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-                plan.collateralAmount = p_.amountIn;
-                plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
-                  p_.amountIn,
-                  uint(healthFactor2_) * 10**16,
-                  plan.liquidationThreshold18,
-                  pd,
-                  true // prices have decimals 36
-                );
-              } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
-                (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
-                  p_.amountIn,
-                  uint(healthFactor2_) * 10**16,
-                  plan.liquidationThreshold18,
-                  pd,
-                  p_.entryData,
-                  true // prices have decimals 36
-                );
-              } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
-                plan.amountToBorrow = p_.amountIn;
-                plan.collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
-                  p_.amountIn,
-                  uint(healthFactor2_) * 10**16,
-                  plan.liquidationThreshold18,
-                  pd,
-                  true // prices have decimals 36
-                );
-              }
+              (
+                plan.collateralAmount, plan.amountToBorrow
+              ) = getAmountsForEntryKind(p_, plan.liquidationThreshold18, healthFactor2_, pd);
 
               //------------------------------- Validate the borrow
               if (plan.amountToBorrow == 0 || plan.collateralAmount == 0) {
@@ -285,6 +253,62 @@ library CompoundPlatformAdapterLib {
     } else {
       return plan;
     }
+  }
+
+  function _initPricesAndDecimals(
+    AppDataTypes.PricesAndDecimals memory dest,
+    address collateralAsset,
+    address borrowAsset,
+    LocalsGetConversionPlan memory vars
+  ) internal view {
+    ICompoundPriceOracle priceOracle = ICompoundPriceOracle(vars.comptroller.oracle());
+
+    dest.rc10powDec = 10**IERC20Metadata(collateralAsset).decimals();
+    dest.rb10powDec = 10**IERC20Metadata(borrowAsset).decimals();
+    dest.priceCollateral = CompoundAprLib.getPrice(priceOracle, vars.cTokenCollateral) * dest.rc10powDec;
+    dest.priceBorrow = CompoundAprLib.getPrice(priceOracle, vars.cTokenBorrow) * dest.rb10powDec;
+  }
+
+  function getAmountsForEntryKind(
+    AppDataTypes.InputConversionParams memory p_,
+    uint liquidationThreshold18,
+    uint16 healthFactor2_,
+    AppDataTypes.PricesAndDecimals memory pd
+  ) internal view returns (
+    uint collateralAmount,
+    uint amountToBorrow
+  ) {
+    uint entryKind = EntryKinds.getEntryKind(p_.entryData);
+    if (entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+      collateralAmount = p_.amountIn;
+      amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
+        p_.amountIn,
+        uint(healthFactor2_) * 10**16,
+        liquidationThreshold18,
+        pd,
+        true // prices have decimals 36
+      );
+    } else if (entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+      (collateralAmount, amountToBorrow) = EntryKinds.exactProportion(
+        p_.amountIn,
+        uint(healthFactor2_) * 10**16,
+        liquidationThreshold18,
+        pd,
+        p_.entryData,
+        true // prices have decimals 36
+      );
+    } else if (entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
+      amountToBorrow = p_.amountIn;
+      collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
+        p_.amountIn,
+        uint(healthFactor2_) * 10**16,
+        liquidationThreshold18,
+        pd,
+        true // prices have decimals 36
+      );
+    }
+
+    return (collateralAmount, amountToBorrow);
   }
   //endregion ----------------------------------------------------- Get conversion plan
 

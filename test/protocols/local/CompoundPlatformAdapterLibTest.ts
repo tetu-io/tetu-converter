@@ -6,11 +6,19 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {
   MockERC20,
   CompoundPlatformAdapterLibFacade,
-  CompoundCTokenBaseMock, PoolAdapterInitializerWithAPMock, BorrowManagerMock, ConverterControllerMock
+  CompoundCTokenBaseMock,
+  PoolAdapterInitializerWithAPMock,
+  BorrowManagerMock,
+  ConverterControllerMock,
+  MockERC20__factory
 } from "../../../typechain";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import {Misc} from "../../../scripts/utils/Misc";
+import {AppDataTypes} from "../../../typechain/contracts/tests/compound/CompoundPlatformAdapterLibFacade";
+import {PromiseOrValue} from "../../../typechain/common";
+import {BigNumberish, BytesLike} from "ethers";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
 
 describe("CompoundPlatformAdapterLibTest", () => {
 //region Global vars for all tests
@@ -367,5 +375,187 @@ describe("CompoundPlatformAdapterLibTest", () => {
         facade.connect(notGov).setFrozen(true)
       ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
     });
+  });
+
+  describe("registerCTokens", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
+    interface IParams {
+      protocolFeatures: {
+        nativeToken: MockERC20;
+        cTokenNative: CompoundCTokenBaseMock;
+      }
+
+      cTokens: CompoundCTokenBaseMock[];
+      underlying: MockERC20[];
+
+      notGovernance?: boolean;
+    }
+
+    interface IResults {
+      cTokens: string[];
+    }
+
+    async function registerCTokens(p: IParams): Promise<IResults> {
+      const governance = ethers.Wallet.createRandom().address;
+      const controller = await DeployUtils.deployContract(deployer, "ConverterControllerMock") as ConverterControllerMock;
+      await controller.setGovernance(governance);
+      await setState({
+        controller: controller.address,
+        comptroller: ethers.Wallet.createRandom().address,
+        converter: ethers.Wallet.createRandom().address,
+        frozen: false,
+        cTokens: [],
+        underlying: []
+      });
+
+      const signer = p.notGovernance
+        ? await Misc.impersonate(ethers.Wallet.createRandom().address)
+        : await Misc.impersonate(governance);
+      await facade.connect(signer).registerCTokens(
+        {
+          cTokenNative: p.protocolFeatures.cTokenNative.address,
+          nativeToken: p.protocolFeatures.nativeToken.address,
+          compoundStorageVersion: 0 // not used here
+        },
+        p.cTokens.map(x => x.address)
+      )
+      return {
+        cTokens: await Promise.all(p.underlying.map(
+          async x => await facade.getActiveAsset(x.address)
+        ))
+      }
+    }
+
+    it("should set expected cTokens, cTokens doesn't include native token", async () => {
+      const {cTokens} = await registerCTokens({
+        cTokens: [cUsdc, cDai],
+        underlying: [dai, usdc, weth],
+        protocolFeatures: {
+          nativeToken: weth,
+          cTokenNative: cWeth
+        }
+      });
+      expect(cTokens.join()).eq([cDai.address, cUsdc.address, Misc.ZERO_ADDRESS].join());
+    });
+    it("should set expected cTokens, cTokens includes native token", async () => {
+      const {cTokens} = await registerCTokens({
+        cTokens: [cUsdc, cDai, cWeth],
+        underlying: [dai, usdc, weth],
+        protocolFeatures: {
+          nativeToken: weth,
+          cTokenNative: cWeth
+        }
+      });
+      expect(cTokens.join()).eq([cDai.address, cUsdc.address, cWeth.address].join());
+    });
+    it("should revert if not governance", async () => {
+      await expect(
+        registerCTokens({
+          cTokens: [cUsdc, cDai, cWeth],
+          underlying: [dai, usdt, weth],
+          protocolFeatures: {
+            nativeToken: weth,
+            cTokenNative: cWeth
+          },
+          notGovernance: true
+        })
+      ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+    });
+  });
+
+  describe("getConversionPlan", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
+    interface IParams {
+      protocolFeatures: {
+        nativeToken: MockERC20;
+        cTokenNative: CompoundCTokenBaseMock;
+      }
+
+      plan: {
+        cTokenCollateral: CompoundCTokenBaseMock;
+        cTokenBorrow: CompoundCTokenBaseMock;
+        entryData: string;
+        countBlocks: number;
+        amountIn: string;
+      }
+      healthFactor: string;
+      decimalsAmountIn?: number; // decimals of collateral by default
+    }
+
+    interface IResults {
+      converter: string;
+      liquidationThreshold: number;
+      amountToBorrow: number;
+      collateralAmount: number;
+      borrowCost: number;
+      supplyIncomeInBorrowAsset: number;
+      rewardsAmountInBorrowAsset: number;
+      amountCollateralInBorrowAsset: number;
+      ltv: number;
+      maxAmountToBorrow: number;
+      maxAmountToSupply: number;
+    }
+
+    async function getConversionPlan(p: IParams): Promise<IResults> {
+      const governance = ethers.Wallet.createRandom().address;
+      const controller = await DeployUtils.deployContract(deployer, "ConverterControllerMock") as ConverterControllerMock;
+      await controller.setGovernance(governance);
+
+      const borrowAsset = MockERC20__factory.connect(await p.plan.cTokenBorrow.underlying(), deployer);
+      const collateralAsset = MockERC20__factory.connect(await p.plan.cTokenCollateral.underlying(), deployer);
+
+      await setState({
+        controller: controller.address,
+        comptroller: ethers.Wallet.createRandom().address,
+        converter: ethers.Wallet.createRandom().address,
+        frozen: false,
+        cTokens: [p.plan.cTokenBorrow, p.plan.cTokenCollateral],
+        underlying: [borrowAsset, collateralAsset]
+      });
+
+      const ret = await facade.getConversionPlan(
+        {
+          cTokenNative: p.protocolFeatures.cTokenNative.address,
+          nativeToken: p.protocolFeatures.nativeToken.address,
+          compoundStorageVersion: 0 // not used here
+        },
+        {
+          borrowAsset: borrowAsset.address,
+          collateralAsset: collateralAsset.address,
+          entryData: p.plan.entryData,
+          countBlocks: p.plan.countBlocks,
+          amountIn: parseUnits(p.plan.amountIn, p.decimalsAmountIn ?? await collateralAsset.decimals())
+        },
+        parseUnits(p.healthFactor, 2)
+      )
+      return {
+        converter: ret.converter,
+        liquidationThreshold: +formatUnits(ret.liquidationThreshold18, 18),
+        amountToBorrow: +formatUnits(ret.amountToBorrow, await borrowAsset.decimals()),
+        collateralAmount: +formatUnits(ret.collateralAmount, await collateralAsset.decimals()),
+        borrowCost: +formatUnits(ret.borrowCost36, 36),
+        supplyIncomeInBorrowAsset: +formatUnits(ret.supplyIncomeInBorrowAsset36, 36),
+        rewardsAmountInBorrowAsset: +formatUnits(ret.rewardsAmountInBorrowAsset36, 36),
+        amountCollateralInBorrowAsset: +formatUnits(ret.amountCollateralInBorrowAsset36, 36),
+        ltv: +formatUnits(ret.ltv18, 18),
+        maxAmountToBorrow: +formatUnits(ret.maxAmountToBorrow, await borrowAsset.decimals()),
+        maxAmountToSupply: +formatUnits(ret.maxAmountToSupply, await collateralAsset.decimals()),
+      }
+    }
+
   });
 });
