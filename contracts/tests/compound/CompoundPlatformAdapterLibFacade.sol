@@ -17,7 +17,7 @@ contract CompoundPlatformAdapterLibFacade {
     address[] memory cTokens
   ) external {
     _state.controller = IConverterController(controller);
-    _state.comptroller = ICompoundComptrollerBase(controller);
+    _state.comptroller = ICompoundComptrollerBase(comptroller);
     _state.converter = converter;
     _state.frozen = frozen;
     for (uint i = 0; i < tokens.length; ++i) {
@@ -129,4 +129,67 @@ contract CompoundPlatformAdapterLibFacade {
   ) {
     return CompoundPlatformAdapterLib.getMarketsInfo(_state, f_, cTokenCollateral_, cTokenBorrow_);
   }
+
+//region ----------------------------------- getConversionPlan implementation
+
+  function reduceAmountsByMax(
+    AppDataTypes.ConversionPlan memory plan,
+    uint collateralAmount_,
+    uint amountToBorrow_
+  ) external pure returns (
+    uint collateralAmount,
+    uint amountToBorrow
+  ) {
+    return CompoundPlatformAdapterLib.reduceAmountsByMax(plan, collateralAmount_, amountToBorrow_);
+  }
+
+  function getValuesForApr(
+    AppDataTypes.ConversionPlan memory plan_,
+    CompoundLib.ProtocolFeatures memory f_,
+    CompoundPlatformAdapterLib.ConversionPlanLocal memory v_,
+    AppDataTypes.InputConversionParams memory p_,
+    AppDataTypes.PricesAndDecimals memory pd_
+  ) external view returns (
+    uint borrowCost36,
+    uint supplyIncomeInBorrowAsset36,
+    uint amountCollateralInBorrowAsset36
+  ) {
+    return CompoundPlatformAdapterLib.getValuesForApr(plan_, f_, v_, p_, pd_);
+  }
+
+  function getMaxAmountToBorrow(CompoundPlatformAdapterLib.ConversionPlanLocal memory v) internal view returns (uint maxAmountToBorrow) {
+    return CompoundPlatformAdapterLib.getMaxAmountToBorrow(v);
+  }
+
+  function _initConversionPlanLocal(
+    AppDataTypes.InputConversionParams memory p_,
+    CompoundPlatformAdapterLib.ConversionPlanLocal memory dest
+  ) internal view returns (bool, CompoundPlatformAdapterLib.ConversionPlanLocal memory) {
+    bool ret = CompoundPlatformAdapterLib._initConversionPlanLocal(_state, p_, dest);
+    return (ret, dest);
+  }
+
+  function _initPricesAndDecimals(
+    AppDataTypes.PricesAndDecimals memory dest,
+    address collateralAsset,
+    address borrowAsset,
+    CompoundPlatformAdapterLib.ConversionPlanLocal memory vars
+  ) internal view returns (AppDataTypes.PricesAndDecimals memory) {
+    CompoundPlatformAdapterLib._initPricesAndDecimals(dest, collateralAsset, borrowAsset, vars);
+    return dest;
+  }
+
+  function getAmountsForEntryKind(
+    AppDataTypes.InputConversionParams memory p_,
+    uint liquidationThreshold18,
+    uint16 healthFactor2_,
+    AppDataTypes.PricesAndDecimals memory pd,
+    bool priceDecimals36
+  ) internal pure returns (
+    uint collateralAmount,
+    uint amountToBorrow
+  ) {
+    return CompoundPlatformAdapterLib.getAmountsForEntryKind(p_, liquidationThreshold18, healthFactor2_, pd, priceDecimals36);
+  }
+//endregion ----------------------------------- getConversionPlan implementation
 }

@@ -40,11 +40,10 @@ library CompoundPlatformAdapterLib {
   }
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
-  struct LocalsGetConversionPlan {
+  struct ConversionPlanLocal {
     ICompoundComptrollerBase comptroller;
     address cTokenCollateral;
     address cTokenBorrow;
-    uint entryKind;
   }
   //endregion ----------------------------------------------------- Data types
 
@@ -171,80 +170,36 @@ library CompoundPlatformAdapterLib {
     require(p_.amountIn != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= state.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-    if (! state.frozen) {
-      LocalsGetConversionPlan memory vars;
-      vars.comptroller = state.comptroller;
-      vars.cTokenCollateral = state.activeAssets[p_.collateralAsset];
-      if (vars.cTokenCollateral != address(0)) {
+    ConversionPlanLocal memory v;
+    if (_initConversionPlanLocal(state, p_, v)) {
 
-        vars.cTokenBorrow = state.activeAssets[p_.borrowAsset];
-        if (vars.cTokenBorrow != address(0)) {
-          //-------------------------------- LTV and liquidation threshold
-          (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(state, f_, vars.cTokenCollateral, vars.cTokenBorrow);
-          if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
-            //------------------------------- Calculate maxAmountToSupply and maxAmountToBorrow
-            plan.maxAmountToBorrow = ICTokenBase(vars.cTokenBorrow).getCash();
-            uint borrowCap = vars.comptroller.borrowCaps(vars.cTokenBorrow);
-            if (borrowCap != 0) {
-              uint totalBorrows = ICTokenBase(vars.cTokenBorrow).totalBorrows();
-              if (totalBorrows > borrowCap) {
-                plan.maxAmountToBorrow = 0;
-              } else {
-                if (totalBorrows + plan.maxAmountToBorrow > borrowCap) {
-                  plan.maxAmountToBorrow = borrowCap - totalBorrows;
-                }
-              }
-            }
+      // LTV and liquidation threshold
+      (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(state, f_, v.cTokenCollateral, v.cTokenBorrow);
+      if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
 
-            // it seems that supply is not limited in HundredFinance protocol
-            plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
+        // Calculate maxAmountToSupply and maxAmountToBorrow
+        plan.maxAmountToBorrow = getMaxAmountToBorrow(v);
+        plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
 
-            if (/* plan.maxAmountToSupply != 0 && */ plan.maxAmountToBorrow != 0) {
-              plan.converter = state.converter;
+        if (plan.maxAmountToBorrow != 0 && plan.maxAmountToSupply != 0) {
+          // Prices and health factor
+          AppDataTypes.PricesAndDecimals memory pd;
+          _initPricesAndDecimals(pd, p_.collateralAsset, p_.borrowAsset, v);
+          // ltv and liquidation threshold are exactly the same in HundredFinance
+          // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
 
-              //-------------------------------- Prices and health factor
-              AppDataTypes.PricesAndDecimals memory pd;
-              _initPricesAndDecimals(pd, p_.collateralAsset, p_.borrowAsset, vars);
-              // ltv and liquidation threshold are exactly the same in HundredFinance
-              // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
+          // Calculate collateralAmount and amountToBorrow
+          // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
+          (plan.collateralAmount, plan.amountToBorrow) = getAmountsForEntryKind(p_, plan.liquidationThreshold18, healthFactor2_, pd, true);
 
-              //------------------------------- Calculate collateralAmount and amountToBorrow
-              // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
-              (
-                plan.collateralAmount, plan.amountToBorrow
-              ) = getAmountsForEntryKind(p_, plan.liquidationThreshold18, healthFactor2_, pd);
-
-              //------------------------------- Validate the borrow
-              if (plan.amountToBorrow == 0 || plan.collateralAmount == 0) {
-                plan.converter = address(0);
-              } else {
-                // reduce collateral amount and borrow amount proportionally to fit available limits
-                // we don't need to check "plan.collateralAmount > plan.maxAmountToSupply" as in DForce
-                // because maxAmountToSupply is always equal to type(uint).max
-                if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-                  plan.collateralAmount = plan.collateralAmount * plan.maxAmountToBorrow / plan.amountToBorrow;
-                  plan.amountToBorrow = plan.maxAmountToBorrow;
-                }
-
-                //------------------------------- values for APR
-                (plan.borrowCost36,
-                  plan.supplyIncomeInBorrowAsset36
-                ) = CompoundAprLib.getRawCostAndIncomes(
-                  CompoundAprLib.getCore(f_, vars.cTokenCollateral, vars.cTokenBorrow),
-                  plan.collateralAmount,
-                  p_.countBlocks,
-                  plan.amountToBorrow,
-                  pd
-                );
-
-                plan.amountCollateralInBorrowAsset36 =
-                  plan.collateralAmount * (10**36 * pd.priceCollateral / pd.priceBorrow)
-                  / pd.rc10powDec;
-              }
-            } // else plan.maxAmountToBorrow = 0
-          } // else ltv is zero
-        } // else borrow token is not active
-      } // else collateral token is not active
+          // Validate the borrow, calculate amounts for APR
+          if (plan.amountToBorrow != 0 && plan.collateralAmount != 0) {
+            plan.converter = state.converter;
+            (plan.collateralAmount, plan.amountToBorrow) = reduceAmountsByMax(plan, plan.collateralAmount, plan.amountToBorrow);
+            (plan.borrowCost36, plan.supplyIncomeInBorrowAsset36, plan.amountCollateralInBorrowAsset36) = getValuesForApr(plan, f_, v, p_, pd);
+          }
+        } // else plan.maxAmountToBorrow = 0
+      } // else ltv is zero
     }
 
     if (plan.converter == address(0)) {
@@ -255,11 +210,96 @@ library CompoundPlatformAdapterLib {
     }
   }
 
+  /// @notice Reduce collateral amount and borrow amount proportionally to fit available limits
+  function reduceAmountsByMax(
+    AppDataTypes.ConversionPlan memory plan,
+    uint collateralAmount_,
+    uint amountToBorrow_
+  ) internal pure returns (
+    uint collateralAmount,
+    uint amountToBorrow
+  ) {
+    if (amountToBorrow_ > plan.maxAmountToBorrow) {
+      collateralAmount_= collateralAmount_ * plan.maxAmountToBorrow / amountToBorrow_;
+      amountToBorrow_ = plan.maxAmountToBorrow;
+    }
+    if (plan.collateralAmount > plan.maxAmountToSupply) {
+      amountToBorrow_ = amountToBorrow_ * plan.maxAmountToSupply / collateralAmount_;
+      collateralAmount_ = plan.maxAmountToSupply;
+    }
+    return (collateralAmount_, amountToBorrow_);
+  }
+
+  /// @notice Calculate amounts required to calculate APR. Don't calculate rewards amount (assume there are no rewards)
+  /// @return borrowCost36 Cost for the period calculated using borrow rate in terms of borrow tokens, decimals 36
+  /// @return supplyIncomeInBorrowAsset36 Potential supply increment after borrow period, recalculated to borrow asset, decimals 36
+  /// @return amountCollateralInBorrowAsset36 Amount of collateral recalculated to borrow asset, decimals 36
+  function getValuesForApr(
+    AppDataTypes.ConversionPlan memory plan_,
+    CompoundLib.ProtocolFeatures memory f_,
+    ConversionPlanLocal memory v_,
+    AppDataTypes.InputConversionParams memory p_,
+    AppDataTypes.PricesAndDecimals memory pd_
+  ) internal view returns (
+    uint borrowCost36,
+    uint supplyIncomeInBorrowAsset36,
+    uint amountCollateralInBorrowAsset36
+  ) {
+    (borrowCost36, supplyIncomeInBorrowAsset36) = CompoundAprLib.getRawCostAndIncomes(
+      CompoundAprLib.getCore(f_, v_.cTokenCollateral, v_.cTokenBorrow),
+      plan_.collateralAmount,
+      p_.countBlocks,
+      plan_.amountToBorrow,
+      pd_
+    );
+
+    amountCollateralInBorrowAsset36 =
+      plan_.collateralAmount * (10**36 * pd_.priceCollateral / pd_.priceBorrow)
+      / pd_.rc10powDec;
+  }
+
+  function getMaxAmountToBorrow(ConversionPlanLocal memory v) internal view returns (uint maxAmountToBorrow) {
+    maxAmountToBorrow = ICTokenBase(v.cTokenBorrow).getCash();
+    uint borrowCap = v.comptroller.borrowCaps(v.cTokenBorrow);
+    if (borrowCap != 0) {
+      uint totalBorrows = ICTokenBase(v.cTokenBorrow).totalBorrows();
+      if (totalBorrows > borrowCap) {
+        maxAmountToBorrow = 0;
+      } else {
+        if (totalBorrows + maxAmountToBorrow > borrowCap) {
+          maxAmountToBorrow = borrowCap - totalBorrows;
+        }
+      }
+    }
+  }
+
+  /// @notice Check {p_} values, ensure that selected assets are active and prepare {dest}
+  /// @return True if all params are valid and {dest} is successfully prepared
+  function _initConversionPlanLocal(
+    State storage state,
+    AppDataTypes.InputConversionParams memory p_,
+    ConversionPlanLocal memory dest
+  ) internal view returns (bool) {
+    if (! state.frozen) {
+      dest.cTokenCollateral = state.activeAssets[p_.collateralAsset];
+      if (dest.cTokenCollateral != address(0)) {
+        dest.cTokenBorrow = state.activeAssets[p_.borrowAsset];
+        if (dest.cTokenBorrow != address(0)) {
+          dest.comptroller = state.comptroller;
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /// @notice Get prices and decimals of collateral and borrow assets, store them to {dest}
   function _initPricesAndDecimals(
     AppDataTypes.PricesAndDecimals memory dest,
     address collateralAsset,
     address borrowAsset,
-    LocalsGetConversionPlan memory vars
+    ConversionPlanLocal memory vars
   ) internal view {
     ICompoundPriceOracle priceOracle = ICompoundPriceOracle(vars.comptroller.oracle());
 
@@ -269,43 +309,29 @@ library CompoundPlatformAdapterLib {
     dest.priceBorrow = CompoundAprLib.getPrice(priceOracle, vars.cTokenBorrow) * dest.rb10powDec;
   }
 
+  /// @notice Calculate {collateralAmount} and {amountToBorrow} by {amountIn} according to the given entry kind
+  /// @param priceDecimals36 Prices have decimals 36
   function getAmountsForEntryKind(
     AppDataTypes.InputConversionParams memory p_,
     uint liquidationThreshold18,
     uint16 healthFactor2_,
-    AppDataTypes.PricesAndDecimals memory pd
-  ) internal view returns (
+    AppDataTypes.PricesAndDecimals memory pd,
+    bool priceDecimals36
+  ) internal pure returns (
     uint collateralAmount,
     uint amountToBorrow
   ) {
+    uint hf = uint(healthFactor2_) * 10**16;
     uint entryKind = EntryKinds.getEntryKind(p_.entryData);
     if (entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
       collateralAmount = p_.amountIn;
-      amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
-        p_.amountIn,
-        uint(healthFactor2_) * 10**16,
-        liquidationThreshold18,
-        pd,
-        true // prices have decimals 36
-      );
+      amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(p_.amountIn, hf, liquidationThreshold18, pd, priceDecimals36);
     } else if (entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
-      (collateralAmount, amountToBorrow) = EntryKinds.exactProportion(
-        p_.amountIn,
-        uint(healthFactor2_) * 10**16,
-        liquidationThreshold18,
-        pd,
-        p_.entryData,
-        true // prices have decimals 36
-      );
+      (collateralAmount,
+        amountToBorrow) = EntryKinds.exactProportion(p_.amountIn, hf, liquidationThreshold18, pd, p_.entryData, priceDecimals36);
     } else if (entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
       amountToBorrow = p_.amountIn;
-      collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
-        p_.amountIn,
-        uint(healthFactor2_) * 10**16,
-        liquidationThreshold18,
-        pd,
-        true // prices have decimals 36
-      );
+      collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(p_.amountIn, hf, liquidationThreshold18, pd, priceDecimals36);
     }
 
     return (collateralAmount, amountToBorrow);
