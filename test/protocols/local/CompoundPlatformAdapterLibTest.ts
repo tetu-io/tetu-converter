@@ -478,83 +478,145 @@ describe("CompoundPlatformAdapterLibTest", () => {
     });
 
     interface IParams {
-      protocolFeatures: {
-        nativeToken: MockERC20;
-        cTokenNative: CompoundCTokenBaseMock;
-      }
+      collateralAsset?: MockERC20; // usdc by default
+      borrowAsset?: MockERC20; // usdt by default
 
-      plan: {
-        cTokenCollateral: CompoundCTokenBaseMock;
-        cTokenBorrow: CompoundCTokenBaseMock;
-        entryData: string;
-        countBlocks: number;
-        amountIn: string;
-      }
-      healthFactor: string;
-      decimalsAmountIn?: number; // decimals of collateral by default
+      /** by default type(uint).max */
+      maxAmountToBorrow?: string;
+      /** by default type(uint).max */
+      maxAmountToSupply?: string;
+
+      amountToBorrow: string;
+      collateralAmount: string;
     }
 
     interface IResults {
-      converter: string;
-      liquidationThreshold: number;
       amountToBorrow: number;
       collateralAmount: number;
-      borrowCost: number;
-      supplyIncomeInBorrowAsset: number;
-      rewardsAmountInBorrowAsset: number;
-      amountCollateralInBorrowAsset: number;
-      ltv: number;
-      maxAmountToBorrow: number;
-      maxAmountToSupply: number;
     }
 
-    async function getConversionPlan(p: IParams): Promise<IResults> {
-      const governance = ethers.Wallet.createRandom().address;
-      const controller = await DeployUtils.deployContract(deployer, "ConverterControllerMock") as ConverterControllerMock;
-      await controller.setGovernance(governance);
+    async function reduceAmountsByMax(p: IParams): Promise<IResults> {
+      const decimalsBorrow = await (p.borrowAsset ?? usdt).decimals();
+      const decimalsCollateral = await (p.collateralAsset ?? usdc).decimals();
 
-      const borrowAsset = MockERC20__factory.connect(await p.plan.cTokenBorrow.underlying(), deployer);
-      const collateralAsset = MockERC20__factory.connect(await p.plan.cTokenCollateral.underlying(), deployer);
-
-      await setState({
-        controller: controller.address,
-        comptroller: ethers.Wallet.createRandom().address,
-        converter: ethers.Wallet.createRandom().address,
-        frozen: false,
-        cTokens: [p.plan.cTokenBorrow, p.plan.cTokenCollateral],
-        underlying: [borrowAsset, collateralAsset]
-      });
-
-      const ret = await facade.getConversionPlan(
+      const ret = await facade.reduceAmountsByMax(
         {
-          cTokenNative: p.protocolFeatures.cTokenNative.address,
-          nativeToken: p.protocolFeatures.nativeToken.address,
-          compoundStorageVersion: 0 // not used here
+          maxAmountToBorrow: p.maxAmountToBorrow === undefined
+            ? Misc.MAX_UINT
+            : parseUnits(p.maxAmountToBorrow, decimalsBorrow),
+          maxAmountToSupply: p.maxAmountToSupply === undefined
+            ? Misc.MAX_UINT
+            : parseUnits(p.maxAmountToSupply, decimalsCollateral),
+
+          // following params are not used in this test
+          amountToBorrow: 0,
+          collateralAmount: 0,
+          converter: Misc.ZERO_ADDRESS,
+          amountCollateralInBorrowAsset36: 0,
+          ltv18: 0,
+          borrowCost36: 0,
+          rewardsAmountInBorrowAsset36: 0,
+          supplyIncomeInBorrowAsset36: 0,
+          liquidationThreshold18: 0
         },
-        {
-          borrowAsset: borrowAsset.address,
-          collateralAsset: collateralAsset.address,
-          entryData: p.plan.entryData,
-          countBlocks: p.plan.countBlocks,
-          amountIn: parseUnits(p.plan.amountIn, p.decimalsAmountIn ?? await collateralAsset.decimals())
-        },
-        parseUnits(p.healthFactor, 2)
-      )
+        parseUnits(p.collateralAmount, decimalsCollateral),
+        parseUnits(p.amountToBorrow, decimalsBorrow),
+      );
+
       return {
-        converter: ret.converter,
-        liquidationThreshold: +formatUnits(ret.liquidationThreshold18, 18),
-        amountToBorrow: +formatUnits(ret.amountToBorrow, await borrowAsset.decimals()),
-        collateralAmount: +formatUnits(ret.collateralAmount, await collateralAsset.decimals()),
-        borrowCost: +formatUnits(ret.borrowCost36, 36),
-        supplyIncomeInBorrowAsset: +formatUnits(ret.supplyIncomeInBorrowAsset36, 36),
-        rewardsAmountInBorrowAsset: +formatUnits(ret.rewardsAmountInBorrowAsset36, 36),
-        amountCollateralInBorrowAsset: +formatUnits(ret.amountCollateralInBorrowAsset36, 36),
-        ltv: +formatUnits(ret.ltv18, 18),
-        maxAmountToBorrow: +formatUnits(ret.maxAmountToBorrow, await borrowAsset.decimals()),
-        maxAmountToSupply: +formatUnits(ret.maxAmountToSupply, await collateralAsset.decimals()),
+        amountToBorrow: +formatUnits(ret.amountToBorrow, decimalsBorrow),
+        collateralAmount: +formatUnits(ret.collateralAmount, decimalsCollateral)
       }
     }
 
+    it("should return unmodified amounts if there are no limits", async () => {
+      const ret = await reduceAmountsByMax({
+        collateralAmount: "100",
+        amountToBorrow: "200"
+      });
+      expect([ret.collateralAmount, ret.amountToBorrow].join()).eq([100, 200].join());
+    });
+    it("should return unmodified amounts if amounts are equal to limits", async () => {
+      const ret = await reduceAmountsByMax({
+        collateralAmount: "100",
+        amountToBorrow: "200",
+        maxAmountToSupply: "100",
+        maxAmountToBorrow: "200"
+      });
+      expect([ret.collateralAmount, ret.amountToBorrow].join()).eq([100, 200].join());
+    });
+    it("should reduce amounts in expected way if borrow amount is less then the limit", async () => {
+      const ret = await reduceAmountsByMax({
+        collateralAmount: "100",
+        amountToBorrow: "200",
+        maxAmountToSupply: "100",
+        maxAmountToBorrow: "50"
+      });
+      expect([ret.collateralAmount, ret.amountToBorrow].join()).eq([25, 50].join());
+    });
+    it("should reduce amounts in expected way if supply amount is less then the limit", async () => {
+      const ret = await reduceAmountsByMax({
+        collateralAmount: "100",
+        amountToBorrow: "200",
+        maxAmountToSupply: "50",
+        maxAmountToBorrow: "200"
+      });
+      expect([ret.collateralAmount, ret.amountToBorrow].join()).eq([50, 100].join());
+    });
+    it("should return zero if borrow limit is zero", async () => {
+      const ret = await reduceAmountsByMax({
+        collateralAmount: "100",
+        amountToBorrow: "200",
+        maxAmountToSupply: "50",
+        maxAmountToBorrow: "0"
+      });
+      expect([ret.collateralAmount, ret.amountToBorrow].join()).eq([0, 0].join());
+    });
+    it("should return zero if supply limit is zero", async () => {
+      const ret = await reduceAmountsByMax({
+        collateralAmount: "100",
+        amountToBorrow: "200",
+        maxAmountToSupply: "0",
+        maxAmountToBorrow: "200"
+      });
+      expect([ret.collateralAmount, ret.amountToBorrow].join()).eq([0, 0].join());
+    });
+    it("should return zero if input amounts are zero", async () => {
+      const ret = await reduceAmountsByMax({
+        collateralAmount: "0",
+        amountToBorrow: "0",
+        maxAmountToSupply: "100",
+        maxAmountToBorrow: "200"
+      });
+      expect([ret.collateralAmount, ret.amountToBorrow].join()).eq([0, 0].join());
+    });
+  });
+
+  describe("getMaxAmountToBorrow", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
+    interface IParams {
+      collateralCToken?: CompoundCTokenBaseMock; // cUsdc by default
+      borrowCToken?: CompoundCTokenBaseMock; // cUsdt by default
+
+      borrowCap: string;
+      totalBorrows: string;
+      cash: string;
+    }
+
+    interface IResults {
+      maxAmountToBorrow: number;
+    }
+
+    // async function getMaxAmountToBorrow(p: IParams): Promise<IResults> {
+    //
+    // }
   });
 
 

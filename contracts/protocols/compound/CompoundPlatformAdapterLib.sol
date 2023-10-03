@@ -223,7 +223,7 @@ library CompoundPlatformAdapterLib {
       collateralAmount_= collateralAmount_ * plan.maxAmountToBorrow / amountToBorrow_;
       amountToBorrow_ = plan.maxAmountToBorrow;
     }
-    if (plan.collateralAmount > plan.maxAmountToSupply) {
+    if (collateralAmount_ > plan.maxAmountToSupply) {
       amountToBorrow_ = amountToBorrow_ * plan.maxAmountToSupply / collateralAmount_;
       collateralAmount_ = plan.maxAmountToSupply;
     }

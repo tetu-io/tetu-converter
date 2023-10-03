@@ -73,7 +73,7 @@ export default {
       // gas: 50_000_000_000,
       accounts: [EnvSetup.getEnv().privateKey],
     },
-		"base-mainnet": {
+		base: {
       url: EnvSetup.getEnv().baseRpcUrl || '',
       chainId: 8453,
       accounts: [EnvSetup.getEnv().privateKey],
