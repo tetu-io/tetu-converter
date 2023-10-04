@@ -102,16 +102,6 @@ contract CompoundPlatformAdapterLibFacade {
     return CompoundPlatformAdapterLib.getCTokenByUnderlying(_state, token1_, token2_);
   }
 
-  function getConversionPlan (
-    CompoundLib.ProtocolFeatures memory f_,
-    AppDataTypes.InputConversionParams memory p_,
-    uint16 healthFactor2_
-  ) external view returns (
-    AppDataTypes.ConversionPlan memory plan
-  ) {
-    return CompoundPlatformAdapterLib.getConversionPlan(_state, f_, p_, healthFactor2_);
-  }
-
   function getBorrowRateAfterBorrow(
     address borrowAsset_,
     uint amountToBorrow_

@@ -94,10 +94,61 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
+    require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
+    require(p_.amountIn != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
+    require(healthFactor2_ >= _state.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-    return CompoundPlatformAdapterLib.getConversionPlan(_state, f, p_, healthFactor2_);
+    CompoundPlatformAdapterLib.ConversionPlanLocal memory v;
+    if (CompoundPlatformAdapterLib.initConversionPlanLocal(_state, p_, v)) {
+
+      // LTV and liquidation threshold
+      CompoundLib.ProtocolFeatures memory f;
+      MoonwellLib.initProtocolFeatures(f);
+
+      (plan.ltv18, plan.liquidationThreshold18) = CompoundPlatformAdapterLib.getMarketsInfo(
+        _state, f, v.cTokenCollateral, v.cTokenBorrow
+      );
+      if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
+
+        // Calculate maxAmountToSupply and maxAmountToBorrow
+        plan.maxAmountToBorrow = CompoundPlatformAdapterLib.getMaxAmountToBorrow(v);
+        plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
+
+        if (plan.maxAmountToBorrow != 0 && plan.maxAmountToSupply != 0) {
+          // Prices and health factor
+          AppDataTypes.PricesAndDecimals memory pd;
+          CompoundPlatformAdapterLib.initPricesAndDecimals(pd, p_.collateralAsset, p_.borrowAsset, v);
+          // ltv and liquidation threshold are exactly the same in HundredFinance
+          // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
+
+          // Calculate collateralAmount and amountToBorrow
+          // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
+          (plan.collateralAmount, plan.amountToBorrow) = CompoundPlatformAdapterLib.getAmountsForEntryKind(
+            p_, plan.liquidationThreshold18, healthFactor2_, pd, true
+          );
+
+          // Validate the borrow, calculate amounts for APR
+          if (plan.amountToBorrow != 0 && plan.collateralAmount != 0) {
+            plan.converter = _state.converter;
+            (plan.collateralAmount, plan.amountToBorrow) = CompoundPlatformAdapterLib.reduceAmountsByMax(
+              plan, plan.collateralAmount, plan.amountToBorrow
+            );
+            (
+              plan.borrowCost36, plan.supplyIncomeInBorrowAsset36, plan.amountCollateralInBorrowAsset36
+            ) = CompoundPlatformAdapterLib.getValuesForApr(
+              plan.collateralAmount, plan.amountToBorrow, f, v.cTokenCollateral, v.cTokenBorrow, p_.countBlocks, pd
+            );
+          }
+        }
+      }
+    }
+
+    if (plan.converter == address(0)) {
+      AppDataTypes.ConversionPlan memory planNotFound;
+      return planNotFound;
+    } else {
+      return plan;
+    }
   }
   //endregion ----------------------------------------------------- Get conversion plan
 

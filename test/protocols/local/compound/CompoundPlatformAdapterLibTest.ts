@@ -1026,9 +1026,10 @@ describe("CompoundPlatformAdapterLibTest", () => {
     interface IGetRawCostAndIncomesResults {
       borrowCost: number;
       supplyIncomeInBorrowAsset: number;
+      amountCollateralInBorrowAsset: number;
     }
 
-    async function getRawCostAndIncomes(p: IGetRawCostAndIncomesParams): Promise<IGetRawCostAndIncomesResults> {
+    async function getValuesForApr(p: IGetRawCostAndIncomesParams): Promise<IGetRawCostAndIncomesResults> {
       const decimalsCollateral = await IERC20Metadata__factory.connect(await p.cTokenToSupply.underlying(), deployer).decimals();
       const decimalsBorrow = await IERC20Metadata__factory.connect(await p.cTokenToBorrow.underlying(), deployer).decimals();
 
@@ -1079,11 +1080,12 @@ describe("CompoundPlatformAdapterLibTest", () => {
       return {
         borrowCost: +formatUnits(ret.borrowCost36, 36),
         supplyIncomeInBorrowAsset: +formatUnits(ret.supplyIncomeInBorrowAsset36, 36),
+        amountCollateralInBorrowAsset: +formatUnits(ret.amountCollateralInBorrowAsset36, 36),
       };
     }
 
     it("should return expected values", async () => {
-      const ret = await getRawCostAndIncomes({
+      const ret = await getValuesForApr({
         cTokenToBorrow: cUsdt,
         cTokenToSupply: cWeth,
         collateralAmount: "31",
@@ -1106,15 +1108,15 @@ describe("CompoundPlatformAdapterLibTest", () => {
         },
 
         InterestRateModelForBorrow: {
-          cash: "983",
-          borrows: "517",
+          cash: (1000 - 17).toString(),
+          borrows: (500 + 17).toString(),
           reserves: "2000",
           reserveFactorMantissa: "41",
           rate: "213"
         },
 
         InterestRateModelForSupply: {
-          cash: "1031",
+          cash: (1000 + 31).toString(),
           borrows: "500",
           reserves: "2000",
           reserveFactorMantissa: "41",
@@ -1123,9 +1125,9 @@ describe("CompoundPlatformAdapterLibTest", () => {
       });
 
       expect(
-        [ret.borrowCost, ret.supplyIncomeInBorrowAsset].join()
+        [ret.borrowCost, ret.supplyIncomeInBorrowAsset, ret.amountCollateralInBorrowAsset].join()
       ).eq(
-        [213 * 55 * 17, 237 * 55 * 31 * 4 / 3].join()
+        [213 * 55 * 17,  237 * 55 * 31 * 4 / 3,  31 * 4 / 3].join()
       );
     });
   });

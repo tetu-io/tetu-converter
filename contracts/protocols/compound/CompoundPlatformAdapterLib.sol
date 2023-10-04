@@ -158,66 +158,6 @@ library CompoundPlatformAdapterLib {
 
 
   //region ----------------------------------------------------- Get conversion plan
-  function getConversionPlan (
-    State storage state,
-    CompoundLib.ProtocolFeatures memory f_,
-    AppDataTypes.InputConversionParams memory p_,
-    uint16 healthFactor2_
-  ) internal view returns (
-    AppDataTypes.ConversionPlan memory plan
-  ) {
-    require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
-    require(p_.amountIn != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
-    require(healthFactor2_ >= state.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
-
-    ConversionPlanLocal memory v;
-    if (initConversionPlanLocal(state, p_, v)) {
-
-      // LTV and liquidation threshold
-      (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(state, f_, v.cTokenCollateral, v.cTokenBorrow);
-      if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
-
-        // Calculate maxAmountToSupply and maxAmountToBorrow
-        plan.maxAmountToBorrow = getMaxAmountToBorrow(v);
-        plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
-
-        if (plan.maxAmountToBorrow != 0 && plan.maxAmountToSupply != 0) {
-          // Prices and health factor
-          AppDataTypes.PricesAndDecimals memory pd;
-          initPricesAndDecimals(pd, p_.collateralAsset, p_.borrowAsset, v);
-          // ltv and liquidation threshold are exactly the same in HundredFinance
-          // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
-
-          // Calculate collateralAmount and amountToBorrow
-          // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
-          (plan.collateralAmount, plan.amountToBorrow) = getAmountsForEntryKind(p_, plan.liquidationThreshold18, healthFactor2_, pd, true);
-
-          // Validate the borrow, calculate amounts for APR
-          if (plan.amountToBorrow != 0 && plan.collateralAmount != 0) {
-            plan.converter = state.converter;
-            (plan.collateralAmount, plan.amountToBorrow) = reduceAmountsByMax(plan, plan.collateralAmount, plan.amountToBorrow);
-            (plan.borrowCost36, plan.supplyIncomeInBorrowAsset36, plan.amountCollateralInBorrowAsset36) = getValuesForApr(
-              plan.collateralAmount,
-              plan.amountToBorrow,
-              f_,
-              v.cTokenCollateral,
-              v.cTokenBorrow,
-              p_.countBlocks,
-              pd
-            );
-          }
-        } // else plan.maxAmountToBorrow = 0
-      } // else ltv is zero
-    }
-
-    if (plan.converter == address(0)) {
-      AppDataTypes.ConversionPlan memory planNotFound;
-      return planNotFound;
-    } else {
-      return plan;
-    }
-  }
-
   /// @notice Reduce collateral amount and borrow amount proportionally to fit available limits
   function reduceAmountsByMax(
     AppDataTypes.ConversionPlan memory plan,
