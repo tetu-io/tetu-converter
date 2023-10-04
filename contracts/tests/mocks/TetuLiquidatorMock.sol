@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import "../../libs/AppDataTypes.sol";
 import "../../integrations/tetu/ITetuLiquidator.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../../tests/tokens/IMockERC20.sol";
+import "../interfaces/IMockERC20.sol";
 import "hardhat/console.sol";
 
 // @notice This mock should be used with mockERC20 for liquidate

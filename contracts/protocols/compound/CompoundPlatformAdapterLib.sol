@@ -171,7 +171,7 @@ library CompoundPlatformAdapterLib {
     require(healthFactor2_ >= state.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     ConversionPlanLocal memory v;
-    if (_initConversionPlanLocal(state, p_, v)) {
+    if (initConversionPlanLocal(state, p_, v)) {
 
       // LTV and liquidation threshold
       (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(state, f_, v.cTokenCollateral, v.cTokenBorrow);
@@ -184,7 +184,7 @@ library CompoundPlatformAdapterLib {
         if (plan.maxAmountToBorrow != 0 && plan.maxAmountToSupply != 0) {
           // Prices and health factor
           AppDataTypes.PricesAndDecimals memory pd;
-          _initPricesAndDecimals(pd, p_.collateralAsset, p_.borrowAsset, v);
+          initPricesAndDecimals(pd, p_.collateralAsset, p_.borrowAsset, v);
           // ltv and liquidation threshold are exactly the same in HundredFinance
           // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
 
@@ -196,7 +196,15 @@ library CompoundPlatformAdapterLib {
           if (plan.amountToBorrow != 0 && plan.collateralAmount != 0) {
             plan.converter = state.converter;
             (plan.collateralAmount, plan.amountToBorrow) = reduceAmountsByMax(plan, plan.collateralAmount, plan.amountToBorrow);
-            (plan.borrowCost36, plan.supplyIncomeInBorrowAsset36, plan.amountCollateralInBorrowAsset36) = getValuesForApr(plan, f_, v, p_, pd);
+            (plan.borrowCost36, plan.supplyIncomeInBorrowAsset36, plan.amountCollateralInBorrowAsset36) = getValuesForApr(
+              plan.collateralAmount,
+              plan.amountToBorrow,
+              f_,
+              v.cTokenCollateral,
+              v.cTokenBorrow,
+              p_.countBlocks,
+              pd
+            );
           }
         } // else plan.maxAmountToBorrow = 0
       } // else ltv is zero
@@ -235,10 +243,12 @@ library CompoundPlatformAdapterLib {
   /// @return supplyIncomeInBorrowAsset36 Potential supply increment after borrow period, recalculated to borrow asset, decimals 36
   /// @return amountCollateralInBorrowAsset36 Amount of collateral recalculated to borrow asset, decimals 36
   function getValuesForApr(
-    AppDataTypes.ConversionPlan memory plan_,
+    uint collateralAmount,
+    uint amountToBorrow,
     CompoundLib.ProtocolFeatures memory f_,
-    ConversionPlanLocal memory v_,
-    AppDataTypes.InputConversionParams memory p_,
+    address cTokenCollateral,
+    address cTokenBorrow,
+    uint countBlocks,
     AppDataTypes.PricesAndDecimals memory pd_
   ) internal view returns (
     uint borrowCost36,
@@ -246,15 +256,15 @@ library CompoundPlatformAdapterLib {
     uint amountCollateralInBorrowAsset36
   ) {
     (borrowCost36, supplyIncomeInBorrowAsset36) = CompoundAprLib.getRawCostAndIncomes(
-      CompoundAprLib.getCore(f_, v_.cTokenCollateral, v_.cTokenBorrow),
-      plan_.collateralAmount,
-      p_.countBlocks,
-      plan_.amountToBorrow,
+      CompoundAprLib.getCore(f_, cTokenCollateral, cTokenBorrow),
+      collateralAmount,
+      countBlocks,
+      amountToBorrow,
       pd_
     );
 
     amountCollateralInBorrowAsset36 =
-      plan_.collateralAmount * (10**36 * pd_.priceCollateral / pd_.priceBorrow)
+      collateralAmount * (10**36 * pd_.priceCollateral / pd_.priceBorrow)
       / pd_.rc10powDec;
   }
 
@@ -275,7 +285,7 @@ library CompoundPlatformAdapterLib {
 
   /// @notice Check {p_} values, ensure that selected assets are active and prepare {dest}
   /// @return True if all params are valid and {dest} is successfully prepared
-  function _initConversionPlanLocal(
+  function initConversionPlanLocal(
     State storage state,
     AppDataTypes.InputConversionParams memory p_,
     ConversionPlanLocal memory dest
@@ -295,7 +305,7 @@ library CompoundPlatformAdapterLib {
   }
 
   /// @notice Get prices and decimals of collateral and borrow assets, store them to {dest}
-  function _initPricesAndDecimals(
+  function initPricesAndDecimals(
     AppDataTypes.PricesAndDecimals memory dest,
     address collateralAsset,
     address borrowAsset,

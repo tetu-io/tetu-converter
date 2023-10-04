@@ -144,38 +144,40 @@ contract CompoundPlatformAdapterLibFacade {
   }
 
   function getValuesForApr(
-    AppDataTypes.ConversionPlan memory plan_,
+    uint collateralAmount,
+    uint amountToBorrow,
     CompoundLib.ProtocolFeatures memory f_,
-    CompoundPlatformAdapterLib.ConversionPlanLocal memory v_,
-    AppDataTypes.InputConversionParams memory p_,
+    address cTokenCollateral,
+    address cTokenBorrow,
+    uint countBlocks,
     AppDataTypes.PricesAndDecimals memory pd_
   ) external view returns (
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36,
     uint amountCollateralInBorrowAsset36
   ) {
-    return CompoundPlatformAdapterLib.getValuesForApr(plan_, f_, v_, p_, pd_);
+    return CompoundPlatformAdapterLib.getValuesForApr(collateralAmount, amountToBorrow, f_, cTokenCollateral, cTokenBorrow, countBlocks, pd_);
   }
 
   function getMaxAmountToBorrow(CompoundPlatformAdapterLib.ConversionPlanLocal memory v) external view returns (uint maxAmountToBorrow) {
     return CompoundPlatformAdapterLib.getMaxAmountToBorrow(v);
   }
 
-  function _initConversionPlanLocal(
+  function initConversionPlanLocal(
     AppDataTypes.InputConversionParams memory p_,
     CompoundPlatformAdapterLib.ConversionPlanLocal memory dest
   ) external view returns (bool, CompoundPlatformAdapterLib.ConversionPlanLocal memory) {
-    bool ret = CompoundPlatformAdapterLib._initConversionPlanLocal(_state, p_, dest);
+    bool ret = CompoundPlatformAdapterLib.initConversionPlanLocal(_state, p_, dest);
     return (ret, dest);
   }
 
-  function _initPricesAndDecimals(
+  function initPricesAndDecimals(
     AppDataTypes.PricesAndDecimals memory dest,
     address collateralAsset,
     address borrowAsset,
     CompoundPlatformAdapterLib.ConversionPlanLocal memory vars
   ) external view returns (AppDataTypes.PricesAndDecimals memory) {
-    CompoundPlatformAdapterLib._initPricesAndDecimals(dest, collateralAsset, borrowAsset, vars);
+    CompoundPlatformAdapterLib.initPricesAndDecimals(dest, collateralAsset, borrowAsset, vars);
     return dest;
   }
 

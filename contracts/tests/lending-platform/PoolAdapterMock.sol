@@ -5,7 +5,7 @@ import "../../interfaces/IPoolAdapter.sol";
 import "hardhat/console.sol";
 import "../../interfaces/IPriceOracle.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../tokens/MockERC20.sol";
+import "../mocks/MockERC20.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "./PoolStub.sol";
