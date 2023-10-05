@@ -22,7 +22,7 @@ import {IDForceCalcAccountEquityResults} from "./aprDForce";
 import {DForceChangePriceUtils} from "./DForceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {GAS_LIMIT} from "../../types/GasLimit";
-import {IConversionPlan} from "../shared/aprDataTypes";
+import {IConversionPlan} from "../../types/AppDataTypes";
 
 //region Data types
 export interface IPrepareToBorrowResults {

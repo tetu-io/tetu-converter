@@ -5,10 +5,10 @@ import {
 import {CoreContractsHelper} from "./CoreContractsHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
-import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "../parts/fabrics/ILendingPlatformFabric";
 import {MocksHelper} from "./MocksHelper";
 import {ethers} from "hardhat";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "../logic/fabrics/ILendingPlatformFabric";
 
 export interface IDeployInitFabricsSet {
   deploy: () => Promise<string>,

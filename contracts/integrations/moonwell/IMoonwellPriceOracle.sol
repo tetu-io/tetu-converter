@@ -24,12 +24,12 @@ interface IMoonwellPriceOracle {
 
   function nativeToken() external view returns (bytes32);
 
+
   function setAdmin(address newAdmin) external;
 
   function setDirectPrice(address asset, uint256 price) external;
 
   function setFeed(string memory symbol, address feed) external;
 
-  function setUnderlyingPrice(address mToken, uint256 underlyingPriceMantissa)
-  external;
+  function setUnderlyingPrice(address mToken, uint256 underlyingPriceMantissa) external;
 }

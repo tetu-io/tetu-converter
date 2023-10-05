@@ -32,7 +32,6 @@ import {Misc} from "../../../../scripts/utils/Misc";
 import {AprUtils} from "../../../baseUT/utils/aprUtils";
 import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {IConversionPlan} from "../../../baseUT/protocols/shared/aprDataTypes";
 import {DForceChangePriceUtils} from "../../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {
@@ -42,6 +41,7 @@ import {
 } from "../../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
+import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
 
 describe("DForcePlatformAdapterTest", () => {
 //region Global vars for all tests

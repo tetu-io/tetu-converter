@@ -1,7 +1,6 @@
 import {ITestSingleBorrowParams} from "../../types/BorrowRepayDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  IConversionPlan,
   IAssetInfo,
   IBorrowResults, ISwapResults, IStrategyToConvert
 } from "../../protocols/shared/aprDataTypes";
@@ -19,6 +18,7 @@ import {Misc} from "../../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {GAS_LIMIT} from "../../types/GasLimit";
+import {IConversionPlan} from "../../types/AppDataTypes";
 
 //region Data types
 interface IInputParams {

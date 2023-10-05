@@ -18,7 +18,6 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {expect} from "chai";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {BigNumber} from "ethers";
-import {IConversionPlan} from "../../../baseUT/protocols/shared/aprDataTypes";
 import {AprUtils} from "../../../baseUT/utils/aprUtils";
 import {ICompound3AssetInfo} from "../../../../scripts/integration/compound3/Compound3Helper";
 import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
@@ -34,6 +33,7 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
 
 
 describe("Compound3PlatformAdapterTest", () => {

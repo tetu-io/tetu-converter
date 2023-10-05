@@ -14,6 +14,7 @@ import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../compound/CompoundPlatformAdapterLib.sol";
 import "./MoonwellLib.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -31,10 +32,12 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   //region ----------------------------------------------------- Constructor and initialization
   /// @param template_ Template of the pool adapter
   constructor (address controller_, address comptroller_, address template_, address[] memory activeCTokens_) {
+    console.log("constructor");
     CompoundLib.ProtocolFeatures memory f;
     MoonwellLib.initProtocolFeatures(f);
 
     CompoundPlatformAdapterLib.init(_state, f, controller_, comptroller_, template_, activeCTokens_);
+    console.log("constructor.done");
   }
 
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
@@ -83,6 +86,16 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function frozen() external view returns (bool) {
     return _state.frozen;
+  }
+
+  function controller() external view returns (address) {
+    return address(_state.controller);
+  }
+  function comptroller() external view returns (address) {
+    return address(_state.comptroller);
+  }
+  function activeAssets(address cToken) external view returns (address) {
+    return _state.activeAssets[cToken];
   }
   //endregion ----------------------------------------------------- View
 

@@ -10,7 +10,7 @@ import {
   DForcePlatformAdapter,
   DForcePoolAdapter,
   HfPlatformAdapter,
-  HfPoolAdapter, IConverterController__factory
+  HfPoolAdapter, IConverterController__factory, MoonwellPlatformAdapter
 } from "../../../typechain";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
@@ -141,4 +141,27 @@ export class AdaptersHelper {
   }
 
 //endregion Compound3
+
+//region Moonwell
+  public static async createMoonwellPlatformAdapter(
+    signer: SignerWithAddress,
+    controller: string,
+    comptroller: string,
+    templateAdapterNormal: string,
+    cTokensActive: string[],
+  ) : Promise<MoonwellPlatformAdapter> {
+    return (await DeployUtils.deployContract(
+      signer,
+      "MoonwellPlatformAdapter",
+      controller,
+      comptroller,
+      templateAdapterNormal,
+      cTokensActive,
+    )) as MoonwellPlatformAdapter;
+  }
+
+  // public static async createHundredFinancePoolAdapter(signer: SignerWithAddress) : Promise<HfPoolAdapter> {
+  //   return (await DeployUtils.deployContract(signer, "HfPoolAdapter")) as HfPoolAdapter;
+  // }
+//endregion Moonwell
 }

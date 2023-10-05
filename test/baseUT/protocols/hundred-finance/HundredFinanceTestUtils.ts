@@ -32,8 +32,8 @@ import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
-import {IConversionPlan} from "../shared/aprDataTypes";
 import {GAS_LIMIT} from "../../types/GasLimit";
+import {IConversionPlan} from "../../types/AppDataTypes";
 
 //region Data types
 export interface IPrepareToBorrowResults {

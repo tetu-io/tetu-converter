@@ -7,7 +7,6 @@ import {
   IAaveProtocolDataProvider, IERC20__factory, IERC20Metadata__factory
 } from "../../../../typechain";
 import {Aave3Helper, IAave3ReserveInfo} from "../../../../scripts/integration/aave3/Aave3Helper";
-import {IConversionPlan} from "../shared/aprDataTypes";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {ethers} from "hardhat";
@@ -25,6 +24,7 @@ import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
 import {GAS_LIMIT} from "../../types/GasLimit";
 import {ICoreAave3} from "./Aave3DataTypes";
+import {IConversionPlan} from "../../types/AppDataTypes";
 
 //region Data types
 export interface IPrepareToBorrowResults {

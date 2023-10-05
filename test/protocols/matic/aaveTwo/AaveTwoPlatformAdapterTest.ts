@@ -24,7 +24,6 @@ import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {IConversionPlan} from "../../../baseUT/protocols/shared/aprDataTypes";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {AaveTwoChangePricesUtils} from "../../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {
@@ -34,6 +33,7 @@ import {
 } from "../../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
+import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests

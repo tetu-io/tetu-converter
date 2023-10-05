@@ -23,7 +23,6 @@ import {Aave3Utils} from "../../../baseUT/protocols/aave3/Aave3Utils";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {IConversionPlan} from "../../../baseUT/protocols/shared/aprDataTypes";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {Aave3ChangePricesUtils} from "../../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {
@@ -35,6 +34,7 @@ import {GAS_LIMIT, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../../baseUT/t
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {MaticCore} from "../../baseUT/cores/maticCore";
 import {ICoreAave3} from "../../../baseUT/protocols/aave3/Aave3DataTypes";
+import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests

@@ -13,6 +13,10 @@ export class BaseAddresses {
 
 //endregion ----------------------------------------------------- Assets
 
+//region -------------------------------------------------------- Tetu
+    public static TETU_LIQUIDATOR = "0xC737eaB847Ae6A92028862fE38b828db41314772"; // TODO polygon address is used temporary
+//endregion -------------------------------------------------------- Tetu
+
 //region ----------------------------------------------------- AAVE3
     public static AAVE_V3_POOL = "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5".toLowerCase();
     public static AAVE_V3_POOL_ADDRESS_PROVIDER = "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D".toLowerCase();

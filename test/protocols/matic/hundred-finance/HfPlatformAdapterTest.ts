@@ -25,7 +25,6 @@ import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {IConversionPlan} from "../../../baseUT/protocols/shared/aprDataTypes";
 import {HundredFinanceChangePriceUtils} from "../../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {
@@ -39,6 +38,7 @@ import {
 } from "../../../baseUT/types/GasLimit";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {DForceHelper} from "../../../../scripts/integration/dforce/DForceHelper";
+import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
 
 describe.skip("Hundred finance, platform adapter", () => {
 //region Global vars for all tests

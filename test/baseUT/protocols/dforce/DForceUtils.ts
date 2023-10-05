@@ -13,6 +13,6 @@ export class DForceUtils {
       case MaticAddresses.CRV: return MaticAddresses.dForce_iCRV;
       case MaticAddresses.WMATIC: return MaticAddresses.dForce_iMATIC;
     }
-    throw `Cannot find dForce_XXX token for asset ${asset}`;
+    throw Error(`Cannot find dForce_XXX token for asset ${asset}`);
   }
 }
