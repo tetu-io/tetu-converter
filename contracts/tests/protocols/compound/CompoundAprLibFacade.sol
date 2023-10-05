@@ -50,7 +50,7 @@ contract CompoundAprLibFacade {
     ICompoundInterestRateModel interestRateModel_,
     ICTokenBase cTokenBorrow_,
     uint amountToBorrow_
-  ) internal view returns (uint) {
+  ) external view returns (uint) {
     return CompoundAprLib.getEstimatedBorrowRate(interestRateModel_, cTokenBorrow_, amountToBorrow_);
   }
 
