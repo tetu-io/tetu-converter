@@ -215,7 +215,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
         countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
         entryData: entryData || "0x",
-        user: Misc.ZERO_ADDRESS
       },
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
       {gasLimit: GAS_LIMIT},
@@ -915,7 +914,6 @@ describe.skip("Hundred finance, platform adapter", () => {
             borrowAsset: MaticAddresses.USDC,
             countBlocks: 1000,
             entryData: "0x",
-            user: Misc.ZERO_ADDRESS
           },
           200,
           {gasLimit: GAS_LIMIT},

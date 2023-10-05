@@ -156,520 +156,516 @@ describe("MoonwellPlatformAdapterTest", () => {
     });
   });
 
-  // describe("getConversionPlan", () => {
-  //   let controller: ConverterController;
-  //   let snapshotLocal: string;
-  //   before(async function () {
-  //     snapshotLocal = await TimeUtils.snapshot();
-  //     controller = await TetuConverterApp.createController(deployer,
-  //       {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-  //     );
-  //   });
-  //   after(async function () {
-  //     await TimeUtils.rollback(snapshotLocal);
-  //   });
-  //   describe("Good paths", () => {
-  //     describe("DAI : usdc", () => {
-  //       it("should return expected values", async () => {
-  //         const collateralAsset = MaticAddresses.DAI;
-  //         const collateralCToken = MaticAddresses.hDAI;
-  //         const collateralAmount = getBigNumberFrom(1000, 18);
-  //
-  //         const borrowAsset = MaticAddresses.USDC;
-  //         const borrowCToken = MaticAddresses.hUSDC;
-  //
-  //         const r = await makeTestComparePlanWithDirectCalculations(
-  //           controller,
-  //           collateralAsset,
-  //           collateralAmount,
-  //           borrowAsset,
-  //           collateralCToken,
-  //           borrowCToken
-  //         );
-  //
-  //         expect(r.sret).eq(r.sexpected);
-  //       });
-  //     });
-  //     describe("WMATIC : USDC", () => {
-  //       it("should return expected values", async () => {
-  //         const collateralAsset = MaticAddresses.WMATIC;
-  //         const collateralCToken = MaticAddresses.hMATIC;
-  //         const collateralAmount = getBigNumberFrom(1000, 18);
-  //
-  //         const borrowAsset = MaticAddresses.USDC;
-  //         const borrowCToken = MaticAddresses.hUSDC;
-  //
-  //         const r = await makeTestComparePlanWithDirectCalculations(
-  //           controller,
-  //           collateralAsset,
-  //           collateralAmount,
-  //           borrowAsset,
-  //           collateralCToken,
-  //           borrowCToken
-  //         );
-  //         console.log(r);
-  //
-  //         expect(r.sret).eq(r.sexpected);
-  //       });
-  //     });
-  //     describe("USDC : WETH", () => {
-  //       it("should return expected values", async () => {
-  //         const collateralAsset = MaticAddresses.WMATIC;
-  //         const collateralCToken = MaticAddresses.hMATIC;
-  //         const collateralAmount = getBigNumberFrom(10, 18);
-  //
-  //         const borrowAsset = MaticAddresses.WETH;
-  //         const borrowCToken = MaticAddresses.hETH;
-  //
-  //         const r = await makeTestComparePlanWithDirectCalculations(
-  //           controller,
-  //           collateralAsset,
-  //           collateralAmount,
-  //           borrowAsset,
-  //           collateralCToken,
-  //           borrowCToken
-  //         );
-  //         console.log(r);
-  //
-  //         expect(r.sret).eq(r.sexpected);
-  //       });
-  //     });
-  //     describe("Try to use huge collateral amount", () => {
-  //       it("should return borrow amount equal to max available amount", async () => {
-  //         const r = await preparePlan(
-  //           controller,
-  //           MaticAddresses.DAI,
-  //           parseUnits("1", 28),
-  //           MaticAddresses.WMATIC,
-  //           MaticAddresses.hDAI,
-  //           MaticAddresses.hMATIC,
-  //         );
-  //         expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
-  //       });
-  //     });
-  //     describe("Borrow capacity", () => {
-  //       /**
-  //        *      totalBorrows    <    borrowCap       <       totalBorrows + available cash
-  //        */
-  //       it("maxAmountToBorrow is equal to borrowCap - totalBorrows", async () => {
-  //         const r = await preparePlan(
-  //           controller,
-  //           MaticAddresses.DAI,
-  //           parseUnits("1", 18),
-  //           MaticAddresses.WMATIC,
-  //           MaticAddresses.hDAI,
-  //           MaticAddresses.hMATIC,
-  //           { setMinBorrowCapacityDelta: parseUnits("7", 18) }
-  //         );
-  //         expect(r.plan.maxAmountToBorrow.eq(parseUnits("7", 18))).eq(true);
-  //       });
-  //
-  //       /**
-  //        *      totalBorrows    <     totalBorrows + available cash    <     borrowCap
-  //        */
-  //       it("maxAmountToBorrow is equal to available cash if borrowCap is huge", async () => {
-  //         const r = await preparePlan(
-  //           controller,
-  //           MaticAddresses.DAI,
-  //           parseUnits("1", 18),
-  //           MaticAddresses.WMATIC,
-  //           MaticAddresses.hDAI,
-  //           MaticAddresses.hMATIC,
-  //           { setMinBorrowCapacityDelta: parseUnits("7", 48) }
-  //         );
-  //         const availableCash = await IHfCToken__factory.connect(MaticAddresses.hMATIC, deployer).getCash();
-  //         console.log("availableCash", availableCash);
-  //         console.log("maxAmountToBorrow", r.plan.maxAmountToBorrow);
-  //         expect(r.plan.maxAmountToBorrow.eq(availableCash)).eq(true);
-  //       });
-  //
-  //       /**
-  //        *      borrowCap   <     totalBorrows    <   totalBorrows + available cash
-  //        */
-  //       it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
-  //         const r = await preparePlan(
-  //           controller,
-  //           MaticAddresses.DAI,
-  //           parseUnits("1", 18),
-  //           MaticAddresses.WMATIC,
-  //           MaticAddresses.hDAI,
-  //           MaticAddresses.hMATIC,
-  //           { setBorrowCapacityExceeded: true }
-  //         );
-  //         expect(r.plan.maxAmountToBorrow.eq(0)).eq(true);
-  //       });
-  //     });
-  //     describe("Frozen", () => {
-  //       it("should return no plan", async () => {
-  //
-  //         const r = await preparePlan(
-  //           controller,
-  //           MaticAddresses.DAI,
-  //           parseUnits("1", 18),
-  //           MaticAddresses.WMATIC,
-  //           MaticAddresses.hDAI,
-  //           MaticAddresses.hMATIC,
-  //           {
-  //             frozen: true
-  //           }
-  //         );
-  //         expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
-  //       });
-  //     });
-  //     describe("EntryKinds", () => {
-  //       describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
-  //         it("should return not zero borrow amount", async () => {
-  //           const collateralAmount = parseUnits("6338.199834", 6);
-  //
-  //           const r = await preparePlan(
-  //             controller,
-  //             MaticAddresses.USDC,
-  //             collateralAmount,
-  //             MaticAddresses.DAI,
-  //             MaticAddresses.hUSDC,
-  //             MaticAddresses.hDAI,
-  //             undefined,
-  //             defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
-  //           );
-  //           console.log("plan", r.plan);
-  //           console.log("amountToBorrow, collateralAmount", r.plan.amountToBorrow, r.plan.collateralAmount);
-  //
-  //           expect(r.plan.amountToBorrow.gt(0)).eq(true);
-  //         });
-  //       });
-  //       describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
-  //         it("should split source amount on the parts with almost same cost", async () => {
-  //           const collateralAmount = parseUnits("1000", 18);
-  //
-  //           const r = await preparePlan(
-  //             controller,
-  //             MaticAddresses.DAI,
-  //             collateralAmount,
-  //             MaticAddresses.WMATIC,
-  //             MaticAddresses.hDAI,
-  //             MaticAddresses.hMATIC,
-  //             undefined,
-  //             defaultAbiCoder.encode(
-  //               ["uint256", "uint256", "uint256"],
-  //               [AppConstants.ENTRY_KIND_1, 1, 1]
-  //             )
-  //           );
-  //
-  //           const sourceAssetUSD = +formatUnits(
-  //             collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
-  //             r.collateralAssetDecimals
-  //           );
-  //           const targetAssetUSD = +formatUnits(
-  //             r.plan.amountToBorrow.mul(r.priceBorrow),
-  //             r.borrowAssetDecimals
-  //           );
-  //
-  //           const ret = [
-  //             sourceAssetUSD === targetAssetUSD,
-  //             r.plan.collateralAmount.lt(collateralAmount)
-  //           ].join();
-  //           const expected = [true, true].join();
-  //
-  //           console.log("sourceAssetUSD", sourceAssetUSD);
-  //           console.log("targetAssetUSD", targetAssetUSD);
-  //
-  //           expect(ret).eq(expected);
-  //         });
-  //       });
-  //       describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
-  //         it("should return expected collateral amount", async () => {
-  //
-  //           // let's calculate borrow amount by known collateral amount
-  //           const collateralAmount = parseUnits("10", 18);
-  //           const d = await preparePlan(
-  //             controller,
-  //             MaticAddresses.DAI,
-  //             collateralAmount,
-  //             MaticAddresses.WMATIC,
-  //             MaticAddresses.hDAI,
-  //             MaticAddresses.hMATIC,
-  //           );
-  //           const borrowAmount = AprUtils.getBorrowAmount(
-  //             collateralAmount,
-  //             d.healthFactor2,
-  //             d.plan.liquidationThreshold18,
-  //             d.priceCollateral,
-  //             d.priceBorrow,
-  //             d.collateralAssetDecimals,
-  //             d.borrowAssetDecimals
-  //           );
-  //
-  //           const r = await preparePlan(
-  //             controller,
-  //             MaticAddresses.DAI,
-  //             borrowAmount,
-  //             MaticAddresses.WMATIC,
-  //             MaticAddresses.hDAI,
-  //             MaticAddresses.hMATIC,
-  //             undefined,
-  //             defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
-  //           );
-  //
-  //           const ret = [
-  //             r.plan.amountToBorrow,
-  //             areAlmostEqual(r.plan.collateralAmount, collateralAmount)
-  //           ].map(x => BalanceUtils.toString(x)).join("\n");
-  //
-  //           const expected = [
-  //             borrowAmount,
-  //             true
-  //           ].map(x => BalanceUtils.toString(x)).join("\n");
-  //           console.log(d.plan);
-  //           console.log(r.plan);
-  //
-  //           expect(ret).eq(expected);
-  //         });
-  //       });
-  //     });
-  //     describe("Collateral and borrow amounts fit to limits", () => {
-  //       /**
-  //        * maxAmountToSupply is always equal to type(uint).max
-  //        */
-  //       describe.skip("Allowed collateral exceeds available collateral", () => {
-  //         it("should return expected borrow and collateral amounts", async () => {
-  //           // let's get max available supply amount
-  //           const sample = await preparePlan(
-  //             controller,
-  //             MaticAddresses.DAI,
-  //             parseUnits("1", 18),
-  //             MaticAddresses.WMATIC,
-  //             MaticAddresses.hDAI,
-  //             MaticAddresses.hMATIC,
-  //             undefined,
-  //             defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
-  //           );
-  //
-  //           // let's try to borrow amount using collateral that exceeds max supply amount
-  //           const r = await preparePlan(
-  //             controller,
-  //             MaticAddresses.DAI,
-  //             sample.plan.maxAmountToSupply.add(1000),
-  //             MaticAddresses.WMATIC,
-  //             MaticAddresses.hDAI,
-  //             MaticAddresses.hMATIC,
-  //             undefined,
-  //             defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
-  //           );
-  //           console.log(r.plan);
-  //
-  //           const expectedCollateralAmount = AprUtils.getCollateralAmount(
-  //             r.plan.amountToBorrow,
-  //             r.healthFactor2,
-  //             r.plan.liquidationThreshold18,
-  //             r.priceCollateral,
-  //             r.priceBorrow,
-  //             r.collateralAssetDecimals,
-  //             r.borrowAssetDecimals
-  //           );
-  //
-  //           const ret = [
-  //             r.plan.amountToBorrow,
-  //             areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
-  //           ].map(x => BalanceUtils.toString(x)).join("\n");
-  //           const expected = [
-  //             r.plan.maxAmountToBorrow,
-  //             true
-  //           ].map(x => BalanceUtils.toString(x)).join("\n");
-  //
-  //           expect(ret).eq(expected);
-  //         });
-  //       });
-  //       describe("Allowed borrow amounts exceeds available borrow amount", () => {
-  //         it("should return expected borrow and collateral amounts", async () => {
-  //           // let's get max available borrow amount
-  //           const sample = await preparePlan(
-  //             controller,
-  //             MaticAddresses.DAI,
-  //             parseUnits("1", 18),
-  //             MaticAddresses.WMATIC,
-  //             MaticAddresses.hDAI,
-  //             MaticAddresses.hMATIC,
-  //             undefined,
-  //             defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
-  //           );
-  //
-  //           // let's try to borrow amount using collateral that exceeds max supply amount
-  //           const r = await preparePlan(
-  //             controller,
-  //             MaticAddresses.DAI,
-  //             sample.plan.maxAmountToBorrow.add(1000),
-  //             MaticAddresses.WMATIC,
-  //             MaticAddresses.hDAI,
-  //             MaticAddresses.hMATIC,
-  //             undefined,
-  //             defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
-  //           );
-  //           console.log(r.plan);
-  //
-  //           const expectedCollateralAmount = AprUtils.getCollateralAmount(
-  //             sample.plan.maxAmountToBorrow,
-  //             r.healthFactor2,
-  //             r.plan.liquidationThreshold18,
-  //             r.priceCollateral,
-  //             r.priceBorrow,
-  //             r.collateralAssetDecimals,
-  //             r.borrowAssetDecimals,
-  //           );
-  //
-  //           const ret = [
-  //             r.plan.amountToBorrow,
-  //             areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
-  //           ].map(x => BalanceUtils.toString(x)).join("\n");
-  //           const expected = [
-  //             r.plan.maxAmountToBorrow,
-  //             true
-  //           ].map(x => BalanceUtils.toString(x)).join("\n");
-  //
-  //           expect(ret).eq(expected);
-  //         });
-  //       });
-  //     });
-  //   });
-  //   describe("Bad paths", () => {
-  //     async function tryGetConversionPlan(
-  //       badPathsParams: IGetConversionPlanBadPaths,
-  //       collateralAsset: string = MaticAddresses.DAI,
-  //       borrowAsset: string = MaticAddresses.USDC,
-  //       collateralCToken: string = MaticAddresses.hDAI,
-  //       borrowCToken: string = MaticAddresses.hUSDC,
-  //       collateralAmount: BigNumber = getBigNumberFrom(1000, 18)
-  //     ) : Promise<IConversionPlan> {
-  //       return (await preparePlan(
-  //         controller,
-  //         collateralAsset,
-  //         collateralAmount,
-  //         borrowAsset,
-  //         collateralCToken,
-  //         borrowCToken,
-  //         badPathsParams
-  //       )).plan;
-  //     }
-  //     describe("incorrect input params", () => {
-  //       describe("collateral token is zero", () => {
-  //         it("should revert", async () => {
-  //
-  //           await expect(
-  //             tryGetConversionPlan({ zeroCollateralAsset: true })
-  //           ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-  //         });
-  //       });
-  //       describe("borrow token is zero", () => {
-  //         it("should revert", async () => {
-  //           await expect(
-  //             tryGetConversionPlan({ zeroBorrowAsset: true })
-  //           ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-  //         });
-  //       });
-  //       describe("healthFactor2_ is less than min allowed", () => {
-  //         it("should revert", async () => {
-  //           await expect(
-  //             tryGetConversionPlan({ incorrectHealthFactor2: 100 })
-  //           ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
-  //         });
-  //       });
-  //       describe("countBlocks_ is zero", () => {
-  //         it("should revert", async () => {
-  //           await expect(
-  //             tryGetConversionPlan({ zeroCountBlocks: true })
-  //           ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
-  //         });
-  //       });
-  //       describe("collateralAmount_ is zero", () => {
-  //         it("should revert", async () => {
-  //           await expect(
-  //             tryGetConversionPlan({ zeroCollateralAmount: true })
-  //           ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
-  //         });
-  //       });
-  //     });
-  //     describe("cToken is not registered", () => {
-  //       it("should fail if collateral token is not registered", async () => {
-  //         expect((await tryGetConversionPlan(
-  //           {},
-  //           MaticAddresses.agEUR
-  //         )).converter).eq(Misc.ZERO_ADDRESS);
-  //       });
-  //       it("should fail if borrow token is not registered", async () => {
-  //
-  //         expect((await tryGetConversionPlan(
-  //           {},
-  //           MaticAddresses.DAI,
-  //           MaticAddresses.agEUR,
-  //         )).converter).eq(Misc.ZERO_ADDRESS);
-  //       });
-  //     });
-  //     describe("capacity", () => {
-  //       it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () => {
-  //         const planBorrowCapacityNotLimited = await tryGetConversionPlan(
-  //           {},
-  //           MaticAddresses.DAI,
-  //           MaticAddresses.USDC,
-  //           MaticAddresses.hDAI,
-  //           MaticAddresses.hUSDC,
-  //           getBigNumberFrom(12345, 18)
-  //         );
-  //         console.log("planBorrowCapacityNotLimited", planBorrowCapacityNotLimited);
-  //         const plan = await tryGetConversionPlan(
-  //           {setMinBorrowCapacity: true},
-  //           MaticAddresses.DAI,
-  //           MaticAddresses.USDC,
-  //           MaticAddresses.hDAI,
-  //           MaticAddresses.hUSDC,
-  //           getBigNumberFrom(12345, 18)
-  //         );
-  //         console.log("plan", plan);
-  //         const ret = [
-  //           plan.amountToBorrow.eq(plan.maxAmountToBorrow),
-  //           plan.amountToBorrow.lt(planBorrowCapacityNotLimited.maxAmountToBorrow),
-  //           planBorrowCapacityNotLimited.amountToBorrow.lt(planBorrowCapacityNotLimited.maxAmountToBorrow)
-  //         ].join("\n");
-  //         const expected = [true, true, true].join("\n");
-  //         expect(ret).eq(expected);
-  //       });
-  //     });
-  //     describe("paused", () => {
-  //       it("should fail if mintPaused is true for collateral", async () => {
-  //         expect((await tryGetConversionPlan({setCollateralMintPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
-  //       });
-  //       it("should fail if borrowPaused for borrow", async () => {
-  //         expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
-  //       });
-  //     });
-  //   });
-  //   describe("Check gas limit @skip-on-coverage", () => {
-  //     it("should not exceed gas limits @skip-on-coverage", async () => {
-  //       const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-  //         deployer,
-  //         controller.address,
-  //         MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-  //         ethers.Wallet.createRandom().address,
-  //         [MaticAddresses.hDAI, MaticAddresses.hUSDC],
-  //       );
-  //
-  //       const gasUsed = await hfPlatformAdapter.estimateGas.getConversionPlan(
-  //         {
-  //           collateralAsset: MaticAddresses.DAI,
-  //           amountIn: parseUnits("1", 18),
-  //           borrowAsset: MaticAddresses.USDC,
-  //           countBlocks: 1000,
-  //           entryData: "0x",
-  //           user: Misc.ZERO_ADDRESS
-  //         },
-  //         200,
-  //         {gasLimit: GAS_LIMIT},
-  //       );
-  //       controlGasLimitsEx2(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
-  //         expect(u).to.be.below(t);
-  //       });
-  //     });
-  //   });
-  // });
-  //
+  describe("getConversionPlan", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    describe("Good paths", () => {
+      describe("DAI : usdc", () => {
+        it("should return expected values", async () => {
+          const collateralAsset = MaticAddresses.DAI;
+          const collateralCToken = MaticAddresses.hDAI;
+          const collateralAmount = getBigNumberFrom(1000, 18);
+
+          const borrowAsset = MaticAddresses.USDC;
+          const borrowCToken = MaticAddresses.hUSDC;
+
+          const r = await makeTestComparePlanWithDirectCalculations(
+            controller,
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            collateralCToken,
+            borrowCToken
+          );
+
+          expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("WMATIC : USDC", () => {
+        it("should return expected values", async () => {
+          const collateralAsset = MaticAddresses.WMATIC;
+          const collateralCToken = MaticAddresses.hMATIC;
+          const collateralAmount = getBigNumberFrom(1000, 18);
+
+          const borrowAsset = MaticAddresses.USDC;
+          const borrowCToken = MaticAddresses.hUSDC;
+
+          const r = await makeTestComparePlanWithDirectCalculations(
+            controller,
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            collateralCToken,
+            borrowCToken
+          );
+          console.log(r);
+
+          expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("USDC : WETH", () => {
+        it("should return expected values", async () => {
+          const collateralAsset = MaticAddresses.WMATIC;
+          const collateralCToken = MaticAddresses.hMATIC;
+          const collateralAmount = getBigNumberFrom(10, 18);
+
+          const borrowAsset = MaticAddresses.WETH;
+          const borrowCToken = MaticAddresses.hETH;
+
+          const r = await makeTestComparePlanWithDirectCalculations(
+            controller,
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            collateralCToken,
+            borrowCToken
+          );
+          console.log(r);
+
+          expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("Try to use huge collateral amount", () => {
+        it("should return borrow amount equal to max available amount", async () => {
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 28),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+          );
+          expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
+        });
+      });
+      describe("Borrow capacity", () => {
+        /**
+         *      totalBorrows    <    borrowCap       <       totalBorrows + available cash
+         */
+        it("maxAmountToBorrow is equal to borrowCap - totalBorrows", async () => {
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            { setMinBorrowCapacityDelta: parseUnits("7", 18) }
+          );
+          expect(r.plan.maxAmountToBorrow.eq(parseUnits("7", 18))).eq(true);
+        });
+
+        /**
+         *      totalBorrows    <     totalBorrows + available cash    <     borrowCap
+         */
+        it("maxAmountToBorrow is equal to available cash if borrowCap is huge", async () => {
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            { setMinBorrowCapacityDelta: parseUnits("7", 48) }
+          );
+          const availableCash = await IHfCToken__factory.connect(MaticAddresses.hMATIC, deployer).getCash();
+          console.log("availableCash", availableCash);
+          console.log("maxAmountToBorrow", r.plan.maxAmountToBorrow);
+          expect(r.plan.maxAmountToBorrow.eq(availableCash)).eq(true);
+        });
+
+        /**
+         *      borrowCap   <     totalBorrows    <   totalBorrows + available cash
+         */
+        it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            { setBorrowCapacityExceeded: true }
+          );
+          expect(r.plan.maxAmountToBorrow.eq(0)).eq(true);
+        });
+      });
+      describe("Frozen", () => {
+        it("should return no plan", async () => {
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            {
+              frozen: true
+            }
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+      describe("EntryKinds", () => {
+        describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
+          it("should return not zero borrow amount", async () => {
+            const collateralAmount = parseUnits("6338.199834", 6);
+
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.USDC,
+              collateralAmount,
+              MaticAddresses.DAI,
+              MaticAddresses.hUSDC,
+              MaticAddresses.hDAI,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+            console.log("plan", r.plan);
+            console.log("amountToBorrow, collateralAmount", r.plan.amountToBorrow, r.plan.collateralAmount);
+
+            expect(r.plan.amountToBorrow.gt(0)).eq(true);
+          });
+        });
+        describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+          it("should split source amount on the parts with almost same cost", async () => {
+            const collateralAmount = parseUnits("1000", 18);
+
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              collateralAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(
+                ["uint256", "uint256", "uint256"],
+                [AppConstants.ENTRY_KIND_1, 1, 1]
+              )
+            );
+
+            const sourceAssetUSD = +formatUnits(
+              collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
+              r.collateralAssetDecimals
+            );
+            const targetAssetUSD = +formatUnits(
+              r.plan.amountToBorrow.mul(r.priceBorrow),
+              r.borrowAssetDecimals
+            );
+
+            const ret = [
+              sourceAssetUSD === targetAssetUSD,
+              r.plan.collateralAmount.lt(collateralAmount)
+            ].join();
+            const expected = [true, true].join();
+
+            console.log("sourceAssetUSD", sourceAssetUSD);
+            console.log("targetAssetUSD", targetAssetUSD);
+
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
+          it("should return expected collateral amount", async () => {
+
+            // let's calculate borrow amount by known collateral amount
+            const collateralAmount = parseUnits("10", 18);
+            const d = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              collateralAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+            );
+            const borrowAmount = AprUtils.getBorrowAmount(
+              collateralAmount,
+              d.healthFactor2,
+              d.plan.liquidationThreshold18,
+              d.priceCollateral,
+              d.priceBorrow,
+              d.collateralAssetDecimals,
+              d.borrowAssetDecimals
+            );
+
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              borrowAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, collateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            const expected = [
+              borrowAmount,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            console.log(d.plan);
+            console.log(r.plan);
+
+            expect(ret).eq(expected);
+          });
+        });
+      });
+      describe("Collateral and borrow amounts fit to limits", () => {
+        /**
+         * maxAmountToSupply is always equal to type(uint).max
+         */
+        describe.skip("Allowed collateral exceeds available collateral", () => {
+          it("should return expected borrow and collateral amounts", async () => {
+            // let's get max available supply amount
+            const sample = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              parseUnits("1", 18),
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+
+            // let's try to borrow amount using collateral that exceeds max supply amount
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              sample.plan.maxAmountToSupply.add(1000),
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+            console.log(r.plan);
+
+            const expectedCollateralAmount = AprUtils.getCollateralAmount(
+              r.plan.amountToBorrow,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetDecimals,
+              r.borrowAssetDecimals
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [
+              r.plan.maxAmountToBorrow,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Allowed borrow amounts exceeds available borrow amount", () => {
+          it("should return expected borrow and collateral amounts", async () => {
+            // let's get max available borrow amount
+            const sample = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              parseUnits("1", 18),
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+
+            // let's try to borrow amount using collateral that exceeds max supply amount
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              sample.plan.maxAmountToBorrow.add(1000),
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
+            );
+            console.log(r.plan);
+
+            const expectedCollateralAmount = AprUtils.getCollateralAmount(
+              sample.plan.maxAmountToBorrow,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetDecimals,
+              r.borrowAssetDecimals,
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [
+              r.plan.maxAmountToBorrow,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      async function tryGetConversionPlan(
+        badPathsParams: IGetConversionPlanBadPaths,
+        collateralAsset: string = MaticAddresses.DAI,
+        borrowAsset: string = MaticAddresses.USDC,
+        collateralCToken: string = MaticAddresses.hDAI,
+        borrowCToken: string = MaticAddresses.hUSDC,
+        collateralAmount: BigNumber = getBigNumberFrom(1000, 18)
+      ) : Promise<IConversionPlan> {
+        return (await preparePlan(
+          controller,
+          collateralAsset,
+          collateralAmount,
+          borrowAsset,
+          collateralCToken,
+          borrowCToken,
+          badPathsParams
+        )).plan;
+      }
+      describe("incorrect input params", () => {
+        describe("collateral token is zero", () => {
+          it("should revert", async () => {
+
+            await expect(
+              tryGetConversionPlan({ zeroCollateralAsset: true })
+            ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+          });
+        });
+        describe("borrow token is zero", () => {
+          it("should revert", async () => {
+            await expect(
+              tryGetConversionPlan({ zeroBorrowAsset: true })
+            ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+          });
+        });
+        describe("healthFactor2_ is less than min allowed", () => {
+          it("should revert", async () => {
+            await expect(
+              tryGetConversionPlan({ incorrectHealthFactor2: 100 })
+            ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
+          });
+        });
+        describe("countBlocks_ is zero", () => {
+          it("should revert", async () => {
+            await expect(
+              tryGetConversionPlan({ zeroCountBlocks: true })
+            ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+          });
+        });
+        describe("collateralAmount_ is zero", () => {
+          it("should revert", async () => {
+            await expect(
+              tryGetConversionPlan({ zeroCollateralAmount: true })
+            ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+          });
+        });
+      });
+      describe("cToken is not registered", () => {
+        it("should fail if collateral token is not registered", async () => {
+          expect((await tryGetConversionPlan(
+            {},
+            MaticAddresses.agEUR
+          )).converter).eq(Misc.ZERO_ADDRESS);
+        });
+        it("should fail if borrow token is not registered", async () => {
+
+          expect((await tryGetConversionPlan(
+            {},
+            MaticAddresses.DAI,
+            MaticAddresses.agEUR,
+          )).converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+      describe("capacity", () => {
+        it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () => {
+          const planBorrowCapacityNotLimited = await tryGetConversionPlan(
+            {},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hUSDC,
+            getBigNumberFrom(12345, 18)
+          );
+          console.log("planBorrowCapacityNotLimited", planBorrowCapacityNotLimited);
+          const plan = await tryGetConversionPlan(
+            {setMinBorrowCapacity: true},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hUSDC,
+            getBigNumberFrom(12345, 18)
+          );
+          console.log("plan", plan);
+          const ret = [
+            plan.amountToBorrow.eq(plan.maxAmountToBorrow),
+            plan.amountToBorrow.lt(planBorrowCapacityNotLimited.maxAmountToBorrow),
+            planBorrowCapacityNotLimited.amountToBorrow.lt(planBorrowCapacityNotLimited.maxAmountToBorrow)
+          ].join("\n");
+          const expected = [true, true, true].join("\n");
+          expect(ret).eq(expected);
+        });
+      });
+      describe("paused", () => {
+        it("should fail if mintPaused is true for collateral", async () => {
+          expect((await tryGetConversionPlan({setCollateralMintPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
+        });
+        it("should fail if borrowPaused for borrow", async () => {
+          expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+    });
+    describe("Check gas limit @skip-on-coverage", () => {
+      it("should not exceed gas limits @skip-on-coverage", async () => {
+        const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+          deployer,
+          controller.address,
+          MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.hDAI, MaticAddresses.hUSDC],
+        );
+
+        const gasUsed = await hfPlatformAdapter.estimateGas.getConversionPlan(
+          {
+            collateralAsset: MaticAddresses.DAI,
+            amountIn: parseUnits("1", 18),
+            borrowAsset: MaticAddresses.USDC,
+            countBlocks: 1000,
+            entryData: "0x",
+          },
+          200,
+          {gasLimit: GAS_LIMIT},
+        );
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
+    });
+  });
+
   // describe("getBorrowRateAfterBorrow", () => {
   //   describe("Good paths", () => {
   //     async function makeTest(

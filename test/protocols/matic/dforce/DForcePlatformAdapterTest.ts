@@ -1171,7 +1171,6 @@ describe("DForcePlatformAdapterTest", () => {
             borrowAsset: MaticAddresses.USDC,
             countBlocks: 1000,
             entryData: "0x",
-            user: Misc.ZERO_ADDRESS
           },
           200,
           {gasLimit: GAS_LIMIT},

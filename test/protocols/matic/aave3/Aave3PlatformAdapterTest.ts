@@ -1158,7 +1158,6 @@ describe("Aave3PlatformAdapterTest", () => {
             borrowAsset: MaticAddresses.USDC,
             countBlocks: 1,
             entryData: "0x",
-            user: Misc.ZERO_ADDRESS
           },
           200,
           {gasLimit: GAS_LIMIT}

@@ -2,11 +2,7 @@ import {IConversionPlan, IConversionPlanNum} from "../types/AppDataTypes";
 import {formatUnits} from "ethers/lib/utils";
 
 export class AppDataTypesUtils {
-  static async getConversionPlanNum(
-    p: IConversionPlan,
-    decimalsCollateral: number,
-    decimalsBorrow: number
-  ): Promise<IConversionPlanNum> {
+  static getConversionPlanNum(p: IConversionPlan, decimalsCollateral: number, decimalsBorrow: number): IConversionPlanNum {
     return {
       collateralAmount: +formatUnits(p.collateralAmount, decimalsCollateral),
       amountToBorrow: +formatUnits(p.amountToBorrow, decimalsBorrow),
