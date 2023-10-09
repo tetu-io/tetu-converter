@@ -1,9 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ITestSingleBorrowParams} from "../../types/BorrowRepayDataTypes";
 import {BigNumber} from "ethers";
-import {ILendingPlatformFabric} from "../../parts/fabrics/ILendingPlatformFabric";
-import {TetuConverterApp} from "../../helpers/TetuConverterApp";
-import {MocksHelper} from "../../helpers/MocksHelper";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {CommonUtils, setInitialBalance} from "../../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
@@ -13,6 +10,9 @@ import {IPointResults} from "./aprDataTypes";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
+import {TetuConverterApp} from "../../app/TetuConverterApp";
+import {ILendingPlatformFabric} from "../../logic/fabrics/ILendingPlatformFabric";
+import {MocksHelper} from "../../app/MocksHelper";
 
 //region Make borrow
 /**

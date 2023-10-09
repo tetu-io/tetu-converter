@@ -20,18 +20,11 @@ import {AprUtils} from "../../utils/aprUtils";
 import {convertUnits} from "../shared/aprUtils";
 import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
 import {BigNumber} from "ethers";
+import {ethers} from "hardhat";
+import {AppConstants} from "../../types/AppConstants";
+import {NumberUtils} from "../../utils/NumberUtils";
 
-export interface IMoonwellPreparePlan {
-  collateralAsset: string;
-  borrowAsset: string;
-
-  amountIn: string,
-  isAmountInBorrowAsset?: number; // false by default (set it true if entryKind = 2)
-  entryData?: string; // 0x by default
-
-  countBlocks?: number; // default 1
-  healthFactor?: string; // default "2"
-
+export interface IMoonwellPreparePlanBadPaths {
   zeroCollateralAsset?: boolean;
   zeroBorrowAsset?: boolean;
   zeroCountBlocks?: boolean;
@@ -43,11 +36,23 @@ export interface IMoonwellPreparePlan {
   setBorrowCapacityExceeded?: boolean;
   setMinBorrowCapacityDelta?: string;
   frozen?: boolean;
+  cTokenCollateral?: string;
+  cTokenBorrow?: string;
 }
 
-export interface IPreparePlanResults {
-  plan: IConversionPlanNum;
+export interface IMoonwellPreparePlan extends IMoonwellPreparePlanBadPaths {
+  collateralAsset: string;
+  borrowAsset: string;
 
+  amountIn: string,
+  entryKind?: number; // 0 by default
+  entryData?: string; // 0x by default
+
+  countBlocks?: number; // default 1
+  healthFactor?: string; // default "2"
+}
+
+export interface IPlanSourceInfo {
   priceCollateral: number;
   priceBorrow: number;
   borrowAssetDecimals: number;
@@ -60,6 +65,13 @@ export interface IPreparePlanResults {
 
   healthFactor: number;
   countBlocks: number;
+
+  converter: string;
+}
+
+export interface IPreparePlanResults {
+  plan: IConversionPlanNum;
+  sourceInfo: IPlanSourceInfo;
 }
 
 export class MoonwellPlatformAdapterUtils {
@@ -68,13 +80,16 @@ export class MoonwellPlatformAdapterUtils {
     comptroller: IMoonwellComptroller,
     priceOracle: IMoonwellPriceOracle,
     p: IMoonwellPreparePlan,
-    platformAdapter: MoonwellPlatformAdapter
+    platformAdapter: MoonwellPlatformAdapter,
+    poolAdapterTemplate: string
   ): Promise<IPreparePlanResults> {
+    const entryKind = p.entryKind ?? AppConstants.ENTRY_KIND_0;
+
     const countBlocks = p.countBlocks ?? 1;
     const healthFactor2 = parseUnits(p?.incorrectHealthFactor ?? (p.healthFactor ?? "2"), 2);
 
-    const cTokenBorrow = IMToken__factory.connect(MoonwellUtils.getCToken(p.borrowAsset), signer);
-    const cTokenCollateral = IMToken__factory.connect(MoonwellUtils.getCToken(p.collateralAsset), signer);
+    const cTokenBorrow = IMToken__factory.connect(p?.cTokenBorrow ?? MoonwellUtils.getCToken(p.borrowAsset), signer);
+    const cTokenCollateral = IMToken__factory.connect(p?.cTokenCollateral ?? MoonwellUtils.getCToken(p.collateralAsset), signer);
 
     const decimalsBorrowAsset = await (IERC20Metadata__factory.connect(p.borrowAsset, signer)).decimals();
     const decimalsCollateralAsset = await (IERC20Metadata__factory.connect(p.collateralAsset, signer)).decimals();
@@ -98,7 +113,7 @@ export class MoonwellPlatformAdapterUtils {
       await MoonwellSetupUtils.setBorrowCapacity(signer, cTokenBorrow.address, borrowAssetData.totalBorrows.div(2));
     }
     if (p.setMinBorrowCapacityDelta) {
-      const amount = borrowAssetData.totalBorrows.add(p?.setMinBorrowCapacityDelta);
+      const amount = borrowAssetData.totalBorrows.add(parseUnits(p?.setMinBorrowCapacityDelta, decimalsBorrowAsset));
       await MoonwellSetupUtils.setBorrowCapacity(signer, cTokenBorrow.address, amount);
     }
     if (p.frozen) {
@@ -110,7 +125,7 @@ export class MoonwellPlatformAdapterUtils {
         collateralAsset: p?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : p.collateralAsset,
         amountIn: parseUnits(
           p?.zeroCollateralAmount ? "0" : p.amountIn,
-            p.isAmountInBorrowAsset ? decimalsBorrowAsset : decimalsCollateralAsset
+          entryKind === AppConstants.ENTRY_KIND_2 ? decimalsBorrowAsset : decimalsCollateralAsset
         ),
         borrowAsset: p?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : p.borrowAsset,
         countBlocks: p?.zeroCountBlocks ? 0 : countBlocks,
@@ -123,100 +138,100 @@ export class MoonwellPlatformAdapterUtils {
 
     return {
       plan: AppDataTypesUtils.getConversionPlanNum(plan, decimalsCollateralAsset, decimalsBorrowAsset),
-      collateralAssetData,
-      borrowAssetData,
-      borrowAssetDecimals: decimalsBorrowAsset,
-      collateralAssetDecimals: decimalsCollateralAsset,
-      cTokenBorrow,
-      cTokenCollateral,
-      priceBorrow: +formatUnits(priceBorrow, decimalsBorrowAsset),
-      priceCollateral: +formatUnits(priceCollateral, decimalsCollateralAsset),
-      healthFactor: +formatUnits(healthFactor2, 2),
-      countBlocks
+      sourceInfo: {
+        collateralAssetData,
+        borrowAssetData,
+        borrowAssetDecimals: decimalsBorrowAsset,
+        collateralAssetDecimals: decimalsCollateralAsset,
+        cTokenBorrow,
+        cTokenCollateral,
+        priceBorrow: +formatUnits(priceBorrow, 36 - decimalsBorrowAsset),
+        priceCollateral: +formatUnits(priceCollateral, 36 - decimalsCollateralAsset),
+        healthFactor: +formatUnits(healthFactor2, 2),
+        countBlocks,
+        converter: poolAdapterTemplate
+      }
     }
   }
 
   static async getExpectedPlan(
-    signer: SignerWithAddress,
     p: IMoonwellPreparePlan,
-    d: IPreparePlanResults,
+    plan: IConversionPlanNum,
+    planInfo: IPlanSourceInfo,
     facadeAprLib: CompoundAprLibFacade,
-    facadePlatformLib: CompoundPlatformAdapterLibFacade
+    facadePlatformLib: CompoundPlatformAdapterLibFacade,
   ): Promise<IConversionPlanNum> {
+    const entryKind = p.entryKind ?? AppConstants.ENTRY_KIND_0;
     const amountIn = parseUnits(
-    p?.zeroCollateralAmount ? "0" : p.amountIn,
-    p.isAmountInBorrowAsset ? d.borrowAssetDecimals : d.collateralAssetDecimals
+      p?.zeroCollateralAmount ? "0" : p.amountIn,
+      entryKind === AppConstants.ENTRY_KIND_2 ? planInfo.borrowAssetDecimals : planInfo.collateralAssetDecimals
     );
-    let amountToBorrow = AprUtils.getBorrowAmount(
+    const maxAmountToBorrow = await facadePlatformLib.getMaxAmountToBorrow({
+      cTokenCollateral: planInfo.cTokenCollateral.address,
+      cTokenBorrow: planInfo.cTokenBorrow.address,
+      comptroller: BaseAddresses.MOONWELL_COMPTROLLER
+    });
+    const maxAmountToSupply = Misc.MAX_UINT;
+
+    const {collateralAmount, amountToBorrow} = this.getCollateralAndBorrowAmounts(
       amountIn,
-      parseUnits(d.healthFactor.toString(), 2).toNumber(),
-      parseUnits(d.plan.liquidationThreshold.toString(), 18),
-      parseUnits(d.priceCollateral.toString(), 36),
-      parseUnits(d.priceBorrow.toString(), 36),
-      d.collateralAssetDecimals,
-      d.borrowAssetDecimals
-    );
-    if (amountToBorrow.gt(d.plan.maxAmountToBorrow)) {
-      amountToBorrow = parseUnits(d.plan.maxAmountToBorrow.toString(), d.borrowAssetDecimals)
-    }
+      entryKind,
+      plan,
+      planInfo,
+      maxAmountToBorrow,
+      maxAmountToSupply
+    )
+
     console.log("amountToBorrow", amountToBorrow);
 
-    const amountCollateralInBorrowAsset36 =  convertUnits(
-      amountIn,
-      parseUnits(d.priceCollateral.toString(), 36),
-      d.collateralAssetDecimals,
-      parseUnits(d.priceBorrow.toString(), 36),
+    const amountCollateralInBorrowAsset36 = convertUnits(
+      collateralAmount,
+      parseUnits(planInfo.priceCollateral.toString(), 36),
+      planInfo.collateralAssetDecimals,
+      parseUnits(planInfo.priceBorrow.toString(), 36),
       36
     );
 
     // predict APR
     const borrowRatePredicted = await facadeAprLib.getEstimatedBorrowRate(
-      d.borrowAssetData.interestRateModel,
-      d.cTokenBorrow.address,
+      planInfo.borrowAssetData.interestRateModel,
+      planInfo.cTokenBorrow.address,
       amountToBorrow
     );
     console.log("borrowRatePredicted", borrowRatePredicted);
     const supplyRatePredicted = await facadeAprLib.getEstimatedSupplyRate(
-      d.collateralAssetData.interestRateModel,
-      d.cTokenCollateral.address,
-      amountIn
+      planInfo.collateralAssetData.interestRateModel,
+      planInfo.cTokenCollateral.address,
+      collateralAmount
     );
     console.log("supplyRatePredicted", supplyRatePredicted);
 
     console.log("libFacade.getSupplyIncomeInBorrowAsset36");
     const supplyIncomeInBorrowAsset36 = await facadeAprLib.getSupplyIncomeInBorrowAsset36(
       supplyRatePredicted,
-      d.countBlocks,
-      parseUnits("1", d.collateralAssetDecimals),
-      parseUnits(d.priceCollateral.toString(), 36),
-      parseUnits(d.priceBorrow.toString(), 36),
-      amountIn
+      planInfo.countBlocks,
+      parseUnits("1", planInfo.collateralAssetDecimals),
+      parseUnits(planInfo.priceCollateral.toString(), 36),
+      parseUnits(planInfo.priceBorrow.toString(), 36),
+      collateralAmount
     );
 
     const borrowCost36 = await facadeAprLib.getBorrowCost36(
       borrowRatePredicted,
       amountToBorrow,
-      d.countBlocks,
-      parseUnits("1", d.borrowAssetDecimals),
+      planInfo.countBlocks,
+      parseUnits("1", planInfo.borrowAssetDecimals),
     );
 
-    const maxAmountToBorrow = await facadePlatformLib.getMaxAmountToBorrow({
-      cTokenCollateral: d.cTokenCollateral.address,
-      cTokenBorrow: d.cTokenBorrow.address,
-      comptroller: BaseAddresses.MOONWELL_COMPTROLLER
-    });
-
-    const maxAmountToSupply = Misc.MAX_UINT;
-
-    const liquidationThreshold18 = d.collateralAssetData.collateralFactorMantissa;
-    const ltv18 = d.collateralAssetData.collateralFactorMantissa;
+    const liquidationThreshold18 = planInfo.collateralAssetData.collateralFactorMantissa;
+    const ltv18 = planInfo.borrowAssetData.collateralFactorMantissa;
 
     const rewardsAmountInBorrowAsset36 = BigNumber.from(0); // todo
 
-    const plan: IConversionPlan = {
-      converter: "",
+    const expectedPlan: IConversionPlan = {
+      converter: planInfo.converter,
       amountToBorrow,
-      collateralAmount: amountIn,
+      collateralAmount: collateralAmount,
       amountCollateralInBorrowAsset36,
       borrowCost36,
       supplyIncomeInBorrowAsset36,
@@ -227,6 +242,80 @@ export class MoonwellPlatformAdapterUtils {
       rewardsAmountInBorrowAsset36
     }
 
-    return AppDataTypesUtils.getConversionPlanNum(plan, d.collateralAssetDecimals, d.borrowAssetDecimals);
+    return AppDataTypesUtils.getConversionPlanNum(expectedPlan, planInfo.collateralAssetDecimals, planInfo.borrowAssetDecimals);
+  }
+
+  private static getCollateralAndBorrowAmounts(
+    amountIn: BigNumber,
+    entryKind: number,
+    plan: IConversionPlanNum,
+    planInfo: IPlanSourceInfo,
+    maxAmountToBorrow: BigNumber,
+    maxAmmountToSupply: BigNumber
+  ) : {collateralAmount: BigNumber, amountToBorrow: BigNumber} {
+    let collateralAmount: BigNumber;
+    let amountToBorrow: BigNumber;
+    if (entryKind === AppConstants.ENTRY_KIND_0) {
+      collateralAmount = amountIn;
+      if (collateralAmount.gt(maxAmmountToSupply)) {
+        collateralAmount = maxAmmountToSupply;
+      }
+      amountToBorrow = AprUtils.getBorrowAmount(
+        collateralAmount,
+        parseUnits(planInfo.healthFactor.toString(), 2).toNumber(),
+        parseUnits(plan.liquidationThreshold.toString(), 18),
+        parseUnits(planInfo.priceCollateral.toString(), 36),
+        parseUnits(planInfo.priceBorrow.toString(), 36),
+        planInfo.collateralAssetDecimals,
+        planInfo.borrowAssetDecimals
+      );
+      if (amountToBorrow.gt(maxAmountToBorrow)) {
+        amountToBorrow = maxAmountToBorrow;
+      }
+    } else if (entryKind === AppConstants.ENTRY_KIND_2) {
+      amountToBorrow = amountIn;
+      if (amountToBorrow.gt(maxAmountToBorrow)) {
+        amountToBorrow = maxAmountToBorrow;
+      }
+      collateralAmount = AprUtils.getCollateralAmount(
+        amountToBorrow,
+        parseUnits(planInfo.healthFactor.toString(), 2).toNumber(),
+        parseUnits(plan.liquidationThreshold.toString(), 18),
+        parseUnits(planInfo.priceCollateral.toString(), 36),
+        parseUnits(planInfo.priceBorrow.toString(), 36),
+        planInfo.collateralAssetDecimals,
+        planInfo.borrowAssetDecimals
+      );
+      if (collateralAmount.gt(maxAmmountToSupply)) {
+        collateralAmount = maxAmmountToSupply;
+      }
+    } else {
+      // assume proportions 1 : 1
+      const x = 1;
+      const y = 1;
+
+      const a = plan.liquidationThreshold * x / (planInfo.healthFactor * y);
+      const collateralAmount0 = +formatUnits(amountIn, planInfo.collateralAssetDecimals) / (1 + a);
+      collateralAmount = parseUnits(
+        NumberUtils.trimDecimals(collateralAmount0.toString(), planInfo.collateralAssetDecimals),
+        planInfo.collateralAssetDecimals
+      );
+      if (collateralAmount.gt(maxAmmountToSupply)) {
+        collateralAmount = maxAmmountToSupply;
+      }
+      amountToBorrow = AprUtils.getBorrowAmount(
+        collateralAmount,
+        parseUnits(planInfo.healthFactor.toString(), 2).toNumber(),
+        parseUnits(plan.liquidationThreshold.toString(), 18),
+        parseUnits(planInfo.priceCollateral.toString(), 36),
+        parseUnits(planInfo.priceBorrow.toString(), 36),
+        planInfo.collateralAssetDecimals,
+        planInfo.borrowAssetDecimals
+      );
+      if (amountToBorrow.gt(maxAmountToBorrow)) {
+        amountToBorrow = maxAmountToBorrow;
+      }
+    }
+    return {collateralAmount, amountToBorrow};
   }
 }

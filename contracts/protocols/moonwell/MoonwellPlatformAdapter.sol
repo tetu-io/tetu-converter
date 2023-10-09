@@ -139,6 +139,8 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           (plan.collateralAmount, plan.amountToBorrow) = CompoundPlatformAdapterLib.getAmountsForEntryKind(
             p_, plan.liquidationThreshold18, healthFactor2_, pd, true
           );
+          console.log("getConversionPlan.collateralAmount.1", plan.collateralAmount);
+          console.log("getConversionPlan.amountToBorrow.1", plan.amountToBorrow);
 
           // Validate the borrow, calculate amounts for APR
           if (plan.amountToBorrow != 0 && plan.collateralAmount != 0) {
@@ -151,6 +153,8 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             ) = CompoundPlatformAdapterLib.getValuesForApr(
               plan.collateralAmount, plan.amountToBorrow, f, v.cTokenCollateral, v.cTokenBorrow, p_.countBlocks, pd
             );
+            console.log("getConversionPlan.collateralAmount.2", plan.collateralAmount);
+            console.log("getConversionPlan.amountToBorrow.2", plan.amountToBorrow);
           }
         }
       }

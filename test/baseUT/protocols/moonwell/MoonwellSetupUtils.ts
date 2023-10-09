@@ -1,13 +1,13 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
-import {IMoonwellComptroller__factory, IMoonwellPriceOracle, MoonwellOracleMock} from "../../../../typechain";
+import {IMoonwellComptroller__factory, MoonwellOracleMock} from "../../../../typechain";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
 import {MoonwellHelper} from "../../../../scripts/integration/moonwell/MoonwellHelper";
 
 export class MoonwellSetupUtils {
-  public static async setupPriceOracleMock(deployer: SignerWithAddress, copyPrices: boolean = true) : Promise<IMoonwellPriceOracle> {
+  public static async setupPriceOracleMock(deployer: SignerWithAddress, copyPrices: boolean = true) : Promise<MoonwellOracleMock> {
     const cTokensList = [
       BaseAddresses.MOONWELL_WETH,
       BaseAddresses.MOONWELL_DAI,
@@ -46,7 +46,7 @@ export class MoonwellSetupUtils {
   }
 
   public static async setBorrowCapacity(deployer: SignerWithAddress, cToken: string, amount: BigNumber) {
-    const comptroller = await MoonwellOracleMock.getComptroller(deployer);
+    const comptroller = await MoonwellHelper.getComptroller(deployer);
     const admin = await comptroller.admin();
 
     const comptrollerAsAdmin = IMoonwellComptroller__factory.connect(
@@ -57,7 +57,7 @@ export class MoonwellSetupUtils {
   }
 
   public static async setMintPaused(deployer: SignerWithAddress, cToken: string, paused: boolean = true) {
-    const comptroller = await MoonwellOracleMock.getComptroller(deployer);
+    const comptroller = await MoonwellHelper.getComptroller(deployer);
     const admin = await comptroller.admin();
 
     const comptrollerAsAdmin = IMoonwellComptroller__factory.connect(
@@ -68,7 +68,7 @@ export class MoonwellSetupUtils {
   }
 
   public static async setBorrowPaused(deployer: SignerWithAddress, cToken: string, paused: boolean = true) {
-    const comptroller = await MoonwellOracleMock.getComptroller(deployer);
+    const comptroller = await MoonwellHelper.getComptroller(deployer);
     const admin = await comptroller.admin();
 
     const comptrollerAsAdmin = IMoonwellComptroller__factory.connect(
