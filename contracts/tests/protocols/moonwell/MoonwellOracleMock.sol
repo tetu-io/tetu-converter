@@ -14,15 +14,16 @@ contract MoonwellOracleMock is IChangePriceForTests {
   }
 
   //region -------------------------------- Same set of functions as in the original Hundred Finance oracle
-  function admin() external view returns (address) {
+  function admin() external pure returns (address) {
     return 0x8b621804a7637b781e2BbD58e256a591F2dF7d51;
   }
 
-  function assetPrices(address asset) external view returns (uint256) {
+  function assetPrices(address asset) external pure returns (uint256) {
+    asset;
     return 0;
   }
 
-  function getFeed(string memory /* symbol */) external view returns (address) {
+  function getFeed(string memory /* symbol */) external pure returns (address) {
     return address(0);
   }
 
@@ -30,26 +31,26 @@ contract MoonwellOracleMock is IChangePriceForTests {
     return prices[mToken];
   }
 
-  function isPriceOracle() external view returns (bool) {
+  function isPriceOracle() external pure returns (bool) {
     return true;
   }
 
-  function nativeToken() external view returns (bytes32) {
+  function nativeToken() external pure returns (bytes32) {
     return 0x6a79aceed0101d32d27cfac92136e9ad1aaf6c49082d6a2359a6ce0147ea50a9;
   }
 
 
-  function setAdmin(address newAdmin) external view {
+  function setAdmin(address newAdmin) external pure {
     newAdmin;
     // no implemented
   }
 
-  function setDirectPrice(address asset, uint256 price) external view {
+  function setDirectPrice(address asset, uint256 price) external pure {
     asset;
     price;
   }
 
-  function setFeed(string memory symbol, address feed) external view {
+  function setFeed(string memory symbol, address feed) external pure {
     symbol;
     feed;
   }

@@ -1,10 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BASE_NETWORK_ID, controlGasLimitsEx2, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
 import {
-  IMToken__factory,
-  IERC20Metadata,
-  IERC20Metadata__factory,
-  IMToken,
   ConverterController,
   IMoonwellComptroller,
   IMoonwellPriceOracle,
