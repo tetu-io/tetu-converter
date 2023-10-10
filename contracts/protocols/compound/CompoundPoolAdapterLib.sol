@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import "./CompoundLib.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
@@ -14,7 +15,6 @@ import "../../integrations/compound/ICTokenNative.sol";
 import "../../integrations/compound/ICompoundPriceOracle.sol";
 import "../../libs/AppDataTypes.sol";
 import "../../libs/AppErrors.sol";
-import "./CompoundLib.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/compound/ICompoundComptrollerBaseV2.sol";
@@ -150,8 +150,8 @@ library CompoundPoolAdapterLib {
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
-    IERC20(collateralAsset_).safeApprove(cTokenCollateral, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
-    IERC20(borrowAsset_).safeApprove(cTokenBorrow, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
+    IERC20(collateralAsset_).safeApprove(cTokenCollateral, type(uint).max);
+    IERC20(borrowAsset_).safeApprove(cTokenBorrow, type(uint).max);
 
     emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }

@@ -31,9 +31,9 @@ import {IHfAccountLiquidity, IHundredFinanceAccountSnapshot} from "./aprHundredF
 import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../types/GasLimit";
 import {IConversionPlan} from "../../types/AppDataTypes";
+import {TetuConverterApp} from "../../app/TetuConverterApp";
 
 //region Data types
 export interface IPrepareToBorrowResults {

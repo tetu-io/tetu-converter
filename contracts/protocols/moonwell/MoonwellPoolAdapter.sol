@@ -135,7 +135,6 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     uint amount
   ) {
     // todo
-    //nothing to do, HundredFinance doesn't have rewards on polygon anymore
     receiver_; // hide warning
     return (rewardToken, amount);
   }

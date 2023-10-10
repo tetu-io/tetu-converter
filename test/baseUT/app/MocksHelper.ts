@@ -496,11 +496,9 @@ export class MocksHelper {
     cToken1: string,
     cToken2: string
   ) : Promise<TokenAddressProviderMock> {
-    return await DeployUtils.deployContract(deployer,
-      "TokenAddressProviderMock",
-      cToken1,
-      cToken2
-    ) as TokenAddressProviderMock;
+    const dest = await DeployUtils.deployContract(deployer,"TokenAddressProviderMock") as TokenAddressProviderMock;
+    await dest.initCTokens(cToken1, cToken2);
+    return dest;
   }
 //endregion Token address providers
 
