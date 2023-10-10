@@ -13,6 +13,7 @@ import {
 import {expect} from "chai";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 
 describe("CompoundLibTest", () => {
 //region Global vars for all tests
@@ -45,13 +46,13 @@ describe("CompoundLibTest", () => {
     dai = await DeployUtils.deployContract(deployer, 'MockERC20', 'Dai', 'DAI', 18) as MockERC20;
     weth = await DeployUtils.deployContract(deployer, 'MockERC20', 'Wrapped Ether', 'WETH', 18) as MockERC20;
 
-    cUsdc = await DeployUtils.deployContract(deployer, 'CompoundCTokenBaseMock') as CompoundCTokenBaseMock;
+    cUsdc = await MocksHelper.createCompoundCTokenBaseMock(deployer, "cUsdc", 18);
     await cUsdc.setUnderlying(usdc.address);
-    cUsdt = await DeployUtils.deployContract(deployer, 'CompoundCTokenBaseMock') as CompoundCTokenBaseMock;
+    cUsdt = await MocksHelper.createCompoundCTokenBaseMock(deployer, "cUsdt", 18);
     await cUsdt.setUnderlying(usdt.address);
-    cDai = await DeployUtils.deployContract(deployer, 'CompoundCTokenBaseMock') as CompoundCTokenBaseMock;
+    cDai = await MocksHelper.createCompoundCTokenBaseMock(deployer, "cDai", 18)
     await cDai.setUnderlying(dai.address);
-    cWeth = await DeployUtils.deployContract(deployer, 'CompoundCTokenBaseMock') as CompoundCTokenBaseMock;
+    cWeth = await MocksHelper.createCompoundCTokenBaseMock(deployer, "cWeth", 18)
     await cWeth.setUnderlying(weth.address);
   });
 

@@ -55,7 +55,7 @@ import {
   DForceRewardDistributorMock,
   UpgradeableProxyFacade,
   ControllableV3Facade,
-  TetuConverterCallbackMock, BorrowManagerMock, ConverterControllerMock
+  TetuConverterCallbackMock, BorrowManagerMock, ConverterControllerMock, CompoundCTokenBaseMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -664,4 +664,20 @@ export class MocksHelper {
     return (await DeployUtils.deployContract(signer, 'ControllableV3Facade', )) as ControllableV3Facade;
   }
 //endregion Proxy
+
+  public static async createCompoundCTokenBaseMock(
+    signer: SignerWithAddress,
+    name: string,
+    decimals: number,
+    symbol?: string
+  ): Promise<CompoundCTokenBaseMock> {
+    return (await DeployUtils.deployContract(
+      signer,
+      'CompoundCTokenBaseMock',
+      name,
+      symbol ?? name,
+      decimals
+    )) as CompoundCTokenBaseMock;
+  }
+
 }

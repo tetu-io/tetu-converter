@@ -2,16 +2,31 @@
 pragma solidity 0.8.17;
 
 import "../../../integrations/compound/ICTokenBase.sol";
+import {ERC20} from "@rari-capital/solmate/src/tokens/ERC20.sol";
 
 /// @notice Min common set of functions of Compound cTokens
 /// required to implement platform and pool adapters
-contract CompoundCTokenBaseMock is ICTokenBase {
+contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   address internal _underlying;
   uint internal _cash;
   uint internal _totalBorrows;
   uint internal _totalReserves;
   uint internal _reserveFactorMantissa;
   address internal _interestRateModel;
+
+  constructor(
+    string memory _name,
+    string memory _symbol,
+    uint8 _decimals
+  ) ERC20(_name, _symbol, _decimals) {}
+
+  function mint(address to, uint256 value) public virtual {
+    _mint(to, value);
+  }
+
+  function burn(address from, uint256 value) public virtual {
+    _burn(from, value);
+  }
 
   //region ------------------------------------------------------------- Set up ICTokenBase
   function setUnderlying(address underlying_) external {

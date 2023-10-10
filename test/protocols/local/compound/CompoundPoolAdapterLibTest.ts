@@ -10,16 +10,17 @@ import {
   ConverterController,
   Borrower,
   IERC20Metadata__factory,
-  ICompoundComptrollerBase, CompoundComptrollerMock, TokenAddressProviderMock,
+  CompoundComptrollerMock, TokenAddressProviderMock, IERC20__factory,
 } from "../../../../typechain";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 import {BigNumber} from "ethers";
 import {stat} from "fs";
-import {formatUnits} from "ethers/lib/utils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
+import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 
 describe("CompoundPoolAdapterLibTest", () => {
 //region Global vars for all tests
@@ -61,13 +62,13 @@ describe("CompoundPoolAdapterLibTest", () => {
     dai = await DeployUtils.deployContract(signer, 'MockERC20', 'Dai', 'DAI', 18) as MockERC20;
     weth = await DeployUtils.deployContract(signer, 'MockERC20', 'Wrapped Ether', 'WETH', 18) as MockERC20;
 
-    cUsdc = await DeployUtils.deployContract(signer, 'CompoundCTokenBaseMock') as CompoundCTokenBaseMock;
+    cUsdc = await MocksHelper.createCompoundCTokenBaseMock(signer, "cUsdc", 18);
     await cUsdc.setUnderlying(usdc.address);
-    cUsdt = await DeployUtils.deployContract(signer, 'CompoundCTokenBaseMock') as CompoundCTokenBaseMock;
+    cUsdt = await MocksHelper.createCompoundCTokenBaseMock(signer, "cUsdt", 18);
     await cUsdt.setUnderlying(usdt.address);
-    cDai = await DeployUtils.deployContract(signer, 'CompoundCTokenBaseMock') as CompoundCTokenBaseMock;
+    cDai = await MocksHelper.createCompoundCTokenBaseMock(signer, "cDai", 18)
     await cDai.setUnderlying(dai.address);
-    cWeth = await DeployUtils.deployContract(signer, 'CompoundCTokenBaseMock') as CompoundCTokenBaseMock;
+    cWeth = await MocksHelper.createCompoundCTokenBaseMock(signer, "cWeth", 18)
     await cWeth.setUnderlying(weth.address);
 
     controller = await TetuConverterApp.createController(signer);
@@ -153,8 +154,8 @@ describe("CompoundPoolAdapterLibTest", () => {
       const borrowAllowance = await IERC20Metadata__factory.connect(p.borrowAsset, signer).allowance(facade.address, state.borrowCToken);
       return {
         state: await getStateNum(state),
-        infiniteBorrowApprove: collateralAllowance.eq(Misc.MAX_UINT),
-        infiniteCollateralApprove: borrowAllowance.eq(Misc.MAX_UINT),
+        infiniteBorrowApprove: collateralAllowance.eq(Misc.HUGE_UINT),
+        infiniteCollateralApprove: borrowAllowance.eq(Misc.HUGE_UINT),
       };
     }
 
@@ -169,19 +170,14 @@ describe("CompoundPoolAdapterLibTest", () => {
         });
 
         async function initializeTest(): Promise<IResults> {
-          await tokenAddressProviderMock.initExplicit(
-            usdc.address,
-            cUsdc.address,
-            usdt.address,
-            cUsdt.address
-          );
+          await tokenAddressProviderMock.initExplicit(usdc.address, cUsdc.address, usdt.address, cUsdt.address);
           return initialize({
             controller: controller.address,
             comptroller: comptroller.address,
             cTokenAddressProvider: tokenAddressProviderMock.address,
             user: userContract.address,
-            borrowAsset: usdc.address,
-            collateralAsset: usdt.address,
+            collateralAsset: usdc.address,
+            borrowAsset: usdt.address,
             originConverter: randomAddress
           })
         }
@@ -206,11 +202,146 @@ describe("CompoundPoolAdapterLibTest", () => {
           const {state} = await loadFixture(initializeTest);
           expect(state.collateralTokensBalance).eq(0);
         });
-    });
-    describe("Bad paths", () => {
+        it("should set infinite allowance of collateral-asset for cTokenCollateral", async () => {
+          const {infiniteCollateralApprove} = await loadFixture(initializeTest);
+          expect(infiniteCollateralApprove).eq(true);
+        });
+        it("should set infinite allowance of borrow-asset for cTokenBorrow", async () => {
+          const {infiniteBorrowApprove} = await loadFixture(initializeTest);
+          expect(infiniteBorrowApprove).eq(true);
+        });
+      });
+      describe("Bad paths", () => {
+        let snapshotLocal: string;
+        beforeEach(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        afterEach(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
 
+        async function initializeTest(p: {
+          controller?: string;
+          cTokenAddressProvider?: string;
+          comptroller?: string;
+          user?: string;
+          collateralAsset?: string;
+          borrowAsset?: string;
+          originConverter?: string;
+        }): Promise<IResults> {
+          await tokenAddressProviderMock.initExplicit(
+            usdc.address,
+            cUsdc.address,
+            usdt.address,
+            cUsdt.address
+          );
+          return initialize({
+            controller: p?.controller || controller.address,
+            comptroller: p?.comptroller || comptroller.address,
+            cTokenAddressProvider: p?.cTokenAddressProvider || tokenAddressProviderMock.address,
+            user: p?.user || userContract.address,
+            borrowAsset: p?.borrowAsset || usdc.address,
+            collateralAsset: p?.collateralAsset || usdt.address,
+            originConverter: p?.originConverter || randomAddress
+          })
+        }
+
+        it("should revert if controller is zero", async () => {
+          await expect(initializeTest({controller: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if originConverter is zero", async () => {
+          await expect(initializeTest({originConverter: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if borrowAsset is zero", async () => {
+          await expect(initializeTest({borrowAsset: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if collateralAsset is zero", async () => {
+          await expect(initializeTest({collateralAsset: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if comptroller is zero", async () => {
+          await expect(initializeTest({comptroller: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if cTokenAddressProvider is zero", async () => {
+          await expect(initializeTest({cTokenAddressProvider: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if user is zero", async () => {
+          await expect(initializeTest({user: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+      });
     });
   });
 
+  describe("_supply", () => {
+    interface IParams {
+      initialTokenBalance?: string;
+
+      cTokenCollateral: CompoundCTokenBaseMock;
+      collateralAsset: MockERC20;
+      amountCollateral: string;
+
+      nativeCToken?: string; // cEther by default
+      nativeToken?: string; // ether by default
+    }
+
+    interface IResults {
+      tokenBalanceBefore: number;
+      tokenBalanceAfter: number;
+      collateralBalanceAfter: number;
+    }
+
+    async function supply(p: IParams): Promise<IResults> {
+      const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
+      const decimalsCollateral = await p.collateralAsset.decimals();
+
+      if (p.initialTokenBalance) {
+        await p.cTokenCollateral["mint(address,uint256)"](facade.address, parseUnits(p.initialTokenBalance, decimalsCTokenCollateral));
+      }
+
+      // send amount to facade
+      await p.collateralAsset.mint(facade.address, parseUnits(p.amountCollateral, decimalsCollateral));
+
+      // infinite approve
+      const signerFacade = await Misc.impersonate(facade.address);
+      await IERC20__factory.connect(p.collateralAsset.address, signerFacade).approve(
+        p.cTokenCollateral.address,
+        Misc.HUGE_UINT
+      );
+
+      const tokenBalanceBefore = await facade.callStatic._supply(p.cTokenCollateral.address, p.collateralAsset, p.amountCollateral);
+      await facade._supply(p.cTokenCollateral.address, p.collateralAsset, p.amountCollateral);
+
+      const tokenBalanceAfter = await p.cTokenCollateral.balanceOf(facade.address);
+
+      return {
+        tokenBalanceBefore: +formatUnits(tokenBalanceBefore, decimalsCTokenCollateral),
+        tokenBalanceAfter: +formatUnits(tokenBalanceAfter, decimalsCTokenCollateral),
+        collateralBalanceAfter: +formatUnits(await p.collateralAsset.balanceOf(facade.address))
+      }
+    }
+
+    describe("Collateral is not native token", () => {
+      describe("Normal case", () => {
+        let snapshotLocal: string;
+        before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
+
+        async function supplyTest(): Promise<IResults> {
+          return supply({
+            collateralAsset: dai,
+            cTokenCollateral: cDai,
+            amountCollateral: "1"
+          });
+        }
+
+        it("should return expected tokenBalanceBefore", () => {
+
+        });
+      });
+    });
+  });
 //endregion Unit tests
 });

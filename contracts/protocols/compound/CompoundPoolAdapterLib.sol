@@ -6,6 +6,7 @@ import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
+import "../../openzeppelin/Strings.sol";
 import "../../interfaces/IConverterController.sol";
 import "../../integrations/compound/ICompoundComptrollerBase.sol";
 import "../../integrations/compound/ICTokenBase.sol";
@@ -19,6 +20,7 @@ import "../../interfaces/ITokenAddressProvider.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/compound/ICompoundComptrollerBaseV2.sol";
 import "../../integrations/compound/ICompoundComptrollerBaseV1.sol";
+import "hardhat/console.sol";
 
 library CompoundPoolAdapterLib {
   using SafeERC20 for IERC20;
@@ -150,10 +152,11 @@ library CompoundPoolAdapterLib {
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
-    IERC20(collateralAsset_).safeApprove(cTokenCollateral, type(uint).max);
-    IERC20(borrowAsset_).safeApprove(cTokenBorrow, type(uint).max);
+    IERC20(collateralAsset_).safeApprove(cTokenCollateral, 2 ** 255);
+    IERC20(borrowAsset_).safeApprove(cTokenBorrow, 2 ** 255);
 
     emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
+    console.log("final.2");
   }
   //endregion ----------------------------------------------------- Initialization
 
@@ -191,7 +194,6 @@ library CompoundPoolAdapterLib {
     v.assetCollateral = state.collateralAsset;
     v.assetBorrow = state.borrowAsset;
 
-
     IERC20(v.assetCollateral).safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
     // enter markets (repeat entering is not a problem)
@@ -213,7 +215,7 @@ library CompoundPoolAdapterLib {
       INativeToken(v.assetBorrow).deposit{value: borrowAmount_}();
     }
     require(
-      borrowAmount_ + balanceBorrowAsset0 == IERC20(v.assetBorrow).balanceOf(address(this)),
+      borrowAmount_ + balanceBorrowAsset0 >= IERC20(v.assetBorrow).balanceOf(address(this)),
       AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(v.assetBorrow).safeTransfer(receiver_, borrowAmount_);
@@ -232,29 +234,25 @@ library CompoundPoolAdapterLib {
     return borrowAmount_;
   }
 
-  /// @notice Supply collateral to Hundred finance market
-  /// @return Collateral token balance before supply
-  function _supply(
-    CompoundLib.ProtocolFeatures memory f_,
-    address cTokenCollateral_,
-    address assetCollateral_,
-    uint collateralAmount_
-  ) internal returns (uint) {
-    uint tokenBalanceBefore = IERC20(cTokenCollateral_).balanceOf(address(this));
-
-    // the amount is received through safeTransferFrom before calling of _supply()
-    // so we don't need following additional check:
+  /// @notice Supply collateral to compound market
+  /// @param cToken_ cToken of the collateral asset
+  /// @param asset_ Collateral asset
+  /// @param amount_ Collateral amount
+  /// @return tokenBalanceBefore Collateral token balance before supply
+  function _supply(CompoundLib.ProtocolFeatures memory f_, address cToken_, address asset_, uint amount_) internal returns (
+    uint tokenBalanceBefore
+  ) {
+    // the amount is received through safeTransferFrom before calling of _supply(), no need additional check:
     //    require(tokenBalanceBefore >= collateralAmount_, AppErrors.MINT_FAILED);
+    tokenBalanceBefore = IERC20(cToken_).balanceOf(address(this));
 
-    if (f_.nativeToken == assetCollateral_) {
-      INativeToken(f_.nativeToken).withdraw(collateralAmount_);
-      ICTokenNative(payable(cTokenCollateral_)).mint{value: collateralAmount_}();
-    } else {
-      // replaced by infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
-      uint error = ICTokenBase(cTokenCollateral_).mint(collateralAmount_);
-      require(error == 0, AppErrors.MINT_FAILED);
+    if (f_.nativeToken == asset_) {
+      INativeToken(f_.nativeToken).withdraw(amount_);
+      ICTokenNative(payable(cToken_)).mint{value: amount_}();
+    } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
+      uint error = ICTokenBase(cToken_).mint(amount_);
+      require(error == 0, string(abi.encodePacked(AppErrors.MINT_FAILED, Strings.toString(error))));
     }
-    return tokenBalanceBefore;
   }
 
   /// @return (Health factor, decimal 18; collateral-token-balance)

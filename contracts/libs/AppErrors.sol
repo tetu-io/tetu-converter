@@ -35,7 +35,7 @@ library AppErrors {
   /// @notice cToken is not found for provided underlying
   string public constant C_TOKEN_NOT_FOUND = "TC-16 ctoken not found";
   /// @notice cToken.mint failed
-  string public constant MINT_FAILED = "TC-17 mint failed";
+  string public constant MINT_FAILED = "TC-17 mint failed:";
   string public constant COMPTROLLER_GET_ACCOUNT_LIQUIDITY_FAILED = "TC-18 get account liquidity failed";
   string public constant COMPTROLLER_GET_ACCOUNT_LIQUIDITY_UNDERWATER = "TC-19 get account liquidity underwater";
   /// @notice borrow failed

@@ -37,6 +37,7 @@ const BASE_CHAIN = Common.forCustomChain(
 
 export class Misc {
   public static readonly MAX_UINT = BigNumber.from('115792089237316195423570985008687907853269984665640564039457584007913129639935');  // BigNumber.from(2).pow(256).sub(1), // === type(uint).max
+  public static readonly HUGE_UINT = BigNumber.from(2).pow(255); // 2 ** 255 is more gas efficient then type(uint).max
   public static readonly SECONDS_OF_DAY = 60 * 60 * 24;
   public static readonly SECONDS_OF_YEAR = Misc.SECONDS_OF_DAY * 365;
   public static readonly ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
