@@ -242,14 +242,17 @@ library CompoundPoolAdapterLib {
   function _supply(CompoundLib.ProtocolFeatures memory f_, address cToken_, address asset_, uint amount_) internal returns (
     uint tokenBalanceBefore
   ) {
+    console.log("_supply");
     // the amount is received through safeTransferFrom before calling of _supply(), no need additional check:
     //    require(tokenBalanceBefore >= collateralAmount_, AppErrors.MINT_FAILED);
     tokenBalanceBefore = IERC20(cToken_).balanceOf(address(this));
+    console.log("_supply.tokenBalanceBefore", tokenBalanceBefore);
 
     if (f_.nativeToken == asset_) {
       INativeToken(f_.nativeToken).withdraw(amount_);
       ICTokenNative(payable(cToken_)).mint{value: amount_}();
     } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
+      console.log("_supply.mint.amount", amount_);
       uint error = ICTokenBase(cToken_).mint(amount_);
       require(error == 0, string(abi.encodePacked(AppErrors.MINT_FAILED, Strings.toString(error))));
     }

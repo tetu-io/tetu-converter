@@ -286,6 +286,7 @@ describe("CompoundPoolAdapterLibTest", () => {
     interface IResults {
       tokenBalanceBefore: number;
       tokenBalanceAfter: number;
+      collateralBalanceBefore: number;
       collateralBalanceAfter: number;
     }
 
@@ -293,9 +294,16 @@ describe("CompoundPoolAdapterLibTest", () => {
       const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
       const decimalsCollateral = await p.collateralAsset.decimals();
 
+      await facade.setProtocolFeatures({
+        cTokenNative: p?.nativeCToken || cWeth.address, // todo
+        nativeToken: p?.nativeCToken || weth.address, // todo
+        compoundStorageVersion: 1
+      });
+
       if (p.initialTokenBalance) {
         await p.cTokenCollateral["mint(address,uint256)"](facade.address, parseUnits(p.initialTokenBalance, decimalsCTokenCollateral));
       }
+      const collateralBalanceBefore = await p.cTokenCollateral.balanceOf(facade.address);
 
       // send amount to facade
       await p.collateralAsset.mint(facade.address, parseUnits(p.amountCollateral, decimalsCollateral));
@@ -307,15 +315,16 @@ describe("CompoundPoolAdapterLibTest", () => {
         Misc.HUGE_UINT
       );
 
-      const tokenBalanceBefore = await facade.callStatic._supply(p.cTokenCollateral.address, p.collateralAsset, p.amountCollateral);
-      await facade._supply(p.cTokenCollateral.address, p.collateralAsset, p.amountCollateral);
+      const tokenBalanceBefore = await facade.callStatic._supply(p.cTokenCollateral.address, p.collateralAsset.address, p.amountCollateral);
+      await facade._supply(p.cTokenCollateral.address, p.collateralAsset.address, p.amountCollateral);
 
       const tokenBalanceAfter = await p.cTokenCollateral.balanceOf(facade.address);
 
       return {
         tokenBalanceBefore: +formatUnits(tokenBalanceBefore, decimalsCTokenCollateral),
         tokenBalanceAfter: +formatUnits(tokenBalanceAfter, decimalsCTokenCollateral),
-        collateralBalanceAfter: +formatUnits(await p.collateralAsset.balanceOf(facade.address))
+        collateralBalanceBefore:  +formatUnits(collateralBalanceBefore, decimalsCollateral),
+        collateralBalanceAfter: +formatUnits(await p.collateralAsset.balanceOf(facade.address), decimalsCollateral)
       }
     }
 
@@ -333,12 +342,18 @@ describe("CompoundPoolAdapterLibTest", () => {
           return supply({
             collateralAsset: dai,
             cTokenCollateral: cDai,
-            amountCollateral: "1"
+            amountCollateral: "1",
+            initialTokenBalance: "2"
           });
         }
 
-        it("should return expected tokenBalanceBefore", () => {
-
+        it("should return expected balance of cToken", async () => {
+          const ret = await loadFixture(supplyTest);
+          expect([ret.tokenBalanceBefore, ret.tokenBalanceAfter].join()).eq([2, 3].join());
+        });
+        it("should return expected balance of collateral", async () => {
+          const ret = await loadFixture(supplyTest);
+          expect([ret.collateralBalanceAfter, ret.collateralBalanceBefore].join()).eq([1, 0].join());
         });
       });
     });

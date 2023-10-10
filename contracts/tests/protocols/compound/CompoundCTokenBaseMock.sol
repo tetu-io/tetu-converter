@@ -2,7 +2,9 @@
 pragma solidity 0.8.17;
 
 import "../../../integrations/compound/ICTokenBase.sol";
+import "../../../openzeppelin/IERC20.sol";
 import {ERC20} from "@rari-capital/solmate/src/tokens/ERC20.sol";
+import "hardhat/console.sol";
 
 /// @notice Min common set of functions of Compound cTokens
 /// required to implement platform and pool adapters
@@ -122,9 +124,10 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @dev Accrues interest whether or not the operation succeeds, unless reverted
   /// @param mintAmount The amount of the underlying asset to supply
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function mint(uint256 mintAmount) external  pure  returns (uint256) {
-    mintAmount;
-    // todo
+  function mint(uint256 mintAmount) external returns (uint256) {
+    console.log("mint.mintAmount", mintAmount);
+    IERC20(_underlying).transferFrom(msg.sender, address(this), mintAmount);
+    mint(msg.sender, mintAmount);
     return 0;
   }
 
@@ -141,9 +144,9 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @dev Accrues interest whether or not the operation succeeds, unless reverted
   /// @param redeemTokens The number of mTokens to redeem into underlying
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function redeem(uint256 redeemTokens) external  pure  returns (uint256) {
-    redeemTokens;
-    // todo
+  function redeem(uint256 redeemTokens) external returns (uint256) {
+    IERC20(_underlying).transfer(msg.sender, redeemTokens);
+    burn(msg.sender, redeemTokens);
     return 0;
   }
   //endregion ------------------------------------------------------------- ICTokenBase
