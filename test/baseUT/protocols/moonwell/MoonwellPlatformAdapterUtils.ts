@@ -38,6 +38,7 @@ export interface IMoonwellPreparePlanBadPaths {
   frozen?: boolean;
   cTokenCollateral?: string;
   cTokenBorrow?: string;
+  platformAdapter?: string;
 }
 
 export interface IMoonwellPreparePlan extends IMoonwellPreparePlanBadPaths {
@@ -72,6 +73,7 @@ export interface IPlanSourceInfo {
 export interface IPreparePlanResults {
   plan: IConversionPlanNum;
   sourceInfo: IPlanSourceInfo;
+  gasUsed: BigNumber;
 }
 
 export class MoonwellPlatformAdapterUtils {
@@ -91,8 +93,15 @@ export class MoonwellPlatformAdapterUtils {
     const cTokenBorrow = IMToken__factory.connect(p?.cTokenBorrow ?? MoonwellUtils.getCToken(p.borrowAsset), signer);
     const cTokenCollateral = IMToken__factory.connect(p?.cTokenCollateral ?? MoonwellUtils.getCToken(p.collateralAsset), signer);
 
-    const decimalsBorrowAsset = await (IERC20Metadata__factory.connect(p.borrowAsset, signer)).decimals();
-    const decimalsCollateralAsset = await (IERC20Metadata__factory.connect(p.collateralAsset, signer)).decimals();
+    const borrowAsset = p?.cTokenBorrow
+      ? await cTokenBorrow.underlying()
+      : p.borrowAsset;
+    const collateralAsset = p?.cTokenCollateral
+      ? await cTokenCollateral.underlying()
+      : p.collateralAsset;
+
+    const decimalsBorrowAsset = await (IERC20Metadata__factory.connect(borrowAsset, signer)).decimals();
+    const decimalsCollateralAsset = await (IERC20Metadata__factory.connect(collateralAsset, signer)).decimals();
 
     const borrowAssetData = await MoonwellHelper.getCTokenData(signer, comptroller, cTokenBorrow);
     const collateralAssetData = await MoonwellHelper.getCTokenData(signer, comptroller, cTokenCollateral);
@@ -120,14 +129,29 @@ export class MoonwellPlatformAdapterUtils {
       await platformAdapter.setFrozen(true);
     }
 
-    const plan = await platformAdapter.getConversionPlan(
+    const gasUsed = await platformAdapter.estimateGas.getConversionPlan(
       {
-        collateralAsset: p?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : p.collateralAsset,
+        collateralAsset: p?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
         amountIn: parseUnits(
           p?.zeroCollateralAmount ? "0" : p.amountIn,
           entryKind === AppConstants.ENTRY_KIND_2 ? decimalsBorrowAsset : decimalsCollateralAsset
         ),
-        borrowAsset: p?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : p.borrowAsset,
+        borrowAsset: p?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+        countBlocks: p?.zeroCountBlocks ? 0 : countBlocks,
+        entryData: p.entryData ?? "0x",
+      },
+      healthFactor2,
+      {gasLimit: GAS_LIMIT},
+    );
+
+    const plan = await platformAdapter.getConversionPlan(
+      {
+        collateralAsset: p?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+        amountIn: parseUnits(
+          p?.zeroCollateralAmount ? "0" : p.amountIn,
+          entryKind === AppConstants.ENTRY_KIND_2 ? decimalsBorrowAsset : decimalsCollateralAsset
+        ),
+        borrowAsset: p?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
         countBlocks: p?.zeroCountBlocks ? 0 : countBlocks,
         entryData: p.entryData ?? "0x",
       },
@@ -150,7 +174,8 @@ export class MoonwellPlatformAdapterUtils {
         healthFactor: +formatUnits(healthFactor2, 2),
         countBlocks,
         converter: poolAdapterTemplate
-      }
+      },
+      gasUsed
     }
   }
 

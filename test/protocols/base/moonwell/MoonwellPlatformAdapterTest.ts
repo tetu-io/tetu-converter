@@ -1,6 +1,18 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {BASE_NETWORK_ID, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
-import {IMToken__factory, IERC20Metadata, IERC20Metadata__factory, IMToken, ConverterController, IMoonwellComptroller, IMoonwellPriceOracle, MoonwellPlatformAdapter, CompoundAprLibFacade, CompoundPlatformAdapterLibFacade} from "../../../../typechain";
+import {BASE_NETWORK_ID, controlGasLimitsEx2, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
+import {
+  IMToken__factory,
+  IERC20Metadata,
+  IERC20Metadata__factory,
+  IMToken,
+  ConverterController,
+  IMoonwellComptroller,
+  IMoonwellPriceOracle,
+  MoonwellPlatformAdapter,
+  CompoundAprLibFacade,
+  CompoundPlatformAdapterLibFacade,
+  MoonwellPlatformAdapter__factory
+} from "../../../../typechain";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {ethers} from "hardhat";
@@ -21,21 +33,13 @@ import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
 import {MoonwellUtils} from "../../../baseUT/protocols/moonwell/MoonwellUtils";
 import {defaultAbiCoder, formatUnits} from "ethers/lib/utils";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
-import {MocksHelper} from "../../../baseUT/app/MocksHelper";
+import {BigNumber} from "ethers";
+import {GAS_LIMIT_MOONWELL_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
 
 describe("MoonwellPlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let signer: SignerWithAddress;
-  let usdc: IERC20Metadata;
-  let cbEth: IERC20Metadata;
-  let dai: IERC20Metadata;
-  let weth: IERC20Metadata;
-
-  let cUsdc: IMToken;
-  let cCbEth: IMToken;
-  let cDai: IMToken;
-  let cWeth: IMToken;
 
   let converterController: ConverterController;
   let comptroller: IMoonwellComptroller;
@@ -53,16 +57,6 @@ describe("MoonwellPlatformAdapterTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     signer = signers[0];
-
-    usdc = IERC20Metadata__factory.connect(BaseAddresses.USDC, signer);
-    cbEth = IERC20Metadata__factory.connect(BaseAddresses.cbETH, signer);
-    dai = IERC20Metadata__factory.connect(BaseAddresses.DAI, signer);
-    weth = IERC20Metadata__factory.connect(BaseAddresses.WETH, signer);
-
-    cUsdc = IMToken__factory.connect(BaseAddresses.MOONWELL_USDC, signer);
-    cCbEth = IMToken__factory.connect(BaseAddresses.MOONWELL_CBETH, signer);
-    cDai = IMToken__factory.connect(BaseAddresses.MOONWELL_DAI, signer);
-    cWeth = IMToken__factory.connect(BaseAddresses.MOONWELL_WETH, signer);
 
     converterController  = await TetuConverterApp.createController(signer,);
     comptroller = await MoonwellHelper.getComptroller(signer);
@@ -183,16 +177,18 @@ describe("MoonwellPlatformAdapterTest", () => {
       plan: IConversionPlanNum;
       planSourceInfo: IPlanSourceInfo;
       expectedPlan: IConversionPlanNum;
+      gasUsed: BigNumber;
     }
     async function getConversionPlan(p: IMoonwellPreparePlan): Promise<IResults> {
-      const {plan, sourceInfo} = await MoonwellPlatformAdapterUtils.getConversionPlan(
-        signer,
-        comptroller,
-        priceOracle,
-        p,
-        platformAdapter,
-        poolAdapterTemplate,
-      );
+      const pa = p.platformAdapter
+        ? MoonwellPlatformAdapter__factory.connect(p.platformAdapter, signer)
+        : platformAdapter;
+
+      const {
+        plan,
+        sourceInfo,
+        gasUsed
+      } = await MoonwellPlatformAdapterUtils.getConversionPlan(signer, comptroller, priceOracle, p, pa, poolAdapterTemplate);
 
       const expectedPlan = await MoonwellPlatformAdapterUtils.getExpectedPlan(
         p,
@@ -202,7 +198,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         facadePlatformLib,
       )
 
-      return {plan, planSourceInfo: sourceInfo, expectedPlan};
+      return {plan, planSourceInfo: sourceInfo, expectedPlan, gasUsed};
     }
 
     describe("Good paths", () => {
@@ -554,19 +550,40 @@ describe("MoonwellPlatformAdapterTest", () => {
       });
     });
     describe("Bad paths", () => {
+      let snapshotLocal: string;
+      beforeEach(async function () {
+        snapshotLocal = await TimeUtils.snapshot();
+      });
+      afterEach(async function () {
+        await TimeUtils.rollback(snapshotLocal);
+      });
+
       async function tryGetConversionPlan(
         badPathsParams: IMoonwellPreparePlanBadPaths,
         collateralAsset: string = BaseAddresses.USDDbC,
         borrowAsset: string = BaseAddresses.DAI,
         collateralAmount: string = "1",
       ) : Promise<IConversionPlanNum> {
-        return (await getConversionPlan({
-          collateralAsset,
-          borrowAsset,
-          amountIn: collateralAmount,
-          ...badPathsParams
-        })).plan;
+        const pa = badPathsParams.platformAdapter
+          ? MoonwellPlatformAdapter__factory.connect(badPathsParams.platformAdapter, signer)
+          : platformAdapter;
+
+        const {plan} = await MoonwellPlatformAdapterUtils.getConversionPlan(
+          signer,
+          comptroller,
+          priceOracle,
+          {
+            collateralAsset,
+            borrowAsset,
+            amountIn: collateralAmount,
+            ...badPathsParams
+          },
+          pa,
+          poolAdapterTemplate,
+        );
+        return plan;
       }
+
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
           it("should revert", async () => {
@@ -606,21 +623,40 @@ describe("MoonwellPlatformAdapterTest", () => {
       });
       describe("cToken is not registered", () => {
         it("should fail if collateral token is not registered", async () => {
-          expect((await tryGetConversionPlan(
-            {
-              cTokenCollateral: (await MocksHelper.createMockedToken(signer, "test", 6)).address,
-            },
-            (await MocksHelper.createMockedToken(signer, "test", 6)).address,
-          )).converter).eq(Misc.ZERO_ADDRESS);
-        });
-        it("should fail if borrow token is not registered", async () => {
+          const platformAdapterNoWeth = await DeployUtils.deployContract(
+            signer,
+            "MoonwellPlatformAdapter",
+            converterController.address,
+            comptroller.address,
+            poolAdapterTemplate,
+            [BaseAddresses.MOONWELL_USDBC, BaseAddresses.MOONWELL_DAI]
+          ) as MoonwellPlatformAdapter;
 
           expect((await tryGetConversionPlan(
             {
-              cTokenBorrow: (await MocksHelper.createMockedToken(signer, "test", 6)).address,
+              cTokenCollateral: BaseAddresses.MOONWELL_WETH,
+              platformAdapter: platformAdapterNoWeth.address
+            },
+            BaseAddresses.WETH
+          )).converter).eq(Misc.ZERO_ADDRESS);
+        });
+        it("should fail if borrow token is not registered", async () => {
+          const platformAdapterNoWeth = await DeployUtils.deployContract(
+            signer,
+            "MoonwellPlatformAdapter",
+            converterController.address,
+            comptroller.address,
+            poolAdapterTemplate,
+            [BaseAddresses.MOONWELL_USDBC, BaseAddresses.MOONWELL_DAI]
+          ) as MoonwellPlatformAdapter;
+
+          expect((await tryGetConversionPlan(
+            {
+              cTokenBorrow: BaseAddresses.MOONWELL_WETH,
+              platformAdapter: platformAdapterNoWeth.address
             },
             BaseAddresses.USDDbC,
-            (await MocksHelper.createMockedToken(signer, "test", 6)).address,
+            BaseAddresses.WETH,
           )).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
@@ -652,32 +688,19 @@ describe("MoonwellPlatformAdapterTest", () => {
         });
       });
     });
-    // describe("Check gas limit @skip-on-coverage", () => {
-    //   it("should not exceed gas limits @skip-on-coverage", async () => {
-    //     const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-    //       deployer,
-    //       controller.address,
-    //       MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-    //       ethers.Wallet.createRandom().address,
-    //       [MaticAddresses.hDAI, MaticAddresses.hUSDC],
-    //     );
-    //
-    //     const gasUsed = await hfPlatformAdapter.estimateGas.getConversionPlan(
-    //       {
-    //         collateralAsset: MaticAddresses.DAI,
-    //         amountIn: parseUnits("1", 18),
-    //         borrowAsset: MaticAddresses.USDC,
-    //         countBlocks: 1000,
-    //         entryData: "0x",
-    //       },
-    //       200,
-    //       {gasLimit: GAS_LIMIT},
-    //     );
-    //     controlGasLimitsEx2(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
-    //       expect(u).to.be.below(t);
-    //     });
-    //   });
-    // });
+    describe("Check gas limit @skip-on-coverage", () => {
+      it("should not exceed gas limits", async () => {
+        const ret = await getConversionPlan({
+          collateralAsset: BaseAddresses.DAI,
+          borrowAsset: BaseAddresses.USDDbC,
+          amountIn: "1"
+        });
+
+        controlGasLimitsEx2(ret.gasUsed, GAS_LIMIT_MOONWELL_GET_CONVERSION_PLAN, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
+    });
   });
 
   // describe("getBorrowRateAfterBorrow", () => {
@@ -768,7 +791,7 @@ describe("MoonwellPlatformAdapterTest", () => {
   //     });
   //   });
   // });
-  //
+
   // describe("initializePoolAdapter", () => {
   //   let controller: ConverterController;
   //   let snapshotLocal: string;
@@ -861,202 +884,114 @@ describe("MoonwellPlatformAdapterTest", () => {
   //     });
   //   });
   // });
-  //
-  // describe("registerCTokens", () => {
-  //   describe("Good paths", () => {
-  //     it("should return expected values", async () => {
-  //       const controller = await TetuConverterApp.createController(deployer);
-  //       const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-  //         deployer,
-  //         controller.address,
-  //         HundredFinanceHelper.getComptroller(deployer).address,
-  //         ethers.Wallet.createRandom().address,
-  //         [MaticAddresses.hUSDC, MaticAddresses.hETH]
-  //       );
-  //       await platformAdapter.registerCTokens(
-  //         [MaticAddresses.hDAI, MaticAddresses.hDAI, MaticAddresses.hETH]
-  //       );
-  //
-  //       const ret = [
-  //         await platformAdapter.activeAssets(MaticAddresses.USDC),
-  //         await platformAdapter.activeAssets(MaticAddresses.WETH),
-  //         await platformAdapter.activeAssets(MaticAddresses.DAI),
-  //         await platformAdapter.activeAssets(MaticAddresses.USDT), // (!) not registered
-  //       ].join();
-  //
-  //       const expected = [
-  //         MaticAddresses.hUSDC,
-  //         MaticAddresses.hETH,
-  //         MaticAddresses.hDAI,
-  //         Misc.ZERO_ADDRESS
-  //       ].join();
-  //
-  //       expect(ret).eq(expected);
-  //     });
-  //   });
-  //   describe("Bad paths", () => {
-  //     describe("Not governance", () => {
-  //       it("should revert", async () => {
-  //         const controller = await TetuConverterApp.createController(deployer);
-  //         const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-  //           deployer,
-  //           controller.address,
-  //           HundredFinanceHelper.getComptroller(deployer).address,
-  //           ethers.Wallet.createRandom().address,
-  //           [MaticAddresses.hUSDC, MaticAddresses.hETH]
-  //         );
-  //         const platformAdapterAsNotGov = HfPlatformAdapter__factory.connect(
-  //           platformAdapter.address,
-  //           await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
-  //         );
-  //         await expect(
-  //           platformAdapterAsNotGov.registerCTokens([MaticAddresses.hUSDT])
-  //         ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
-  //       });
-  //     });
-  //     describe("Try to add not CToken", () => {
-  //       it("should revert", async () => {
-  //         const controller = await TetuConverterApp.createController(deployer);
-  //         const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-  //           deployer,
-  //           controller.address,
-  //           HundredFinanceHelper.getComptroller(deployer).address,
-  //           ethers.Wallet.createRandom().address,
-  //           [MaticAddresses.hUSDC, MaticAddresses.hETH]
-  //         );
-  //         await expect(
-  //           platformAdapter.registerCTokens(
-  //             [ethers.Wallet.createRandom().address] // (!)
-  //           )
-  //         ).revertedWithoutReason();
-  //       });
-  //     });
-  //   });
-  // });
-  //
-  // describe("events", () => {
-  //   it("should emit expected values", async () => {
-  //     const user = ethers.Wallet.createRandom().address;
-  //     const collateralAsset = MaticAddresses.DAI;
-  //     const borrowAsset = MaticAddresses.USDC;
-  //
-  //     const controller = await TetuConverterApp.createController(deployer);
-  //     const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
-  //     const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-  //       deployer,
-  //       controller.address,
-  //       MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-  //       converterNormal.address,
-  //       [MaticAddresses.hDAI, MaticAddresses.hUSDC]
-  //     );
-  //
-  //     const poolAdapter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
-  //     const platformAdapterAsBorrowManager = HfPlatformAdapter__factory.connect(
-  //       platformAdapter.address,
-  //       await DeployerUtils.startImpersonate(await controller.borrowManager())
-  //     );
-  //
-  //     function stringsEqualCaseInsensitive(s1: string, s2: string): boolean {
-  //       return s1.toUpperCase() === s2.toUpperCase();
-  //     }
-  //     await expect(
-  //       platformAdapterAsBorrowManager.initializePoolAdapter(
-  //         converterNormal.address,
-  //         poolAdapter.address,
-  //         user,
-  //         collateralAsset,
-  //         borrowAsset
-  //       )
-  //     ).to.emit(platformAdapter, "OnPoolAdapterInitialized").withArgs(
-  //       (s: string) => stringsEqualCaseInsensitive(s, converterNormal.address),
-  //       (s: string) => stringsEqualCaseInsensitive(s, poolAdapter.address),
-  //       (s: string) => stringsEqualCaseInsensitive(s, user),
-  //       (s: string) => stringsEqualCaseInsensitive(s, collateralAsset),
-  //       (s: string) => stringsEqualCaseInsensitive(s, borrowAsset)
-  //     );
-  //   });
-  // });
-  //
-  // describe("getMarketsInfo", () => {
-  //   let platformAdapter: HfPlatformAdapter;
-  //   before(async function () {
-  //     const controller = await TetuConverterApp.createController(deployer);
-  //     const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
-  //     platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-  //       deployer,
-  //       controller.address,
-  //       MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-  //       converterNormal.address,
-  //       [MaticAddresses.hDAI, MaticAddresses.hUSDC]
-  //     );
-  //   });
-  //   describe("Good paths", () => {
-  //     it("should return not zero ltv and liquidityThreshold", async () => {
-  //       const r = await platformAdapter.getMarketsInfo(MaticAddresses.hMATIC, MaticAddresses.hDAI);
-  //       expect(r.ltv18.eq(0) || r.liquidityThreshold18.eq(0)).eq(false);
-  //     });
-  //   });
-  //   describe("Bad paths", () => {
-  //     describe("Collateral token is unregistered in the protocol", () => {
-  //       it("should return zero ltv and zero liquidityThreshold", async () => {
-  //         const r = await platformAdapter.getMarketsInfo(ethers.Wallet.createRandom().address, MaticAddresses.hDAI);
-  //         console.log(r);
-  //         expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
-  //       });
-  //     });
-  //     describe("Borrow token is unregistered in the protocol", () => {
-  //       it("should return zero ltv and zero liquidityThreshold", async () => {
-  //         const r = await platformAdapter.getMarketsInfo(MaticAddresses.hDAI, ethers.Wallet.createRandom().address);
-  //         console.log(r);
-  //         console.log(r.ltv18.eq(0));
-  //         console.log(r.liquidityThreshold18.eq(0));
-  //         expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
-  //       });
-  //     });
-  //   });
-  // });
-  //
-  // describe("setFrozen", () => {
-  //   it("should assign expected value to frozen", async () => {
-  //     const controller = await TetuConverterApp.createController(deployer,
-  //       {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-  //     );
-  //
-  //     const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-  //     const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-  //       deployer,
-  //       controller.address,
-  //       comptroller.address,
-  //       ethers.Wallet.createRandom().address,
-  //       [],
-  //     );
-  //
-  //     const before = await hfPlatformAdapter.frozen();
-  //     await hfPlatformAdapter.setFrozen(true);
-  //     const middle = await hfPlatformAdapter.frozen();
-  //     await hfPlatformAdapter.setFrozen(false);
-  //     const after = await hfPlatformAdapter.frozen();
-  //
-  //     const ret = [before, middle, after].join();
-  //     const expected = [false, true, false].join();
-  //
-  //     expect(ret).eq(expected);
-  //   });
-  // });
-  //
-  // describe("platformKind", () => {
-  //   it("should return expected values", async () => {
-  //     const controller = await TetuConverterApp.createController(deployer);
-  //     const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
-  //     const pa = await AdaptersHelper.createHundredFinancePlatformAdapter(
-  //       deployer,
-  //       controller.address,
-  //       MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-  //       converterNormal.address,
-  //       [MaticAddresses.hDAI, MaticAddresses.hUSDC]
-  //     );
-  //     expect((await pa.platformKind())).eq(1); // LendingPlatformKinds.DFORCE_1
-  //   });
-  // });
+
+  describe("registerCTokens", () => {
+    let platformAdapterLocal: MoonwellPlatformAdapter;
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      platformAdapterLocal = await DeployUtils.deployContract(
+        signer,
+        "MoonwellPlatformAdapter",
+        converterController.address,
+        comptroller.address,
+        poolAdapterTemplate,
+        [] // no mTokens are registered at first
+      ) as MoonwellPlatformAdapter;
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        await platformAdapterLocal.registerCTokens([BaseAddresses.MOONWELL_USDBC, BaseAddresses.MOONWELL_DAI]);
+
+        expect([
+          await platformAdapterLocal.activeAssets(BaseAddresses.USDC),  // (!) not registered
+          await platformAdapterLocal.activeAssets(BaseAddresses.USDDbC),
+          await platformAdapterLocal.activeAssets(BaseAddresses.DAI),
+        ].join().toLowerCase()).eq([
+          Misc.ZERO_ADDRESS,
+          BaseAddresses.MOONWELL_USDBC,
+          BaseAddresses.MOONWELL_DAI,
+        ].join().toLowerCase());
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Not governance", () => {
+        it("should revert", async () => {
+          await expect(
+            platformAdapterLocal.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).registerCTokens([BaseAddresses.MOONWELL_USDBC])
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+        });
+      });
+      describe("Try to add not CToken", () => {
+        it("should revert", async () => {
+          await expect(
+            platformAdapterLocal.registerCTokens(
+              [ethers.Wallet.createRandom().address] // (!)
+            )
+          ).revertedWithoutReason();
+        });
+      });
+    });
+  });
+
+  describe("getMarketsInfo", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    describe("Good paths", () => {
+      it("should return not zero ltv and liquidityThreshold", async () => {
+        const r = await platformAdapter.getMarketsInfo(BaseAddresses.MOONWELL_WETH, BaseAddresses.MOONWELL_USDBC);
+        expect(r.ltv18.eq(0) || r.liquidityThreshold18.eq(0)).eq(false);
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Collateral token is unregistered in the protocol", () => {
+        it("should return zero ltv and zero liquidityThreshold", async () => {
+          const r = await platformAdapter.getMarketsInfo(ethers.Wallet.createRandom().address, BaseAddresses.MOONWELL_USDBC);
+          expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
+        });
+      });
+      describe("Borrow token is unregistered in the protocol", () => {
+        it("should return zero ltv and zero liquidityThreshold", async () => {
+          const r = await platformAdapter.getMarketsInfo(BaseAddresses.MOONWELL_WETH, ethers.Wallet.createRandom().address);
+          expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
+        });
+      });
+    });
+  });
+
+  describe("setFrozen", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    it("should assign expected value to frozen", async () => {
+      const before = await platformAdapter.frozen();
+      await platformAdapter.setFrozen(true);
+      const middle = await platformAdapter.frozen();
+      await platformAdapter.setFrozen(false);
+      const after = await platformAdapter.frozen();
+
+      expect([before, middle, after].join()).eq([false, true, false].join());
+    });
+  });
+
+  describe("platformKind", () => {
+    it("should return expected values", async () => {
+      expect((await platformAdapter.platformKind())).eq(AppConstants.LENDING_PLATFORM_KIND_MOONWELL_6);
+    });
+  });
 //endregion Unit tests
 });
