@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import "../../../integrations/compound/ICTokenBase.sol";
 import "../../../openzeppelin/IERC20.sol";
+import "../../../openzeppelin/IERC20Metadata.sol";
 import {ERC20} from "@rari-capital/solmate/src/tokens/ERC20.sol";
 import "hardhat/console.sol";
 
@@ -15,6 +16,7 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   uint internal _totalReserves;
   uint internal _reserveFactorMantissa;
   address internal _interestRateModel;
+  uint internal _mintErrorCode;
 
   constructor(
     string memory _name,
@@ -48,6 +50,9 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   }
   function setReserveFactorMantissa(uint reserveFactorMantissa_) external {
     _reserveFactorMantissa = reserveFactorMantissa_;
+  }
+  function setMintErrorCode(uint errorCode_) external {
+    _mintErrorCode = errorCode_;
   }
   //endregion ------------------------------------------------------------- Set up ICTokenBase
 
@@ -126,9 +131,14 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
   function mint(uint256 mintAmount) external returns (uint256) {
     console.log("mint.mintAmount", mintAmount);
-    IERC20(_underlying).transferFrom(msg.sender, address(this), mintAmount);
+    console.log("mint.underlying.token.balance0", IERC20(_underlying).balanceOf(address(this)));
+    console.log("mint.token.sender.balance0", IERC20(address(this)).balanceOf(msg.sender));
+    uint underlyingAmount = mintAmount * 10**IERC20Metadata(_underlying).decimals() / 10**IERC20Metadata(address(this)).decimals();
+    IERC20(_underlying).transferFrom(msg.sender, address(this), underlyingAmount);
     mint(msg.sender, mintAmount);
-    return 0;
+    console.log("mint.underlying.token.balance1", IERC20(_underlying).balanceOf(address(this)));
+    console.log("mint.token.sender.balance1", IERC20(address(this)).balanceOf(msg.sender));
+    return _mintErrorCode;
   }
 
   /// @notice Sender repays their own borrow

@@ -55,7 +55,11 @@ import {
   DForceRewardDistributorMock,
   UpgradeableProxyFacade,
   ControllableV3Facade,
-  TetuConverterCallbackMock, BorrowManagerMock, ConverterControllerMock, CompoundCTokenBaseMock
+  TetuConverterCallbackMock,
+  BorrowManagerMock,
+  ConverterControllerMock,
+  CompoundCTokenBaseMock,
+  CompoundComptrollerMockV1, CompoundComptrollerMockV2
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -652,7 +656,7 @@ export class MocksHelper {
   }
 
   public static async createPriceFeed(signer: SignerWithAddress): Promise<PriceFeedMock> {
-    return (await DeployUtils.deployContract(signer, 'PriceFeedMock', )) as PriceFeedMock;
+    return (await DeployUtils.deployContract(signer, 'PriceFeedMock',)) as PriceFeedMock;
   }
 //endregion Compound3 mocks
 
@@ -665,6 +669,7 @@ export class MocksHelper {
   }
 //endregion Proxy
 
+//region Compound
   public static async createCompoundCTokenBaseMock(
     signer: SignerWithAddress,
     name: string,
@@ -680,4 +685,11 @@ export class MocksHelper {
     )) as CompoundCTokenBaseMock;
   }
 
+  public static async createCompoundComptrollerMockV1(signer: SignerWithAddress): Promise<CompoundComptrollerMockV1> {
+    return (await DeployUtils.deployContract(signer, 'CompoundComptrollerMockV1')) as CompoundComptrollerMockV1;
+  }
+  public static async createCompoundComptrollerMockV2(signer: SignerWithAddress): Promise<CompoundComptrollerMockV2> {
+    return (await DeployUtils.deployContract(signer, 'CompoundComptrollerMockV2')) as CompoundComptrollerMockV2;
+  }
+//endregion Compound
 }

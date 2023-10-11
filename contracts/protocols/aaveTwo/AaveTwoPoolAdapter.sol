@@ -569,7 +569,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       totalCollateralBase != 0 || totalDebtBase != 0,
       aTokensBalance > collateralBalanceATokens
         ? 0
-        : (collateralBalanceATokens - aTokensBalance),
+        : (collateralBalanceATokens - aTokensBalance), // todo it should return amount of collateral, not amount of a-tokens
     // Debt gap should be used to pay the debt to workaround dust tokens problem.
     // It means that the user should pay slightly higher amount than the current totalDebtBase.
     // It give us a possibility to pass type(uint).max to repay function.

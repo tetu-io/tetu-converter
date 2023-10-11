@@ -104,7 +104,7 @@ contract CompoundPoolAdapterLibFacade {
     address cTokenCollateral_,
     address cTokenBorrow_
   ) external view returns (uint, uint) {
-    return CompoundPoolAdapterLib._validateHealthStatusAfterBorrow(_state, _f, controller_, comptroller_, cTokenCollateral_, cTokenBorrow_);
+    return CompoundPoolAdapterLib._validateHealthStatusAfterBorrow(_f, controller_, comptroller_, cTokenCollateral_, cTokenBorrow_);
   }
 
   function borrowToRebalance(uint borrowAmount_, address receiver_) external returns (
@@ -146,32 +146,20 @@ contract CompoundPoolAdapterLibFacade {
     return CompoundPoolAdapterLib.getStatus(_state, _f);
   }
 
-  function _getStatus(
-    ICompoundComptrollerBase comptroller,
-    uint collateralTokensBalance,
-    address cTokenCollateral,
-    address cTokenBorrow
-  ) external view returns (
-    uint tokenBalanceOut,
-    uint borrowBalanceOut,
-    uint collateralBaseOut,
-    uint borrowBaseOut,
-    uint outPriceCollateral,
-    uint outCollateralAmountLiquidatedBase
-  ) {
-    return CompoundPoolAdapterLib._getStatus(comptroller, collateralTokensBalance, cTokenCollateral, cTokenBorrow);
-  }
-
-  function _getHealthFactor(
-    ICompoundComptrollerBase comptroller_,
-    address cTokenCollateral_,
-    uint sumCollateral_,
-    uint sumBorrowPlusEffects_
-  ) external view returns (
-    uint sumCollateralSafe,
+  function _getHealthFactor(uint collateralFactor, uint collateralAmountBase_, uint borrowAmountBase_) external pure returns (
+    uint collateralAmountBaseSafeToUse,
     uint healthFactor18
   ) {
-    return CompoundPoolAdapterLib._getHealthFactor(_f, comptroller_, cTokenCollateral_, sumCollateral_, sumBorrowPlusEffects_);
+    return CompoundPoolAdapterLib._getHealthFactor(collateralFactor, collateralAmountBase_, borrowAmountBase_);
+  }
+
+  function _getCollateralFactor(
+    ICompoundComptrollerBase comptroller_,
+    address cTokenCollateral_
+  ) external view returns (
+    uint collateralFactor
+  ) {
+    return CompoundPoolAdapterLib._getCollateralFactor(_f, comptroller_, cTokenCollateral_);
   }
 
   function _validateHealthFactor(IConverterController controller_, uint hf18) external view {
@@ -182,5 +170,11 @@ contract CompoundPoolAdapterLibFacade {
     return CompoundPoolAdapterLib._getBalance(_f, asset);
   }
 
+  function _getBaseAmounts(CompoundPoolAdapterLib.StatusSourceData memory data) internal pure returns (
+    uint collateralBase,
+    uint borrowBase
+  ) {
+    return CompoundPoolAdapterLib._getBaseAmounts(data);
+  }
   //endregion -------------------------------------------------------- CompoundPoolAdapterLib
 }

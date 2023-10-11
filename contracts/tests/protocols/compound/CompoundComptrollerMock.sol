@@ -6,7 +6,7 @@ import "../../utils/TestUtilsLib.sol";
 
 /// @notice Min common set of functions of Compound cTokens
 /// required to implement platform and pool adapters
-contract CompoundComptrollerMock is ICompoundComptrollerBase {
+abstract contract CompoundComptrollerMock is ICompoundComptrollerBase {
   address internal _oracle;
   mapping(bytes32 => uint[]) internal _enterMarkets;
   mapping(address => uint[3]) internal _getAccountLiquidity;

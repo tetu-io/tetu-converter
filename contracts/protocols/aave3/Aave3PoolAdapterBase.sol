@@ -536,7 +536,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,
-      collateralAmountLiquidated,
+      collateralAmountLiquidated, // todo it should return amount of collateral, not amount of a-tokens
 
     // Debt gap should be used to pay the debt to workaround dust tokens problem.
     // It means that the user should pay slightly higher amount than the current totalDebtBase.

@@ -620,7 +620,7 @@ describe("CompoundPlatformAdapterLibTest", () => {
     }
 
     async function getMaxAmountToBorrow(p: IParams): Promise<IResults> {
-      const comptroller = await DeployUtils.deployContract(deployer, 'CompoundComptrollerMock') as CompoundComptrollerMock;
+      const comptroller = await MocksHelper.createCompoundComptrollerMockV2(signer);
 
       const borrowCToken = p.borrowCToken ?? cUsdt;
       const borrowAsset = MockERC20__factory.connect(await borrowCToken.underlying(), deployer);
@@ -809,7 +809,7 @@ describe("CompoundPlatformAdapterLibTest", () => {
       const cTokens = p.cTokens ?? [cUsdc, cUsdt];
       const assets = p.assets ?? [usdc, usdt];
 
-      const comptroller = await DeployUtils.deployContract(deployer, 'CompoundComptrollerMock') as CompoundComptrollerMock;
+      const comptroller = await MocksHelper.createCompoundComptrollerMockV2(deployer);
       const oracle = await DeployUtils.deployContract(deployer, "CompoundPriceOracleMock") as CompoundPriceOracleMock;
       await comptroller.setOracle(oracle.address);
       for (let i = 0; i < cTokens.length; ++i) {

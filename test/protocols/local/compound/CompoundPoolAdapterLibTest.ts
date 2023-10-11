@@ -10,7 +10,11 @@ import {
   ConverterController,
   Borrower,
   IERC20Metadata__factory,
-  CompoundComptrollerMock, TokenAddressProviderMock, IERC20__factory,
+  CompoundComptrollerMock,
+  TokenAddressProviderMock,
+  IERC20__factory,
+  CompoundComptrollerMockV2,
+  CompoundComptrollerMockV1,
 } from "../../../../typechain";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {MocksHelper} from "../../../baseUT/app/MocksHelper";
@@ -21,6 +25,7 @@ import {Misc} from "../../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
+import {AppConstants} from "../../../baseUT/types/AppConstants";
 
 describe("CompoundPoolAdapterLibTest", () => {
 //region Global vars for all tests
@@ -29,7 +34,8 @@ describe("CompoundPoolAdapterLibTest", () => {
   let controller: ConverterController;
   let userContract: Borrower;
   let facade: CompoundPoolAdapterLibFacade;
-  let comptroller: CompoundComptrollerMock;
+  let comptrollerV1: CompoundComptrollerMockV1;
+  let comptrollerV2: CompoundComptrollerMockV2;
   let tokenAddressProviderMock: TokenAddressProviderMock;
 
   let usdc: MockERC20;
@@ -54,7 +60,8 @@ describe("CompoundPoolAdapterLibTest", () => {
     const signers = await ethers.getSigners();
     signer = signers[0];
     facade = await DeployUtils.deployContract(signer, "CompoundPoolAdapterLibFacade") as CompoundPoolAdapterLibFacade;
-    comptroller = await DeployUtils.deployContract(signer, "CompoundComptrollerMock") as CompoundComptrollerMock;
+    comptrollerV1 = await MocksHelper.createCompoundComptrollerMockV1(signer);
+    comptrollerV2 = await MocksHelper.createCompoundComptrollerMockV2(signer);
     tokenAddressProviderMock = await DeployUtils.deployContract(signer, "TokenAddressProviderMock") as TokenAddressProviderMock;
 
     usdc = await DeployUtils.deployContract(signer, 'MockERC20', 'USDC', 'USDC', 6) as MockERC20;
@@ -173,7 +180,7 @@ describe("CompoundPoolAdapterLibTest", () => {
           await tokenAddressProviderMock.initExplicit(usdc.address, cUsdc.address, usdt.address, cUsdt.address);
           return initialize({
             controller: controller.address,
-            comptroller: comptroller.address,
+            comptroller: comptrollerV2.address,
             cTokenAddressProvider: tokenAddressProviderMock.address,
             user: userContract.address,
             collateralAsset: usdc.address,
@@ -184,7 +191,7 @@ describe("CompoundPoolAdapterLibTest", () => {
 
         it("should set expected controller and comptroller", async () => {
           const {state} = await loadFixture(initializeTest);
-          expect([state.controller, state.comptroller].join()).eq([controller.address, comptroller.address].join());
+          expect([state.controller, state.comptroller].join()).eq([controller.address, comptrollerV2.address].join());
         });
         it("should set expected user and originConverter", async () => {
           const {state} = await loadFixture(initializeTest);
@@ -237,7 +244,7 @@ describe("CompoundPoolAdapterLibTest", () => {
           );
           return initialize({
             controller: p?.controller || controller.address,
-            comptroller: p?.comptroller || comptroller.address,
+            comptroller: p?.comptroller || comptrollerV2.address,
             cTokenAddressProvider: p?.cTokenAddressProvider || tokenAddressProviderMock.address,
             user: p?.user || userContract.address,
             borrowAsset: p?.borrowAsset || usdc.address,
@@ -286,13 +293,14 @@ describe("CompoundPoolAdapterLibTest", () => {
     interface IResults {
       tokenBalanceBefore: number;
       tokenBalanceAfter: number;
-      collateralBalanceBefore: number;
-      collateralBalanceAfter: number;
+      userAssetBalanceBefore: number;
+      userAssetBalanceAfter: number;
     }
 
     async function supply(p: IParams): Promise<IResults> {
       const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
       const decimalsCollateral = await p.collateralAsset.decimals();
+      const amountCollateral = parseUnits(p.amountCollateral, decimalsCollateral);
 
       await facade.setProtocolFeatures({
         cTokenNative: p?.nativeCToken || cWeth.address, // todo
@@ -303,10 +311,10 @@ describe("CompoundPoolAdapterLibTest", () => {
       if (p.initialTokenBalance) {
         await p.cTokenCollateral["mint(address,uint256)"](facade.address, parseUnits(p.initialTokenBalance, decimalsCTokenCollateral));
       }
-      const collateralBalanceBefore = await p.cTokenCollateral.balanceOf(facade.address);
 
       // send amount to facade
-      await p.collateralAsset.mint(facade.address, parseUnits(p.amountCollateral, decimalsCollateral));
+      await p.collateralAsset.mint(facade.address, amountCollateral);
+      const userAssetBalanceBefore = await p.collateralAsset.balanceOf(facade.address);
 
       // infinite approve
       const signerFacade = await Misc.impersonate(facade.address);
@@ -315,16 +323,16 @@ describe("CompoundPoolAdapterLibTest", () => {
         Misc.HUGE_UINT
       );
 
-      const tokenBalanceBefore = await facade.callStatic._supply(p.cTokenCollateral.address, p.collateralAsset.address, p.amountCollateral);
-      await facade._supply(p.cTokenCollateral.address, p.collateralAsset.address, p.amountCollateral);
+      const tokenBalanceBefore = await facade.callStatic._supply(p.cTokenCollateral.address, p.collateralAsset.address, amountCollateral);
+      await facade._supply(p.cTokenCollateral.address, p.collateralAsset.address, amountCollateral);
 
       const tokenBalanceAfter = await p.cTokenCollateral.balanceOf(facade.address);
 
       return {
         tokenBalanceBefore: +formatUnits(tokenBalanceBefore, decimalsCTokenCollateral),
         tokenBalanceAfter: +formatUnits(tokenBalanceAfter, decimalsCTokenCollateral),
-        collateralBalanceBefore:  +formatUnits(collateralBalanceBefore, decimalsCollateral),
-        collateralBalanceAfter: +formatUnits(await p.collateralAsset.balanceOf(facade.address), decimalsCollateral)
+        userAssetBalanceBefore:  +formatUnits(userAssetBalanceBefore, decimalsCollateral),
+        userAssetBalanceAfter: +formatUnits(await p.collateralAsset.balanceOf(facade.address), decimalsCollateral)
       }
     }
 
@@ -353,9 +361,177 @@ describe("CompoundPoolAdapterLibTest", () => {
         });
         it("should return expected balance of collateral", async () => {
           const ret = await loadFixture(supplyTest);
-          expect([ret.collateralBalanceAfter, ret.collateralBalanceBefore].join()).eq([1, 0].join());
+          expect([ret.userAssetBalanceBefore, ret.userAssetBalanceAfter].join()).eq([1, 0].join());
         });
       });
+      describe("Bad paths", () => {
+        let snapshotLocal: string;
+        beforeEach(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        afterEach(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
+
+        it("should revert if mint produces an error", async () => {
+          await cDai.setMintErrorCode(999);
+          await expect(supply({
+            collateralAsset: dai,
+            cTokenCollateral: cDai,
+            amountCollateral: "1",
+            initialTokenBalance: "2"
+          })).rejectedWith("TC-17 mint failed:999"); // MINT_FAILED
+        });
+      });
+    });
+  });
+
+  describe("_getCollateralFactor", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      cTokenCollateral: CompoundCTokenBaseMock;
+      compoundStorageVersion: number;
+      collateralFactor: string;
+    }
+
+    interface IResults {
+      collateralFactor: number;
+    }
+
+    async function getCollateralFactor(p: IParams): Promise<IResults> {
+      const comptroller = p.compoundStorageVersion === AppConstants.COMPOUND_STORAGE_V1
+        ? comptrollerV1
+        : comptrollerV2;
+
+      if (p.compoundStorageVersion === AppConstants.COMPOUND_STORAGE_V1) {
+        await comptrollerV1.setMarkets(p.cTokenCollateral.address, false, parseUnits(p.collateralFactor, 5));
+      } else {
+        await comptrollerV2.setMarkets(p.cTokenCollateral.address, false, parseUnits(p.collateralFactor, 5), false);
+      }
+
+      await facade.setProtocolFeatures({
+        cTokenNative: cWeth.address,
+        nativeToken: weth.address,
+        compoundStorageVersion: p.compoundStorageVersion
+      });
+      const collateralFactor = await facade._getCollateralFactor(comptroller.address, p.cTokenCollateral.address);
+      return {
+        collateralFactor: +formatUnits(collateralFactor, 5)
+      }
+    }
+    describe("ICompoundComptrollerBaseV1", () => {
+      describe("Normal case", () => {
+        it("should return expected collateral factor", async () => {
+          const {collateralFactor} = await getCollateralFactor({
+            collateralFactor: "0.1",
+            cTokenCollateral: cDai,
+            compoundStorageVersion: 1
+          });
+          expect(collateralFactor).eq(0.1);
+        })
+      });
+    });
+    describe("ICompoundComptrollerBaseV2", () => {
+      describe("Normal case", () => {
+        it("should return expected collateral factor", async () => {
+          const {collateralFactor} = await getCollateralFactor({
+            collateralFactor: "0.1",
+            cTokenCollateral: cDai,
+            compoundStorageVersion: 2
+          });
+          expect(collateralFactor).eq(0.1);
+        })
+      });
+    });
+  });
+
+  describe("_getHealthFactor", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      collateralFactor: string;
+      collateralAmountBase: string;
+      borrowAmountBase: string;
+    }
+
+    interface IResults {
+      collateralAmountBaseSafeToUse: number;
+      healthFactor: number;
+    }
+
+    async function getHealthFactor(p: IParams): Promise<IResults> {
+      const ret = await facade._getHealthFactor(
+        parseUnits(p.collateralFactor, 18),
+        parseUnits(p.collateralAmountBase, 8),
+        parseUnits(p.borrowAmountBase, 8),
+      );
+      return {
+        healthFactor: ret.healthFactor18.eq(Misc.MAX_UINT)
+          ? Number.MAX_VALUE
+          : +formatUnits(ret.healthFactor18, 18),
+        collateralAmountBaseSafeToUse: +formatUnits(ret.collateralAmountBaseSafeToUse, 8)
+      }
+    }
+
+    it("should return expected values in normal case", async () => {
+      const {collateralAmountBaseSafeToUse, healthFactor} = await getHealthFactor({
+        collateralAmountBase: "800",
+        borrowAmountBase: "500",
+        collateralFactor: "0.5"
+      });
+      expect([collateralAmountBaseSafeToUse, healthFactor].join()).eq([400, 0.8].join());
+    });
+
+    it("should return healthFactor=MAX_UINT if there is no borrow", async () => {
+      const {collateralAmountBaseSafeToUse, healthFactor} = await getHealthFactor({
+        collateralAmountBase: "800",
+        borrowAmountBase: "0",
+        collateralFactor: "0.5"
+      });
+      expect([collateralAmountBaseSafeToUse, healthFactor].join()).eq([400, Number.MAX_VALUE].join());
+    });
+  });
+
+  describe("_validateHealthStatusAfterBorrow", () => {
+    interface IParams {
+      initialTokenBalance?: string;
+
+      cTokenCollateral: CompoundCTokenBaseMock;
+      cTokenBorrow: CompoundCTokenBaseMock;
+
+      nativeCToken?: string; // cEther by default
+      nativeToken?: string; // ether by default
+    }
+
+    interface IResults {
+      tokenBalanceBefore: number;
+      tokenBalanceAfter: number;
+      userAssetBalanceBefore: number;
+      userAssetBalanceAfter: number;
+    }
+
+    async function validateHealthStatusAfterBorrow(p: IParams): Promise<IResults> {
+
+    }
+
+    describe("Normal case", () => {
+
+    });
+    describe("Bad paths", () => {
+
     });
   });
 //endregion Unit tests
