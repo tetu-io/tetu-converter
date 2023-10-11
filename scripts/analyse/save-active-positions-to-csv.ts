@@ -7,8 +7,7 @@ import {
   IPlatformAdapter__factory,
   IPoolAdapter__factory
 } from "../../typechain";
-import {readFileSync, writeFileSync} from "fs";
-import {CollectStatusesImpl, IGetStatus} from "../../test/baseUT/analyse/CollectStatusesImpl";
+import {writeFileSync} from "fs";
 import {formatUnits} from "ethers/lib/utils";
 import {getCurrentTimestamp} from "hardhat/internal/hardhat-network/provider/utils/getCurrentTimestamp";
 
@@ -77,21 +76,21 @@ async function main() {
   const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
   // ----------------------------  collect statistics for current block and history
-  let history_counter = 0;
-  let current_block: number = 0;
+  let historyCounter = 0;
+  let currentBlock: number = 0;
   const positions: IPositionInfo[] = [];
   const currentTimestamp = getCurrentTimestamp();
 
-  while (history_counter <= HISTORY_LEN) {
+  while (historyCounter <= HISTORY_LEN) {
     await network.provider.request({
       method: "hardhat_reset",
       params: [
         {
           forking: {
             jsonRpcUrl: process.env.TETU_MATIC_RPC_URL,
-            blockNumber: current_block === 0
+            blockNumber: currentBlock === 0
               ? INITIAL_BLOCK
-              : current_block
+              : currentBlock
           },
         },
       ],
@@ -99,10 +98,10 @@ async function main() {
 
     const countPositions = (await debtMonitor.getCountPositions()).toNumber();
 
-    current_block = await ethers.provider.getBlockNumber();
-    const blockInfo = await ethers.provider.getBlock(current_block);
+    currentBlock = await ethers.provider.getBlockNumber();
+    const blockInfo = await ethers.provider.getBlock(currentBlock);
 
-    console.log("current block", current_block);
+    console.log("current block", currentBlock);
     console.log("current timestamp", getCurrentTimestamp());
     console.log("block timestamp", blockInfo.timestamp);
 
@@ -120,7 +119,7 @@ async function main() {
 
       const blockTimestamp = blockInfo.timestamp.valueOf();
       const position: IPositionInfo = {
-        block: current_block,
+        block: currentBlock,
         timestamp:  blockTimestamp,
         hoursPassed: Math.abs(currentTimestamp.valueOf() - blockTimestamp.valueOf()) / 60/60, // s => hours
 
@@ -147,8 +146,8 @@ async function main() {
       console.log(position);
 
     }
-    current_block -= HISTORY_INTERVAL;
-    history_counter++;
+    currentBlock -= HISTORY_INTERVAL;
+    historyCounter++;
 
   }
   // ----------------------------  write statistics to CSV columns
@@ -201,7 +200,7 @@ async function main() {
   for (let nline = 0; nline < countLines; ++nline) {
     const line: string[] = [];
     for (let ncol = 0; ncol < columns.length; ++ncol) {
-      if (nline !== 0 || ncol == 0 || columns[ncol][nline] != columns[ncol - 1][nline]) {
+      if (nline !== 0 || ncol == 0 || columns[ncol][nline] !== columns[ncol - 1][nline]) {
         line.push(columns[ncol][nline]);
       } else {
         // show block for first position only

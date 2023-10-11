@@ -41,19 +41,11 @@ export class HardhatUtils {
   }
 }
 
-/**
- * @deprecated Check gas in separate it() and use @skip-on-coverage to skip such it() on coverage
- */
-export function controlGasLimitsEx(
+export function controlGasLimitsEx2(
   gasUsed: BigNumber,
   gasLimit: number,
   f: (gasUsed: BigNumber, gasLimit: number) => void
 ) {
-  const env = EnvSetup.getEnv();
-  if (env.disableGasLimitControl === 1) {
-    console.log(`Gas control is skipped: used=${gasUsed.toNumber()} limit=${gasLimit}}`);
-  } else {
-    f(gasUsed, gasLimit);
-    console.log(`Limit - used = ${gasLimit - gasUsed.toNumber()}, used=${gasUsed.toNumber()}`);
-  }
+  f(gasUsed, gasLimit);
+  console.log(`Limit - used = ${gasLimit - gasUsed.toNumber()}, used=${gasUsed.toNumber()}`);
 }

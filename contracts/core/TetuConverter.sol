@@ -35,7 +35,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
-  string public constant TETU_CONVERTER_VERSION = "1.0.5";
+  string public constant TETU_CONVERTER_VERSION = "1.1.0";
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   //endregion ----------------------------------------------------- Constants
@@ -54,10 +54,12 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   /// @notice Local vars for {findConversionStrategy}
   struct FindConversionStrategyLocal {
     address[] borrowConverters;
+    address user;
+    address swapConverter;
+    IBorrowManager borrowManager;
     uint[] borrowSourceAmounts;
     uint[] borrowTargetAmounts;
     int[] borrowAprs18;
-    address swapConverter;
     uint swapSourceAmount;
     uint swapTargetAmount;
     int swapApr18;
@@ -117,11 +119,19 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
 
     FindConversionStrategyLocal memory p;
     if (!_controller.paused()) {
+      p.borrowManager = IBorrowManager(_controller.borrowManager());
+
+      // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
+      p.user = _controller.rebalanceOnBorrowEnabled()
+        && IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length != 0
+        ? msg.sender
+        : address(0);
+
       (p.borrowConverters,
         p.borrowSourceAmounts,
         p.borrowTargetAmounts,
         p.borrowAprs18
-      ) = IBorrowManager(_controller.borrowManager()).findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
+      ) = p.borrowManager.findConverter(entryData_, p.user, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
 
       (p.swapConverter,
         p.swapSourceAmount,
@@ -161,9 +171,18 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
     IConverterController _controller = IConverterController(controller());
-    return _controller.paused()
-      ? (converters, collateralAmountsOut, amountToBorrowsOut, aprs18) // no conversion is available
-      : IBorrowManager(_controller.borrowManager()).findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
+    if (_controller.paused()) {
+      return (converters, collateralAmountsOut, amountToBorrowsOut, aprs18); // no conversion is available
+    } else {
+    // little gas optimization: skip any checking of exist debts if the user doesn't have any debts at all
+      address user = _controller.rebalanceOnBorrowEnabled()
+        && IDebtMonitor(_controller.debtMonitor()).getPositions(msg.sender, sourceToken_, targetToken_).length != 0
+        ? msg.sender
+        : address(0);
+
+      IBorrowManager borrowManager = IBorrowManager(_controller.borrowManager());
+      return borrowManager.findConverter(entryData_, user, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
+    }
   }
 
   /// @inheritdoc ITetuConverter
@@ -241,19 +260,12 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       address poolAdapter = borrowManager.getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
 
       if (poolAdapter != address(0)) {
-        // the pool adapter can have three possible states:
-        // - healthy (normal), it's ok to make new borrow using the pool adapter
-        // - unhealthy, health factor is less 1. It means that liquidation happens and the pool adapter is not usable.
-        // - unhealthy, health factor is greater 1 but it's less min-allowed-value. It means, that rebalance wasn't made
         (,, uint healthFactor18,,,) = IPoolAdapter(poolAdapter).getStatus();
-        if (healthFactor18 < 1e18) {
+        ConverterLogicLib.HealthStatus status = ConverterLogicLib.getHealthStatus(healthFactor18, _controller.minHealthFactor2());
+        if (status == ConverterLogicLib.HealthStatus.DIRTY_1) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
           borrowManager.markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
           poolAdapter = address(0);
-        } else if (healthFactor18 <= (uint(_controller.minHealthFactor2()) * 10 ** (18 - 2))) {
-          // this is not normal situation
-          // keeper doesn't work? it's too risky to make new borrow
-          revert(AppErrors.REBALANCING_IS_REQUIRED);
         }
       }
 
@@ -273,7 +285,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
       require(converter_ == _controller.swapManager(), AppErrors.INCORRECT_CONVERTER_TO_SWAP);
       borrowedAmountOut = _makeSwap(converter_, collateralAsset_, collateralAmount_, borrowAsset_, receiver_);
     } else {
-      revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
+      revert(AppErrors.UNSUPPORTED_VALUE);
     }
   }
 

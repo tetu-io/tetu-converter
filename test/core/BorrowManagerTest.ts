@@ -32,7 +32,11 @@ import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HARDHAT_NETWORK_ID,
+  HardhatUtils
+} from "../../scripts/utils/HardhatUtils";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -285,6 +289,7 @@ describe("BorrowManager", () => {
     console.log("Source amount:", getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()).toString());
     const ret = await core.bm.findConverter(
       "0x",
+      ethers.Wallet.createRandom().address, // new user
       sourceToken.address,
       params?.targetAssetToSearch || targetToken.address,
       getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
@@ -293,6 +298,7 @@ describe("BorrowManager", () => {
     const gas = params?.estimateGas
       ? await core.bm.estimateGas.findConverter(
         "0x",
+        ethers.Wallet.createRandom().address, // new user
         sourceToken.address,
         params?.targetAssetToSearch || targetToken.address,
         getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
@@ -374,6 +380,7 @@ describe("BorrowManager", () => {
     const sourceAmount = getBigNumberFrom(sourceAmountNum, await sourceToken.decimals());
     const r = await core.bm.findConverter(
       "0x",
+      ethers.Wallet.createRandom().address, // new user
       sourceToken.address,
       targetToken.address,
       sourceAmount,
@@ -1192,7 +1199,7 @@ describe("BorrowManager", () => {
                   availableLiquidityInTokens: [0, 2000] // enough cash
                 },
                 {   // source, target   -   pool 2 is the best
-                  borrowRateInTokens: [0, bestBorrowRate+1], // the rate is worse
+                  borrowRateInTokens: [0, bestBorrowRate+1], // the rate is worse, the borrow cost is higher..
                   availableLiquidityInTokens: [0, 2000000000] // a lot of cash
                 },
               ]
@@ -1471,25 +1478,25 @@ describe("BorrowManager", () => {
         }
         it("1 pool, estimated gas should be less the limit", async () => {
           const gas = await checkGas(1);
-          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_1, (u, t) => {
+          controlGasLimitsEx2(gas, GAS_LIMIT_BM_FIND_POOL_1, (u, t) => {
             expect(u).to.be.below(t);
           });
         });
         it("5 pools, estimated gas should be less the limit", async () => {
           const gas = await checkGas(5);
-          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_5, (u, t) => {
+          controlGasLimitsEx2(gas, GAS_LIMIT_BM_FIND_POOL_5, (u, t) => {
             expect(u).to.be.below(t);
           });
         });
         it.skip("10 pools, estimated gas should be less the limit", async () => {
           const gas = await checkGas(10);
-          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_10, (u, t) => {
+          controlGasLimitsEx2(gas, GAS_LIMIT_BM_FIND_POOL_10, (u, t) => {
             expect(u).to.be.below(t);
           });
         });
         it.skip("100 pools, estimated gas should be less the limit", async () => {
           const gas = await checkGas(100);
-          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_100, (u, t) => {
+          controlGasLimitsEx2(gas, GAS_LIMIT_BM_FIND_POOL_100, (u, t) => {
             expect(u).to.be.below(t);
           });
         });

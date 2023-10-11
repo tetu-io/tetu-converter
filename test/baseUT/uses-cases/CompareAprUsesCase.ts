@@ -310,7 +310,7 @@ export class CompareAprUsesCase {
             amountIn: task.collateralAmount,
             borrowAsset: task.borrowAsset.asset,
             entryData: "0x",
-            countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
+            countBlocks: 1, // we need 1 block for next/last; countBlocks are used as additional-points
           },
           healthFactor2,
           {gasLimit: GAS_LIMIT}
@@ -322,7 +322,7 @@ export class CompareAprUsesCase {
             amountIn: task.collateralAmount,
             borrowAsset: task.borrowAsset.asset,
             entryData: "0x",
-            countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
+            countBlocks: 1, // we need 1 block for next/last; countBlocks are used as additional-points
           },
           healthFactor2,
           {gasLimit: GAS_LIMIT}

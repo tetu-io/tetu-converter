@@ -9,7 +9,11 @@ import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {randomInt} from "crypto";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {controlGasLimitsEx, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HARDHAT_NETWORK_ID,
+  HardhatUtils
+} from "../../scripts/utils/HardhatUtils";
 
 describe("Controller", () => {
 //region Global vars for all tests
@@ -185,7 +189,7 @@ describe("Controller", () => {
 
         const {gasUsed} = await createTestController(a);
 
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
+        controlGasLimitsEx2(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
             expect(u).to.be.below(t);
           }
         );
@@ -945,6 +949,30 @@ describe("Controller", () => {
         await expect(
           controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setPriceOracle(Misc.ZERO_ADDRESS)
         ).revertedWith("TC-1 zero address"); // AppErrors.ZERO_ADDRESS
+      });
+    });
+  });
+
+  describe("setRebalanceOnBorrowEnabled", () => {
+    describe("Good paths", () => {
+      it("should update rebalanceOnBorrowEnabled", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setRebalanceOnBorrowEnabled(true);
+        const rebalanceOnBorrowEnabled = await controller.rebalanceOnBorrowEnabled();
+
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setRebalanceOnBorrowEnabled(false);
+        const rebalanceOnBorrowEnabledFinal = await controller.rebalanceOnBorrowEnabled();
+
+        expect([rebalanceOnBorrowEnabled, rebalanceOnBorrowEnabledFinal].join()).eq([true, false].join());
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+        await expect(
+          controller.connect(await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)).setRebalanceOnBorrowEnabled(true)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
       });
     });
   });

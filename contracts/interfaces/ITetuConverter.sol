@@ -98,7 +98,8 @@ interface ITetuConverter is IConverterControllerProvider {
   );
 
   /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}
-  ///         Target amount will be transferred to {receiver_}. No re-balancing here.
+  ///         Target amount will be transferred to {receiver_}.
+  ///         Exist debts can be rebalanced fully or partially if {rebalanceOnBorrowEnabled} is ON
   /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
   ///      Only whitelisted users are allowed to make borrows
   /// @param converter_ A converter received from findBestConversionStrategy.

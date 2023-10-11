@@ -44,7 +44,7 @@ describe("Aave3CollateralBalanceTest", () => {
     deployer = signers[0];
     controllerInstance = await TetuConverterApp.createController(deployer);
 
-        init = await makeInitialBorrow();
+    init = await makeInitialBorrow();
   });
 
   after(async function () {

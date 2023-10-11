@@ -210,7 +210,7 @@ export class AaveTwoTestUtils {
         amountIn: collateralAmount,
         borrowAsset: borrowToken.address,
         countBlocks,
-        entryData: "0x"
+        entryData: "0x",
       },
       additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
       {gasLimit: GAS_LIMIT}
