@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import "../../../protocols/compound/CompoundAprLib.sol";
 import "../../../protocols/compound/CompoundPoolAdapterLib.sol";
+import "./CompoundLibFacade.sol";
 
 /// @notice Facade for CompoundAprLib to make external functions available for tests
 contract CompoundPoolAdapterLibFacade {
@@ -119,19 +120,20 @@ contract CompoundPoolAdapterLibFacade {
   }
 
   function _getCollateralTokensToRedeem(
-    address cTokenCollateral_,
-    address cTokenBorrow_,
+    CompoundPoolAdapterLib.AccountData memory data,
     bool closePosition_,
     uint amountToRepay_
   ) external view returns (uint, uint) {
-    return CompoundPoolAdapterLib._getCollateralTokensToRedeem(cTokenCollateral_, cTokenBorrow_, closePosition_, amountToRepay_);
+    return CompoundPoolAdapterLib._getCollateralTokensToRedeem(data, closePosition_, amountToRepay_);
   }
 
   function repayToRebalance(uint amount_, bool isCollateral_) external returns (uint resultHealthFactor18) {
     return CompoundPoolAdapterLib.repayToRebalance(_state, _f, amount_, isCollateral_);
   }
 
-  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (
+    uint amountCollateralOut
+  ) {
     return CompoundPoolAdapterLib.getCollateralAmountToReturn(_state, amountToRepay_, closePosition_);
   }
 
@@ -162,19 +164,53 @@ contract CompoundPoolAdapterLibFacade {
     return CompoundPoolAdapterLib._getCollateralFactor(_f, comptroller_, cTokenCollateral_);
   }
 
-  function _validateHealthFactor(IConverterController controller_, uint hf18) external view {
-    return CompoundPoolAdapterLib._validateHealthFactor(controller_, hf18);
+  function _validateHealthFactor(IConverterController controller_, uint healthFactorAfter, uint healthFactorBefore)
+  external view {
+    return CompoundPoolAdapterLib._validateHealthFactor(controller_, healthFactorAfter, healthFactorBefore);
   }
 
   function _getBalance(address asset) external view returns (uint) {
     return CompoundPoolAdapterLib._getBalance(_f, asset);
   }
 
-  function _getBaseAmounts(CompoundPoolAdapterLib.StatusSourceData memory data) internal pure returns (
+  function _getBaseAmounts(
+    CompoundPoolAdapterLib.AccountData memory data,
+    CompoundPoolAdapterLib.PricesData memory prices
+  ) internal pure returns (
     uint collateralBase,
     uint borrowBase
   ) {
-    return CompoundPoolAdapterLib._getBaseAmounts(data);
+    return CompoundPoolAdapterLib._getBaseAmounts(data, prices);
+  }
+
+  function _initAccountData(address cTokenCollateral, address cTokenBorrow) external view returns (
+    CompoundPoolAdapterLib.AccountData memory dest
+  ) {
+    CompoundPoolAdapterLib._initAccountData(cTokenCollateral, cTokenBorrow, dest);
+    return dest;
+  }
+
+  function _initPricesData(ICompoundComptrollerBase comptroller, address cTokenCollateral, address cTokenBorrow)
+  external view returns (
+    CompoundPoolAdapterLib.PricesData memory dest
+  ) {
+    CompoundPoolAdapterLib._initPricesData(comptroller, cTokenCollateral, cTokenBorrow, dest);
+    return dest;
+  }
+
+  function _getAccountValues(
+    CompoundLib.ProtocolFeatures memory f_,
+    ICompoundComptrollerBase comptroller_,
+    address cTokenCollateral_,
+    CompoundPoolAdapterLib.AccountData memory data_,
+    CompoundPoolAdapterLib.PricesData memory prices_
+  ) internal view returns (
+    uint healthFactor18,
+    uint collateralBase,
+    uint safeDebtAmountBase,
+    uint borrowBase
+  ) {
+    return CompoundPoolAdapterLib._getAccountValues(f_, comptroller_, cTokenCollateral_, data_, prices_);
   }
   //endregion -------------------------------------------------------- CompoundPoolAdapterLib
 }

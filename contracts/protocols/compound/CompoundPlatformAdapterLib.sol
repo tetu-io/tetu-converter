@@ -148,7 +148,7 @@ library CompoundPlatformAdapterLib {
       console.log("_registerCTokens,i", i);
       console.log("_registerCTokens,cTokens_[i]", cTokens_[i]);
       // Special case: there is no underlying for native token, so we store nativeToken:cTokenForNativeToken
-      state.activeAssets[CompoundAprLib.getUnderlying(f_, cTokens_[i])] = cTokens_[i];
+      state.activeAssets[CompoundLib.getUnderlying(f_, cTokens_[i])] = cTokens_[i];
     }
   }
   //endregion ----------------------------------------------------- Initialization and setup
@@ -261,8 +261,8 @@ library CompoundPlatformAdapterLib {
 
     dest.rc10powDec = 10**IERC20Metadata(collateralAsset).decimals();
     dest.rb10powDec = 10**IERC20Metadata(borrowAsset).decimals();
-    dest.priceCollateral = CompoundAprLib.getPrice(priceOracle, vars.cTokenCollateral) * dest.rc10powDec;
-    dest.priceBorrow = CompoundAprLib.getPrice(priceOracle, vars.cTokenBorrow) * dest.rb10powDec;
+    dest.priceCollateral = CompoundLib.getPrice(priceOracle, vars.cTokenCollateral) * dest.rc10powDec;
+    dest.priceBorrow = CompoundLib.getPrice(priceOracle, vars.cTokenBorrow) * dest.rb10powDec;
   }
 
   /// @notice Calculate {collateralAmount} and {amountToBorrow} by {amountIn} according to the given entry kind

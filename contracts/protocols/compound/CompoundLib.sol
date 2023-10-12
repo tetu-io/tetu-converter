@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import "../../integrations/compound/ICompoundPriceOracle.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
+import "../../libs/AppErrors.sol";
+import "../../libs/AppUtils.sol";
+import "../../libs/AppDataTypes.sol";
+import "../../integrations/compound/ICTokenBase.sol";
+import "../../integrations/compound/ICompoundInterestRateModel.sol";
+import "../../integrations/compound/ICompoundPriceOracle.sol";
+
 library CompoundLib {
 
   /// @notice Protocol uses ComptrollerStorage, so comptroller supports ICompoundComptrollerBaseV1
@@ -19,4 +28,20 @@ library CompoundLib {
     /// @notice What version of interface ICompoundComptrollerBaseVXXX the comptroller supports.
     uint compoundStorageVersion;
   }
+
+  function getPrice(ICompoundPriceOracle priceOracle, address token) internal view returns (uint) {
+    try priceOracle.getUnderlyingPrice(token) returns (uint value) {
+      require(value != 0, AppErrors.ZERO_PRICE);
+      return value;
+    } catch {
+      revert(AppErrors.ZERO_PRICE);
+    }
+  }
+
+  function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address cToken) internal view returns (address) {
+    return cToken == f_.cTokenNative
+      ? f_.nativeToken
+      : ICTokenBase(cToken).underlying();
+  }
+
 }

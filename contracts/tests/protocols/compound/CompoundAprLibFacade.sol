@@ -61,12 +61,4 @@ contract CompoundAprLibFacade {
   ) external view returns(uint) {
     return CompoundAprLib.getEstimatedSupplyRate(interestRateModel_, cToken_, amountToSupply_);
   }
-
-  function getPrice(ICompoundPriceOracle priceOracle, address token) external view returns (uint) {
-    return CompoundAprLib.getPrice(priceOracle, token);
-  }
-
-  function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address cToken) external view returns (address) {
-    return CompoundAprLib.getUnderlying(f_, cToken);
-  }
 }

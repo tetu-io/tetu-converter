@@ -35,8 +35,8 @@ library CompoundAprLib {
     return Core({
       cTokenCollateral: ICTokenBase(cTokenCollateral_),
       cTokenBorrow: ICTokenBase(cTokenBorrow_),
-      collateralAsset: getUnderlying(f_, cTokenCollateral_),
-      borrowAsset: getUnderlying(f_, cTokenBorrow_)
+      collateralAsset: CompoundLib.getUnderlying(f_, cTokenCollateral_),
+      borrowAsset: CompoundLib.getUnderlying(f_, cTokenBorrow_)
     });
   }
   //endregion ----------------------------------------------------- Addresses
@@ -162,22 +162,5 @@ library CompoundAprLib {
     );
   }
   //endregion ----------------------------------------------------- Estimate supply rate
-
-  //region ----------------------------------------------------- Utils to inline
-  function getPrice(ICompoundPriceOracle priceOracle, address token) internal view returns (uint) {
-    try priceOracle.getUnderlyingPrice(token) returns (uint value) {
-      require(value != 0, AppErrors.ZERO_PRICE);
-      return value;
-    } catch {
-      revert(AppErrors.ZERO_PRICE);
-    }
-  }
-
-  function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address cToken) internal view returns (address) {
-    return cToken == f_.cTokenNative
-      ? f_.nativeToken
-      : ICTokenBase(cToken).underlying();
-  }
-  //endregion ----------------------------------------------------- Utils to inline
 
 }

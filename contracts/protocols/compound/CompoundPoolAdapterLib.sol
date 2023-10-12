@@ -30,6 +30,9 @@ library CompoundPoolAdapterLib {
   uint constant internal EXCHANGE_RATE_DECIMALS = 18;
   uint constant internal DECIMALS_18 = 18;
   uint constant internal COLLATERAL_FACTOR_DECIMALS = 18;
+
+  /// @notice repay allows to reduce health factor of following value (decimals 18):
+  uint constant public MAX_ALLOWED_HEALTH_FACTOR_REDUCTION = 1e13; // 0.001%
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
@@ -55,14 +58,18 @@ library CompoundPoolAdapterLib {
     uint error;
     uint healthFactor18;
     uint collateralTokensBalance;
-    uint collateralBase;
-    uint borrowBase;
 
     address assetBorrow;
     address assetCollateral;
     address cTokenBorrow;
     address cTokenCollateral;
     ICompoundComptrollerBase comptroller;
+
+    uint collateralTokensToWithdraw;
+    uint tokenBalanceBefore;
+    uint healthFactorBefore;
+    uint balanceCollateralAssetBeforeRedeem;
+    uint balanceCollateralAssetAfterRedeem;
   }
 
   struct GetStatusLocal {
@@ -70,10 +77,8 @@ library CompoundPoolAdapterLib {
     address cTokenBorrow;
     address cTokenCollateral;
     uint collateralBase;
-    uint borrowBase;
     uint collateralAmountLiquidatedBase;
     uint collateralTokensBalance;
-    uint collateralFactor;
   }
 
   struct BorrowLocal {
@@ -89,12 +94,15 @@ library CompoundPoolAdapterLib {
     address[] markets;
   }
 
-  struct StatusSourceData {
+  struct PricesData {
+    uint priceCollateral;
+    uint priceBorrow;
+  }
+
+  struct AccountData {
     uint collateralTokenBalance;
     uint exchangeRateMantissaCollateral;
     uint borrowBalance;
-    uint priceCollateral;
-    uint priceBorrow;
   }
   //endregion ----------------------------------------------------- Data types
 
@@ -333,9 +341,14 @@ library CompoundPoolAdapterLib {
     ICTokenBase(v.cTokenBorrow).borrowBalanceCurrent(address(this));
 
     // how much collateral we are going to return
-    (
-      uint collateralTokensToWithdraw, uint tokenBalanceBefore
-    ) = _getCollateralTokensToRedeem(v.cTokenCollateral, v.cTokenBorrow, closePosition_, amountToRepay_);
+    AccountData memory data;
+    _initAccountData(v.cTokenCollateral, v.cTokenBorrow, data);
+
+    PricesData memory prices;
+    _initPricesData(v.comptroller, v.cTokenCollateral, v.cTokenBorrow, prices);
+
+    (v.collateralTokensToWithdraw, v.tokenBalanceBefore) = _getCollateralTokensToRedeem(data, closePosition_, amountToRepay_);
+    (v.healthFactorBefore,,,) = _getAccountValues(f_, v.comptroller, v.cTokenCollateral, data, prices);
 
     // transfer borrow amount back to the pool
     if (v.assetBorrow == f_.nativeToken) {
@@ -348,40 +361,37 @@ library CompoundPoolAdapterLib {
     }
 
     // withdraw the collateral
-    uint balanceCollateralAssetBeforeRedeem = _getBalance(f_, v.assetCollateral);
-    v.error = ICTokenBase(v.cTokenCollateral).redeem(collateralTokensToWithdraw);
+    v.balanceCollateralAssetBeforeRedeem = _getBalance(f_, v.assetCollateral);
+    v.error = ICTokenBase(v.cTokenCollateral).redeem(v.collateralTokensToWithdraw);
     require(v.error == 0, AppErrors.REDEEM_FAILED);
 
     // transfer collateral back to the user
-    uint balanceCollateralAssetAfterRedeem = _getBalance(f_, v.assetCollateral);
-    require(balanceCollateralAssetAfterRedeem >= balanceCollateralAssetBeforeRedeem, AppErrors.WEIRD_OVERFLOW);
-    uint collateralAmountToReturn = balanceCollateralAssetAfterRedeem - balanceCollateralAssetBeforeRedeem;
+    v.balanceCollateralAssetAfterRedeem = _getBalance(f_, v.assetCollateral);
+    require(v.balanceCollateralAssetAfterRedeem >= v.balanceCollateralAssetBeforeRedeem, AppErrors.WEIRD_OVERFLOW);
+    uint collateralAmountToReturn = v.balanceCollateralAssetAfterRedeem - v.balanceCollateralAssetBeforeRedeem;
     if (v.assetCollateral == f_.nativeToken) {
       INativeToken(f_.nativeToken).deposit{value: collateralAmountToReturn}();
     }
     IERC20(v.assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
 
     // validate result status
-    StatusSourceData memory data;
-    _initStatusSourceData(v.comptroller, v.cTokenCollateral, v.cTokenBorrow, data);
+    _initAccountData(v.cTokenCollateral, v.cTokenBorrow, data);
 
     if (data.collateralTokenBalance == 0 &&  data.borrowBalance == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
       // We don't exit the market to avoid additional gas consumption
     } else {
       require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
-      uint collateralFactor = _getCollateralFactor(f_, v.comptroller, v.cTokenCollateral);
-      (v.collateralBase, v.borrowBase) = _getBaseAmounts(data);
-      (, v.healthFactor18) = _getHealthFactor(collateralFactor, v.collateralBase, v.borrowBase);
-      _validateHealthFactor(controller, v.healthFactor18);
+      (v.healthFactor18,,,) = _getAccountValues(f_, v.comptroller, v.cTokenCollateral, data, prices);
+      _validateHealthFactor(controller, v.healthFactor18, v.healthFactorBefore);
     }
 
     require(
-      tokenBalanceBefore >= data.collateralTokenBalance
-      && v.collateralTokensBalance >= tokenBalanceBefore - data.collateralTokenBalance,
+      v.tokenBalanceBefore >= data.collateralTokenBalance
+      && v.collateralTokensBalance >= v.tokenBalanceBefore - data.collateralTokenBalance,
       AppErrors.WEIRD_OVERFLOW
     );
-    state.collateralTokensBalance = v.collateralTokensBalance - (tokenBalanceBefore - data.collateralTokenBalance);
+    state.collateralTokensBalance = v.collateralTokensBalance - (v.tokenBalanceBefore - data.collateralTokenBalance);
 
     emit OnRepay(amountToRepay_, receiver_, closePosition_, v.healthFactor18);
     return collateralAmountToReturn;
@@ -412,7 +422,13 @@ library CompoundPoolAdapterLib {
     address cTokenCollateral = state.collateralCToken;
     ICompoundComptrollerBase comptroller = state.comptroller;
     uint tokenBalanceBefore;
-    StatusSourceData memory data;
+
+    PricesData memory prices;
+    _initPricesData(comptroller, cTokenCollateral, cTokenBorrow, prices);
+
+    AccountData memory data;
+    _initAccountData(cTokenCollateral, cTokenBorrow, data);
+    (uint healthFactorBefore ,,,) = _getAccountValues(f_, comptroller, cTokenCollateral, data, prices);
 
     // ensure that the position is opened
     require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
@@ -425,7 +441,6 @@ library CompoundPoolAdapterLib {
       address assetBorrow = state.borrowAsset;
 
       // ensure, that amount to repay is less then the total debt
-      _initStatusSourceData(comptroller, cTokenCollateral, cTokenBorrow, data);
       tokenBalanceBefore = data.collateralTokenBalance;
 
       require(data.borrowBalance != 0 && amount_ < data.borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
@@ -446,12 +461,9 @@ library CompoundPoolAdapterLib {
     }
 
     // validate result status
-    _initStatusSourceData(comptroller, cTokenCollateral, cTokenBorrow, data);
-    (uint collateralBase, uint borrowBase) = _getBaseAmounts(data);
-    uint collateralFactor = _getCollateralFactor(f_, comptroller, cTokenCollateral);
-
-    (, uint healthFactor18) = _getHealthFactor(collateralFactor, collateralBase, borrowBase);
-    _validateHealthFactor(controller, healthFactor18);
+    _initAccountData(cTokenCollateral, cTokenBorrow, data);
+    (uint healthFactor18 ,,,) = _getAccountValues(f_, comptroller, cTokenCollateral, data, prices);
+    _validateHealthFactor(controller, healthFactor18, healthFactorBefore);
 
     require(data.collateralTokenBalance >= tokenBalanceBefore, AppErrors.WEIRD_OVERFLOW);
     state.collateralTokensBalance += data.collateralTokenBalance - tokenBalanceBefore;
@@ -502,46 +514,45 @@ library CompoundPoolAdapterLib {
     // Health factor = (Collateral::CF * sumCollateral) / sumBorrowPlusEffects
     //               = (Liquidity + sumBorrowPlusEffects) / sumBorrowPlusEffects
 
-    StatusSourceData memory data;
-    _initStatusSourceData(v.comptroller, v.cTokenCollateral, v.cTokenBorrow, data);
+    AccountData memory data;
+    _initAccountData(v.cTokenCollateral, v.cTokenBorrow, data);
 
-    (v.collateralBase, v.borrowBase) = _getBaseAmounts(data);
+    PricesData memory prices;
+    _initPricesData(v.comptroller, v.cTokenCollateral, v.cTokenBorrow, prices);
+
+    (healthFactor18, v.collateralBase,, ) = _getAccountValues(f_, v.comptroller, v.cTokenCollateral, data, prices);
 
     v.collateralAmountLiquidatedBase = _toBaseAmount(
       AppUtils.sub0(v.collateralTokensBalance, data.collateralTokenBalance)
       * data.exchangeRateMantissaCollateral / 10 ** EXCHANGE_RATE_DECIMALS,
-      data.priceCollateral
+      prices.priceCollateral
     );
-
-    v.collateralFactor = _getCollateralFactor(f_, v.comptroller, v.cTokenCollateral);
-    (, healthFactor18) = _getHealthFactor(v.collateralFactor, v.collateralBase, v.borrowBase);
 
     return (
     // Total amount of provided collateral [collateral asset]
-      _fromBaseAmount(v.collateralBase, data.priceCollateral),
+      _fromBaseAmount(v.collateralBase, prices.priceCollateral),
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       data.borrowBalance,
     // Current health factor, decimals 18
       healthFactor18,
       data.collateralTokenBalance != 0 || data.borrowBalance != 0,
     // Amount of liquidated collateral == amount of lost
-      _fromBaseAmount(v.collateralAmountLiquidatedBase, data.priceCollateral),
+      _fromBaseAmount(v.collateralAmountLiquidatedBase, prices.priceCollateral),
       false
     );
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
-  /// @return Amount of collateral asset
-  function getCollateralAmountToReturn(State storage state, uint amountToRepay_, bool closePosition_) internal view returns (
-    uint
+  /// @return amountCollateralOut Amount of collateral asset that can be redeemed after repaying of {amountToRepay_}
+  function getCollateralAmountToReturn(State storage state, uint amountToRepay_, bool closePosition_)
+  internal view returns (
+    uint amountCollateralOut
   ) {
-    address cTokenCollateral = state.collateralCToken;
+    AccountData memory data;
+    _initAccountData(state.collateralCToken, state.borrowCToken, data);
 
-    (uint error,,, uint cExchangeRateMantissa) = ICTokenBase(cTokenCollateral).getAccountSnapshot(address(this));
-    require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
-
-    (uint tokensToReturn,) = _getCollateralTokensToRedeem(cTokenCollateral, state.borrowCToken, closePosition_, amountToRepay_);
-    return tokensToReturn * cExchangeRateMantissa / 10 ** EXCHANGE_RATE_DECIMALS;
+    (uint tokensToReturn,) = _getCollateralTokensToRedeem(data, closePosition_, amountToRepay_);
+    amountCollateralOut = tokensToReturn * data.exchangeRateMantissaCollateral / 10 ** EXCHANGE_RATE_DECIMALS;
   }
   //endregion ----------------------------------------------------- View current status
 
@@ -582,56 +593,51 @@ library CompoundPoolAdapterLib {
     uint healthFactor18,
     uint collateralTokenBalance
   ) {
-    StatusSourceData memory data;
-    _initStatusSourceData(comptroller_, cTokenCollateral_, cTokenBorrow_, data);
-    (uint collateralBase, uint borrowBase) = _getBaseAmounts(data);
+    PricesData memory prices;
+    _initPricesData(comptroller_, cTokenCollateral_, cTokenBorrow_, prices);
 
-    uint collateralFactor = _getCollateralFactor(f_, comptroller_, cTokenCollateral_);
+    AccountData memory data;
+    _initAccountData(cTokenCollateral_, cTokenBorrow_, data);
 
-    uint safeDebtAmount;
-    (safeDebtAmount, healthFactor18) = _getHealthFactor(collateralFactor, collateralBase, borrowBase);
+    uint safeDebtAmountBase;
+    uint borrowBase;
+    (healthFactor18,, safeDebtAmountBase, borrowBase) = _getAccountValues(
+      f_, comptroller_, cTokenCollateral_, data, prices
+    );
+    require(borrowBase != 0 && safeDebtAmountBase > borrowBase, AppErrors.INCORRECT_RESULT_LIQUIDITY);
 
     (uint error ,,) = comptroller_.getAccountLiquidity(address(this)); // todo do we need this call?
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
 
-    require(borrowBase != 0 && safeDebtAmount > borrowBase, AppErrors.INCORRECT_RESULT_LIQUIDITY);
-
-    _validateHealthFactor(controller_, healthFactor18);
+    _validateHealthFactor(controller_, healthFactor18, 0);
     return (healthFactor18, data.collateralTokenBalance);
   }
 
-  /// @return Amount of collateral tokens to redeem, full balance of collateral tokens
-  function _getCollateralTokensToRedeem(
-    address cTokenCollateral_,
-    address cTokenBorrow_,
-    bool closePosition_,
-    uint amountToRepay_
-  ) internal view returns (uint, uint) {
-    (uint error, uint tokenBalance,,) = ICTokenBase(cTokenCollateral_).getAccountSnapshot(address(this));
-    require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+  /// @return collateralTokenToRedeem Amount of collateral tokens to redeem
+  /// @return collateralTokenBalance Full balance of collateral tokens
+  function _getCollateralTokensToRedeem(AccountData memory data, bool closePosition_, uint amountToRepay_)
+  internal pure returns (
+    uint collateralTokenToRedeem,
+    uint collateralTokenBalance
+  ) {
+    require(data.borrowBalance != 0, AppErrors.ZERO_BALANCE);
 
-    (uint error2,, uint borrowBalance,) = ICTokenBase(cTokenBorrow_).getAccountSnapshot(address(this));
-    require(error2 == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
-
-    require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
     if (closePosition_) {
-      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_PARTIAL);
-      return (tokenBalance, tokenBalance);
+      require(data.borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_PARTIAL);
+      return (data.collateralTokenBalance, data.collateralTokenBalance);
     } else {
-      require(amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
+      require(amountToRepay_ <= data.borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
     }
-    return (tokenBalance * amountToRepay_ / borrowBalance, tokenBalance);
+    return (
+      data.collateralTokenBalance * amountToRepay_ / data.borrowBalance,
+      data.collateralTokenBalance
+    );
   }
   //region ----------------------------------------------------- Internal logic
 
   //region ----------------------------------------------------- Utils
   /// @notice Get all data required to calculate current status, save results to {dest}
-  function _initStatusSourceData(
-    ICompoundComptrollerBase comptroller,
-    address cTokenCollateral,
-    address cTokenBorrow,
-    StatusSourceData memory dest
-  ) internal view {
+  function _initAccountData(address cTokenCollateral, address cTokenBorrow, AccountData memory dest) internal view {
     uint error;
 
     (error, dest.collateralTokenBalance,, dest.exchangeRateMantissaCollateral) = ICTokenBase(cTokenCollateral).getAccountSnapshot(address(this));
@@ -639,10 +645,17 @@ library CompoundPoolAdapterLib {
 
     (error,, dest.borrowBalance,) = ICTokenBase(cTokenBorrow).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+  }
 
+  function _initPricesData(
+    ICompoundComptrollerBase comptroller,
+    address cTokenCollateral,
+    address cTokenBorrow,
+    PricesData memory dest
+  ) internal view {
     ICompoundPriceOracle priceOracle = ICompoundPriceOracle(comptroller.oracle());
-    dest.priceCollateral = priceOracle.getUnderlyingPrice(cTokenCollateral);
-    dest.priceBorrow = priceOracle.getUnderlyingPrice(cTokenBorrow);
+    dest.priceCollateral = CompoundLib.getPrice(priceOracle, cTokenCollateral);
+    dest.priceBorrow = CompoundLib.getPrice(priceOracle, cTokenBorrow);
   }
 
   /// @param collateralFactor Collateral factor, decimals 18
@@ -662,32 +675,61 @@ library CompoundPoolAdapterLib {
     return (safeDebtAmountBase, healthFactor18);
   }
 
-  function _getCollateralFactor(
+  /// @notice Calculate auxiliary values using {data_}
+  /// @return healthFactor18 Current health factor, decimals 18
+  /// @return collateralBase Amount of collateral in base currency (USD), decimals 18
+  /// @return safeDebtAmountBase Safe amount of debt for the current collateral, in terms of base currency (USD)
+  function _getAccountValues(
     CompoundLib.ProtocolFeatures memory f_,
     ICompoundComptrollerBase comptroller_,
-    address cTokenCollateral_
-  ) internal view returns (uint collateralFactor) {
-    if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
-      (, collateralFactor) = ICompoundComptrollerBaseV1(address(comptroller_)).markets(cTokenCollateral_);
-    } else {
-      (, collateralFactor ,) = ICompoundComptrollerBaseV2(address(comptroller_)).markets(cTokenCollateral_);
-    }
+    address cTokenCollateral_,
+    AccountData memory data_,
+    PricesData memory prices_
+  ) internal view returns (
+    uint healthFactor18,
+    uint collateralBase,
+    uint safeDebtAmountBase,
+    uint borrowBase
+  ) {
+    (collateralBase, borrowBase) = _getBaseAmounts(data_, prices_);
+    uint collateralFactor = _getCollateralFactor(f_, comptroller_, cTokenCollateral_);
+    (safeDebtAmountBase, healthFactor18) = _getHealthFactor(collateralFactor, collateralBase, borrowBase);
   }
 
-  function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
-    // todo fix in same way as in AAVE
-    require(hf18 > uint(controller_.minHealthFactor2()) * 10 ** (18 - 2), AppErrors.WRONG_HEALTH_FACTOR);
+  /// @notice Validate that result health factor is correct, SCB-794
+  ///         1) If we make a borrow the health factor is correct if it's greater than the min allowed threshold.
+  ///         2) If we make repaying, the health factor is correct if
+  ///                   it's greater than the min allowed threshold
+  ///                   or it wasn't reduced too much
+  /// @param healthFactorAfter Value of health factor after the operation - the value to check
+  /// @param healthFactorBefore Value of health factor before the operation. 0 if borrow.
+  function _validateHealthFactor(
+    IConverterController controller_,
+    uint healthFactorAfter,
+    uint healthFactorBefore
+  ) internal view {
+    uint threshold = uint(controller_.minHealthFactor2()) * 10 ** (18 - 2);
+    uint reduction = healthFactorBefore > healthFactorAfter
+      ? healthFactorBefore - healthFactorAfter
+      : 0;
+    require(
+      healthFactorAfter >= threshold
+      || (healthFactorBefore != 0 && reduction < MAX_ALLOWED_HEALTH_FACTOR_REDUCTION),
+      AppErrors.WRONG_HEALTH_FACTOR
+    );
   }
 
+  /// @param asset Underlying, it can be native token
   function _getBalance(CompoundLib.ProtocolFeatures memory f_, address asset) internal view returns (uint) {
     return f_.nativeToken == asset
       ? address(this).balance
       : IERC20(asset).balanceOf(address(this));
   }
 
+  /// @notice Recalculate amount of collateral tokens and amount of debt to base currency (USD)
   /// @return collateralBase Amount of collateral in base currency (USD), decimals 18
   /// @return borrowBase Amount of debt in base currency (USD), decimals 18
-  function _getBaseAmounts(StatusSourceData memory data) internal pure returns (
+  function _getBaseAmounts(AccountData memory data, PricesData memory prices) internal pure returns (
     uint collateralBase,
     uint borrowBase
   ) {
@@ -695,9 +737,9 @@ library CompoundPoolAdapterLib {
     // result base-amounts have decimals 18
     collateralBase = _toBaseAmount(
       (data.collateralTokenBalance * data.exchangeRateMantissaCollateral / 10 ** EXCHANGE_RATE_DECIMALS),
-      data.priceCollateral
+      prices.priceCollateral
     );
-    borrowBase = _toBaseAmount(data.borrowBalance, data.priceBorrow);
+    borrowBase = _toBaseAmount(data.borrowBalance, prices.priceBorrow);
   }
 
   /// @param amount_ Amount of asset
@@ -715,4 +757,18 @@ library CompoundPoolAdapterLib {
   }
   //endregion ----------------------------------------------------- Utils
 
+  //region ----------------------------------------------------- Protocol features logic
+  function _getCollateralFactor(
+    CompoundLib.ProtocolFeatures memory f_,
+    ICompoundComptrollerBase comptroller_,
+    address cTokenCollateral_
+  ) internal view returns (uint collateralFactor) {
+    if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
+      (, collateralFactor) = ICompoundComptrollerBaseV1(address(comptroller_)).markets(cTokenCollateral_);
+    } else {
+      (, collateralFactor ,) = ICompoundComptrollerBaseV2(address(comptroller_)).markets(cTokenCollateral_);
+    }
+  }
+
+  //endregion ----------------------------------------------------- Protocol features logic
 }
