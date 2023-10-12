@@ -95,7 +95,9 @@ library CompoundPoolAdapterLib {
   }
 
   struct PricesData {
+    /// @notice Collateral underlying price, decimals = [36 - decimals of the collateral asset]
     uint priceCollateral;
+    /// @notice Borrow underlying price, decimals = [36 - decimals of the borrow asset]
     uint priceBorrow;
   }
 
@@ -228,7 +230,7 @@ library CompoundPoolAdapterLib {
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(f_, v.assetBorrow);
     v.error = ICTokenBase(v.cTokenBorrow).borrow(borrowAmount_);
-    require(v.error == 0, AppErrors.BORROW_FAILED);
+    require(v.error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(v.error))));
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     if (f_.nativeToken == v.assetBorrow) {
@@ -283,7 +285,7 @@ library CompoundPoolAdapterLib {
       // make borrow
       uint balanceBorrowAsset0 = _getBalance(f_, assetBorrow);
       error = ICTokenBase(cTokenBorrow).borrow(borrowAmount_);
-      require(error == 0, AppErrors.BORROW_FAILED);
+      require(error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(error))));
 
       // ensure that we have received required borrowed amount, send the amount to the receiver
       if (f_.nativeToken == assetBorrow) {
@@ -347,7 +349,8 @@ library CompoundPoolAdapterLib {
     PricesData memory prices;
     _initPricesData(v.comptroller, v.cTokenCollateral, v.cTokenBorrow, prices);
 
-    (v.collateralTokensToWithdraw, v.tokenBalanceBefore) = _getCollateralTokensToRedeem(data, closePosition_, amountToRepay_);
+    v.collateralTokensToWithdraw = _getCollateralTokensToRedeem(data, closePosition_, amountToRepay_);
+    v.tokenBalanceBefore = data.collateralTokenBalance;
     (v.healthFactorBefore,,,) = _getAccountValues(f_, v.comptroller, v.cTokenCollateral, data, prices);
 
     // transfer borrow amount back to the pool
@@ -357,13 +360,13 @@ library CompoundPoolAdapterLib {
     } else {
       // infinity approve
       v.error = ICTokenBase(v.cTokenBorrow).repayBorrow(amountToRepay_);
-      require(v.error == 0, AppErrors.REPAY_FAILED);
+      require(v.error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(v.error))));
     }
 
     // withdraw the collateral
     v.balanceCollateralAssetBeforeRedeem = _getBalance(f_, v.assetCollateral);
     v.error = ICTokenBase(v.cTokenCollateral).redeem(v.collateralTokensToWithdraw);
-    require(v.error == 0, AppErrors.REDEEM_FAILED);
+    require(v.error == 0, string(abi.encodePacked(AppErrors.REDEEM_FAILED, Strings.toString(v.error))));
 
     // transfer collateral back to the user
     v.balanceCollateralAssetAfterRedeem = _getBalance(f_, v.assetCollateral);
@@ -456,7 +459,7 @@ library CompoundPoolAdapterLib {
       } else {
         // infinity approve
         uint error = ICTokenBase(cTokenBorrow).repayBorrow(amount_);
-        require(error == 0, AppErrors.REPAY_FAILED);
+        require(error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(error))));
       }
     }
 
@@ -551,7 +554,7 @@ library CompoundPoolAdapterLib {
     AccountData memory data;
     _initAccountData(state.collateralCToken, state.borrowCToken, data);
 
-    (uint tokensToReturn,) = _getCollateralTokensToRedeem(data, closePosition_, amountToRepay_);
+    uint tokensToReturn = _getCollateralTokensToRedeem(data, closePosition_, amountToRepay_);
     amountCollateralOut = tokensToReturn * data.exchangeRateMantissaCollateral / 10 ** EXCHANGE_RATE_DECIMALS;
   }
   //endregion ----------------------------------------------------- View current status
@@ -607,31 +610,26 @@ library CompoundPoolAdapterLib {
     require(borrowBase != 0 && safeDebtAmountBase > borrowBase, AppErrors.INCORRECT_RESULT_LIQUIDITY);
 
     (uint error ,,) = comptroller_.getAccountLiquidity(address(this)); // todo do we need this call?
-    require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
+    require(error == 0, string(abi.encodePacked(AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED, Strings.toString(error))));
 
     _validateHealthFactor(controller_, healthFactor18, 0);
     return (healthFactor18, data.collateralTokenBalance);
   }
 
   /// @return collateralTokenToRedeem Amount of collateral tokens to redeem
-  /// @return collateralTokenBalance Full balance of collateral tokens
   function _getCollateralTokensToRedeem(AccountData memory data, bool closePosition_, uint amountToRepay_)
   internal pure returns (
-    uint collateralTokenToRedeem,
-    uint collateralTokenBalance
+    uint collateralTokenToRedeem
   ) {
     require(data.borrowBalance != 0, AppErrors.ZERO_BALANCE);
 
     if (closePosition_) {
       require(data.borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_PARTIAL);
-      return (data.collateralTokenBalance, data.collateralTokenBalance);
+      collateralTokenToRedeem = data.collateralTokenBalance;
     } else {
       require(amountToRepay_ <= data.borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
+      collateralTokenToRedeem = data.collateralTokenBalance * amountToRepay_ / data.borrowBalance;
     }
-    return (
-      data.collateralTokenBalance * amountToRepay_ / data.borrowBalance,
-      data.collateralTokenBalance
-    );
   }
   //region ----------------------------------------------------- Internal logic
 
@@ -641,10 +639,10 @@ library CompoundPoolAdapterLib {
     uint error;
 
     (error, dest.collateralTokenBalance,, dest.exchangeRateMantissaCollateral) = ICTokenBase(cTokenCollateral).getAccountSnapshot(address(this));
-    require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    require(error == 0, string(abi.encodePacked(AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED, Strings.toString(error))));
 
     (error,, dest.borrowBalance,) = ICTokenBase(cTokenBorrow).getAccountSnapshot(address(this));
-    require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    require(error == 0, string(abi.encodePacked(AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED, Strings.toString(error))));
   }
 
   function _initPricesData(
@@ -708,10 +706,14 @@ library CompoundPoolAdapterLib {
     uint healthFactorAfter,
     uint healthFactorBefore
   ) internal view {
+    console.log("_validateHealthFactor.healthFactorAfter", healthFactorAfter);
+    console.log("_validateHealthFactor.healthFactorBefore", healthFactorBefore);
     uint threshold = uint(controller_.minHealthFactor2()) * 10 ** (18 - 2);
     uint reduction = healthFactorBefore > healthFactorAfter
       ? healthFactorBefore - healthFactorAfter
       : 0;
+    console.log("_validateHealthFactor.threshold", threshold);
+    console.log("_validateHealthFactor.reduction", reduction);
     require(
       healthFactorAfter >= threshold
       || (healthFactorBefore != 0 && reduction < MAX_ALLOWED_HEALTH_FACTOR_REDUCTION),
@@ -758,6 +760,7 @@ library CompoundPoolAdapterLib {
   //endregion ----------------------------------------------------- Utils
 
   //region ----------------------------------------------------- Protocol features logic
+  /// @return collateralFactor Decimals = COLLATERAL_FACTOR_DECIMALS
   function _getCollateralFactor(
     CompoundLib.ProtocolFeatures memory f_,
     ICompoundComptrollerBase comptroller_,

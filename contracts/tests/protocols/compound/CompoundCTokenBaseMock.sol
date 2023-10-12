@@ -17,6 +17,12 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   uint internal _reserveFactorMantissa;
   address internal _interestRateModel;
   uint internal _mintErrorCode;
+  uint internal _getAccountSnapshotErrorCode;
+  uint internal _borrowErrorCode;
+  uint internal _repayBorrowErrorCode;
+  uint internal _redeemErrorCode;
+  /// @notice  tokenBalance, borrowBalance, exchangeRateMantissa
+  uint[3] internal _getAccountSnapshotValues;
 
   constructor(
     string memory _name,
@@ -53,6 +59,23 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   }
   function setMintErrorCode(uint errorCode_) external {
     _mintErrorCode = errorCode_;
+  }
+  function setGetAccountSnapshotErrorCode(uint errorCode_) external {
+    _getAccountSnapshotErrorCode = errorCode_;
+  }
+  function setBorrowErrorCode(uint errorCode_) external {
+    _borrowErrorCode = errorCode_;
+  }
+  function setRepayBorrowErrorCode(uint errorCode_) external {
+    _repayBorrowErrorCode = errorCode_;
+  }
+  function setRedeemErrorCode(uint errorCode_) external {
+    _redeemErrorCode = errorCode_;
+  }
+  function setGetAccountSnapshotValues(uint tokenBalance, uint borrowBalance, uint exchangeRateMantissa) external {
+    _getAccountSnapshotValues[0] = tokenBalance;
+    _getAccountSnapshotValues[1] = borrowBalance;
+    _getAccountSnapshotValues[2] = exchangeRateMantissa;
   }
   //endregion ------------------------------------------------------------- Set up ICTokenBase
 
@@ -105,7 +128,7 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @notice Get a snapshot of the account's balances, and the cached exchange rate
   /// @dev This is used by comptroller to more efficiently perform liquidity checks.
   /// @param account Address of the account to snapshot
-  function getAccountSnapshot(address account) external pure returns (
+  function getAccountSnapshot(address account) external view returns (
     uint256 errorCode,
     uint256 tokenBalance,
     uint256 borrowBalance,
@@ -113,16 +136,20 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   ) {
     account;
     // todo
-    return (errorCode, tokenBalance, borrowBalance, exchangeRateMantissa);
+    return (_getAccountSnapshotErrorCode,
+      _getAccountSnapshotValues[0],
+      _getAccountSnapshotValues[1],
+      _getAccountSnapshotValues[2]
+    );
   }
 
 /// @notice Sender borrows assets from the protocol to their own address
   /// @param borrowAmount The amount of the underlying asset to borrow
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function borrow(uint256 borrowAmount) external  pure  returns (uint256) {
+  function borrow(uint256 borrowAmount) external view returns (uint256) {
     borrowAmount;
     // todo
-    return 0;
+    return _borrowErrorCode;
   }
 
   /// @notice Sender supplies assets into the market and receives mTokens in exchange
@@ -144,10 +171,10 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @notice Sender repays their own borrow
   /// @param repayAmount The amount to repay
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function repayBorrow(uint256 repayAmount) external  pure  returns (uint256) {
+  function repayBorrow(uint256 repayAmount) external view returns (uint256) {
     repayAmount;
     // todo
-    return 0;
+    return _repayBorrowErrorCode;
   }
 
   /// @notice Sender redeems mTokens in exchange for the underlying asset
@@ -157,7 +184,7 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   function redeem(uint256 redeemTokens) external returns (uint256) {
     IERC20(_underlying).transfer(msg.sender, redeemTokens);
     burn(msg.sender, redeemTokens);
-    return 0;
+    return _redeemErrorCode;
   }
   //endregion ------------------------------------------------------------- ICTokenBase
 }

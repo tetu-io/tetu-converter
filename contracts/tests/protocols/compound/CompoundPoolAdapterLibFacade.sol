@@ -123,7 +123,9 @@ contract CompoundPoolAdapterLibFacade {
     CompoundPoolAdapterLib.AccountData memory data,
     bool closePosition_,
     uint amountToRepay_
-  ) external view returns (uint, uint) {
+  ) external pure returns (
+    uint collateralTokenToRedeem
+  ) {
     return CompoundPoolAdapterLib._getCollateralTokensToRedeem(data, closePosition_, amountToRepay_);
   }
 
@@ -176,7 +178,7 @@ contract CompoundPoolAdapterLibFacade {
   function _getBaseAmounts(
     CompoundPoolAdapterLib.AccountData memory data,
     CompoundPoolAdapterLib.PricesData memory prices
-  ) internal pure returns (
+  ) external pure returns (
     uint collateralBase,
     uint borrowBase
   ) {
@@ -204,7 +206,7 @@ contract CompoundPoolAdapterLibFacade {
     address cTokenCollateral_,
     CompoundPoolAdapterLib.AccountData memory data_,
     CompoundPoolAdapterLib.PricesData memory prices_
-  ) internal view returns (
+  ) external view returns (
     uint healthFactor18,
     uint collateralBase,
     uint safeDebtAmountBase,

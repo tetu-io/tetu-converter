@@ -59,7 +59,7 @@ import {
   BorrowManagerMock,
   ConverterControllerMock,
   CompoundCTokenBaseMock,
-  CompoundComptrollerMockV1, CompoundComptrollerMockV2
+  CompoundComptrollerMockV1, CompoundComptrollerMockV2, CompoundPriceOracleMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -690,6 +690,9 @@ export class MocksHelper {
   }
   public static async createCompoundComptrollerMockV2(signer: SignerWithAddress): Promise<CompoundComptrollerMockV2> {
     return (await DeployUtils.deployContract(signer, 'CompoundComptrollerMockV2')) as CompoundComptrollerMockV2;
+  }
+  public static async createCompoundPriceOracle(signer: SignerWithAddress): Promise<CompoundPriceOracleMock> {
+    return (await DeployUtils.deployContract(signer, 'CompoundPriceOracleMock')) as CompoundPriceOracleMock;
   }
 //endregion Compound
 }

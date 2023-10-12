@@ -14,7 +14,7 @@ import {
   TokenAddressProviderMock,
   IERC20__factory,
   CompoundComptrollerMockV2,
-  CompoundComptrollerMockV1,
+  CompoundComptrollerMockV1, CompoundPriceOracleMock,
 } from "../../../../typechain";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {MocksHelper} from "../../../baseUT/app/MocksHelper";
@@ -37,6 +37,7 @@ describe("CompoundPoolAdapterLibTest", () => {
   let comptrollerV1: CompoundComptrollerMockV1;
   let comptrollerV2: CompoundComptrollerMockV2;
   let tokenAddressProviderMock: TokenAddressProviderMock;
+  let priceOracle: CompoundPriceOracleMock;
 
   let usdc: MockERC20;
   let usdt: MockERC20;
@@ -82,6 +83,10 @@ describe("CompoundPoolAdapterLibTest", () => {
     userContract = await MocksHelper.deployBorrower(signer.address, controller, 1);
 
     randomAddress = ethers.Wallet.createRandom().address;
+
+    priceOracle = await MocksHelper.createCompoundPriceOracle(signer);
+    await comptrollerV1.setOracle(priceOracle.address);
+    await comptrollerV2.setOracle(priceOracle.address);
   });
 
   after(async function () {
@@ -505,34 +510,673 @@ describe("CompoundPoolAdapterLibTest", () => {
     });
   });
 
-  describe("_validateHealthStatusAfterBorrow", () => {
+  describe("_getBaseAmounts", () => {
     interface IParams {
-      initialTokenBalance?: string;
-
       cTokenCollateral: CompoundCTokenBaseMock;
       cTokenBorrow: CompoundCTokenBaseMock;
 
-      nativeCToken?: string; // cEther by default
-      nativeToken?: string; // ether by default
+      collateralTokenBalance: string;
+      exchangeRateCollateralValue: string;
+      exchangeRateCollateralDecimals: number;
+      borrowBalance: string;
+
+      priceCollateral: string;
+      priceBorrow: string;
     }
 
     interface IResults {
-      tokenBalanceBefore: number;
-      tokenBalanceAfter: number;
-      userAssetBalanceBefore: number;
-      userAssetBalanceAfter: number;
+      collateralBase: number;
+      borrowBase: number;
     }
 
-    async function validateHealthStatusAfterBorrow(p: IParams): Promise<IResults> {
+    async function getBaseAmounts(p: IParams): Promise<IResults> {
+      const collateralAsset = IERC20Metadata__factory.connect(await p.cTokenCollateral.underlying(), signer);
+      const borrowAsset = IERC20Metadata__factory.connect(await p.cTokenBorrow.underlying(), signer);
 
+      const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
+      const decimalsBorrowAsset = await borrowAsset.decimals();
+      const decimalsCollateralAsset = await collateralAsset.decimals();
+
+      const ret = await facade._getBaseAmounts(
+        {
+          collateralTokenBalance: parseUnits(p.collateralTokenBalance, decimalsCTokenCollateral),
+          exchangeRateMantissaCollateral: parseUnits(p.exchangeRateCollateralValue, p.exchangeRateCollateralDecimals),
+          borrowBalance: parseUnits(p.borrowBalance, decimalsBorrowAsset),
+        },
+        {
+          priceCollateral: parseUnits(p.priceCollateral, 36 - decimalsCollateralAsset),
+          priceBorrow: parseUnits(p.priceBorrow, 36 - decimalsBorrowAsset),
+        }
+      );
+
+      return {
+        collateralBase: +formatUnits(ret.collateralBase, 18),
+        borrowBase: +formatUnits(ret.borrowBase, 18)
+      }
     }
 
     describe("Normal case", () => {
+      describe("DAI : USDC", () => {
+        let snapshotLocal: string;
+        before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
 
+        it("should return expected values", async () => {
+          const ret = await getBaseAmounts({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            priceCollateral: "2",
+            priceBorrow: "0.5",
+            borrowBalance: "100",
+            exchangeRateCollateralValue: "7",
+            exchangeRateCollateralDecimals: 18,
+            collateralTokenBalance: "5000"
+          });
+
+          expect(
+            [ret.collateralBase, ret.borrowBase].join()
+          ).eq(
+            [70_000, 50].join()
+          )
+        })
+      });
+      describe("USDC : DAI", () => {
+        let snapshotLocal: string;
+        before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
+
+        it("should return expected values", async () => {
+          const ret = await getBaseAmounts({
+            cTokenCollateral: cUsdc,
+            cTokenBorrow: cDai,
+            priceCollateral: "2",
+            priceBorrow: "0.5",
+            borrowBalance: "100",
+            exchangeRateCollateralValue: "7",
+            // cUsdc has decimals 18, usdc has decimals 6
+            // exchange rate allows to do following conversion: USDC = cUSDC * ExchangeRate / 1e18
+            exchangeRateCollateralDecimals: 6,
+            collateralTokenBalance: "5000"
+          });
+
+          expect(
+            [ret.collateralBase, ret.borrowBase].join()
+          ).eq(
+            [70_000, 50].join()
+          )
+        })
+      });
     });
+  });
+
+  describe("_validateHealthFactor", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      minHealthFactor: string;
+      healthFactorAfter: string;
+      healthFactorBefore: string;
+    }
+
+    async function validateHealthFactor(p: IParams) {
+      await controller.setMinHealthFactor2(parseUnits(p.minHealthFactor, 2));
+
+      await facade._validateHealthFactor(
+        controller.address,
+        parseUnits(p.healthFactorAfter, 18),
+        parseUnits(p.healthFactorBefore, 18)
+      )
+    }
+
+    describe("Good paths", () => {
+      describe("healthFactorAfter >= threshold", () => {
+        it("shouldn't revert if health factor was increased", async () => {
+          await validateHealthFactor({
+            minHealthFactor: "1.1",
+            healthFactorBefore: "2",
+            healthFactorAfter: "3"
+          })
+        });
+        it("shouldn't revert if health factor was decreased", async () => {
+          await validateHealthFactor({
+            minHealthFactor: "1.1",
+            healthFactorBefore: "2",
+            healthFactorAfter: "1.1"
+          })
+        });
+      });
+      describe("healthFactorAfter < threshold", () => {
+        it("should revert if new borrow", async () => {
+          await expect(validateHealthFactor({
+            minHealthFactor: "1.1",
+            healthFactorBefore: "0",
+            healthFactorAfter: "1"
+          })).rejectedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
+        });
+        it("shouldn't revert if reduction tiny", async () => {
+          await validateHealthFactor({
+            minHealthFactor: "1.1",
+            healthFactorBefore: "1.1",
+            healthFactorAfter: "1.099999999999" // delta < CompoundPoolAdapterLibFacade.MAX_ALLOWED_HEALTH_FACTOR_REDUCTION;
+          })
+        });
+        it("shouldn't revert if health factor is increased", async () => {
+          await validateHealthFactor({
+            minHealthFactor: "1.1",
+            healthFactorBefore: "1.0",
+            healthFactorAfter: "1.05"
+          })
+        });
+        it("should revert if reduction is huge", async () => {
+          await expect(validateHealthFactor({
+            minHealthFactor: "1.1",
+            healthFactorBefore: "1.1",
+            healthFactorAfter: "1.09" // delta > CompoundPoolAdapterLibFacade.MAX_ALLOWED_HEALTH_FACTOR_REDUCTION;
+          })).rejectedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
+        });
+      });
+    });
+  });
+
+  describe("_getAccountValues", () => {
+    interface IParams {
+      cTokenCollateral: CompoundCTokenBaseMock;
+      cTokenBorrow: CompoundCTokenBaseMock;
+
+      collateralTokenBalance: string;
+      exchangeRateCollateralValue: string;
+      exchangeRateCollateralDecimals: number;
+      borrowBalance: string;
+
+      priceCollateral: string;
+      priceBorrow: string;
+
+      collateralFactor: string;
+    }
+
+    interface IResults {
+      healthFactor: number;
+      collateralBase: number;
+      borrowBase: number;
+      safeDebtAmountBase: number;
+    }
+
+    async function getAccountValues(p: IParams): Promise<IResults> {
+      const collateralAsset = IERC20Metadata__factory.connect(await p.cTokenCollateral.underlying(), signer);
+      const borrowAsset = IERC20Metadata__factory.connect(await p.cTokenBorrow.underlying(), signer);
+
+      const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
+      const decimalsBorrowAsset = await borrowAsset.decimals();
+      const decimalsCollateralAsset = await collateralAsset.decimals();
+
+      await comptrollerV1.setMarkets(p.cTokenCollateral.address, false, parseUnits(p.collateralFactor, 18));
+      const ret = await facade._getAccountValues(
+        {
+          cTokenNative: cWeth.address,
+          nativeToken: weth.address,
+          compoundStorageVersion: 1,
+        },
+        comptrollerV1.address,
+        p.cTokenCollateral.address,
+        {
+          collateralTokenBalance: parseUnits(p.collateralTokenBalance, decimalsCTokenCollateral),
+          exchangeRateMantissaCollateral: parseUnits(p.exchangeRateCollateralValue, p.exchangeRateCollateralDecimals),
+          borrowBalance: parseUnits(p.borrowBalance, decimalsBorrowAsset),
+        },
+        {
+          priceCollateral: parseUnits(p.priceCollateral, 36 - decimalsCollateralAsset),
+          priceBorrow: parseUnits(p.priceBorrow, 36 - decimalsBorrowAsset),
+        }
+      );
+
+      return {
+        collateralBase: +formatUnits(ret.collateralBase, 18),
+        borrowBase: +formatUnits(ret.borrowBase, 18),
+        healthFactor: +formatUnits(ret.healthFactor18, 18),
+        safeDebtAmountBase: +formatUnits(ret.safeDebtAmountBase, 18)
+      }
+    }
+
+    describe("Normal case", () => {
+      describe("DAI : USDC", () => {
+        let snapshotLocal: string;
+        before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
+
+        it("should return expected values", async () => {
+          const ret = await getAccountValues({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            priceCollateral: "2",
+            priceBorrow: "0.5",
+            borrowBalance: "100",
+            exchangeRateCollateralValue: "7",
+            exchangeRateCollateralDecimals: 18,
+            collateralTokenBalance: "5000",
+            collateralFactor: "0.5",
+          });
+
+          expect(
+            [ret.collateralBase, ret.borrowBase, ret.safeDebtAmountBase, ret.healthFactor].join()
+          ).eq(
+            [70_000, 50, 35_000, 700].join()
+          )
+        })
+      });
+      describe("USDC : DAI", () => {
+        let snapshotLocal: string;
+        before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
+
+        it("should return expected values", async () => {
+          const ret = await getAccountValues({
+            cTokenCollateral: cUsdc,
+            cTokenBorrow: cDai,
+            priceCollateral: "2",
+            priceBorrow: "0.5",
+            borrowBalance: "100",
+            exchangeRateCollateralValue: "7",
+            // cUsdc has decimals 18, usdc has decimals 6
+            // exchange rate allows to do following conversion: USDC = cUSDC * ExchangeRate / 1e18
+            exchangeRateCollateralDecimals: 6,
+            collateralTokenBalance: "5000",
+            collateralFactor: "0.5",
+          });
+
+          expect(
+            [ret.collateralBase, ret.borrowBase, ret.safeDebtAmountBase, ret.healthFactor].join()
+          ).eq(
+            [70_000, 50, 35_000, 700].join()
+          )
+        })
+      });
+    });
+  });
+
+  describe("_getCollateralTokensToRedeem", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      cTokenCollateral: CompoundCTokenBaseMock;
+      cTokenBorrow: CompoundCTokenBaseMock;
+
+      collateralTokenBalance: string;
+      borrowBalance: string;
+
+      amountToRepay: string;
+      closePosition: boolean;
+    }
+
+    interface IResults {
+      collateralTokenToRedeem: number;
+    }
+
+    async function getCollateralTokensToRedeem(p: IParams): Promise<IResults> {
+      const borrowAsset = IERC20Metadata__factory.connect(await p.cTokenBorrow.underlying(), signer);
+
+      const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
+      const decimalsBorrowAsset = await borrowAsset.decimals();
+
+      const collateralTokenToRedeem = await facade._getCollateralTokensToRedeem(
+        {
+          collateralTokenBalance: parseUnits(p.collateralTokenBalance, decimalsCTokenCollateral),
+          exchangeRateMantissaCollateral: 0, // not used here
+          borrowBalance: parseUnits(p.borrowBalance, decimalsBorrowAsset),
+        },
+        p.closePosition,
+        parseUnits(p.amountToRepay, decimalsBorrowAsset)
+      );
+
+      return {
+        collateralTokenToRedeem: +formatUnits(collateralTokenToRedeem, decimalsCTokenCollateral),
+      }
+    }
+
+    describe("Good paths", () => {
+      describe("Close position", () => {
+        it("should return expected values if amountToRepay == borrowBalance", async () => {
+          const ret = await getCollateralTokensToRedeem({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            borrowBalance: "100",
+            collateralTokenBalance: "5000",
+            closePosition: true,
+            amountToRepay: "100"
+          });
+
+          expect(ret.collateralTokenToRedeem).eq(5000);
+        });
+
+        it("should return expected values if amountToRepay > borrowBalance", async () => {
+          const ret = await getCollateralTokensToRedeem({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            borrowBalance: "100",
+            collateralTokenBalance: "5000",
+            closePosition: true,
+            amountToRepay: "200"
+          });
+
+          expect(ret.collateralTokenToRedeem).eq(5000);
+        })
+
+      });
+      describe("Don't close position", () => {
+        it("should return expected values if amountToRepay == borrowBalance", async () => {
+          const ret = await getCollateralTokensToRedeem({
+            cTokenCollateral: cUsdc,
+            cTokenBorrow: cDai,
+            borrowBalance: "100",
+            collateralTokenBalance: "5000",
+            closePosition: false,
+            amountToRepay: "100"
+          });
+
+          expect(ret.collateralTokenToRedeem).eq(5000);
+        });
+
+        it("should return expected values if amountToRepay < borrowBalance", async () => {
+          const ret = await getCollateralTokensToRedeem({
+            cTokenCollateral: cUsdc,
+            cTokenBorrow: cDai,
+            borrowBalance: "100",
+            collateralTokenBalance: "5000",
+            closePosition: false,
+            amountToRepay: "50"
+          });
+
+          expect(ret.collateralTokenToRedeem).eq(2500);
+        });
+      });
+    });
+
     describe("Bad paths", () => {
+      it("should revert if amountToRepay is too low to close position", async () => {
+        await expect(getCollateralTokensToRedeem({
+          cTokenCollateral: cDai,
+          cTokenBorrow: cUsdc,
+          borrowBalance: "100",
+          collateralTokenBalance: "5000",
+          closePosition: true,
+          amountToRepay: "99.9"
+        })).rejectedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
+      });
 
+      it("should revert if amount to repay exceeds borrow balance, but position is not closed", async () => {
+        await expect(getCollateralTokensToRedeem({
+          cTokenCollateral: cDai,
+          cTokenBorrow: cUsdc,
+          borrowBalance: "100",
+          collateralTokenBalance: "5000",
+          closePosition: false,
+          amountToRepay: "101"
+        })).rejectedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
+      });
+
+      it("should revert if the debt is zero", async () => {
+        await expect(getCollateralTokensToRedeem({
+          cTokenCollateral: cDai,
+          cTokenBorrow: cUsdc,
+          borrowBalance: "0",
+          collateralTokenBalance: "5000",
+          closePosition: true,
+          amountToRepay: "100"
+        })).rejectedWith("TC-28 zero balance"); // ZERO_BALANCE
+      })
     });
+  });
+
+  describe("_validateHealthStatusAfterBorrow", () => {
+    // todo
+  })
+
+  describe("getCollateralAmountToReturn", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      cTokenCollateral: CompoundCTokenBaseMock;
+      cTokenBorrow: CompoundCTokenBaseMock;
+
+      collateralTokenBalance: string;
+      borrowBalance: string;
+
+      exchangeRateCollateralValue: string;
+      exchangeRateCollateralDecimals: number;
+
+      amountToRepay: string;
+      closePosition: boolean;
+    }
+
+    interface IResults {
+      collateralTokenToRedeem: number;
+    }
+
+    async function getCollateralAmountToReturn(p: IParams): Promise<IResults> {
+      const collateralAsset = IERC20Metadata__factory.connect(await p.cTokenCollateral.underlying(), signer);
+      const borrowAsset = IERC20Metadata__factory.connect(await p.cTokenBorrow.underlying(), signer);
+
+      const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
+      const decimalsBorrowAsset = await borrowAsset.decimals();
+
+      await facade.setState(
+        collateralAsset.address,
+        borrowAsset.address,
+        p.cTokenCollateral.address,
+        p.cTokenBorrow.address,
+        userContract.address,
+        controller.address,
+        comptrollerV1.address,
+        ethers.Wallet.createRandom().address,
+        0
+      );
+
+      await p.cTokenCollateral.setGetAccountSnapshotValues(
+        parseUnits(p.collateralTokenBalance, decimalsCTokenCollateral),
+        0,
+        parseUnits(p.exchangeRateCollateralValue, p.exchangeRateCollateralDecimals),
+      );
+      await p.cTokenBorrow.setGetAccountSnapshotValues(
+        0,
+        parseUnits(p.borrowBalance, decimalsBorrowAsset),
+        9,
+      );
+
+      const collateralTokenToRedeem = await facade.getCollateralAmountToReturn(
+        parseUnits(p.amountToRepay, decimalsBorrowAsset),
+        p.closePosition,
+      );
+
+      return {
+        collateralTokenToRedeem: +formatUnits(collateralTokenToRedeem, decimalsCTokenCollateral),
+      }
+    }
+
+    describe("Good paths", () => {
+      it("should return all collateral when close position", async () => {
+        const ret = await getCollateralAmountToReturn({
+          cTokenCollateral: cDai,
+          cTokenBorrow: cUsdc,
+          borrowBalance: "100",
+          collateralTokenBalance: "5000",
+          closePosition: true,
+          amountToRepay: "200",
+          exchangeRateCollateralDecimals: 18,
+          exchangeRateCollateralValue: "7"
+        });
+
+        expect(ret.collateralTokenToRedeem).eq(35000); // 7 * 5000 / 1
+      });
+      it("should return expected amount when position is not closed", async () => {
+        const ret = await getCollateralAmountToReturn({
+          cTokenCollateral: cDai,
+          cTokenBorrow: cUsdc,
+          borrowBalance: "100",
+          collateralTokenBalance: "5000",
+          closePosition: false,
+          amountToRepay: "50",
+          exchangeRateCollateralDecimals: 18,
+          exchangeRateCollateralValue: "7"
+        });
+
+        expect(ret.collateralTokenToRedeem).eq(17500); // 7 * 5000 / 2
+      });
+    });
+
+  });
+
+
+  describe("getStatus", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      cTokenCollateral: CompoundCTokenBaseMock;
+      cTokenBorrow: CompoundCTokenBaseMock;
+
+      collateralTokenBalance: string;
+      borrowBalance: string;
+
+      exchangeRateCollateralValue: string;
+      exchangeRateCollateralDecimals: number;
+
+      amountToRepay: string;
+      closePosition: boolean;
+
+      priceCollateral: string;
+      priceBorrow: string;
+    }
+
+    interface IResults {
+      collateralAmount: number;
+      amountToPay: number;
+      healthFactor: number;
+      opened: boolean;
+      collateralAmountLiquidated: number;
+      debtGapRequired: boolean;
+    }
+
+    async function getStatus(p: IParams): Promise<IResults> {
+      const collateralAsset = IERC20Metadata__factory.connect(await p.cTokenCollateral.underlying(), signer);
+      const borrowAsset = IERC20Metadata__factory.connect(await p.cTokenBorrow.underlying(), signer);
+
+      const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
+      const decimalsBorrowAsset = await borrowAsset.decimals();
+      const decimalsCollateralAsset = await collateralAsset.decimals();
+
+      await facade.setState(
+        collateralAsset.address,
+        borrowAsset.address,
+        p.cTokenCollateral.address,
+        p.cTokenBorrow.address,
+        userContract.address,
+        controller.address,
+        comptrollerV1.address,
+        ethers.Wallet.createRandom().address,
+        0
+      );
+
+      await p.cTokenCollateral.setGetAccountSnapshotValues(
+        parseUnits(p.collateralTokenBalance, decimalsCTokenCollateral),
+        0,
+        parseUnits(p.exchangeRateCollateralValue, p.exchangeRateCollateralDecimals),
+      );
+      await p.cTokenBorrow.setGetAccountSnapshotValues(
+        0,
+        parseUnits(p.borrowBalance, decimalsBorrowAsset),
+        9,
+      );
+
+      await priceOracle.setUnderlyingPrice(p.cTokenBorrow.address, parseUnits(p.priceBorrow, 36 - decimalsBorrowAsset));
+      await priceOracle.setUnderlyingPrice(p.cTokenCollateral.address, parseUnits(p.priceCollateral, 36 - decimalsCollateralAsset));
+
+      const status = await facade.getStatus();
+
+      return {
+        collateralAmount: +formatUnits(status.collateralAmount, decimalsCollateralAsset),
+        amountToPay: +formatUnits(status.amountToPay, decimalsBorrowAsset),
+        collateralAmountLiquidated: +formatUnits(status.collateralAmountLiquidated, decimalsCollateralAsset),
+        opened: status.opened,
+        debtGapRequired: status.debtGapRequired,
+        healthFactor: +formatUnits(status.healthFactor18, 18)
+      }
+    }
+
+    describe("Good paths", () => {
+      describe("DAI : USDC", () => {
+        async function getStatusTest(): Promise<IResults> {
+          return getStatus({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            borrowBalance: "100",
+            collateralTokenBalance: "5000",
+            closePosition: true,
+            amountToRepay: "200",
+            exchangeRateCollateralDecimals: 18,
+            exchangeRateCollateralValue: "7",
+            priceCollateral: "2",
+            priceBorrow: "0.5"
+          });
+        }
+        it("should return expected amounts", async () => {
+          const ret = await loadFixture(getStatusTest);
+          expect(
+            [ret.collateralAmount, ret.amountToPay, ret.collateralAmountLiquidated].join()
+          ).eq(
+            [35_000, 100, 0].join()
+          );
+        });
+
+        it("should return expected flags", async () => {
+          const ret = await loadFixture(getStatusTest);
+          expect([ret.opened, ret.debtGapRequired].join()).eq([true, false].join());
+        });
+
+        it("should return expected health factor", async () => {
+          const ret = await loadFixture(getStatusTest);
+          expect(ret.healthFactor).eq(700);
+        });
+      });
+    });
+
   });
 //endregion Unit tests
 });
