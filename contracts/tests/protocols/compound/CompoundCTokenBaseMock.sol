@@ -146,9 +146,9 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
 /// @notice Sender borrows assets from the protocol to their own address
   /// @param borrowAmount The amount of the underlying asset to borrow
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function borrow(uint256 borrowAmount) external view returns (uint256) {
-    borrowAmount;
-    // todo
+  function borrow(uint256 borrowAmount) external returns (uint256) {
+    IERC20(_underlying).transfer(msg.sender, borrowAmount);
+    _getAccountSnapshotValues[1] += borrowAmount;
     return _borrowErrorCode;
   }
 
@@ -157,14 +157,10 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @param mintAmount The amount of the underlying asset to supply
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
   function mint(uint256 mintAmount) external returns (uint256) {
-    console.log("mint.mintAmount", mintAmount);
-    console.log("mint.underlying.token.balance0", IERC20(_underlying).balanceOf(address(this)));
-    console.log("mint.token.sender.balance0", IERC20(address(this)).balanceOf(msg.sender));
     uint underlyingAmount = mintAmount * 10**IERC20Metadata(_underlying).decimals() / 10**IERC20Metadata(address(this)).decimals();
     IERC20(_underlying).transferFrom(msg.sender, address(this), underlyingAmount);
     mint(msg.sender, mintAmount);
-    console.log("mint.underlying.token.balance1", IERC20(_underlying).balanceOf(address(this)));
-    console.log("mint.token.sender.balance1", IERC20(address(this)).balanceOf(msg.sender));
+    _getAccountSnapshotValues[0] += mintAmount;
     return _mintErrorCode;
   }
 

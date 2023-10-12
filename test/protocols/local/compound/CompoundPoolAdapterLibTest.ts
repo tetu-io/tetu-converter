@@ -10,21 +10,21 @@ import {
   ConverterController,
   Borrower,
   IERC20Metadata__factory,
-  CompoundComptrollerMock,
   TokenAddressProviderMock,
   IERC20__factory,
   CompoundComptrollerMockV2,
-  CompoundComptrollerMockV1, CompoundPriceOracleMock,
+  CompoundComptrollerMockV1,
+  CompoundPriceOracleMock,
+  MockERC20__factory,
+  DebtMonitorMock,
 } from "../../../../typechain";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 import {BigNumber} from "ethers";
-import {stat} from "fs";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
-import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 
 describe("CompoundPoolAdapterLibTest", () => {
@@ -38,6 +38,7 @@ describe("CompoundPoolAdapterLibTest", () => {
   let comptrollerV2: CompoundComptrollerMockV2;
   let tokenAddressProviderMock: TokenAddressProviderMock;
   let priceOracle: CompoundPriceOracleMock;
+  let debtMonitor: DebtMonitorMock;
 
   let usdc: MockERC20;
   let usdt: MockERC20;
@@ -79,12 +80,21 @@ describe("CompoundPoolAdapterLibTest", () => {
     cWeth = await MocksHelper.createCompoundCTokenBaseMock(signer, "cWeth", 18)
     await cWeth.setUnderlying(weth.address);
 
-    controller = await TetuConverterApp.createController(signer);
+    debtMonitor = await MocksHelper.createDebtMonitorMock(signer);
+    priceOracle = await MocksHelper.createCompoundPriceOracle(signer);
+
+    controller = await TetuConverterApp.createController(signer, {
+      debtMonitorFabric: {
+        deploy: async () => debtMonitor.address,
+        init: async (controller, instance) => {
+        }
+      },
+      priceOracleFabric: async () => priceOracle.address
+    });
     userContract = await MocksHelper.deployBorrower(signer.address, controller, 1);
 
     randomAddress = ethers.Wallet.createRandom().address;
 
-    priceOracle = await MocksHelper.createCompoundPriceOracle(signer);
     await comptrollerV1.setOracle(priceOracle.address);
     await comptrollerV2.setOracle(priceOracle.address);
   });
@@ -1058,7 +1068,6 @@ describe("CompoundPoolAdapterLibTest", () => {
 
   });
 
-
   describe("getStatus", () => {
     let snapshotLocal: string;
     before(async function () {
@@ -1083,6 +1092,9 @@ describe("CompoundPoolAdapterLibTest", () => {
 
       priceCollateral: string;
       priceBorrow: string;
+
+      collateralFactor: string;
+      collateralTokensBalanceInState?: string;
     }
 
     interface IResults {
@@ -1102,6 +1114,12 @@ describe("CompoundPoolAdapterLibTest", () => {
       const decimalsBorrowAsset = await borrowAsset.decimals();
       const decimalsCollateralAsset = await collateralAsset.decimals();
 
+      await facade.setProtocolFeatures({
+        cTokenNative: cWeth.address,
+        nativeToken: weth.address,
+        compoundStorageVersion: 1
+      });
+
       await facade.setState(
         collateralAsset.address,
         borrowAsset.address,
@@ -1111,7 +1129,7 @@ describe("CompoundPoolAdapterLibTest", () => {
         controller.address,
         comptrollerV1.address,
         ethers.Wallet.createRandom().address,
-        0
+        parseUnits((p?.collateralTokensBalanceInState || "0"), decimalsCTokenCollateral),
       );
 
       await p.cTokenCollateral.setGetAccountSnapshotValues(
@@ -1127,6 +1145,8 @@ describe("CompoundPoolAdapterLibTest", () => {
 
       await priceOracle.setUnderlyingPrice(p.cTokenBorrow.address, parseUnits(p.priceBorrow, 36 - decimalsBorrowAsset));
       await priceOracle.setUnderlyingPrice(p.cTokenCollateral.address, parseUnits(p.priceCollateral, 36 - decimalsCollateralAsset));
+
+      await comptrollerV1.setMarkets(p.cTokenCollateral.address, false, parseUnits(p.collateralFactor, 18));
 
       const status = await facade.getStatus();
 
@@ -1153,7 +1173,8 @@ describe("CompoundPoolAdapterLibTest", () => {
             exchangeRateCollateralDecimals: 18,
             exchangeRateCollateralValue: "7",
             priceCollateral: "2",
-            priceBorrow: "0.5"
+            priceBorrow: "0.5",
+            collateralFactor: "0.5"
           });
         }
         it("should return expected amounts", async () => {
@@ -1175,8 +1196,198 @@ describe("CompoundPoolAdapterLibTest", () => {
           expect(ret.healthFactor).eq(700);
         });
       });
+      describe("USDC : DAI, liquidation happened", () => {
+        async function getStatusTest(): Promise<IResults> {
+          return getStatus({
+            cTokenCollateral: cUsdc,
+            cTokenBorrow: cDai,
+            borrowBalance: "100",
+            collateralTokenBalance: "5000",
+            collateralTokensBalanceInState: "8000",
+            closePosition: true,
+            amountToRepay: "200",
+            exchangeRateCollateralDecimals: 6,
+            exchangeRateCollateralValue: "7",
+            priceCollateral: "2",
+            priceBorrow: "0.5",
+            collateralFactor: "0.5"
+          });
+        }
+        it("should return expected amounts", async () => {
+          const ret = await loadFixture(getStatusTest);
+          expect(
+            [ret.collateralAmount, ret.amountToPay, ret.collateralAmountLiquidated].join()
+          ).eq(
+            [35_000, 100, (8000 - 5000) * 7].join()
+          );
+        });
+
+        it("should return expected flags", async () => {
+          const ret = await loadFixture(getStatusTest);
+          expect([ret.opened, ret.debtGapRequired].join()).eq([true, false].join());
+        });
+
+        it("should return expected health factor", async () => {
+          const ret = await loadFixture(getStatusTest);
+          expect(ret.healthFactor).eq(700);
+        });
+      });
     });
 
+  });
+
+  describe("borrow", () => {
+    interface IParams {
+      cTokenCollateral: CompoundCTokenBaseMock;
+      cTokenBorrow: CompoundCTokenBaseMock;
+
+      collateralAmount: string;
+      borrowAmount: string;
+
+      compoundStorageVersion?: number; // COMPOUND_STORAGE_V1 by default
+      approvedCollateralAmount?: string; // collateralAmount by default
+      amountInPool?: string; // initial amount of borrow asset on borrow-token's balance, default = borrowAmount
+      stateCollateralTokenBalanceInitial?: string; // 0 by default
+      priceCollateral?: string; // "1" by default
+      priceBorrow?: string; // "1" by default
+
+      borrowErrorCode?: number; // 0 by default
+    }
+
+    interface IResults {
+      gasUsed: BigNumber;
+      returnedBorrowAmount: number;
+      userBorrowBalance: number;
+      userCollateralBalance: number;
+      marketsAreEntered: boolean[]; // collateral, borrow
+      isDebtMonitorPositionOpened: boolean;
+      stateCollateralTokenBalance: number;
+      amountInPool: number;
+    }
+
+    async function borrow(p: IParams): Promise<IResults> {
+      const receiver = ethers.Wallet.createRandom().address;
+      const tetuConverter = await Misc.impersonate(await controller.tetuConverter());
+      const facadeAsTetuConverter = facade.connect(tetuConverter);
+
+      const collateralAsset = MockERC20__factory.connect(await p.cTokenCollateral.underlying(), signer);
+      const borrowAsset = MockERC20__factory.connect(await p.cTokenBorrow.underlying(), signer);
+
+      const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
+      const decimalsBorrowAsset = await borrowAsset.decimals();
+      const decimalsCollateralAsset = await collateralAsset.decimals();
+
+      const approvedCollateralAmount = parseUnits(p.approvedCollateralAmount ?? p.collateralAmount, decimalsCollateralAsset);
+      const compoundStorageVersion = p?.compoundStorageVersion ?? AppConstants.COMPOUND_STORAGE_V1;
+      const stateCollateralTokenBalanceInitial = parseUnits(p?.stateCollateralTokenBalanceInitial || "0", decimalsCTokenCollateral);
+      const initialAmountInPool = parseUnits(p?.amountInPool || p.borrowAmount, decimalsBorrowAsset);
+      const comptroller = compoundStorageVersion === AppConstants.COMPOUND_STORAGE_V1 ? comptrollerV1 : comptrollerV2;
+
+      const signerUser = await Misc.impersonate(userContract.address);
+
+      // prepare initial amounts, set approve
+      await borrowAsset.mint(p.cTokenBorrow.address, initialAmountInPool);
+      await collateralAsset.mint(tetuConverter.address, approvedCollateralAmount);
+      await collateralAsset.connect(tetuConverter).approve(facade.address, approvedCollateralAmount);
+      await collateralAsset.connect(await Misc.impersonate(facade.address)).approve(p.cTokenCollateral.address, Misc.MAX_UINT);
+
+      // set up price oracle
+      await priceOracle.setUnderlyingPrice(p.cTokenCollateral.address, parseUnits(p?.priceCollateral ?? "1", 36 - decimalsCollateralAsset));
+      await priceOracle.setUnderlyingPrice(p.cTokenBorrow.address, parseUnits(p?.priceBorrow ?? "1", 36 - decimalsBorrowAsset));
+
+      // set up facade
+      await facade.setProtocolFeatures({
+        cTokenNative: cWeth.address,
+        nativeToken: weth.address,
+        compoundStorageVersion
+      });
+      await facade.setState(
+        collateralAsset.address,
+        borrowAsset.address,
+        p.cTokenCollateral.address,
+        p.cTokenBorrow.address,
+        userContract.address,
+        controller.address,
+        comptroller.address,
+        ethers.Wallet.createRandom().address,
+        stateCollateralTokenBalanceInitial
+      );
+
+      // borrow
+      const ret = await facadeAsTetuConverter.callStatic.borrow(
+        parseUnits(p.collateralAmount, decimalsCollateralAsset),
+        parseUnits(p.borrowAmount, decimalsBorrowAsset),
+        receiver
+      );
+
+      const tx = await facadeAsTetuConverter.borrow(
+        parseUnits(p.collateralAmount, decimalsCollateralAsset),
+        parseUnits(p.borrowAmount, decimalsBorrowAsset),
+        receiver
+      );
+      const cr = await tx.wait();
+      const gasUsed = cr.gasUsed;
+
+      const marketsAreEntered = [
+        await comptroller.isMarketEntered(p.cTokenCollateral.address),
+        await comptroller.isMarketEntered(p.cTokenBorrow.address),
+      ];
+
+      return {
+        gasUsed,
+        amountInPool: +formatUnits(await borrowAsset.balanceOf(p.cTokenBorrow.address), decimalsBorrowAsset),
+        returnedBorrowAmount: +formatUnits(ret, decimalsBorrowAsset),
+        userBorrowBalance: +formatUnits(await borrowAsset.balanceOf(userContract.address), decimalsBorrowAsset),
+        userCollateralBalance: +formatUnits(await collateralAsset.balanceOf(userContract.address), decimalsCollateralAsset),
+        stateCollateralTokenBalance: +formatUnits((await facade.getState()).collateralTokensBalance, decimalsCollateralAsset),
+        isDebtMonitorPositionOpened: await debtMonitor.connect(signerUser)._isOpenedPosition(facade.address),
+        marketsAreEntered
+      }
+    }
+
+    describe("Normal case", () => {
+      let snapshotLocal: string;
+      before(async function () {
+        snapshotLocal = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshotLocal);
+      });
+
+      async function borrowTest(): Promise<IResults> {
+        return borrow({
+          cTokenCollateral: cDai,
+          cTokenBorrow: cUsdc,
+          borrowAmount: "1",
+          collateralAmount: "2"
+        });
+      }
+
+      it("should set expected user balances", async () => {
+        const ret = await loadFixture(borrowTest);
+        expect([ret.userBorrowBalance, ret.userCollateralBalance].join()).eq([1, 0].join());
+      });
+      it("should enter to both markets", async () => {
+        const ret = await loadFixture(borrowTest);
+        expect(ret.marketsAreEntered.join()).eq([true, true].join());
+      });
+      it("should open position in debt monitor", async () => {
+        const ret = await loadFixture(borrowTest);
+        expect(ret.isDebtMonitorPositionOpened).eq(true);
+      });
+      it("should leave zero amountInPool", async () => {
+        const ret = await loadFixture(borrowTest);
+        expect(ret.amountInPool).eq(0);
+      });
+      it("should set expected collateralTokenBalance", async () => {
+        const ret = await loadFixture(borrowTest);
+        expect(ret.stateCollateralTokenBalance).eq(2);
+      });
+      it("should return expected amount", async () => {
+        const ret = await loadFixture(borrowTest);
+        expect(ret.returnedBorrowAmount).eq(1);
+      });
+    });
   });
 //endregion Unit tests
 });

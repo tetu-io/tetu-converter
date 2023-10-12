@@ -72,12 +72,12 @@ library CompoundPoolAdapterLib {
     uint balanceCollateralAssetAfterRedeem;
   }
 
-  struct GetStatusLocal {
+                struct GetStatusLocal {
     ICompoundComptrollerBase comptroller;
     address cTokenBorrow;
     address cTokenCollateral;
     uint collateralBase;
-    uint collateralAmountLiquidatedBase;
+    uint collateralAmountLiquidated;
     uint collateralTokensBalance;
   }
 
@@ -205,6 +205,7 @@ library CompoundPoolAdapterLib {
     uint borrowAmount_,
     address receiver_
   ) internal returns (uint) {
+    console.log("borrow.1");
     BorrowLocal memory v;
 
     v.controller = state.controller;
@@ -216,21 +217,27 @@ library CompoundPoolAdapterLib {
     v.assetCollateral = state.collateralAsset;
     v.assetBorrow = state.borrowAsset;
 
+    console.log("borrow.2");
     IERC20(v.assetCollateral).safeTransferFrom(msg.sender, address(this), collateralAmount_);
+    console.log("borrow.3");
 
     // enter markets (repeat entering is not a problem)
     v.markets = new address[](2);
     v.markets[0] = v.cTokenCollateral;
     v.markets[1] = v.cTokenBorrow;
     v.comptroller.enterMarkets(v.markets);
+    console.log("borrow.4");
 
     // supply collateral
     uint tokenBalanceBeforeBorrow = _supply(f_, v.cTokenCollateral, v.assetCollateral, collateralAmount_);
+    console.log("borrow.5");
 
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(f_, v.assetBorrow);
+    console.log("borrow.6");
     v.error = ICTokenBase(v.cTokenBorrow).borrow(borrowAmount_);
     require(v.error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(v.error))));
+    console.log("borrow.7");
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     if (f_.nativeToken == v.assetBorrow) {
@@ -240,17 +247,22 @@ library CompoundPoolAdapterLib {
       borrowAmount_ + balanceBorrowAsset0 >= IERC20(v.assetBorrow).balanceOf(address(this)),
       AppErrors.WRONG_BORROWED_BALANCE
     );
+    console.log("borrow.8");
     IERC20(v.assetBorrow).safeTransfer(receiver_, borrowAmount_);
+    console.log("borrow.9");
 
     // register the borrow in DebtMonitor
     IDebtMonitor(v.controller.debtMonitor()).onOpenPosition();
+    console.log("borrow.10");
 
     // ensure that current health factor is greater than min allowed
-    (
-      uint healthFactor, uint tokenBalanceAfterBorrow
-    ) = _validateHealthStatusAfterBorrow(f_, v.controller, v.comptroller, v.cTokenCollateral, v.cTokenBorrow);
+    (uint healthFactor, uint tokenBalanceAfterBorrow) = _validateHealthStatusAfterBorrow(
+      f_, v.controller, v.comptroller, v.cTokenCollateral, v.cTokenBorrow
+    );
+    console.log("borrow.11");
     require(tokenBalanceAfterBorrow >= tokenBalanceBeforeBorrow, AppErrors.WEIRD_OVERFLOW);
     state.collateralTokensBalance += tokenBalanceAfterBorrow - tokenBalanceBeforeBorrow;
+    console.log("borrow.12");
 
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
     return borrowAmount_;
@@ -498,6 +510,7 @@ library CompoundPoolAdapterLib {
     uint collateralAmountLiquidated,
     bool debtGapRequired
   ) {
+    console.log("getStatus.1");
     GetStatusLocal memory v;
     v.comptroller = state.comptroller;
     v.cTokenBorrow = state.borrowCToken;
@@ -519,17 +532,16 @@ library CompoundPoolAdapterLib {
 
     AccountData memory data;
     _initAccountData(v.cTokenCollateral, v.cTokenBorrow, data);
+    console.log("getStatus.2");
 
     PricesData memory prices;
     _initPricesData(v.comptroller, v.cTokenCollateral, v.cTokenBorrow, prices);
+    console.log("getStatus.3");
 
     (healthFactor18, v.collateralBase,, ) = _getAccountValues(f_, v.comptroller, v.cTokenCollateral, data, prices);
 
-    v.collateralAmountLiquidatedBase = _toBaseAmount(
-      AppUtils.sub0(v.collateralTokensBalance, data.collateralTokenBalance)
-      * data.exchangeRateMantissaCollateral / 10 ** EXCHANGE_RATE_DECIMALS,
-      prices.priceCollateral
-    );
+    v.collateralAmountLiquidated = AppUtils.sub0(v.collateralTokensBalance, data.collateralTokenBalance)
+      * data.exchangeRateMantissaCollateral / 10 ** EXCHANGE_RATE_DECIMALS;
 
     return (
     // Total amount of provided collateral [collateral asset]
@@ -540,7 +552,7 @@ library CompoundPoolAdapterLib {
       healthFactor18,
       data.collateralTokenBalance != 0 || data.borrowBalance != 0,
     // Amount of liquidated collateral == amount of lost
-      _fromBaseAmount(v.collateralAmountLiquidatedBase, prices.priceCollateral),
+      v.collateralAmountLiquidated,
       false
     );
   }
@@ -689,8 +701,13 @@ library CompoundPoolAdapterLib {
     uint safeDebtAmountBase,
     uint borrowBase
   ) {
+    console.log("_getAccountValues.1");
     (collateralBase, borrowBase) = _getBaseAmounts(data_, prices_);
+    console.log("_getAccountValues.2");
     uint collateralFactor = _getCollateralFactor(f_, comptroller_, cTokenCollateral_);
+    console.log("_getAccountValues.collateralFactor", collateralFactor);
+    console.log("_getAccountValues.collateralBase", collateralBase);
+    console.log("_getAccountValues.borrowBase", borrowBase);
     (safeDebtAmountBase, healthFactor18) = _getHealthFactor(collateralFactor, collateralBase, borrowBase);
   }
 

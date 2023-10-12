@@ -8,11 +8,12 @@ import "../../utils/TestUtilsLib.sol";
 /// required to implement platform and pool adapters
 abstract contract CompoundComptrollerMock is ICompoundComptrollerBase {
   address internal _oracle;
-  mapping(bytes32 => uint[]) internal _enterMarkets;
+  mapping(bytes32 => uint[]) internal _enterMarketsResults;
   mapping(address => uint[3]) internal _getAccountLiquidity;
   mapping(address => uint) internal _borrowCaps;
   mapping(address => bool) internal _borrowGuardianPaused;
   mapping(address => bool) internal _mintGuardianPaused;
+  mapping(address => bool) internal _marketEntered;
 
   //region ------------------------------------ Setup
   function setOracle(address oracle_) external {
@@ -21,7 +22,7 @@ abstract contract CompoundComptrollerMock is ICompoundComptrollerBase {
 
   function setEnterMarkets(address[] memory cTokens, uint[] memory successIndicators) external {
     bytes32 key = TestUtilsLib.keccak256addresses(cTokens);
-    _enterMarkets[key] = successIndicators;
+    _enterMarketsResults[key] = successIndicators;
   }
 
   function setGetAccountLiquidity(address account, uint256 error, uint256 liquidity, uint256 shortfall) external {
@@ -39,6 +40,10 @@ abstract contract CompoundComptrollerMock is ICompoundComptrollerBase {
   function setMintGuardianPaused(address cToken, bool paused) external {
     _mintGuardianPaused[cToken] = paused;
   }
+  function isMarketEntered(address cToken) external view returns (bool) {
+    return _marketEntered[cToken];
+  }
+
   //endregion ------------------------------------ Setup
 
   //region ------------------------------------ ICompoundComptrollerBase
@@ -48,8 +53,11 @@ abstract contract CompoundComptrollerMock is ICompoundComptrollerBase {
 
   function enterMarkets(address[] memory cTokens) external returns (uint256[] memory) {
     bytes32 key = TestUtilsLib.keccak256addresses(cTokens);
-    _enterMarkets[key] = _enterMarkets[key];
-    return _enterMarkets[key];
+    _enterMarketsResults[key] = _enterMarketsResults[key];
+    for (uint i = 0; i < cTokens.length; ++i) {
+      _marketEntered[cTokens[i]] = true;
+    }
+    return _enterMarketsResults[key];
   }
 
   function getAccountLiquidity(address account) external view returns (
