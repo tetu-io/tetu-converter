@@ -157,10 +157,13 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @param mintAmount The amount of the underlying asset to supply
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
   function mint(uint256 mintAmount) external returns (uint256) {
-    uint underlyingAmount = mintAmount * 10**IERC20Metadata(_underlying).decimals() / 10**IERC20Metadata(address(this)).decimals();
-    IERC20(_underlying).transferFrom(msg.sender, address(this), underlyingAmount);
-    mint(msg.sender, mintAmount);
-    _getAccountSnapshotValues[0] += mintAmount;
+    console.log("mintAmount", mintAmount);
+    uint tokensAmount = mintAmount * 1e18 / _getAccountSnapshotValues[2];
+    console.log("exchange rate", _getAccountSnapshotValues[2]);
+    console.log("tokensAmount", tokensAmount);
+    IERC20(_underlying).transferFrom(msg.sender, address(this), mintAmount);
+    mint(msg.sender, tokensAmount);
+    _getAccountSnapshotValues[0] += tokensAmount;
     return _mintErrorCode;
   }
 

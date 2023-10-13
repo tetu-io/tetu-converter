@@ -619,6 +619,9 @@ library CompoundPoolAdapterLib {
     (healthFactor18,, safeDebtAmountBase, borrowBase) = _getAccountValues(
       f_, comptroller_, cTokenCollateral_, data, prices
     );
+    console.log("borrowBase", borrowBase);
+    console.log("safeDebtAmountBase", safeDebtAmountBase);
+    console.log("healthFactor18", healthFactor18);
     require(borrowBase != 0 && safeDebtAmountBase > borrowBase, AppErrors.INCORRECT_RESULT_LIQUIDITY);
 
     (uint error ,,) = comptroller_.getAccountLiquidity(address(this)); // todo do we need this call?
@@ -652,9 +655,12 @@ library CompoundPoolAdapterLib {
 
     (error, dest.collateralTokenBalance,, dest.exchangeRateMantissaCollateral) = ICTokenBase(cTokenCollateral).getAccountSnapshot(address(this));
     require(error == 0, string(abi.encodePacked(AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED, Strings.toString(error))));
+    console.log("_initAccountData.collateralTokenBalance", dest.collateralTokenBalance);
+    console.log("_initAccountData.exchangeRateMantissaCollateral", dest.exchangeRateMantissaCollateral);
 
     (error,, dest.borrowBalance,) = ICTokenBase(cTokenBorrow).getAccountSnapshot(address(this));
     require(error == 0, string(abi.encodePacked(AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED, Strings.toString(error))));
+    console.log("_initAccountData.borrowBalance", dest.borrowBalance);
   }
 
   function _initPricesData(
