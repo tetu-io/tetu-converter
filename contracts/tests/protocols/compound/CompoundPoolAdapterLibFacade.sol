@@ -108,7 +108,7 @@ contract CompoundPoolAdapterLibFacade {
     return CompoundPoolAdapterLib._validateHealthStatusAfterBorrow(_f, controller_, comptroller_, cTokenCollateral_, cTokenBorrow_);
   }
 
-  function borrowToRebalance(uint borrowAmount_, address receiver_) external returns (
+  function borrowToRebalance(uint borrowAmount_, address receiver_) external view returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {

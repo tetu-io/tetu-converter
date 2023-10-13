@@ -81,7 +81,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   /// @dev Re-balance: too big health factor => target health factor
   /// @return resultHealthFactor18 Result health factor after borrow
   /// @return borrowedAmountOut Exact amount sent to the borrower
-  function borrowToRebalance(uint borrowAmount_, address receiver_) external override returns (
+  function borrowToRebalance(uint borrowAmount_, address receiver_) external view override returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {

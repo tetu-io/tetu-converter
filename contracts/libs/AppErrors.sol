@@ -127,4 +127,6 @@ library AppErrors {
 
   string public constant GELATO_ONLY_OPS = "TC-60: onlyOps";
   string public constant GELATO_ETH_TRANSFER_FAILED = "TC-61: _transfer: ETH transfer failed";
+
+  string public constant DEPRECATED_LEGACY_CODE = "TC-62: legacy";
 }

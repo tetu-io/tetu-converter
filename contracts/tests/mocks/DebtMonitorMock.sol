@@ -39,4 +39,8 @@ contract DebtMonitorMock {
   function onClosePosition() external {
     _closedPositions[msg.sender] = true;
   }
+
+  function isPositionOpened() external view returns (bool) {
+    return _openedPositions[msg.sender];
+  }
 }

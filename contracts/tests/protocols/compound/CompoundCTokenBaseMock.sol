@@ -172,8 +172,11 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
     uint tokensAmount = mintAmount * 1e18 / _getAccountSnapshotValues[2];
     console.log("exchange rate", _getAccountSnapshotValues[2]);
     console.log("tokensAmount", tokensAmount);
+    console.log("_underlying balance", IERC20(_underlying).balanceOf(address(this)));
     IERC20(_underlying).transferFrom(msg.sender, address(this), mintAmount);
+    console.log("mint.1");
     mint(msg.sender, tokensAmount);
+    console.log("mint.2");
     _getAccountSnapshotValues[0] += tokensAmount;
     return _mintErrorCode;
   }

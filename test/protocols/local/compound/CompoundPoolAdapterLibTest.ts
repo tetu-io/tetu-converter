@@ -553,7 +553,7 @@ describe("CompoundPoolAdapterLibTest", () => {
         const ret = await facade._getBaseAmounts(
           {
             collateralTokenBalance: parseUnits(p.collateralTokenBalance, decimalsCTokenCollateral),
-            exchangeRateMantissaCollateral: parseUnits(p.exchangeRateCollateralValue, p.exchangeRateCollateralDecimals),
+            exchangeRateCollateral: parseUnits(p.exchangeRateCollateralValue, p.exchangeRateCollateralDecimals),
             borrowBalance: parseUnits(p.borrowBalance, decimalsBorrowAsset),
           },
           {
@@ -747,7 +747,7 @@ describe("CompoundPoolAdapterLibTest", () => {
           p.cTokenCollateral.address,
           {
             collateralTokenBalance: parseUnits(p.collateralTokenBalance, decimalsCTokenCollateral),
-            exchangeRateMantissaCollateral: parseUnits(p.exchangeRateCollateralValue, p.exchangeRateCollateralDecimals),
+            exchangeRateCollateral: parseUnits(p.exchangeRateCollateralValue, p.exchangeRateCollateralDecimals),
             borrowBalance: parseUnits(p.borrowBalance, decimalsBorrowAsset),
           },
           {
@@ -861,7 +861,7 @@ describe("CompoundPoolAdapterLibTest", () => {
         const collateralTokenToRedeem = await facade._getCollateralTokensToRedeem(
           {
             collateralTokenBalance: parseUnits(p.collateralTokenBalance, decimalsCTokenCollateral),
-            exchangeRateMantissaCollateral: 0, // not used here
+            exchangeRateCollateral: 0, // not used here
             borrowBalance: parseUnits(p.borrowBalance, decimalsBorrowAsset),
           },
           p.closePosition,
@@ -1859,6 +1859,317 @@ describe("CompoundPoolAdapterLibTest", () => {
             stateCollateralTokenBalanceInitial: "551",
             collateralAmountToSendToPoolAdapter: "199",
           })).rejectedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
+        })
+      });
+    });
+    describe("repayToRebalance", () => {
+      interface IParams {
+        cTokenCollateral: CompoundCTokenBaseMock;
+        cTokenBorrow: CompoundCTokenBaseMock;
+
+        collateralTokensBalance: string;
+        borrowBalance: string;
+        exchangeRateCollateralValue?: string; // 1 by default
+        exchangeRateCollateralDecimals?: number; // 18 by default
+
+        amountIn: string;
+        isCollateral: boolean;
+        isPositionOpened?: boolean; // true by default
+
+        compoundStorageVersion?: number; // COMPOUND_STORAGE_V1 by default
+        approvedAmount?: string; // amountIn by default
+        amountInPool?: string; // initial amount of collateral asset on collateral token's balance, default = collateralAmount
+        stateCollateralTokenBalanceInitial?: string; // 0 by default
+        priceCollateral?: string; // "1" by default
+        priceBorrow?: string; // "1" by default
+
+        repayBorrowErrorCode?: number; // 0 by default
+        mintErrorCode?: number; // 0 by default
+        collateralFactor?: string; // 0.5 by default
+
+        collateralAmountToSendToPoolAdapter?: string; // 0 by default - it means, required amount will be sent
+        notTetuConverter?: boolean;
+      }
+
+      interface IResults {
+        gasUsed: BigNumber;
+        resultHealthFactor: number;
+        tetuConverterBorrowBalance: number;
+        stateCollateralTokenBalance: number;
+        collateralAmountInPool: number;
+        borrowAmountInPool: number;
+        tokenBalance: number;
+        borrowBalance: number;
+      }
+
+      async function repayToRebalance(p: IParams): Promise<IResults> {
+        const tetuConverter = await Misc.impersonate(await controller.tetuConverter());
+        const facadeAsTetuConverter = p.notTetuConverter
+          ? facade.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
+          : facade.connect(tetuConverter);
+
+        const collateralAsset = MockERC20__factory.connect(await p.cTokenCollateral.underlying(), signer);
+        const borrowAsset = MockERC20__factory.connect(await p.cTokenBorrow.underlying(), signer);
+
+        const decimalsCTokenCollateral = await p.cTokenCollateral.decimals();
+        const decimalsBorrowAsset = await borrowAsset.decimals();
+        const decimalsCollateralAsset = await collateralAsset.decimals();
+
+        const amountIn = parseUnits(
+          p.amountIn,
+          p.isCollateral ? decimalsCollateralAsset : decimalsBorrowAsset
+        );
+        const approvedAmount = parseUnits(
+          p.approvedAmount ?? p.amountIn,
+          p.isCollateral ? decimalsCollateralAsset : decimalsBorrowAsset
+        );
+        const compoundStorageVersion = p?.compoundStorageVersion ?? AppConstants.COMPOUND_STORAGE_V1;
+        const stateCollateralTokenBalanceInitial = parseUnits(p?.stateCollateralTokenBalanceInitial || "0", decimalsCTokenCollateral);
+        const exchangeRateCollateral = parseUnits(p?.exchangeRateCollateralValue ?? "1", p?.exchangeRateCollateralDecimals ?? 18);
+        const initialAmountInPool = p?.amountInPool
+          ? parseUnits(p?.amountInPool, decimalsCollateralAsset)
+          : parseUnits(p.collateralTokensBalance, decimalsCTokenCollateral).mul(exchangeRateCollateral).div(Misc.WEI);
+        console.log("initialAmountInPool", initialAmountInPool);
+
+        const comptroller = compoundStorageVersion === AppConstants.COMPOUND_STORAGE_V1 ? comptrollerV1 : comptrollerV2;
+        const collateralFactor = parseUnits(p?.collateralFactor || "0.5", 18);
+
+        const signerUser = await Misc.impersonate(userContract.address);
+
+        // prepare initial amounts, set approve
+        await collateralAsset.mint(p.cTokenCollateral.address, initialAmountInPool);
+        await p.cTokenCollateral["mint(address,uint256)"](facade.address, stateCollateralTokenBalanceInitial);
+        if (p.isCollateral) {
+          await collateralAsset.mint(tetuConverter.address, approvedAmount);
+          await collateralAsset.connect(tetuConverter).approve(facade.address, approvedAmount);
+        } else {
+          await borrowAsset.mint(tetuConverter.address, approvedAmount);
+          await borrowAsset.connect(tetuConverter).approve(facade.address, approvedAmount);
+        }
+        await borrowAsset.connect(await Misc.impersonate(facade.address)).approve(p.cTokenBorrow.address, Misc.MAX_UINT);
+        await collateralAsset.connect(await Misc.impersonate(facade.address)).approve(p.cTokenCollateral.address, Misc.MAX_UINT);
+
+        // set up price oracle
+        await priceOracle.setUnderlyingPrice(p.cTokenCollateral.address, parseUnits(p?.priceCollateral ?? "1", 36 - decimalsCollateralAsset));
+        await priceOracle.setUnderlyingPrice(p.cTokenBorrow.address, parseUnits(p?.priceBorrow ?? "1", 36 - decimalsBorrowAsset));
+
+        // set up cTokens
+        await p.cTokenCollateral.setGetAccountSnapshotValues(
+          parseUnits(p.collateralTokensBalance, decimalsCTokenCollateral),
+          0,
+          exchangeRateCollateral
+        );
+        if (p.collateralAmountToSendToPoolAdapter) {
+          await p.cTokenCollateral.setCollateralAmountToSendToPoolAdapter(parseUnits(p.collateralAmountToSendToPoolAdapter, decimalsCTokenCollateral));
+        }
+        if (p.mintErrorCode) {
+          await p.cTokenCollateral.setMintErrorCode(p.mintErrorCode);
+        }
+        if (p.repayBorrowErrorCode) {
+          await p.cTokenBorrow.setRepayBorrowErrorCode(p.repayBorrowErrorCode);
+        }
+        await p.cTokenBorrow.setGetAccountSnapshotValues(
+          0,
+          parseUnits(p.borrowBalance, decimalsBorrowAsset),
+          0
+        );
+
+        // set up facade
+        await facade.setProtocolFeatures({
+          cTokenNative: cWeth.address,
+          nativeToken: weth.address,
+          compoundStorageVersion
+        });
+        await facade.setState(
+          collateralAsset.address,
+          borrowAsset.address,
+          p.cTokenCollateral.address,
+          p.cTokenBorrow.address,
+          userContract.address,
+          controller.address,
+          comptroller.address,
+          ethers.Wallet.createRandom().address,
+          stateCollateralTokenBalanceInitial
+        );
+
+        // set up comptroller
+        if (compoundStorageVersion === AppConstants.COMPOUND_STORAGE_V1) {
+          await comptrollerV1.setMarkets(p.cTokenCollateral.address, false, collateralFactor);
+        } else {
+          await comptrollerV2.setMarkets(p.cTokenCollateral.address, false, collateralFactor, false);
+        }
+
+        // set up DebtMonitor
+        if (p.isPositionOpened ?? true) {
+          await debtMonitor.connect(await Misc.impersonate(facade.address)).onOpenPosition();
+        }
+
+        // borrow
+        const ret = await facadeAsTetuConverter.callStatic.repayToRebalance(amountIn, p.isCollateral);
+        const tx = await facadeAsTetuConverter.repayToRebalance(amountIn, p.isCollateral);
+        const cr = await tx.wait();
+        const gasUsed = cr.gasUsed;
+
+        const cret = await p.cTokenCollateral.getAccountSnapshot(facade.address);
+        const bret = await p.cTokenBorrow.getAccountSnapshot(facade.address);
+
+        return {
+          gasUsed,
+          borrowAmountInPool: +formatUnits(await borrowAsset.balanceOf(p.cTokenBorrow.address), decimalsBorrowAsset),
+          collateralAmountInPool: +formatUnits(await collateralAsset.balanceOf(p.cTokenCollateral.address), decimalsCollateralAsset),
+          resultHealthFactor: +formatUnits(ret, 18),
+          tetuConverterBorrowBalance: +formatUnits(await borrowAsset.balanceOf(tetuConverter.address), decimalsBorrowAsset),
+          stateCollateralTokenBalance: +formatUnits((await facade.getState()).collateralTokensBalance, decimalsCTokenCollateral),
+          tokenBalance: +formatUnits(cret.tokenBalance, decimalsCTokenCollateral),
+          borrowBalance: +formatUnits(bret.borrowBalance, decimalsBorrowAsset),
+        }
+      }
+
+      describe("repayToRebalance using collateral asset", () => {
+        let snapshotLocal: string;
+        before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
+
+        async function borrowTest(): Promise<IResults> {
+          return repayToRebalance({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            collateralTokensBalance: "400",
+            borrowBalance: "100",
+            amountIn: "400",
+            isCollateral: true,
+            collateralFactor: "0.5"
+          });
+        }
+
+        it("should return expected health factor", async () => {
+          const ret = await loadFixture(borrowTest);
+          expect(ret.resultHealthFactor).eq(4);
+        });
+        it("should have expected collateral tokenBalance", async () => {
+          const ret = await loadFixture(borrowTest);
+          expect(ret.tokenBalance).eq(800);
+        });
+        it("should have expected borrowBalance", async () => {
+          const ret = await loadFixture(borrowTest);
+          expect(ret.borrowBalance).eq(100);
+        });
+        it("should have expected collateralAmountInPool", async () => {
+          const ret = await loadFixture(borrowTest);
+          expect(ret.collateralAmountInPool).eq(800);
+        });
+      });
+      describe("repayToRebalance using borrow asset", () => {
+        let snapshotLocal: string;
+        before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
+
+        async function borrowTest(): Promise<IResults> {
+          return repayToRebalance({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            collateralTokensBalance: "400",
+            borrowBalance: "100",
+            amountIn: "50",
+            isCollateral: false,
+            collateralFactor: "0.5"
+          });
+        }
+
+        it("should return expected health factor", async () => {
+          const ret = await loadFixture(borrowTest);
+          expect(ret.resultHealthFactor).eq(4);
+        });
+        it("should have expected collateral tokenBalance", async () => {
+          const ret = await loadFixture(borrowTest);
+          expect(ret.tokenBalance).eq(400);
+        });
+        it("should have expected borrowBalance", async () => {
+          const ret = await loadFixture(borrowTest);
+          expect(ret.borrowBalance).eq(50);
+        });
+        it("should have expected collateralAmountInPool", async () => {
+          const ret = await loadFixture(borrowTest);
+          expect(ret.collateralAmountInPool).eq(400);
+        });
+      });
+
+      describe("Bad paths", () => {
+        let snapshotLocal: string;
+        beforeEach(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        afterEach(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
+
+        it("should revert if not tetu converter", async () => {
+          await expect(repayToRebalance({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            collateralTokensBalance: "400",
+            borrowBalance: "100",
+            amountIn: "50",
+            isCollateral: false,
+            collateralFactor: "0.5",
+            notTetuConverter: true
+          })).rejectedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
+        })
+        it("should revert if mint fails", async () => {
+          await expect(repayToRebalance({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            collateralTokensBalance: "400",
+            borrowBalance: "100",
+            amountIn: "50",
+            isCollateral: true,
+            collateralFactor: "0.5",
+            mintErrorCode: 7
+          })).rejectedWith("TC-17 mint failed:7"); // MINT_FAILED
+        })
+        it("should revert if repayBorrow fails", async () => {
+          await expect(repayToRebalance({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            collateralTokensBalance: "400",
+            borrowBalance: "100",
+            amountIn: "50",
+            isCollateral: false,
+            collateralFactor: "0.5",
+            repayBorrowErrorCode: 7
+          })).rejectedWith("TC-27 repay failed7"); // REPAY_FAILED
+        })
+        it("should revert if try to repay too much", async () => {
+          await expect(repayToRebalance({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            collateralTokensBalance: "400",
+            borrowBalance: "100",
+            amountIn: "150",
+            isCollateral: false,
+            collateralFactor: "0.5",
+          })).rejectedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+        })
+
+        it("should revert it the position is not registered", async () => {
+          await expect(repayToRebalance({
+            cTokenCollateral: cDai,
+            cTokenBorrow: cUsdc,
+            collateralTokensBalance: "400",
+            borrowBalance: "100",
+            amountIn: "50",
+            isCollateral: false,
+            collateralFactor: "0.5",
+            isPositionOpened: false
+          })).rejectedWith("TC-11 position not registered"); // BORROW_POSITION_IS_NOT_REGISTERED
         })
       });
     });

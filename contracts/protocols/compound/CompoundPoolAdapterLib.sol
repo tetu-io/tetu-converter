@@ -31,6 +31,9 @@ library CompoundPoolAdapterLib {
   uint constant internal DECIMALS_18 = 18;
   uint constant internal COLLATERAL_FACTOR_DECIMALS = 18;
 
+  /// @notice Small amount (equal for all tokens) to implement "almost equal" logic
+  uint constant internal DUST_AMOUNT = 1000;
+
   /// @notice repay allows to reduce health factor of following value (decimals 18):
   uint constant public MAX_ALLOWED_HEALTH_FACTOR_REDUCTION = 1e13; // 0.001%
   //endregion ----------------------------------------------------- Constants
@@ -103,7 +106,8 @@ library CompoundPoolAdapterLib {
 
   struct AccountData {
     uint collateralTokenBalance;
-    uint exchangeRateMantissaCollateral;
+    /// @notice Decimals 18. [token amount] * [exchange rate] = [asset amount]
+    uint exchangeRateCollateral;
     uint borrowBalance;
   }
   //endregion ----------------------------------------------------- Data types
@@ -280,47 +284,17 @@ library CompoundPoolAdapterLib {
     CompoundLib.ProtocolFeatures memory f_,
     uint borrowAmount_,
     address receiver_
-  ) internal returns (
+  ) internal pure returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
-    IConverterController controller = state.controller;
-    _onlyTetuConverter(controller);
-
-    ICompoundComptrollerBase comptroller = state.comptroller;
-
-    address cTokenBorrow = state.borrowCToken;
-    address assetBorrow = state.borrowAsset;
-
-    {
-      uint error;
-      // ensure that the position is opened
-      require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
-
-      // make borrow
-      uint balanceBorrowAsset0 = _getBalance(f_, assetBorrow);
-      error = ICTokenBase(cTokenBorrow).borrow(borrowAmount_);
-      require(error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(error))));
-
-      // ensure that we have received required borrowed amount, send the amount to the receiver
-      if (f_.nativeToken == assetBorrow) {
-        INativeToken(f_.nativeToken).deposit{value: borrowAmount_}();
-      }
-      // we assume here, that syncBalance(true) is called before the call of this function
-      require(
-        borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
-        AppErrors.WRONG_BORROWED_BALANCE
-      );
-      IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
-    }
-
-    // ensure that current health factor is greater than min allowed
-    (
-      resultHealthFactor18,
-    ) = _validateHealthStatusAfterBorrow(f_, controller, comptroller, state.collateralCToken, cTokenBorrow);
-
-    emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
-    return (resultHealthFactor18, borrowAmount_);
+    state;
+    f_;
+    borrowAmount_;
+    receiver_;
+    resultHealthFactor18;
+    borrowedAmountOut;
+    revert(AppErrors.DEPRECATED_LEGACY_CODE);
   }
 
   //endregion ----------------------------------------------------- Borrow logic
@@ -394,14 +368,18 @@ library CompoundPoolAdapterLib {
     require(v.error == 0, string(abi.encodePacked(AppErrors.REDEEM_FAILED, Strings.toString(v.error))));
     console.log("repay.9");
 
-    // todo: check v.collateralTokensToWithdraw is approx equal to collateralAmountToReturn * exchange rate.
-
     // transfer collateral back to the user
     v.balanceCollateralAssetAfterRedeem = _getBalance(f_, v.assetCollateral);
+    console.log("repay.balanceCollateralAssetAfterRedeem", v.balanceCollateralAssetAfterRedeem);
     uint collateralAmountToReturn = AppUtils.sub0(v.balanceCollateralAssetAfterRedeem, v.balanceCollateralAssetBeforeRedeem);
+    console.log("repay.collateralAmountToReturn", collateralAmountToReturn);
     if (v.assetCollateral == f_.nativeToken) {
       INativeToken(f_.nativeToken).deposit{value: collateralAmountToReturn}();
     }
+
+    // we don't check equality [token amount] * [exchange rate] = [asset amount]
+    // we can do it, but it's too dangerous to have additional revert in repay
+
     console.log("repay.10");
     IERC20(v.assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
     console.log("repay.11");
@@ -439,7 +417,7 @@ library CompoundPoolAdapterLib {
   ///         to recover the health factor to target state.
   /// @dev It's not allowed to close position here (pay full debt) because no collateral will be returned.
   /// @param f_ Specific features of the given lending platform
-  /// @param amount_ Exact amount of asset that is transferred to the balance of the pool adapter.
+  /// @param amountIn_ Exact amount of asset that is transferred to the balance of the pool adapter.
   ///                It can be amount of collateral asset or borrow asset depended on {isCollateral_}
   ///                It must be stronger less then total borrow debt.
   ///                The amount should be approved for the pool adapter before the call.
@@ -448,11 +426,12 @@ library CompoundPoolAdapterLib {
   function repayToRebalance(
     State storage state,
     CompoundLib.ProtocolFeatures memory f_,
-    uint amount_,
+    uint amountIn_,
     bool isCollateral_
   ) internal returns (
     uint resultHealthFactor18
   ) {
+    console.log("repayToRebalance.1");
     IConverterController controller = state.controller;
     _onlyTetuConverter(controller);
 
@@ -460,6 +439,7 @@ library CompoundPoolAdapterLib {
     address cTokenCollateral = state.collateralCToken;
     ICompoundComptrollerBase comptroller = state.comptroller;
     uint tokenBalanceBefore;
+    console.log("repayToRebalance.2");
 
     PricesData memory prices;
     _initPricesData(comptroller, cTokenCollateral, cTokenBorrow, prices);
@@ -467,46 +447,56 @@ library CompoundPoolAdapterLib {
     AccountData memory data;
     _initAccountData(cTokenCollateral, cTokenBorrow, data);
     (uint healthFactorBefore ,,,) = _getAccountValues(f_, comptroller, cTokenCollateral, data, prices);
+    console.log("repayToRebalance.3");
 
     // ensure that the position is opened
     require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+    console.log("repayToRebalance.4");
 
     if (isCollateral_) {
+      console.log("repayToRebalance.5");
       address assetCollateral = state.collateralAsset;
-      IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amount_);
-      tokenBalanceBefore = _supply(f_, cTokenCollateral, assetCollateral, amount_);
+      IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amountIn_);
+      tokenBalanceBefore = _supply(f_, cTokenCollateral, assetCollateral, amountIn_);
+      console.log("repayToRebalance.6");
     } else {
+      console.log("repayToRebalance.7");
       address assetBorrow = state.borrowAsset;
 
       // ensure, that amount to repay is less then the total debt
       tokenBalanceBefore = data.collateralTokenBalance;
 
-      require(data.borrowBalance != 0 && amount_ < data.borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+      require(data.borrowBalance != 0 && amountIn_ < data.borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+      console.log("repayToRebalance.8");
 
-      IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
+      IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountIn_);
       // the amount is received through safeTransferFrom so we don't need following additional check:
       //    require(IERC20(assetBorrow).balanceOf(address(this)) >= amount_, AppErrors.MINT_FAILED);
+      console.log("repayToRebalance.9");
 
       // transfer borrow amount back to the pool
       if (f_.nativeToken == assetBorrow) {
-        INativeToken(f_.nativeToken).withdraw(amount_);
-        ICTokenNative(payable(cTokenBorrow)).repayBorrow{value: amount_}();
+        INativeToken(f_.nativeToken).withdraw(amountIn_);
+        ICTokenNative(payable(cTokenBorrow)).repayBorrow{value: amountIn_}();
       } else {
         // infinity approve
-        uint error = ICTokenBase(cTokenBorrow).repayBorrow(amount_);
+        uint error = ICTokenBase(cTokenBorrow).repayBorrow(amountIn_);
         require(error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(error))));
       }
+      console.log("repayToRebalance.10");
     }
 
     // validate result status
     _initAccountData(cTokenCollateral, cTokenBorrow, data);
     (uint healthFactor18 ,,,) = _getAccountValues(f_, comptroller, cTokenCollateral, data, prices);
     _validateHealthFactor(controller, healthFactor18, healthFactorBefore);
+    console.log("repayToRebalance.11");
 
     require(data.collateralTokenBalance >= tokenBalanceBefore, AppErrors.WEIRD_OVERFLOW);
     state.collateralTokensBalance += data.collateralTokenBalance - tokenBalanceBefore;
+    console.log("repayToRebalance.12");
 
-    emit OnRepayToRebalance(amount_, isCollateral_, healthFactor18);
+    emit OnRepayToRebalance(amountIn_, isCollateral_, healthFactor18);
     return healthFactor18;
   }
   //endregion ----------------------------------------------------- Repay logic
@@ -564,7 +554,7 @@ library CompoundPoolAdapterLib {
     (healthFactor18, v.collateralBase,, ) = _getAccountValues(f_, v.comptroller, v.cTokenCollateral, data, prices);
 
     v.collateralAmountLiquidated = AppUtils.sub0(v.collateralTokensBalance, data.collateralTokenBalance)
-      * data.exchangeRateMantissaCollateral / 10 ** EXCHANGE_RATE_DECIMALS;
+      * data.exchangeRateCollateral / 10 ** EXCHANGE_RATE_DECIMALS;
 
     return (
     // Total amount of provided collateral [collateral asset]
@@ -590,7 +580,7 @@ library CompoundPoolAdapterLib {
     _initAccountData(state.collateralCToken, state.borrowCToken, data);
 
     uint tokensToReturn = _getCollateralTokensToRedeem(data, closePosition_, amountToRepay_);
-    amountCollateralOut = tokensToReturn * data.exchangeRateMantissaCollateral / 10 ** EXCHANGE_RATE_DECIMALS;
+    amountCollateralOut = tokensToReturn * data.exchangeRateCollateral / 10 ** EXCHANGE_RATE_DECIMALS;
   }
   //endregion ----------------------------------------------------- View current status
 
@@ -676,10 +666,10 @@ library CompoundPoolAdapterLib {
   function _initAccountData(address cTokenCollateral, address cTokenBorrow, AccountData memory dest) internal view {
     uint error;
 
-    (error, dest.collateralTokenBalance,, dest.exchangeRateMantissaCollateral) = ICTokenBase(cTokenCollateral).getAccountSnapshot(address(this));
+    (error, dest.collateralTokenBalance,, dest.exchangeRateCollateral) = ICTokenBase(cTokenCollateral).getAccountSnapshot(address(this));
     require(error == 0, string(abi.encodePacked(AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED, Strings.toString(error))));
     console.log("_initAccountData.collateralTokenBalance", dest.collateralTokenBalance);
-    console.log("_initAccountData.exchangeRateMantissaCollateral", dest.exchangeRateMantissaCollateral);
+    console.log("_initAccountData.exchangeRateMantissaCollateral", dest.exchangeRateCollateral);
 
     (error,, dest.borrowBalance,) = ICTokenBase(cTokenBorrow).getAccountSnapshot(address(this));
     require(error == 0, string(abi.encodePacked(AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED, Strings.toString(error))));
@@ -784,7 +774,7 @@ library CompoundPoolAdapterLib {
     // Price has decimals [36 - decimals of the token]
     // result base-amounts have decimals 18
     collateralBase = _toBaseAmount(
-      (data.collateralTokenBalance * data.exchangeRateMantissaCollateral / 10 ** EXCHANGE_RATE_DECIMALS),
+      (data.collateralTokenBalance * data.exchangeRateCollateral / 10 ** EXCHANGE_RATE_DECIMALS),
       prices.priceCollateral
     );
     borrowBase = _toBaseAmount(data.borrowBalance, prices.priceBorrow);
