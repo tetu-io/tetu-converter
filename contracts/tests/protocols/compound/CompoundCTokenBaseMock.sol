@@ -23,6 +23,8 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   uint internal _redeemErrorCode;
   /// @notice  tokenBalance, borrowBalance, exchangeRateMantissa
   uint[3] internal _getAccountSnapshotValues;
+  uint internal _borrowAmountToSendToPoolAdapter;
+  uint internal _collateralAmountToSendToPoolAdapter;
 
   constructor(
     string memory _name,
@@ -77,6 +79,12 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
     _getAccountSnapshotValues[1] = borrowBalance;
     _getAccountSnapshotValues[2] = exchangeRateMantissa;
   }
+  function setBorrowAmountToSendToPoolAdapter(uint value) external {
+    _borrowAmountToSendToPoolAdapter = value;
+  }
+  function setCollateralAmountToSendToPoolAdapter(uint value) external {
+    _collateralAmountToSendToPoolAdapter = value;
+  }
   //endregion ------------------------------------------------------------- Set up ICTokenBase
 
   //region ------------------------------------------------------------- ICTokenBase
@@ -112,10 +120,9 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @notice Accrue interest to updated borrowIndex and then calculate account's borrow balance using the updated borrowIndex
   /// @param account The address whose balance should be calculated after updating borrowIndex
   /// @return The calculated balance
-  function borrowBalanceCurrent(address account) external  pure  returns (uint256) {
+  function borrowBalanceCurrent(address account) external view returns (uint256) {
     account;
-    // todo
-    return 0;
+    return _getAccountSnapshotValues[1];
   }
 
   /// @notice Accrue interest then return the up-to-date exchange rate
@@ -143,10 +150,14 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
     );
   }
 
-/// @notice Sender borrows assets from the protocol to their own address
-  /// @param borrowAmount The amount of the underlying asset to borrow
-  /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function borrow(uint256 borrowAmount) external returns (uint256) {
+  function borrow(uint256 borrowAmount_) external returns (uint256) {
+    console.log("borrow.borrowAmount_", borrowAmount_);
+    console.log("borrow._borrowAmountToSendToPoolAdapter", _borrowAmountToSendToPoolAdapter);
+    uint256 borrowAmount = _borrowAmountToSendToPoolAdapter == 0
+      ? borrowAmount_
+      : _borrowAmountToSendToPoolAdapter;
+    console.log("borrow.borrowAmount", borrowAmount);
+
     IERC20(_underlying).transfer(msg.sender, borrowAmount);
     _getAccountSnapshotValues[1] += borrowAmount;
     return _borrowErrorCode;
@@ -170,9 +181,9 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @notice Sender repays their own borrow
   /// @param repayAmount The amount to repay
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-  function repayBorrow(uint256 repayAmount) external view returns (uint256) {
-    repayAmount;
-    // todo
+  function repayBorrow(uint256 repayAmount) external returns (uint256) {
+    IERC20(_underlying).transferFrom(msg.sender, address(this), repayAmount);
+    _getAccountSnapshotValues[1] -= repayAmount;
     return _repayBorrowErrorCode;
   }
 
@@ -181,8 +192,22 @@ contract CompoundCTokenBaseMock is ICTokenBase, ERC20 {
   /// @param redeemTokens The number of mTokens to redeem into underlying
   /// @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
   function redeem(uint256 redeemTokens) external returns (uint256) {
-    IERC20(_underlying).transfer(msg.sender, redeemTokens);
-    burn(msg.sender, redeemTokens);
+    console.log("redeem.redeemTokens", redeemTokens);
+    console.log("redeem._getAccountSnapshotValues[2]", _getAccountSnapshotValues[2]);
+    uint underlyingAmount = _collateralAmountToSendToPoolAdapter == 0
+      ? redeemTokens * _getAccountSnapshotValues[2] / 1e18
+      : _collateralAmountToSendToPoolAdapter;
+    console.log("redeem.underlyingAmount", underlyingAmount);
+    console.log("redeem.balance", IERC20(_underlying).balanceOf(address(this)));
+
+    IERC20(_underlying).transfer(msg.sender, underlyingAmount);
+    console.log("redeem.1");
+    uint redeemTokensActual = underlyingAmount * 1e18 / _getAccountSnapshotValues[2];
+    burn(msg.sender, redeemTokensActual);
+    console.log("redeem.2");
+    _getAccountSnapshotValues[0] -= redeemTokensActual;
+    console.log("redeem.3");
+
     return _redeemErrorCode;
   }
   //endregion ------------------------------------------------------------- ICTokenBase

@@ -4,7 +4,8 @@ pragma solidity 0.8.17;
 contract DebtMonitorMock {
   mapping(address => address[]) internal poolAdaptersByUsers;
   address public closeLiquidatedPositionLastCalledParam;
-  mapping(address => bool) internal openedPositions;
+  mapping(address => bool) internal _openedPositions;
+  mapping(address => bool) internal _closedPositions;
 
   function setPositionsForUser(address user_, address[] memory poolAdapters_) external {
     for (uint i = 0; i < poolAdapters_.length; ++i) {
@@ -26,9 +27,16 @@ contract DebtMonitorMock {
   }
 
   function _isOpenedPosition(address user) external view returns (bool) {
-    return openedPositions[user];
+    return _openedPositions[user];
   }
   function onOpenPosition() external {
-    openedPositions[msg.sender] = true;
+    _openedPositions[msg.sender] = true;
+  }
+
+  function _isClosedPosition(address user) external view returns (bool) {
+    return _closedPositions[user];
+  }
+  function onClosePosition() external {
+    _closedPositions[msg.sender] = true;
   }
 }
