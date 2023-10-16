@@ -40,6 +40,15 @@ export class BaseAddresses {
     public static MOONWELL_USDBC = "0x703843C3379b52F9FF486c9f5892218d2a065cC8".toLowerCase();
     public static MOONWELL_WETH = "0x628ff693426583D9a7FB391E54366292F509D457".toLowerCase();
     public static MOONWELL_CBETH = "0x3bf93770f2d4a794c3d9EBEfBAeBAE2a8f09A5E5".toLowerCase();
-
 //endregion ----------------------------------------------------- Moonwell
+
+
+//region ----------------------------------------------------- Holders
+    public static HOLDER_WETH = "0x4b581deda2f2c0650c3dfc506c86a8c140d9f699".toLowerCase();
+    public static HOLDER_CBETH = "0x4b581deda2f2c0650c3dfc506c86a8c140d9f699".toLowerCase();
+    public static HOLDER_USDC = "0x20fe51a9229eef2cf8ad9e89d91cab9312cf3b7a".toLowerCase();
+    public static HOLDER_USDDBC = "0xd312818347fb054d30925488a7dcfab6e19e9421".toLowerCase();
+    public static HOLDER_DAI = "0xef6ca7d0ea5d711a393c8626698a804a9ee885c4".toLowerCase();
+    public static HOLDER_WELL = "0xea6a5607d6563abbf5cc10715c7ad144a12228e1".toLowerCase();
+//endregion ----------------------------------------------------- Holders
 }

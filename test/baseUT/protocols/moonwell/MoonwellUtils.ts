@@ -22,6 +22,16 @@ export class MoonwellUtils {
     ]
   }
 
+  static getAllAssets(): string[] {
+    return [
+      BaseAddresses.USDC,
+      BaseAddresses.DAI,
+      BaseAddresses.cbETH,
+      BaseAddresses.WETH,
+      BaseAddresses.USDDbC
+    ]
+  }
+
   static getAssetName(address: string): string {
     switch (address) {
       case BaseAddresses.USDC: return "usdc";
@@ -30,6 +40,17 @@ export class MoonwellUtils {
       case BaseAddresses.WETH: return "weth";
       case BaseAddresses.USDDbC: return "USDDbC";
       default: return address;
+    }
+  }
+
+  static getHolder(asset: string): string {
+    switch (asset) {
+      case BaseAddresses.USDC: return BaseAddresses.HOLDER_USDC;
+      case BaseAddresses.DAI: return BaseAddresses.HOLDER_DAI;
+      case BaseAddresses.cbETH: return BaseAddresses.HOLDER_CBETH;
+      case BaseAddresses.WETH: return BaseAddresses.HOLDER_WETH;
+      case BaseAddresses.USDDbC: return BaseAddresses.HOLDER_USDDBC;
+      default: throw Error(`holder not found for ${asset}`);
     }
   }
 }
