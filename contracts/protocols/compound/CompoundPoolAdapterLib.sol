@@ -229,11 +229,10 @@ library CompoundPoolAdapterLib {
     v.markets = new address[](2);
     v.markets[0] = v.cTokenCollateral;
     v.markets[1] = v.cTokenBorrow;
-    uint[] memory ret = v.comptroller.enterMarkets(v.markets);
-    console.log("borrow.4", ret[0], ret[1]);
+    v.comptroller.enterMarkets(v.markets);
 
     // supply collateral
-    uint tokenBalanceBeforeBorrow = _supply(f_, v.cTokenCollateral, v.assetCollateral, collateralAmount_);
+    uint tokenBalanceBeforeBorrow = _supply(f_, v.cTokenCollateral, collateralAmount_);
     console.log("borrow.5");
     console.log("balance native before", address(this).balance);
 
@@ -352,10 +351,8 @@ library CompoundPoolAdapterLib {
     console.log("repay.7.v.collateralTokensToWithdraw", v.collateralTokensToWithdraw);
 
     // transfer borrow amount back to the pool
-    if (v.assetBorrow == f_.nativeToken) {
-      INativeToken(f_.nativeToken).withdraw(amountToRepay_);
-    }
     if (v.cTokenBorrow == f_.cTokenNative) {
+      INativeToken(f_.nativeToken).withdraw(amountToRepay_);
       ICTokenNative(payable(v.cTokenBorrow)).repayBorrow{value: amountToRepay_}();
     } else {
       // infinity approve
@@ -461,7 +458,7 @@ library CompoundPoolAdapterLib {
       console.log("repayToRebalance.5");
       address assetCollateral = state.collateralAsset;
       IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amountIn_);
-      tokenBalanceBefore = _supply(f_, cTokenCollateral, assetCollateral, amountIn_);
+      tokenBalanceBefore = _supply(f_, cTokenCollateral, amountIn_);
       console.log("repayToRebalance.6");
     } else {
       console.log("repayToRebalance.7");
@@ -593,10 +590,9 @@ library CompoundPoolAdapterLib {
   //region ----------------------------------------------------- Internal logic
   /// @notice Supply collateral to compound market
   /// @param cToken_ cToken of the collateral asset
-  /// @param asset_ Collateral asset
   /// @param amount_ Collateral amount
   /// @return tokenBalanceBefore Collateral token balance before supply
-  function _supply(CompoundLib.ProtocolFeatures memory f_, address cToken_, address asset_, uint amount_) internal returns (
+  function _supply(CompoundLib.ProtocolFeatures memory f_, address cToken_, uint amount_) internal returns (
     uint tokenBalanceBefore
   ) {
     console.log("_supply");
@@ -605,10 +601,8 @@ library CompoundPoolAdapterLib {
     tokenBalanceBefore = IERC20(cToken_).balanceOf(address(this));
     console.log("_supply.tokenBalanceBefore", tokenBalanceBefore);
 
-    if (f_.nativeToken == asset_) {
-      // INativeToken(f_.nativeToken).withdraw(amount_);
-    }
     if (f_.cTokenNative == cToken_) {
+      INativeToken(f_.nativeToken).withdraw(amount_);
       ICTokenNative(payable(cToken_)).mint{value: amount_}();
     } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
       console.log("_supply.mint.amount", amount_);

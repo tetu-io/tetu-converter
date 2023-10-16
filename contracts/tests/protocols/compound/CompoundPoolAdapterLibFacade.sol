@@ -95,8 +95,8 @@ contract CompoundPoolAdapterLibFacade {
     return CompoundPoolAdapterLib.borrow(_state, _f, collateralAmount_, borrowAmount_, receiver_);
   }
 
-  function _supply(address cTokenCollateral_, address assetCollateral_, uint collateralAmount_) external returns (uint) {
-    return CompoundPoolAdapterLib._supply(_f, cTokenCollateral_, assetCollateral_, collateralAmount_);
+  function _supply(address cTokenCollateral_, uint collateralAmount_) external returns (uint) {
+    return CompoundPoolAdapterLib._supply(_f, cTokenCollateral_, collateralAmount_);
   }
 
   function _validateHealthStatusAfterBorrow(

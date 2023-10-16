@@ -340,8 +340,8 @@ describe("CompoundPoolAdapterLibTest", () => {
           Misc.HUGE_UINT
         );
 
-        const tokenBalanceBefore = await facade.callStatic._supply(p.cTokenCollateral.address, p.collateralAsset.address, amountCollateral);
-        await facade._supply(p.cTokenCollateral.address, p.collateralAsset.address, amountCollateral);
+        const tokenBalanceBefore = await facade.callStatic._supply(p.cTokenCollateral.address, amountCollateral);
+        await facade._supply(p.cTokenCollateral.address, amountCollateral);
 
         const tokenBalanceAfter = await p.cTokenCollateral.balanceOf(facade.address);
 
