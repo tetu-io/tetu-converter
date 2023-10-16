@@ -169,19 +169,45 @@ describe("MoonwellPlatformAdapterTest", () => {
     }
 
     describe("Good paths", () => {
+      interface IBorrowParams {
+        collateral: string;
+        borrow: string;
+        amount: string;
+      }
       describe("Not-native token", () => {
-        interface IBorrowParams {
-          collateral: string;
-          borrow: string;
-          amount: string;
-        }
-
         const BORROWS: IBorrowParams[] = [
           {collateral: BaseAddresses.USDDbC, borrow: BaseAddresses.USDC, amount: "2500"},
           {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDC, amount: "1"},
           {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "50000"},
           {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDDbC, amount: "1000"},
           {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDDbC, amount: "0.01"},
+        ];
+        BORROWS.forEach(function (b: IBorrowParams) {
+          const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
+          describe(testName, () => {
+            let snapshotLocal: string;
+            beforeEach(async function () {
+              snapshotLocal = await TimeUtils.snapshot();
+            });
+            afterEach(async function () {
+              await TimeUtils.rollback(snapshotLocal);
+            });
+            it("should borrow expected amount", async () => {
+              const ret = await borrow({
+                collateralAsset: b.collateral,
+                borrowAsset: b.borrow,
+                collateralAmount: b.amount,
+                collateralHolder: MoonwellUtils.getHolder(b.collateral)
+              });
+              expect(ret.plan.amountToBorrow).eq(ret.borrowBalance);
+            });
+          });
+        });
+      });
+      describe("Native token", () => {
+        const BORROWS: IBorrowParams[] = [
+          {collateral: BaseAddresses.WETH, borrow: BaseAddresses.USDC, amount: "1"},
+          {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "1000"},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
           const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;

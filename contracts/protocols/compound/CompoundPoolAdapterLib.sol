@@ -229,25 +229,27 @@ library CompoundPoolAdapterLib {
     v.markets = new address[](2);
     v.markets[0] = v.cTokenCollateral;
     v.markets[1] = v.cTokenBorrow;
-    v.comptroller.enterMarkets(v.markets);
-    console.log("borrow.4");
+    uint[] memory ret = v.comptroller.enterMarkets(v.markets);
+    console.log("borrow.4", ret[0], ret[1]);
 
     // supply collateral
     uint tokenBalanceBeforeBorrow = _supply(f_, v.cTokenCollateral, v.assetCollateral, collateralAmount_);
     console.log("borrow.5");
+    console.log("balance native before", address(this).balance);
 
     // make borrow
     uint balanceBorrowAssetBefore = _getBalance(f_, v.assetBorrow);
     console.log("borrow.6");
     v.error = ICTokenBase(v.cTokenBorrow).borrow(borrowAmount_);
     require(v.error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(v.error))));
-    uint balanceBorrowAssetAfter = IERC20(v.assetBorrow).balanceOf(address(this));
-    console.log("borrow.7");
+    console.log("balance native after", address(this).balance);
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     if (f_.nativeToken == v.assetBorrow) {
       INativeToken(v.assetBorrow).deposit{value: borrowAmount_}();
     }
+    uint balanceBorrowAssetAfter = IERC20(v.assetBorrow).balanceOf(address(this));
+    console.log("borrow.7.balanceBorrowAssetAfter", balanceBorrowAssetAfter);
     console.log("borrowAmount_", borrowAmount_);
     console.log("balanceBorrowAsset0", balanceBorrowAssetBefore);
     console.log("current borrow balance", balanceBorrowAssetAfter);
@@ -352,6 +354,8 @@ library CompoundPoolAdapterLib {
     // transfer borrow amount back to the pool
     if (v.assetBorrow == f_.nativeToken) {
       INativeToken(f_.nativeToken).withdraw(amountToRepay_);
+    }
+    if (v.cTokenBorrow == f_.cTokenNative) {
       ICTokenNative(payable(v.cTokenBorrow)).repayBorrow{value: amountToRepay_}();
     } else {
       // infinity approve
@@ -477,6 +481,8 @@ library CompoundPoolAdapterLib {
       // transfer borrow amount back to the pool
       if (f_.nativeToken == assetBorrow) {
         INativeToken(f_.nativeToken).withdraw(amountIn_);
+      }
+      if (f_.cTokenNative == cTokenBorrow) {
         ICTokenNative(payable(cTokenBorrow)).repayBorrow{value: amountIn_}();
       } else {
         // infinity approve
@@ -600,13 +606,17 @@ library CompoundPoolAdapterLib {
     console.log("_supply.tokenBalanceBefore", tokenBalanceBefore);
 
     if (f_.nativeToken == asset_) {
-      INativeToken(f_.nativeToken).withdraw(amount_);
+      // INativeToken(f_.nativeToken).withdraw(amount_);
+    }
+    if (f_.cTokenNative == cToken_) {
       ICTokenNative(payable(cToken_)).mint{value: amount_}();
     } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
       console.log("_supply.mint.amount", amount_);
       uint error = ICTokenBase(cToken_).mint(amount_);
       require(error == 0, string(abi.encodePacked(AppErrors.MINT_FAILED, Strings.toString(error))));
     }
+
+    console.log("_supply.tokenBalanceAfter", IERC20(cToken_).balanceOf(address(this)));
   }
 
   /// @return healthFactor18 Current health factor, decimal 18
