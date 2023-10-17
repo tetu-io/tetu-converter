@@ -16,4 +16,7 @@ export class AppConstants {
 
   public static readonly COMPOUND_STORAGE_V1 = 1;
   public static readonly COMPOUND_STORAGE_V2 = 2;
+
+  public static readonly CONVERSION_KIND_SWAP_1 = 1;
+  public static readonly CONVERSION_KIND_BORROW_2 = 2;
 }

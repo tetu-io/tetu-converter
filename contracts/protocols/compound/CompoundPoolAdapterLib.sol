@@ -476,10 +476,8 @@ library CompoundPoolAdapterLib {
       console.log("repayToRebalance.9");
 
       // transfer borrow amount back to the pool
-      if (f_.nativeToken == assetBorrow) {
-        INativeToken(f_.nativeToken).withdraw(amountIn_);
-      }
       if (f_.cTokenNative == cTokenBorrow) {
+        INativeToken(f_.nativeToken).withdraw(amountIn_);
         ICTokenNative(payable(cTokenBorrow)).repayBorrow{value: amountIn_}();
       } else {
         // infinity approve
@@ -663,7 +661,7 @@ library CompoundPoolAdapterLib {
       collateralTokenToRedeem = data.collateralTokenBalance * amountToRepay_ / data.borrowBalance;
     }
   }
-  //region ----------------------------------------------------- Internal logic
+  //endregion ----------------------------------------------------- Internal logic
 
   //region ----------------------------------------------------- Utils
   /// @notice Get all data required to calculate current status, save results to {dest}

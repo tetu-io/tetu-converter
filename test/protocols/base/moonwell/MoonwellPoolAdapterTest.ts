@@ -1,16 +1,16 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-    BorrowManager,
-    BorrowManager__factory,
-    ConverterController,
-    IERC20__factory,
-    IERC20Metadata__factory,
-    IMoonwellComptroller,
-    IMoonwellPriceOracle,
-    MoonwellPlatformAdapter,
-    MoonwellPoolAdapter,
-    MoonwellPoolAdapter__factory,
-    TetuConverter__factory, TetuConverterReplacer, TetuConverterReplacer__factory
+  BorrowManager,
+  BorrowManager__factory,
+  ConverterController,
+  IERC20__factory, IERC20Metadata,
+  IERC20Metadata__factory,
+  IMoonwellComptroller,
+  IMoonwellPriceOracle,
+  MoonwellPlatformAdapter,
+  MoonwellPoolAdapter,
+  MoonwellPoolAdapter__factory,
+  TetuConverterReplacer
 } from "../../../../typechain";
 import {BASE_NETWORK_ID, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
@@ -25,7 +25,7 @@ import {
   MoonwellPlatformAdapterUtils
 } from "../../../baseUT/protocols/moonwell/MoonwellPlatformAdapterUtils";
 import {IConversionPlanNum} from "../../../baseUT/types/AppDataTypes";
-import {IPoolAdapterStatusNum} from "../../../baseUT/types/BorrowRepayDataTypes";
+import {IPoolAdapterStatus, IPoolAdapterStatusNum} from "../../../baseUT/types/BorrowRepayDataTypes";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../../scripts/utils/Misc";
@@ -33,7 +33,8 @@ import {BorrowRepayDataTypeUtils} from "../../../baseUT/utils/BorrowRepayDataTyp
 import {expect} from "chai";
 import {generateAssetPairs} from "../../../baseUT/utils/AssetPairUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
+import {BigNumber} from "ethers";
+import {AppConstants} from "../../../baseUT/types/AppConstants";
 
 describe("MoonwellPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -63,8 +64,6 @@ describe("MoonwellPlatformAdapterTest", () => {
       signer, {
         tetuConverterFabric: {
           deploy: async () => tetuConverterReplacer.address,
-          init: async (controller, instance) => {
-          }
         },
       }
     );
@@ -119,7 +118,6 @@ describe("MoonwellPlatformAdapterTest", () => {
     interface IParams {
       collateralAsset: string;
       borrowAsset: string;
-      collateralHolder: string;
 
       collateralAmount: string;
 
@@ -146,6 +144,7 @@ describe("MoonwellPlatformAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
+      const collateralHolder = await MoonwellUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -157,7 +156,7 @@ describe("MoonwellPlatformAdapterTest", () => {
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
       const collateralAmountApproved = parseUnits(p.collateralAmountApproved || p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, p.collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -207,7 +206,6 @@ describe("MoonwellPlatformAdapterTest", () => {
                 collateralAsset: b.collateral,
                 borrowAsset: b.borrow,
                 collateralAmount: b.amount,
-                collateralHolder: MoonwellUtils.getHolder(b.collateral)
               });
               expect(ret.plan.amountToBorrow).eq(ret.borrowBalance);
             });
@@ -227,7 +225,6 @@ describe("MoonwellPlatformAdapterTest", () => {
                 collateralAsset: b.collateral,
                 borrowAsset: b.borrow,
                 collateralAmount: b.amount,
-                collateralHolder: MoonwellUtils.getHolder(b.collateral)
               });
               expect(ret.plan.amountToBorrow).eq(ret.borrowBalance);
             });
@@ -241,7 +238,6 @@ describe("MoonwellPlatformAdapterTest", () => {
           collateralAsset: BaseAddresses.DAI,
           borrowAsset: BaseAddresses.USDC,
           collateralAmount: "1",
-          collateralHolder: BaseAddresses.HOLDER_DAI,
           notTetuConverter: true
         })).rejectedWith("TC-8 tetu converter only") // TETU_CONVERTER_ONLY
       });
@@ -377,7 +373,7 @@ describe("MoonwellPlatformAdapterTest", () => {
           BORROWS.forEach(function (b: IRepayParams) {
             const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
             async function repayTest(): Promise<IResults>  {
-              return await repay({
+              return repay({
                 collateralAsset: b.collateral,
                 borrowAsset: b.borrow,
                 collateralAmount: b.amount,
@@ -416,7 +412,7 @@ describe("MoonwellPlatformAdapterTest", () => {
           BORROWS.forEach(function (b: IRepayParams) {
             const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
             async function repayTest(): Promise<IResults>  {
-              return await repay({
+              return repay({
                 collateralAsset: b.collateral,
                 borrowAsset: b.borrow,
                 collateralAmount: b.amount,
@@ -449,7 +445,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         });
 
         async function repayTest(): Promise<IResults>  {
-          return await repay({
+          return repay({
             collateralAsset: BaseAddresses.USDC,
             borrowAsset: BaseAddresses.USDDbC,
             collateralAmount: "100",
@@ -472,14 +468,18 @@ describe("MoonwellPlatformAdapterTest", () => {
           const ret = await loadFixture(repayTest);
           expect(ret.statusAfterRepay.collateralAmount).approximately(ret.statusBeforeRepay.collateralAmount * 80 /100, 0.01);
         });
+        it("should not change health factor", async () => {
+          const ret = await loadFixture(repayTest);
+          expect(ret.statusAfterRepay.healthFactor).approximately(ret.statusBeforeRepay.healthFactor, 0.001);
+        });
       });
     });
     describe("Bad paths", () => {
       let snapshotLocal: string;
-      before(async function () {
+      beforeEach(async function () {
         snapshotLocal = await TimeUtils.snapshot();
       });
-      after(async function () {
+      afterEach(async function () {
         await TimeUtils.rollback(snapshotLocal);
       });
 
@@ -503,4 +503,507 @@ describe("MoonwellPlatformAdapterTest", () => {
     });
 //endregion Unit tests
   });
+
+  describe("repay to rebalance", () => {
+    interface IPrepareParams {
+      collateralAsset: string;
+      borrowAsset: string;
+      targetHealthFactorBeforeBorrow: string;
+      targetHealthFactorBeforeRepay: string;
+      collateralAmount: string;
+
+      collateralBalance?: string; // collateralAmount by default
+
+      countBlocksBetweenBorrowAndRepay?: number; // zero by default
+    }
+
+    interface IRepayPrams {
+      repayPart: number; // It should be less 100_000
+      isCollateral: boolean;
+      notTetuConverter?: boolean;
+    }
+
+    interface IResults {
+      plan: IConversionPlanNum;
+      statusAfterBorrow: IPoolAdapterStatusNum;
+      statusBeforeRepay: IPoolAdapterStatusNum;
+      statusAfterRepay: IPoolAdapterStatusNum;
+    }
+
+    /** Intermediate results of prepare */
+    interface IPrepareResults {
+      receiver: string;
+      tetuConverterSigner: SignerWithAddress;
+      collateralAsset: IERC20Metadata;
+      borrowAsset: IERC20Metadata;
+      decimalsCollateral: number;
+      decimalsBorrow: number;
+      collateralHolder: string;
+      borrowHolder: string;
+      plan: IConversionPlanNum;
+      collateralAmount: BigNumber;
+      collateralAmountApproved: BigNumber;
+      poolAdapterInstance: MoonwellPoolAdapter;
+      statusAfterBorrow: IPoolAdapterStatus;
+    }
+
+    /** Make borrow, move time */
+    async function prepare(p: IPrepareParams): Promise<IPrepareResults> {
+      const receiver = ethers.Wallet.createRandom().address;
+      const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+      const collateralAsset = IERC20Metadata__factory.connect(p.collateralAsset, signer);
+      const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
+      const decimalsCollateral = await collateralAsset.decimals();
+      const decimalsBorrow = await borrowAsset.decimals();
+      const collateralHolder = MoonwellUtils.getHolder(p.collateralAsset);
+      const borrowHolder = MoonwellUtils.getHolder(p.borrowAsset);
+
+      // set up initial health factor
+      await converterController.connect(converterGovernance).setTargetHealthFactor2(parseUnits(p.targetHealthFactorBeforeBorrow, 2));
+
+      // prepare conversion plan
+      const plan = await getConversionPlan({
+        collateralAsset: p.collateralAsset,
+        borrowAsset: p.borrowAsset,
+        amountIn: p.collateralAmount,
+      });
+
+      // put collateral amount on TetuConverter balance
+      const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
+      const collateralAmountApproved = parseUnits(p.collateralAmount, decimalsCollateral);
+      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+
+      // initialize the pool adapter
+      await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
+      const poolAdapterInstance = MoonwellPoolAdapter__factory.connect(
+        await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset),
+        tetuConverterSigner
+      );
+      await IERC20__factory.connect(p.collateralAsset, tetuConverterSigner).approve(poolAdapterInstance.address, collateralAmountApproved);
+
+      // make borrow
+      await poolAdapterInstance.connect(tetuConverterSigner).borrow(
+        collateralAmount,
+        parseUnits(plan.amountToBorrow.toString(), decimalsBorrow),
+        receiver
+      );
+
+      // get status
+      const statusAfterBorrow = await poolAdapterInstance.getStatus();
+
+      // move time
+      if (p.countBlocksBetweenBorrowAndRepay) {
+        await TimeUtils.advanceNBlocks(p.countBlocksBetweenBorrowAndRepay);
+      }
+
+      // set up new health factor
+      await converterController.connect(converterGovernance).setTargetHealthFactor2(parseUnits(p.targetHealthFactorBeforeRepay, 2));
+
+      return {
+        receiver,
+        borrowAsset,
+        borrowHolder,
+        tetuConverterSigner,
+        collateralAmountApproved,
+        collateralAmount,
+        decimalsBorrow,
+        plan,
+        collateralAsset,
+        collateralHolder,
+        poolAdapterInstance,
+        statusAfterBorrow,
+        decimalsCollateral
+      }
+    }
+
+    async function repayToRebalance(p: IRepayPrams, pr: IPrepareResults): Promise<IResults> {
+      // prepare amount to repay (either collateral or borrow)
+      const amountIn = p.isCollateral
+        ? pr.statusAfterBorrow.collateralAmount.mul(p.repayPart ?? 100_000).div(100_000)
+        : pr.statusAfterBorrow.amountToPay.mul(p.repayPart ?? 100_000).div(100_000);
+      if (p.isCollateral) {
+        await BalanceUtils.getAmountFromHolder(pr.collateralAsset.address, pr.collateralHolder, pr.tetuConverterSigner.address, amountIn.mul(2));
+        await IERC20__factory.connect(pr.collateralAsset.address, pr.tetuConverterSigner).approve(pr.poolAdapterInstance.address, amountIn.mul(2));
+      } else {
+        await BalanceUtils.getAmountFromHolder(pr.borrowAsset.address, pr.borrowHolder, pr.tetuConverterSigner.address, amountIn.mul(2));
+        await IERC20__factory.connect(pr.borrowAsset.address, pr.tetuConverterSigner).approve(pr.poolAdapterInstance.address, amountIn.mul(2));
+      }
+
+      // repay to rebalance
+      const statusBeforeRepay = await pr.poolAdapterInstance.getStatus();
+      const repaySigner = await Misc.impersonate(p.notTetuConverter ? pr.receiver : tetuConverterReplacer.address);
+      await pr.poolAdapterInstance.connect(repaySigner).repayToRebalance(amountIn, p.isCollateral);
+      const statusAfterRepay = await pr.poolAdapterInstance.getStatus();
+
+      return {
+        plan: pr.plan,
+        statusAfterBorrow: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(pr.statusAfterBorrow, pr.decimalsCollateral, pr.decimalsBorrow),
+        statusBeforeRepay: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusBeforeRepay, pr.decimalsCollateral, pr.decimalsBorrow),
+        statusAfterRepay: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusAfterRepay, pr.decimalsCollateral, pr.decimalsBorrow),
+      }
+    }
+
+    describe("Good paths", () => {
+      interface IParamsForPrepare {
+        collateral: string;
+        borrow: string;
+        amount: string;
+      }
+      interface IParamsForRepay {
+        isCollateral: boolean;
+        repayPart: number;
+      }
+      interface ITest {
+        title: string;
+        borrows: IParamsForPrepare[];
+      }
+      const TESTS: ITest[] = [
+        {
+          title: "Native token",
+          borrows: [
+            {collateral: BaseAddresses.WETH, borrow: BaseAddresses.USDC, amount: "100"},
+            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "100"},
+          ]
+        },
+        {
+          title: "Not native token",
+          borrows: [
+            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "50000"},
+            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDDbC, amount: "1000"},
+            {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDDbC, amount: "0.1"},
+          ]
+        },
+      ];
+
+      TESTS.forEach(function (test: ITest) {
+        describe(test.title, () => {
+          test.borrows.forEach(function (b: IParamsForPrepare) {
+            const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
+            describe(testName, () => {
+              let snapshotLocal: string;
+              let pr: IPrepareResults;
+              before(async function () {
+                snapshotLocal = await TimeUtils.snapshot();
+                pr = await prepare({
+                  collateralAsset: b.collateral,
+                  borrowAsset: b.borrow,
+                  collateralAmount: b.amount,
+                  targetHealthFactorBeforeRepay: "2",
+                  targetHealthFactorBeforeBorrow: "3",
+                });
+              });
+              after(async function () {
+                await TimeUtils.rollback(snapshotLocal);
+              });
+
+              const PARAMS_FOR_REPAY: IParamsForRepay[] = [
+                {isCollateral: false, repayPart: 1000},
+                {isCollateral: false, repayPart: 99_900},
+                {isCollateral: true, repayPart: 1000},
+                {isCollateral: true, repayPart: 99_900},
+              ]
+              PARAMS_FOR_REPAY.forEach(function (paramsForRepay: IParamsForRepay) {
+                describe(`pay ${paramsForRepay.repayPart / 100_000 * 100}% of ${paramsForRepay.isCollateral ? "collateral" : "borrow"} asset`, () => {
+                  let snapshotLocal2: string;
+                  before(async function () {
+                    snapshotLocal2 = await TimeUtils.snapshot();
+                  });
+                  after(async function () {
+                    await TimeUtils.rollback(snapshotLocal2);
+                  });
+
+                  async function repayTest(): Promise<IResults> {
+                    return repayToRebalance({
+                      isCollateral: paramsForRepay.isCollateral,
+                      repayPart: paramsForRepay.repayPart
+                    }, pr);
+                  }
+
+                  it("should increase health factor", async () => {
+                    const ret = await loadFixture(repayTest);
+                    // console.log("ret", ret);
+                    expect(ret.statusAfterRepay.healthFactor).gt(ret.statusBeforeRepay.healthFactor);
+                  });
+                  if (paramsForRepay.isCollateral) {
+                    it("should increase amount of collateral", async () => {
+                      const ret = await loadFixture(repayTest);
+                      expect(ret.statusAfterRepay.collateralAmount).approximately(ret.statusBeforeRepay.collateralAmount * (100_000 + paramsForRepay.repayPart) / 100_000, 1e-3);
+                    });
+                    it("should not change amount to repay", async () => {
+                      const ret = await loadFixture(repayTest);
+                      expect(ret.statusAfterRepay.amountToPay).approximately(ret.statusBeforeRepay.amountToPay, 1e-5);
+                    });
+                  } else {
+                    it("should decrease debt amount", async () => {
+                      const ret = await loadFixture(repayTest);
+                      expect(ret.statusAfterRepay.amountToPay).approximately(ret.statusBeforeRepay.amountToPay * (100_000 - paramsForRepay.repayPart) / 100_000, 1e-3);
+                    });
+                    it("should not change amount of collateral", async () => {
+                      const ret = await loadFixture(repayTest);
+                      expect(ret.statusAfterRepay.collateralAmount).approximately(ret.statusBeforeRepay.collateralAmount, 1e-5);
+                    });
+                  }
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      let snapshotLocal: string;
+      beforeEach(async function () {
+        snapshotLocal = await TimeUtils.snapshot();
+      });
+      afterEach(async function () {
+        await TimeUtils.rollback(snapshotLocal);
+      });
+
+      it("should revert if not TetuConverter", async () => {
+        const pr = await prepare({
+          collateralAsset: BaseAddresses.USDC,
+          borrowAsset: BaseAddresses.USDDbC,
+          collateralAmount: "1000",
+          targetHealthFactorBeforeRepay: "2",
+          targetHealthFactorBeforeBorrow: "3",
+        });
+        await expect(
+          repayToRebalance({isCollateral: true, repayPart: 1000, notTetuConverter: true}, pr)
+        ).rejectedWith("TC-8 tetu converter only") // TETU_CONVERTER_ONLY
+      });
+    });
+  });
+
+  describe("getConversionKind", () => {
+    it("should return BORROW_2", async () => {
+      expect(await poolAdapter.getConversionKind()).eq(AppConstants.CONVERSION_KIND_BORROW_2);
+    })
+  });
+
+  describe("getConfig", () => {
+    let snapshotLocal: string;
+    beforeEach(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    it("should return expected config", async () => {
+      const receiver = ethers.Wallet.createRandom().address;
+      const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+      await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, BaseAddresses.DAI, BaseAddresses.WETH);
+      const poolAdapterInstance = MoonwellPoolAdapter__factory.connect(
+        await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, BaseAddresses.DAI, BaseAddresses.WETH),
+        tetuConverterSigner
+      );
+      const config = await poolAdapterInstance.getConfig();
+      expect([
+        config.origin,
+        config.outUser,
+        config.outCollateralAsset,
+        config.outBorrowAsset
+      ].join().toLowerCase()).eq([
+        poolAdapter.address,
+        receiver,
+        BaseAddresses.DAI,
+        BaseAddresses.WETH
+      ].join().toLowerCase());
+    })
+  });
+
+  describe("getCollateralAmountToReturn", () => {
+    let snapshotLocal: string;
+    beforeEach(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      collateralAsset: string;
+      borrowAsset: string;
+      collateralAmount: string;
+
+      partToRepay: number;
+      closePosition: boolean;
+    }
+
+    interface IResults {
+      collateralAmountToReturn: number;
+      status: IPoolAdapterStatusNum;
+    }
+
+    async function getCollateralAmountToReturn(p: IParams): Promise<IResults> {
+      const receiver = ethers.Wallet.createRandom().address;
+      const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+      const collateralAsset = IERC20Metadata__factory.connect(p.collateralAsset, signer);
+      const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
+      const decimalsCollateral = await collateralAsset.decimals();
+      const decimalsBorrow = await borrowAsset.decimals();
+      const collateralHolder = MoonwellUtils.getHolder(p.collateralAsset);
+
+      // prepare conversion plan
+      const plan = await getConversionPlan({
+        collateralAsset: p.collateralAsset,
+        borrowAsset: p.borrowAsset,
+        amountIn: p.collateralAmount,
+      });
+
+      // put collateral amount on TetuConverter balance
+      const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
+      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+
+      // initialize the pool adapter
+      await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
+      const poolAdapterInstance = MoonwellPoolAdapter__factory.connect(
+        await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset),
+        tetuConverterSigner
+      );
+      await IERC20__factory.connect(p.collateralAsset, tetuConverterSigner).approve(poolAdapterInstance.address, collateralAmount);
+
+      // make borrow
+      await poolAdapterInstance.connect(tetuConverterSigner).borrow(
+        collateralAmount,
+        parseUnits(plan.amountToBorrow.toString(), decimalsBorrow),
+        receiver
+      );
+
+      // get status
+      const status = await poolAdapterInstance.getStatus();
+
+      const collateralAmountToReturn = await poolAdapterInstance.getCollateralAmountToReturn(
+        status.amountToPay.mul(p.partToRepay).div(100_000),
+        p.closePosition
+      );
+
+      return {
+        collateralAmountToReturn: +formatUnits(collateralAmountToReturn, decimalsCollateral),
+        status: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(status, decimalsCollateral, decimalsBorrow)
+      }
+    }
+
+    describe("Good paths", () => {
+      it("should return expected amount for full repay", async () => {
+        const ret = await getCollateralAmountToReturn({
+          collateralAsset: BaseAddresses.DAI,
+          borrowAsset: BaseAddresses.USDC,
+          collateralAmount: "1234",
+          closePosition: true,
+          partToRepay: 100_000,
+        });
+        expect(ret.collateralAmountToReturn).approximately(1234, 1e-5);
+      });
+      it("should return expected amount for partial repay", async () => {
+        const ret = await getCollateralAmountToReturn({
+          collateralAsset: BaseAddresses.DAI,
+          borrowAsset: BaseAddresses.USDC,
+          collateralAmount: "500",
+          closePosition: false,
+          partToRepay: 50_000,
+        });
+        expect(ret.collateralAmountToReturn).approximately(250, 1e-5);
+      });
+    });
+//endregion Unit tests
+  });
+
+  describe("updateStatus", () => {
+    let snapshotLocal: string;
+    beforeEach(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      collateralAsset: string;
+      borrowAsset: string;
+      collateralAmount: string;
+
+      countBlocksBeforeUpdateStatus: number;
+    }
+
+    interface IResults {
+      statusAfterBorrow: IPoolAdapterStatusNum;
+      statusBeforeUpdateStatus: IPoolAdapterStatusNum;
+      statusAfterUpdateStatus: IPoolAdapterStatusNum;
+    }
+
+    async function updateStatus(p: IParams): Promise<IResults> {
+      const receiver = ethers.Wallet.createRandom().address;
+      const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+      const collateralAsset = IERC20Metadata__factory.connect(p.collateralAsset, signer);
+      const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
+      const decimalsCollateral = await collateralAsset.decimals();
+      const decimalsBorrow = await borrowAsset.decimals();
+      const collateralHolder = MoonwellUtils.getHolder(p.collateralAsset);
+
+      // prepare conversion plan
+      const plan = await getConversionPlan({
+        collateralAsset: p.collateralAsset,
+        borrowAsset: p.borrowAsset,
+        amountIn: p.collateralAmount,
+      });
+
+      // put collateral amount on TetuConverter balance
+      const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
+      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+
+      // initialize the pool adapter
+      await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
+      const poolAdapterInstance = MoonwellPoolAdapter__factory.connect(
+        await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset),
+        tetuConverterSigner
+      );
+      await IERC20__factory.connect(p.collateralAsset, tetuConverterSigner).approve(poolAdapterInstance.address, collateralAmount);
+
+      // make borrow
+      await poolAdapterInstance.connect(tetuConverterSigner).borrow(
+        collateralAmount,
+        parseUnits(plan.amountToBorrow.toString(), decimalsBorrow),
+        receiver
+      );
+
+      // get status
+      const statusAfterBorrow = await poolAdapterInstance.getStatus();
+
+      // move time
+      await TimeUtils.advanceNBlocks(p.countBlocksBeforeUpdateStatus);
+
+      // call update status
+      const statusBeforeUpdateStatus = await poolAdapterInstance.getStatus();
+      await poolAdapterInstance.updateStatus();
+      const statusAfterUpdateStatus = await poolAdapterInstance.getStatus();
+
+      return {
+        statusAfterBorrow: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusAfterBorrow, decimalsCollateral, decimalsBorrow),
+        statusBeforeUpdateStatus: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusBeforeUpdateStatus, decimalsCollateral, decimalsBorrow),
+        statusAfterUpdateStatus: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusAfterUpdateStatus, decimalsCollateral, decimalsBorrow)
+      }
+    }
+
+    describe("Good paths", () => {
+      it("should increase debt amount and collateral amount", async () => {
+        const ret = await updateStatus({
+          collateralAsset: BaseAddresses.DAI,
+          borrowAsset: BaseAddresses.USDC,
+          collateralAmount: "1234",
+          countBlocksBeforeUpdateStatus: 10_000
+        });
+        console.log(ret);
+        expect(ret.statusAfterBorrow.amountToPay).eq(ret.statusBeforeUpdateStatus.amountToPay, "Debt amount is not changed without call of UpdateStatus");
+        expect(ret.statusAfterUpdateStatus.amountToPay).gt(ret.statusAfterBorrow.amountToPay);
+        expect(ret.statusAfterUpdateStatus.collateralAmount).gt(ret.statusAfterBorrow.collateralAmount);
+      });
+    });
+//endregion Unit tests
+  });
+//endregion Unit tests
 });
