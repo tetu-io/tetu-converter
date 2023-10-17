@@ -40,6 +40,8 @@ export class BaseAddresses {
     public static MOONWELL_USDBC = "0x703843C3379b52F9FF486c9f5892218d2a065cC8".toLowerCase();
     public static MOONWELL_WETH = "0x628ff693426583D9a7FB391E54366292F509D457".toLowerCase();
     public static MOONWELL_CBETH = "0x3bf93770f2d4a794c3d9EBEfBAeBAE2a8f09A5E5".toLowerCase();
+    /// @notice https://docs.moonwell.fi/moonwell/protocol-information/contracts
+    public static MOONWELL_WELL = "0xff8adec2221f9f4d8dfbafa6b9a297d17603493d".toLowerCase();
 //endregion ----------------------------------------------------- Moonwell
 
 

@@ -19,6 +19,7 @@ import "../../integrations/hundred-finance/IHfHMatic.sol";
 import "../../integrations/IWmatic.sol";
 import "../compound/CompoundPoolAdapterLib.sol";
 import "./MoonwellLib.sol";
+import "../../integrations/moonwell/IMoonwellComptroller.sol";
 
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -27,6 +28,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
 
   //region ----------------------------------------------------- Constants and variables
   string public constant POOL_ADAPTER_VERSION = "1.0.0";
+  address public constant WELL_TOKEN = 0xFF8adeC2221f9f4D8dfbAFa6B9a297d17603493D;
 
   CompoundPoolAdapterLib.State internal _state;
   //endregion ----------------------------------------------------- Constants and variables
@@ -130,12 +132,25 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   //endregion ----------------------------------------------------- Repay logic
 
   //region ----------------------------------------------------- Rewards
-  function claimRewards(address receiver_) external pure override returns (
+  function claimRewards(address receiver_) external override returns (
     address rewardToken,
     uint amount
   ) {
-    // todo
-    receiver_; // hide warning
+    console.log("claimRewards.1");
+    IMoonwellComptroller comptroller = IMoonwellComptroller(address(_state.comptroller));
+
+    address[] memory markets = new address[](2);
+    markets[0] = _state.collateralCToken;
+    markets[1] = _state.borrowCToken;
+    comptroller.claimReward(address(this), markets);
+
+    amount = IERC20(WELL_TOKEN).balanceOf(address(this));
+    console.log("claimRewards.amount", amount);
+    if (amount != 0) {
+      IERC20(WELL_TOKEN).transfer(receiver_, amount);
+      rewardToken = WELL_TOKEN;
+    }
+
     return (rewardToken, amount);
   }
   //endregion ----------------------------------------------------- Rewards

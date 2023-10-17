@@ -1005,5 +1005,100 @@ describe("MoonwellPlatformAdapterTest", () => {
     });
 //endregion Unit tests
   });
+
+  describe("claimRewards", () => {
+    let snapshotLocal: string;
+    beforeEach(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      collateralAsset: string;
+      borrowAsset: string;
+      collateralAmount: string;
+
+      countBlocksBeforeClaimingRewards: number;
+    }
+
+    interface IResults {
+      rewardToken: string;
+      amount: number;
+      rewardsBalance: number;
+    }
+
+    async function claimRewards(p: IParams): Promise<IResults> {
+      const receiver = ethers.Wallet.createRandom().address;
+      const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+      const collateralAsset = IERC20Metadata__factory.connect(p.collateralAsset, signer);
+      const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
+      const decimalsCollateral = await collateralAsset.decimals();
+      const decimalsBorrow = await borrowAsset.decimals();
+      const collateralHolder = MoonwellUtils.getHolder(p.collateralAsset);
+
+      // prepare conversion plan
+      const plan = await getConversionPlan({
+        collateralAsset: p.collateralAsset,
+        borrowAsset: p.borrowAsset,
+        amountIn: p.collateralAmount,
+      });
+
+      // put collateral amount on TetuConverter balance
+      const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
+      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+
+      // initialize the pool adapter
+      await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
+      const poolAdapterInstance = MoonwellPoolAdapter__factory.connect(
+        await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset),
+        tetuConverterSigner
+      );
+      await IERC20__factory.connect(p.collateralAsset, tetuConverterSigner).approve(poolAdapterInstance.address, collateralAmount);
+
+      // make borrow
+      await poolAdapterInstance.connect(tetuConverterSigner).borrow(
+        collateralAmount,
+        parseUnits(plan.amountToBorrow.toString(), decimalsBorrow),
+        receiver
+      );
+
+      // move time
+      await TimeUtils.advanceNBlocks(p.countBlocksBeforeClaimingRewards);
+
+      // call update status
+      const ret = await poolAdapterInstance.callStatic.claimRewards(receiver);
+      await poolAdapterInstance.claimRewards(receiver);
+
+      return {
+        rewardToken: ret.rewardToken,
+        amount: ret.amount.eq(0)
+          ? 0
+          : +formatUnits(ret.amount, await IERC20Metadata__factory.connect(ret.rewardToken, signer).decimals()),
+        rewardsBalance: +formatUnits(
+          await IERC20__factory.connect(BaseAddresses.WELL, signer).balanceOf(receiver),
+          await IERC20Metadata__factory.connect(BaseAddresses.WELL, signer).decimals()
+        )
+      }
+    }
+
+    describe("Good paths", () => {
+      it("should increase debt amount and collateral amount", async () => {
+        const ret = await claimRewards({
+          collateralAsset: BaseAddresses.DAI,
+          borrowAsset: BaseAddresses.USDC,
+          collateralAmount: "1234",
+          countBlocksBeforeClaimingRewards: 10_000,
+        });
+        console.log(ret);
+        expect(ret.amount).gt(0, "rewards should be paid");
+        expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
+      });
+    });
+//endregion Unit tests
+  });
+
 //endregion Unit tests
 });

@@ -75,7 +75,7 @@ library CompoundPoolAdapterLib {
     uint balanceCollateralAssetAfterRedeem;
   }
 
-                struct GetStatusLocal {
+  struct GetStatusLocal {
     ICompoundComptrollerBase comptroller;
     address cTokenBorrow;
     address cTokenCollateral;
