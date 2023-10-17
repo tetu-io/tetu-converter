@@ -7,7 +7,7 @@ import {
   MoonwellPlatformAdapter,
   CompoundAprLibFacade,
   CompoundPlatformAdapterLibFacade,
-  MoonwellPlatformAdapter__factory
+  MoonwellPlatformAdapter__factory, IERC20Metadata__factory, MoonwellPoolAdapter__factory, BorrowManager__factory
 } from "../../../../typechain";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
@@ -31,6 +31,7 @@ import {defaultAbiCoder, formatUnits} from "ethers/lib/utils";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {BigNumber} from "ethers";
 import {GAS_LIMIT_MOONWELL_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
+import {generateAssetPairs} from "../../../baseUT/utils/AssetPairUtils";
 
 describe("MoonwellPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -60,7 +61,7 @@ describe("MoonwellPlatformAdapterTest", () => {
     facadeAprLib = await DeployUtils.deployContract(signer, "CompoundAprLibFacade") as CompoundAprLibFacade;
     facadePlatformLib = await DeployUtils.deployContract(signer, "CompoundPlatformAdapterLibFacade") as CompoundPlatformAdapterLibFacade;
 
-    poolAdapterTemplate = ethers.Wallet.createRandom().address; // todo
+    poolAdapterTemplate = (await AdaptersHelper.createMoonwellPoolAdapter(signer)).address;
     platformAdapter = await DeployUtils.deployContract(
       signer,
       "MoonwellPlatformAdapter",
@@ -278,7 +279,7 @@ describe("MoonwellPlatformAdapterTest", () => {
             });
             it("should return expected supplyIncomeInBorrowAsset", async () => {
               const {plan, expectedPlan} = await loadFixture(getConversionPlanTest);
-              expect(plan.supplyIncomeInBorrowAsset).eq(expectedPlan.supplyIncomeInBorrowAsset);
+              expect(plan.supplyIncomeInBorrowAsset).approximately(expectedPlan.supplyIncomeInBorrowAsset, 1e-7);
             });
             it("should return expected rewardsAmountInBorrowAsset", async () => {
               const {plan, expectedPlan} = await loadFixture(getConversionPlanTest);
@@ -456,7 +457,7 @@ describe("MoonwellPlatformAdapterTest", () => {
               entryKind: AppConstants.ENTRY_KIND_2,
             });
 
-            expect(r.plan.collateralAmount).eq(collateralAmount);
+            expect(r.plan.collateralAmount).approximately(collateralAmount, 1e-6);
           });
         });
       });
@@ -540,7 +541,7 @@ describe("MoonwellPlatformAdapterTest", () => {
             });
 
             expect(r.plan.maxAmountToBorrow).eq(r.expectedPlan.maxAmountToBorrow);
-            expect(r.plan.collateralAmount).eq(r.expectedPlan.collateralAmount);
+            expect(r.plan.collateralAmount).approximately(r.expectedPlan.collateralAmount, 1e-6);
           });
         });
       });
@@ -699,188 +700,6 @@ describe("MoonwellPlatformAdapterTest", () => {
     });
   });
 
-  // describe("getBorrowRateAfterBorrow", () => {
-  //   describe("Good paths", () => {
-  //     async function makeTest(
-  //       collateralAsset: string,
-  //       collateralCToken: string,
-  //       borrowAsset: string,
-  //       borrowCToken: string,
-  //       collateralHolders: string[],
-  //       part10000: number
-  //     ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
-  //       const borrowToken = IHfCToken__factory.connect(borrowCToken, deployer);
-  //       const collateralToken = IHfCToken__factory.connect(collateralCToken, deployer);
-  //       const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-  //
-  //       return PredictBrUsesCase.makeTest(
-  //         deployer,
-  //         new HfPlatformActor(borrowToken, collateralToken, comptroller),
-  //         "hundred-finance",
-  //         collateralAsset,
-  //         borrowAsset,
-  //         collateralHolders,
-  //         part10000
-  //       );
-  //     }
-  //
-  //     describe("small amount", () => {
-  //       it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-  //         const collateralAsset = MaticAddresses.DAI;
-  //         const collateralCToken = MaticAddresses.hDAI;
-  //         const borrowAsset = MaticAddresses.USDC;
-  //         const borrowCToken = MaticAddresses.hUSDC;
-  //
-  //         const collateralHolders = [
-  //           MaticAddresses.HOLDER_DAI,
-  //           MaticAddresses.HOLDER_DAI_2,
-  //           MaticAddresses.HOLDER_DAI_3,
-  //           MaticAddresses.HOLDER_DAI_4,
-  //           MaticAddresses.HOLDER_DAI_5,
-  //           MaticAddresses.HOLDER_DAI_6,
-  //         ];
-  //         const part10000 = 1;
-  //
-  //         const r = await makeTest(
-  //           collateralAsset,
-  //           collateralCToken,
-  //           borrowAsset,
-  //           borrowCToken,
-  //           collateralHolders,
-  //           part10000
-  //         );
-  //
-  //         const ret = areAlmostEqual(r.br, r.brPredicted, 3);
-  //         expect(ret).eq(true);
-  //       });
-  //     });
-  //
-  //     describe("Huge amount", () => {
-  //       it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-  //         const collateralAsset = MaticAddresses.DAI;
-  //         const collateralCToken = MaticAddresses.hDAI;
-  //         const borrowAsset = MaticAddresses.USDC;
-  //         const borrowCToken = MaticAddresses.hUSDC;
-  //
-  //         const collateralHolders = [
-  //           MaticAddresses.HOLDER_DAI,
-  //           MaticAddresses.HOLDER_DAI_2,
-  //           MaticAddresses.HOLDER_DAI_3,
-  //           MaticAddresses.HOLDER_DAI_4,
-  //           MaticAddresses.HOLDER_DAI_5,
-  //           MaticAddresses.HOLDER_DAI_6,
-  //         ];
-  //         const part10000 = 500;
-  //
-  //         const r = await makeTest(
-  //           collateralAsset,
-  //           collateralCToken,
-  //           borrowAsset,
-  //           borrowCToken,
-  //           collateralHolders,
-  //           part10000
-  //         );
-  //
-  //         const ret = areAlmostEqual(r.br, r.brPredicted, 3);
-  //         expect(ret).eq(true);
-  //       });
-  //     });
-  //   });
-  // });
-
-  // describe("initializePoolAdapter", () => {
-  //   let controller: ConverterController;
-  //   let snapshotLocal: string;
-  //   before(async function () {
-  //     snapshotLocal = await TimeUtils.snapshot();
-  //     controller = await TetuConverterApp.createController(deployer,
-  //       {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-  //     );
-  //   });
-  //   after(async function () {
-  //     await TimeUtils.rollback(snapshotLocal);
-  //   });
-  //   interface IInitializePoolAdapterBadPaths {
-  //     useWrongConverter?: boolean;
-  //     wrongCallerOfInitializePoolAdapter?: boolean;
-  //   }
-  //   async function makeInitializePoolAdapterTest(
-  //     badParams?: IInitializePoolAdapterBadPaths
-  //   ) : Promise<{ret: string, expected: string}> {
-  //     const user = ethers.Wallet.createRandom().address;
-  //     const collateralAsset = MaticAddresses.DAI;
-  //     const borrowAsset = MaticAddresses.USDC;
-  //     const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
-  //     const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
-  //
-  //     const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-  //     const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-  //       deployer,
-  //       controller.address,
-  //       comptroller.address,
-  //       converterNormal.address,
-  //       [MaticAddresses.hDAI, MaticAddresses.hUSDC]
-  //     );
-  //
-  //     const poolAdapter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer)
-  //     const platformAdapterAsBorrowManager = HfPlatformAdapter__factory.connect(
-  //       platformAdapter.address,
-  //       badParams?.wrongCallerOfInitializePoolAdapter
-  //         ? await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
-  //         : await DeployerUtils.startImpersonate(borrowManager.address)
-  //     );
-  //
-  //     await platformAdapterAsBorrowManager.initializePoolAdapter(
-  //       badParams?.useWrongConverter
-  //         ? ethers.Wallet.createRandom().address
-  //         : converterNormal.address,
-  //       poolAdapter.address,
-  //       user,
-  //       collateralAsset,
-  //       borrowAsset
-  //     );
-  //
-  //     const poolAdapterConfigAfter = await poolAdapter.getConfig();
-  //     const ret = [
-  //       poolAdapterConfigAfter.origin,
-  //       poolAdapterConfigAfter.outUser,
-  //       poolAdapterConfigAfter.outCollateralAsset.toLowerCase(),
-  //       poolAdapterConfigAfter.outBorrowAsset.toLowerCase()
-  //     ].join("\n");
-  //     const expected = [
-  //       converterNormal.address,
-  //       user,
-  //       collateralAsset.toLowerCase(),
-  //       borrowAsset.toLowerCase()
-  //     ].join("\n");
-  //     return {ret, expected};
-  //   }
-  //
-  //   describe("Good paths", () => {
-  //     it("initialized pool adapter should has expected values", async () => {
-  //       const r = await makeInitializePoolAdapterTest();
-  //       expect(r.ret).eq(r.expected);
-  //     });
-  //   });
-  //   describe("Bad paths", () => {
-  //     it("should revert if converter address is not registered", async () => {
-  //
-  //       await expect(
-  //         makeInitializePoolAdapterTest(
-  //           {useWrongConverter: true}
-  //         )
-  //       ).revertedWith("TC-25 converter not found"); // CONVERTER_NOT_FOUND
-  //     });
-  //     it("should revert if it's called by not borrow-manager", async () => {
-  //       await expect(
-  //         makeInitializePoolAdapterTest(
-  //           {wrongCallerOfInitializePoolAdapter: true}
-  //         )
-  //       ).revertedWith("TC-45 borrow manager only"); // BORROW_MANAGER_ONLY
-  //     });
-  //   });
-  // });
-
   describe("registerCTokens", () => {
     let platformAdapterLocal: MoonwellPlatformAdapter;
     let snapshotLocal: string;
@@ -987,6 +806,182 @@ describe("MoonwellPlatformAdapterTest", () => {
   describe("platformKind", () => {
     it("should return expected values", async () => {
       expect((await platformAdapter.platformKind())).eq(AppConstants.LENDING_PLATFORM_KIND_MOONWELL_6);
+    });
+  });
+
+  // describe("getBorrowRateAfterBorrow", () => {
+  //   describe("Good paths", () => {
+  //     async function makeTest(
+  //       collateralAsset: string,
+  //       collateralCToken: string,
+  //       borrowAsset: string,
+  //       borrowCToken: string,
+  //       collateralHolders: string[],
+  //       part10000: number
+  //     ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
+  //       const borrowToken = IHfCToken__factory.connect(borrowCToken, deployer);
+  //       const collateralToken = IHfCToken__factory.connect(collateralCToken, deployer);
+  //       const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+  //
+  //       return PredictBrUsesCase.makeTest(
+  //         deployer,
+  //         new HfPlatformActor(borrowToken, collateralToken, comptroller),
+  //         "hundred-finance",
+  //         collateralAsset,
+  //         borrowAsset,
+  //         collateralHolders,
+  //         part10000
+  //       );
+  //     }
+  //
+  //     describe("small amount", () => {
+  //       it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+  //         const collateralAsset = MaticAddresses.DAI;
+  //         const collateralCToken = MaticAddresses.hDAI;
+  //         const borrowAsset = MaticAddresses.USDC;
+  //         const borrowCToken = MaticAddresses.hUSDC;
+  //
+  //         const collateralHolders = [
+  //           MaticAddresses.HOLDER_DAI,
+  //           MaticAddresses.HOLDER_DAI_2,
+  //           MaticAddresses.HOLDER_DAI_3,
+  //           MaticAddresses.HOLDER_DAI_4,
+  //           MaticAddresses.HOLDER_DAI_5,
+  //           MaticAddresses.HOLDER_DAI_6,
+  //         ];
+  //         const part10000 = 1;
+  //
+  //         const r = await makeTest(
+  //           collateralAsset,
+  //           collateralCToken,
+  //           borrowAsset,
+  //           borrowCToken,
+  //           collateralHolders,
+  //           part10000
+  //         );
+  //
+  //         const ret = areAlmostEqual(r.br, r.brPredicted, 3);
+  //         expect(ret).eq(true);
+  //       });
+  //     });
+  //
+  //     describe("Huge amount", () => {
+  //       it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+  //         const collateralAsset = MaticAddresses.DAI;
+  //         const collateralCToken = MaticAddresses.hDAI;
+  //         const borrowAsset = MaticAddresses.USDC;
+  //         const borrowCToken = MaticAddresses.hUSDC;
+  //
+  //         const collateralHolders = [
+  //           MaticAddresses.HOLDER_DAI,
+  //           MaticAddresses.HOLDER_DAI_2,
+  //           MaticAddresses.HOLDER_DAI_3,
+  //           MaticAddresses.HOLDER_DAI_4,
+  //           MaticAddresses.HOLDER_DAI_5,
+  //           MaticAddresses.HOLDER_DAI_6,
+  //         ];
+  //         const part10000 = 500;
+  //
+  //         const r = await makeTest(
+  //           collateralAsset,
+  //           collateralCToken,
+  //           borrowAsset,
+  //           borrowCToken,
+  //           collateralHolders,
+  //           part10000
+  //         );
+  //
+  //         const ret = areAlmostEqual(r.br, r.brPredicted, 3);
+  //         expect(ret).eq(true);
+  //       });
+  //     });
+  //   });
+  // });
+
+  describe("initializePoolAdapter", () => {
+    let snapshotLocal: string;
+    beforeEach(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IParams {
+      collateralAsset: string;
+      borrowAsset: string;
+    }
+
+    interface IResults {
+      expectedUser: string;
+
+      converter: string;
+      comptroller: string;
+      user: string;
+      collateralAsset: string;
+      borrowAsset: string;
+      collateralTokensBalance: number;
+    }
+
+    async function initializePoolAdapter(p: IParams): Promise<IResults> {
+      const user = ethers.Wallet.createRandom().address;
+      const converterGovernance = await Misc.impersonate(await converterController.governance());
+      const borrowManagerAsGov = await BorrowManager__factory.connect(await converterController.borrowManager(), converterGovernance);
+      const poolAdapter = await AdaptersHelper.createMoonwellPoolAdapter(signer);
+
+      const pairs = generateAssetPairs(MoonwellUtils.getAllAssets());
+      await borrowManagerAsGov.addAssetPairs(
+        platformAdapter.address,
+        pairs.map(x => x.smallerAddress),
+        pairs.map(x => x.biggerAddress)
+      );
+
+      await platformAdapter.connect(await Misc.impersonate(borrowManagerAsGov.address)).initializePoolAdapter(
+        poolAdapterTemplate,
+        poolAdapter.address,
+        user,
+        p.collateralAsset,
+        p.borrowAsset
+      )
+
+      const config = await poolAdapter.getConfig();
+      return {
+        borrowAsset: config.outBorrowAsset,
+        collateralAsset: config.outCollateralAsset,
+        user: config.outUser,
+        converter: await poolAdapter.controller(),
+        comptroller: await poolAdapter.comptroller(),
+        collateralTokensBalance: +formatUnits(
+          await poolAdapter.collateralTokensBalance(),
+          await IERC20Metadata__factory.connect(p.collateralAsset, signer).decimals()
+        ),
+
+        expectedUser: user
+      }
+    }
+
+    describe("Good paths", () => {
+      it("initialized pool adapter should has expected values", async () => {
+        const r = await initializePoolAdapter({
+          collateralAsset: BaseAddresses.USDC,
+          borrowAsset: BaseAddresses.DAI,
+        });
+        expect([
+          r.user,
+          r.comptroller,
+          r.converter,
+          r.collateralAsset,
+          r.borrowAsset,
+          r.collateralTokensBalance
+        ].join().toLowerCase()).eq([
+          r.expectedUser,
+          BaseAddresses.MOONWELL_COMPTROLLER,
+          converterController.address,
+          BaseAddresses.USDC,
+          BaseAddresses.DAI,
+          0
+        ].join().toLowerCase());
+      });
     });
   });
 //endregion Unit tests

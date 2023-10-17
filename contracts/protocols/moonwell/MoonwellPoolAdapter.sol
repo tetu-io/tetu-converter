@@ -137,12 +137,12 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     uint amount
   ) {
     console.log("claimRewards.1");
-    IMoonwellComptroller comptroller = IMoonwellComptroller(address(_state.comptroller));
+    IMoonwellComptroller _comptroller = IMoonwellComptroller(address(_state.comptroller));
 
     address[] memory markets = new address[](2);
     markets[0] = _state.collateralCToken;
     markets[1] = _state.borrowCToken;
-    comptroller.claimReward(address(this), markets);
+    _comptroller.claimReward(address(this), markets);
 
     amount = IERC20(WELL_TOKEN).balanceOf(address(this));
     console.log("claimRewards.amount", amount);
@@ -184,6 +184,16 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
+  }
+
+  function controller() external view returns (address) {
+    return address(_state.controller);
+  }
+  function comptroller() external view returns (address) {
+    return address(_state.comptroller);
+  }
+  function collateralTokensBalance() external view returns (uint) {
+    return _state.collateralTokensBalance;
   }
   //endregion ----------------------------------------------------- View current status
 
