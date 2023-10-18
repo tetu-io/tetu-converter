@@ -7,7 +7,6 @@ import {
   IHfCToken__factory
 } from "../../../typechain";
 import {expect} from "chai";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {
   HundredFinanceHelper,
@@ -16,7 +15,7 @@ import {
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/app/PredictBrUsesCase";
+import {PredictBrUsesCase} from "../../../baseUT/uses-cases/app/PredictBrUsesCase";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {AprHundredFinance} from "../../../baseUT/protocols/hundred-finance/aprHundredFinance";
@@ -24,7 +23,6 @@ import {AprUtils} from "../../../baseUT/utils/aprUtils";
 import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HundredFinanceChangePriceUtils} from "../../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {
@@ -37,8 +35,10 @@ import {
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../../baseUT/types/GasLimit";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
-import {DForceHelper} from "../../../../scripts/integration/dforce/DForceHelper";
 import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {HfPlatformActor} from "../../../baseUT/protocols/hundred-finance/HfPlatformActor";
 
 describe.skip("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
@@ -69,48 +69,6 @@ describe.skip("Hundred finance, platform adapter", () => {
     await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
-
-//region IPlatformActor impl
-  class HfPlatformActor implements IPlatformActor {
-    borrowCToken: IHfCToken;
-    collateralCToken: IHfCToken;
-    comptroller: IHfComptroller;
-    constructor(
-      borrowCToken: IHfCToken,
-      collateralCToken: IHfCToken,
-      comptroller: IHfComptroller
-    ) {
-      this.borrowCToken = borrowCToken;
-      this.collateralCToken = collateralCToken;
-      this.comptroller = comptroller;
-    }
-    async getAvailableLiquidity() : Promise<BigNumber> {
-      const cashBefore = await this.borrowCToken.getCash();
-      const borrowBefore = await this.borrowCToken.totalBorrows();
-      const reserveBefore = await this.borrowCToken.totalReserves();
-      console.log(`Reserve data before: cash=${cashBefore.toString()} borrow=${borrowBefore.toString()} reserve=${reserveBefore.toString()}`);
-      return cashBefore;
-    }
-    async getCurrentBR(): Promise<BigNumber> {
-      const br = await this.borrowCToken.borrowRatePerBlock();
-      console.log(`BR=${br}`);
-      return br;
-    }
-    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      const collateralAsset = await this.collateralCToken.underlying();
-      await IERC20Metadata__factory.connect(collateralAsset, deployer)
-        .approve(this.collateralCToken.address, collateralAmount);
-      console.log(`Supply collateral ${collateralAsset} amount ${collateralAmount}`);
-      await this.comptroller.enterMarkets([this.collateralCToken.address, this.borrowCToken.address]);
-      await this.collateralCToken.mint(collateralAmount);
-
-    }
-    async borrow(borrowAmount: BigNumber): Promise<void> {
-      await this.borrowCToken.borrow(borrowAmount);
-      console.log(`Borrow ${borrowAmount}`);
-    }
-  }
-//endregion IPlatformActor impl
 
 //region getConversionPlan tests impl
   interface IGetConversionPlanBadPaths {
@@ -939,14 +897,15 @@ describe.skip("Hundred finance, platform adapter", () => {
         const collateralToken = IHfCToken__factory.connect(collateralCToken, deployer);
         const comptroller = await HundredFinanceHelper.getComptroller(deployer);
 
-        return PredictBrUsesCase.makeTest(
+        return PredictBrUsesCase.predictBrTest(
           deployer,
-          new HfPlatformActor(borrowToken, collateralToken, comptroller),
-          "hundred-finance",
-          collateralAsset,
-          borrowAsset,
-          collateralHolders,
-          part10000
+          new HfPlatformActor(borrowToken, collateralToken, comptroller, deployer),
+          {
+            collateralAsset,
+            borrowAsset,
+            collateralHolders,
+            part10000
+          }
         );
       }
 

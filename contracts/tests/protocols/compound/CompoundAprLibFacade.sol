@@ -61,4 +61,8 @@ contract CompoundAprLibFacade {
   ) external view returns(uint) {
     return CompoundAprLib.getEstimatedSupplyRate(interestRateModel_, cToken_, amountToSupply_);
   }
+
+  function getBorrowRateAfterBorrow(address borrowCToken, uint amountToBorrow_) external view returns (uint) {
+    return CompoundAprLib.getBorrowRateAfterBorrow(borrowCToken, amountToBorrow_);
+  }
 }

@@ -34,6 +34,7 @@ import {
 import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
+import {AaveTwoPlatformActor} from "../../../baseUT/protocols/aaveTwo/AaveTwoPlatformActor";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -63,49 +64,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
     await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
-
-//region IPlatformActor impl
-  class AaveTwoPlatformActor implements IPlatformActor {
-    dp: IAaveTwoProtocolDataProvider;
-    pool: IAaveTwoPool;
-    collateralAsset: string;
-    borrowAsset: string;
-    constructor(
-      dp: IAaveTwoProtocolDataProvider,
-      pool: IAaveTwoPool,
-      collateralAsset: string,
-      borrowAsset: string
-    ) {
-      this.dp = dp;
-      this.pool = pool;
-      this.collateralAsset = collateralAsset;
-      this.borrowAsset = borrowAsset;
-    }
-    async getAvailableLiquidity() : Promise<BigNumber> {
-      const rd = await this.dp.getReserveData(this.borrowAsset);
-      console.log(`Reserve data before: totalAToken=${rd.availableLiquidity} totalStableDebt=${rd.totalStableDebt} totalVariableDebt=${rd.totalVariableDebt}`);
-      return rd.availableLiquidity;
-    }
-    async getCurrentBR(): Promise<BigNumber> {
-      const data = await AaveTwoHelper.getReserveInfo(deployer, this.pool, this.dp, this.borrowAsset);
-      const br = data.data.currentVariableBorrowRate;
-      console.log(`BR ${br.toString()}`);
-      return BigNumber.from(br);
-    }
-    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      await IERC20Metadata__factory.connect(this.collateralAsset, deployer).approve(this.pool.address, collateralAmount);
-      console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
-      await this.pool.deposit(this.collateralAsset, collateralAmount, deployer.address, 0);
-      const userAccountData = await this.pool.getUserAccountData(deployer.address);
-      console.log(`Available borrow base ${userAccountData.availableBorrowsETH}`);
-      await this.pool.setUserUseReserveAsCollateral(this.collateralAsset, true);
-    }
-    async borrow(borrowAmount: BigNumber): Promise<void> {
-      console.log(`borrow ${this.borrowAsset} amount ${borrowAmount}`);
-      await this.pool.borrow(this.borrowAsset, borrowAmount, 2, 0, deployer.address, {gasLimit: GAS_LIMIT});
-    }
-  }
-//endregion IPlatformActor impl
 
 //region Unit tests
   describe("constructor and converters()", () => {
@@ -911,19 +869,15 @@ describe("AaveTwoPlatformAdapterTest", () => {
         const dp = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
         const aavePool = await AaveTwoHelper.getAavePool(deployer);
 
-        return PredictBrUsesCase.makeTest(
+        return PredictBrUsesCase.predictBrTest(
           deployer,
-          new AaveTwoPlatformActor(
-            dp,
-            aavePool,
+          new AaveTwoPlatformActor(dp, aavePool, collateralAsset, borrowAsset, deployer),
+          {
             collateralAsset,
-            borrowAsset
-          ),
-          "aaveTwo",
-          collateralAsset,
-          borrowAsset,
-          collateralHolders,
-          part10000
+            borrowAsset,
+            collateralHolders,
+            part10000
+          }
         );
       }
 

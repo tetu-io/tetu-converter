@@ -59,7 +59,7 @@ import {
   BorrowManagerMock,
   ConverterControllerMock,
   CompoundCTokenBaseMock,
-  CompoundComptrollerMockV1, CompoundComptrollerMockV2, CompoundPriceOracleMock
+  CompoundComptrollerMockV1, CompoundComptrollerMockV2, CompoundPriceOracleMock, HfAprLibFacade, CompoundAprLibFacade
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -641,6 +641,12 @@ export class MocksHelper {
   }
   public static async getCompound3AprLibFacade(deployer: SignerWithAddress) : Promise<Compound3AprLibFacade> {
     return await DeployUtils.deployContract(deployer, "Compound3AprLibFacade") as Compound3AprLibFacade;
+  }
+  public static async getHfAprLibFacade(deployer: SignerWithAddress) : Promise<HfAprLibFacade> {
+    return await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
+  }
+  public static async getCompoundAprLibFacade(deployer: SignerWithAddress) : Promise<CompoundAprLibFacade> {
+    return await DeployUtils.deployContract(deployer, "CompoundAprLibFacade") as CompoundAprLibFacade;
   }
 //endregion Library facades
 

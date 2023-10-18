@@ -31,6 +31,8 @@ import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {ICoreAave3} from "../../../baseUT/protocols/aave3/Aave3DataTypes";
+import {MaticCore} from "../../../baseUT/chains/maticCore";
 
 describe("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -1103,6 +1105,7 @@ describe("Aave3PoolAdapterIntTest", () => {
     ) : Promise<IMakeBorrowAndRepayResults>{
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(), // todo
         converterInstance,
         collateralToken,
         [collateralHolder],

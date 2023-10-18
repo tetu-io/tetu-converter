@@ -92,4 +92,8 @@ contract HfAprLibFacade {
   function getUnderlying(address token) public view returns (address) {
     return HfAprLib.getUnderlying(token);
   }
+
+  function getBorrowRateAfterBorrow(address borrowCToken, uint amountToBorrow_) external view returns (uint) {
+    return HfAprLib.getBorrowRateAfterBorrow(borrowCToken, amountToBorrow_);
+  }
 }

@@ -294,19 +294,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   }
   //endregion ----------------------------------------------------- Get conversion plan
 
-  //region ----------------------------------------------------- Calculate borrow rate after borrowing in advance
-
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view returns (uint) {
-    address borrowCToken = activeAssets[borrowAsset_];
-    return HfAprLib.getEstimatedBorrowRate(
-      IHfInterestRateModel(IHfCToken(borrowCToken).interestRateModel()),
-      IHfCToken(borrowCToken),
-      amountToBorrow_
-    );
-  }
-  //endregion ----------------------------------------------------- Calculate borrow rate after borrowing in advance
-
   //region ----------------------------------------------------- Utils
 
   /// @notice Check if the c-tokens are active and return LTV and liquidityThreshold values for the borrow

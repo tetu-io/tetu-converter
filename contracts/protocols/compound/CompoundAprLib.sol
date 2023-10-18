@@ -142,6 +142,16 @@ library CompoundAprLib {
       cTokenBorrow_.totalReserves()
     );
   }
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function getBorrowRateAfterBorrow(address borrowCToken, uint amountToBorrow_) internal view returns (uint) {
+    return getEstimatedBorrowRate(
+      ICompoundInterestRateModel(ICTokenBase(borrowCToken).interestRateModel()),
+      ICTokenBase(borrowCToken),
+      amountToBorrow_
+    );
+  }
+
   //endregion ----------------------------------------------------- Estimate borrow rate
 
   //region ----------------------------------------------------- Estimate supply rate

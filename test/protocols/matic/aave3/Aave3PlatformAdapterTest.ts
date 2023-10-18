@@ -9,7 +9,6 @@ import {
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {Aave3Helper, IAave3ReserveInfo} from "../../../../scripts/integration/aave3/Aave3Helper";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
@@ -21,8 +20,6 @@ import {Misc} from "../../../../scripts/utils/Misc";
 import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
 import {Aave3Utils} from "../../../baseUT/protocols/aave3/Aave3Utils";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {Aave3ChangePricesUtils} from "../../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {
@@ -32,9 +29,13 @@ import {
 } from "../../../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
-import {MaticCore} from "../../baseUT/cores/maticCore";
 import {ICoreAave3} from "../../../baseUT/protocols/aave3/Aave3DataTypes";
 import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {MaticCore} from "../../../baseUT/chains/maticCore";
+import {MocksHelper} from "../../../baseUT/app/MocksHelper";
+import {Aave3PlatformActor} from "../../../baseUT/protocols/aave3/Aave3PlatformActor";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -64,62 +65,6 @@ describe("Aave3PlatformAdapterTest", () => {
     await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
-
-//region IPlatformActor impl
-  class Aave3PlatformActor implements IPlatformActor {
-    dp: IAaveProtocolDataProvider;
-    pool: IAavePool;
-    collateralAsset: string;
-    borrowAsset: string;
-    private h: Aave3Helper;
-
-    constructor(
-      dataProvider: IAaveProtocolDataProvider,
-      pool: IAavePool,
-      collateralAsset: string,
-      borrowAsset: string
-    ) {
-      this.h = new Aave3Helper(deployer, MaticAddresses.AAVE_V3_POOL);
-      this.dp = dataProvider;
-      this.pool = pool;
-      this.collateralAsset = collateralAsset;
-      this.borrowAsset = borrowAsset;
-    }
-
-    async getAvailableLiquidity(): Promise<BigNumber> {
-      const rd = await this.dp.getReserveData(this.borrowAsset);
-      console.log(`Reserve data before: totalAToken=${rd.totalAToken} totalStableDebt=${rd.totalStableDebt} totalVariableDebt=${rd.totalVariableDebt}`);
-      const availableLiquidity = rd.totalAToken.sub(
-        rd.totalStableDebt.add(rd.totalVariableDebt)
-      );
-      console.log("availableLiquidity", availableLiquidity);
-      return availableLiquidity;
-    }
-
-    async getCurrentBR(): Promise<BigNumber> {
-      const data = await this.h.getReserveInfo(deployer, this.pool, this.dp, this.borrowAsset);
-      const br = data.data.currentVariableBorrowRate;
-      console.log(`BR ${br.toString()}`);
-      return BigNumber.from(br);
-    }
-
-    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      await IERC20Metadata__factory.connect(this.collateralAsset, deployer).approve(this.pool.address, collateralAmount);
-      console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
-      await this.pool.supply(this.collateralAsset, collateralAmount, deployer.address, 0);
-      const userAccountData = await this.pool.getUserAccountData(deployer.address);
-      console.log(`Available borrow base ${userAccountData.availableBorrowsBase}`);
-      await this.pool.setUserUseReserveAsCollateral(this.collateralAsset, true);
-    }
-
-    async borrow(borrowAmount: BigNumber): Promise<void> {
-      console.log(`borrow ${this.borrowAsset} amount ${borrowAmount}`);
-      await this.pool.borrow(this.borrowAsset, borrowAmount, 2, 0, deployer.address, {gasLimit: GAS_LIMIT});
-
-    }
-  }
-
-//endregion IPlatformActor impl
 
 //region Unit tests
   describe("constructor and converters()", () => {
@@ -1180,19 +1125,15 @@ describe("Aave3PlatformAdapterTest", () => {
         const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, MaticAddresses.AAVE_V3_POOL);
         const aavePool = await Aave3Helper.getAavePool(deployer, MaticAddresses.AAVE_V3_POOL);
 
-        return PredictBrUsesCase.makeTest(
+        return PredictBrUsesCase.predictBrTest(
           deployer,
-          new Aave3PlatformActor(
-            dp,
-            aavePool,
+          new Aave3PlatformActor(dp, aavePool, collateralAsset, borrowAsset, deployer),
+          {
             collateralAsset,
-            borrowAsset
-          ),
-          "aave3",
-          collateralAsset,
-          borrowAsset,
-          collateralHolders,
-          part10000
+            borrowAsset,
+            collateralHolders,
+            part10000
+          }
         );
       }
 

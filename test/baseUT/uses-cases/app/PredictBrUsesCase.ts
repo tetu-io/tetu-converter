@@ -1,19 +1,19 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {IERC20Metadata__factory} from "../../../../typechain";
-import {BigNumber, BigNumberish} from "ethers";
+import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
-import {MocksHelper} from "../helpers/MocksHelper";
-import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
-import {DForceUtils} from "../../protocols/dforce/DForceUtils";
-import {Compound3Utils} from "../../protocols/compound3/Compound3Utils";
+import {IPlatformActor} from "../../types/IPlatformActor";
 
-export interface IPlatformActor {
-  getAvailableLiquidity: () => Promise<BigNumber>,
-  getCurrentBR: () => Promise<BigNumber>,
-  // eslint-disable-next-line no-unused-vars
-  supplyCollateral: (collateralAmount: BigNumber) => Promise<void>,
-  // eslint-disable-next-line no-unused-vars
-  borrow: (borrowAmount: BigNumber) => Promise<void>,
+export interface IPredictBrParams {
+  collateralAsset: string;
+  borrowAsset: string;
+  collateralHolders: string[];
+  part10000: number;
+}
+
+export interface IPredictBrResults {
+  br: BigNumber;
+  brPredicted: BigNumber;
 }
 
 /**
@@ -27,72 +27,32 @@ export interface IPlatformActor {
  * doesn't take into account interest that appears between borrow moment and getting-borrow-rate moment
  */
 export class PredictBrUsesCase {
-  static async getBorrowRateAfterBorrow(
-    signer: SignerWithAddress,
-    platformAdapterName: string,
-    borrowAsset: string,
-    amountToBorrow: BigNumberish
-  ): Promise<BigNumber> {
-    if (platformAdapterName === "aave3") {
-      const libFacade = await MocksHelper.getAave3AprLibFacade(signer);
-      return libFacade.getBorrowRateAfterBorrow(MaticAddresses.AAVE_V3_POOL, borrowAsset, amountToBorrow);
-    } else if (platformAdapterName === "aaveTwo") {
-      const libFacade = await MocksHelper.getAaveTwoAprLibFacade(signer);
-      return libFacade.getBorrowRateAfterBorrow(MaticAddresses.AAVE_TWO_POOL, borrowAsset, amountToBorrow);
-    } else if (platformAdapterName === "dforce") {
-      const libFacade = await MocksHelper.getDForceAprLibFacade(signer);
-      return libFacade.getBorrowRateAfterBorrow(DForceUtils.getCTokenAddressForAsset(borrowAsset), amountToBorrow);
-    } else if (platformAdapterName === "compound3") {
-      const libFacade = await MocksHelper.getCompound3AprLibFacade(signer);
-      return libFacade.getBorrowRateAfterBorrow(Compound3Utils.getCometAddressForAsset(borrowAsset), amountToBorrow);
-    }
-
-    throw new Error(`PredictBrUsesCase.getBorrowRateAfterBorrow not implemented: ${platformAdapterName}`)
-  }
-  static async makeTest(
-    deployer: SignerWithAddress,
-    actor: IPlatformActor,
-    platformAdapterName: string,
-    collateralAsset: string,
-    borrowAsset: string,
-    collateralHolders: string[],
-    part10000: number
-  ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
-    console.log(`collateral ${collateralAsset} borrow ${borrowAsset}`);
-
-    // get available liquidity
-    // we are going to borrow given part of the liquidity
+  static async predictBrTest(signer: SignerWithAddress, actor: IPlatformActor, p: IPredictBrParams) : Promise<IPredictBrResults> {
+    // get available liquidity, we are going to borrow given part of the liquidity
     //                 [available liquidity] * percent100 / 100
     const availableLiquidity = await actor.getAvailableLiquidity();
-    console.log(`Available liquidity ${availableLiquidity.toString()}`);
-
-    const amountToBorrow = availableLiquidity.mul(part10000).div(10000);
-    console.log(`Try to borrow ${amountToBorrow.toString()}`);
+    const amountToBorrow = availableLiquidity.mul(p.part10000).div(10000);
 
     // we assume, that total amount of collateral on holders accounts should be enough to borrow required amount
-    for (const h of collateralHolders) {
-      const cAsH = IERC20Metadata__factory.connect(collateralAsset, await DeployerUtils.startImpersonate(h));
-      await cAsH.transfer(deployer.address, await cAsH.balanceOf(h));
+    for (const h of p.collateralHolders) {
+      const cAsH = IERC20Metadata__factory.connect(p.collateralAsset, await DeployerUtils.startImpersonate(h));
+      await cAsH.transfer(signer.address, await cAsH.balanceOf(h));
     }
-    const collateralAmount = await IERC20Metadata__factory.connect(collateralAsset, deployer)
-      .balanceOf(deployer.address);
-    console.log(`Collateral balance ${collateralAmount}`);
+    const collateralAmount = await IERC20Metadata__factory.connect(p.collateralAsset, signer).balanceOf(signer.address);
 
     // before borrow
     const brBefore = await actor.getCurrentBR();
-    const brPredicted = await this.getBorrowRateAfterBorrow(deployer, platformAdapterName, borrowAsset, amountToBorrow);
+    const brPredicted = await actor.getBorrowRateAfterBorrow(p.borrowAsset, amountToBorrow);
     console.log(`Current BR=${brBefore.toString()} predicted BR=${brPredicted.toString()}`);
 
     // supply collateral
     await actor.supplyCollateral(collateralAmount);
 
     // borrow
-    console.log(`borrow ${borrowAsset} amount ${amountToBorrow}`);
     await actor.borrow(amountToBorrow);
 
-    console.log(`Available liquidity AFTER ${availableLiquidity.toString()}`);
     const brAfter = await actor.getCurrentBR();
-    const brPredictedAfter = await this.getBorrowRateAfterBorrow(deployer, platformAdapterName, borrowAsset, 0);
+    const brPredictedAfter = await actor.getBorrowRateAfterBorrow(p.borrowAsset, 0);
     console.log(`Current BR=${brAfter.toString()} predicted BR=${brPredictedAfter.toString()}`);
 
     return {br: brAfter, brPredicted};

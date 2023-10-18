@@ -14,7 +14,6 @@ import {
   IDForceController__factory,
 } from "../../../typechain";
 import {expect} from "chai";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
@@ -24,14 +23,12 @@ import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {SupplyBorrowUsingDForce} from "../../../baseUT/uses-cases/protocols/dforce/SupplyBorrowUsingDForce";
-import {DForcePlatformFabric} from "../../baseUT/parts/fabrics/DForcePlatformFabric";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {AprDForce, getDForceStateInfo} from "../../../baseUT/protocols/dforce/aprDForce";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {AprUtils} from "../../../baseUT/utils/aprUtils";
 import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {DForceChangePriceUtils} from "../../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {
@@ -42,6 +39,10 @@ import {
 import {GAS_LIMIT, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
+import {DForcePlatformActor} from "../../../baseUT/protocols/dforce/DForcePlatformActor";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {DForcePlatformFabric} from "../../../baseUT/logic/fabrics/DForcePlatformFabric";
 
 describe("DForcePlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -73,48 +74,6 @@ describe("DForcePlatformAdapterTest", () => {
   });
 //endregion before, after
 
-//region IPlatformActor impl
-  class DForcePlatformActor implements IPlatformActor {
-    collateralCToken: IDForceCToken;
-    borrowCToken: IDForceCToken;
-    comptroller: IDForceController;
-    constructor(
-      collateralCToken: IDForceCToken,
-      borrowCToken: IDForceCToken,
-      comptroller: IDForceController
-    ) {
-      this.borrowCToken = borrowCToken;
-      this.collateralCToken = collateralCToken;
-      this.comptroller = comptroller;
-    }
-    async getAvailableLiquidity() : Promise<BigNumber> {
-      const cashBefore = await this.borrowCToken.getCash();
-      const borrowBefore = await this.borrowCToken.totalBorrows();
-      const reserveBefore = await this.borrowCToken.totalReserves();
-      console.log(`Reserve data before: cash=${cashBefore.toString()} borrow=${borrowBefore.toString()} reserve=${reserveBefore.toString()}`);
-      return cashBefore;
-    }
-    async getCurrentBR(): Promise<BigNumber> {
-      const br = await this.borrowCToken.borrowRatePerBlock();
-      console.log(`BR=${br}`);
-      return br;
-    }
-    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      const collateralAsset = await this.collateralCToken.underlying();
-      await IERC20Metadata__factory.connect(collateralAsset, deployer)
-        .approve(this.collateralCToken.address, collateralAmount);
-      console.log(`Supply collateral ${collateralAsset} amount ${collateralAmount}`);
-      await this.comptroller.enterMarkets([this.collateralCToken.address, this.borrowCToken.address]);
-      await this.collateralCToken.mint(deployer.address, collateralAmount);
-
-    }
-    async borrow(borrowAmount: BigNumber): Promise<void> {
-      await this.borrowCToken.borrow(borrowAmount);
-      console.log(`Borrow ${borrowAmount}`);
-    }
-  }
-//endregion IPlatformActor impl
-
 //region Test predict-br impl
   async function makePredictBrTest(
     collateralAsset: string,
@@ -128,14 +87,15 @@ describe("DForcePlatformAdapterTest", () => {
     const borrowToken = IDForceCToken__factory.connect(borrowCToken, deployer);
     const comptroller = await DForceHelper.getController(deployer);
 
-    return PredictBrUsesCase.makeTest(
+    return PredictBrUsesCase.predictBrTest(
       deployer,
-      new DForcePlatformActor(collateralToken, borrowToken, comptroller),
-      "dforce",
-      collateralAsset,
-      borrowAsset,
-      collateralHolders,
-      part10000
+      new DForcePlatformActor(collateralToken, borrowToken, comptroller, deployer),
+      {
+        collateralAsset,
+        borrowAsset,
+        collateralHolders,
+        part10000,
+      }
     );
   }
 //endregion Test predict-br impl

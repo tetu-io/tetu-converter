@@ -1,6 +1,7 @@
 import {IPoolAdapterStatusNum} from "../../types/BorrowRepayDataTypes";
 import {ITetuConverter} from "../../../../typechain";
 import {BigNumber} from "ethers";
+import {IConversionPlanNum} from "../../types/AppDataTypes";
 
 interface IBorrowRepaySetup {
   tetuConverter: ITetuConverter;
@@ -27,18 +28,27 @@ interface IBorrowRepayCommandParams {
   countBlocksAfterRepay?: number;
 }
 
-interface IBorrowRepayCommandResults {
+interface IBorrowResults {
   /** Status of the first (single available) pool adapter after borrow */
   statusAfterBorrow: IPoolAdapterStatusNum;
+  gasUsedByBorrow: BigNumber;
+  plan: IConversionPlanNum;
+}
+
+interface IRepayResults {
   /** Status of the first (single available) pool adapter after repay */
   statusAfterRepay: IPoolAdapterStatusNum;
+  gasUsedByRepay: BigNumber;
+}
+
+interface IBorrowRepayCommandResults {
+  borrowResults?: IBorrowResults;
+  repayResults?: IRepayResults;
+
+  /** User balance of the collateral asset after repay */
+  userCollateralAssetBalance: string;
   /** User balance of the borrow asset after repay */
   userBorrowAssetBalance: string;
-  /** User balance of the collaterral asset after repay */
-  userCollateralAssetBalance: string;
-
-  gasUsedByBorrow: BigNumber;
-  gasUsedByRepay: BigNumber;
 }
 
 export class BorrowRepayCases {

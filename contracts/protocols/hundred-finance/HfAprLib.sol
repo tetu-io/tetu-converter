@@ -173,4 +173,16 @@ library HfAprLib {
   }
   //endregion ----------------------------------------------------- Utils to inline
 
+  //region ----------------------------------------------------- Calculate borrow rate after borrowing in advance
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function getBorrowRateAfterBorrow(address borrowCToken, uint amountToBorrow_) internal view returns (uint) {
+    return HfAprLib.getEstimatedBorrowRate(
+      IHfInterestRateModel(IHfCToken(borrowCToken).interestRateModel()),
+      IHfCToken(borrowCToken),
+      amountToBorrow_
+    );
+  }
+  //endregion ----------------------------------------------------- Calculate borrow rate after borrowing in advance
+
 }

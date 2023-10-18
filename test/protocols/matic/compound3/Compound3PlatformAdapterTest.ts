@@ -11,10 +11,8 @@ import {
   IComet__factory, ICometRewards, ICometRewards__factory, IERC20__factory,
   IERC20Metadata__factory, IPriceFeed__factory
 } from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {Misc} from "../../../../scripts/utils/Misc";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {expect} from "chai";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {BigNumber} from "ethers";
@@ -23,17 +21,18 @@ import {ICompound3AssetInfo} from "../../../../scripts/integration/compound3/Com
 import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {addLiquidatorPath} from "../../../baseUT/protocols/tetu-liquidator/TetuLiquidatorUtils";
-import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {defaultAbiCoder, formatUnits, getAddress, parseUnits} from "ethers/lib/utils";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {Compound3ChangePriceUtils} from "../../../baseUT/protocols/compound3/Compound3ChangePriceUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/app/PredictBrUsesCase";
+import {PredictBrUsesCase} from "../../../baseUT/uses-cases/app/PredictBrUsesCase";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {MocksHelper} from "../../../baseUT/app/MocksHelper";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -66,43 +65,6 @@ describe("Compound3PlatformAdapterTest", () => {
   });
 //endregion before, after
 
-//region IPlatformActor impl
-  class Compound3PlatformActor implements IPlatformActor {
-    comet: IComet;
-    collateralAsset: string;
-
-    constructor(
-      comet: IComet,
-      collateralAsset: string
-    ) {
-      this.comet = comet;
-      this.collateralAsset = collateralAsset;
-    }
-
-    async getAvailableLiquidity() : Promise<BigNumber> {
-      return IERC20__factory.connect(await this.comet.baseToken(), deployer).balanceOf(this.comet.address)
-    }
-
-    async getCurrentBR(): Promise<BigNumber> {
-      const br = await this.comet.getBorrowRate(await this.comet.getUtilization())
-      console.log(`BR=${br}`);
-      return br;
-    }
-
-    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      await IERC20Metadata__factory.connect(this.collateralAsset, deployer)
-        .approve(this.comet.address, collateralAmount);
-      console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
-      await this.comet.supply(this.collateralAsset, collateralAmount)
-    }
-
-    async borrow(borrowAmount: BigNumber): Promise<void> {
-      await this.comet.withdraw(await this.comet.baseToken(), borrowAmount)
-      console.log(`Borrow ${borrowAmount}`);
-    }
-  }
-//endregion IPlatformActor impl
-
 //region Test predict-br impl
   async function makePredictBrTest(
     collateralAsset: string,
@@ -112,14 +74,15 @@ describe("Compound3PlatformAdapterTest", () => {
     part10000: number
   ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
     const comet = IComet__factory.connect(cometAddress, deployer)
-    return PredictBrUsesCase.makeTest(
+    return PredictBrUsesCase.predictBrTest(
       deployer,
       new Compound3PlatformActor(comet, collateralAsset),
-      "compound3",
-      collateralAsset,
-      await comet.baseToken(),
-      collateralHolders,
-      part10000
+      {
+        collateralAsset,
+        borrowAsset: await comet.baseToken(),
+        collateralHolders,
+        part10000
+      }
     )
   }
 //endregion Test predict-br impl
