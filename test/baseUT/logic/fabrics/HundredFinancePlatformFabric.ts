@@ -3,8 +3,8 @@ import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatfo
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {HundredFinanceHelper} from "../../../../scripts/integration/hundred-finance/HundredFinanceHelper";
-import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {generateAssetPairs} from "../../utils/AssetPairUtils";
+import {AdaptersHelper} from "../../app/AdaptersHelper";
 
 export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
     async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {

@@ -4,26 +4,16 @@ import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../../baseUT/utils/aprUtils";
-import {
-  AaveTwoPlatformAdapter,
-  AaveTwoPlatformAdapter__factory, ConverterController,
-  IAaveTwoPool,
-  IAaveTwoProtocolDataProvider, IERC20__factory,
-  IERC20Metadata__factory
-} from "../../../typechain";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/app/PredictBrUsesCase";
+import {PredictBrUsesCase} from "../../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {AprAaveTwo, getAaveTwoStateInfo, IAaveTwoStateInfo, IAaveTwoReserveData} from "../../../baseUT/protocols/aaveTwo/aprAaveTwo";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {AaveTwoChangePricesUtils} from "../../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {
@@ -35,6 +25,16 @@ import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../../baseUT
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
 import {AaveTwoPlatformActor} from "../../../baseUT/protocols/aaveTwo/AaveTwoPlatformActor";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {
+  AaveTwoPlatformAdapter,
+  AaveTwoPlatformAdapter__factory,
+  ConverterController,
+  IAaveTwoPool,
+  IERC20__factory
+} from "../../../../typechain";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests

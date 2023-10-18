@@ -8,12 +8,12 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   IStrategyToConvert, IStrategyToSwap, ISwapResults
 } from "./aprDataTypes";
-import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {BalanceUtils} from "../../utils/BalanceUtils";
-import {MocksHelper} from "../../helpers/MocksHelper";
 import {CompareAprUsesCase} from "../../uses-cases/app/CompareAprUsesCase";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
+import {TetuConverterApp} from "../../app/TetuConverterApp";
+import {MocksHelper} from "../../app/MocksHelper";
 
 export interface IMakeSwapTestResults {
   strategyToConvert: IStrategyToConvert;

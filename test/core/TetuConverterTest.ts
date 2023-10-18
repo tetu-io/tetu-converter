@@ -4,26 +4,31 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {IERC20__factory, MockERC20, MockERC20__factory, TetuConverter, Borrower, PoolAdapterMock__factory, LendingPlatformMock__factory, BorrowManager__factory, IPoolAdapter__factory, PoolAdapterMock, ITetuConverter__factory, TetuConverter__factory, TetuLiquidatorMock__factory, SwapManagerMock, ConverterUnknownKind, DebtMonitorMock, ConverterController, PoolAdapterStub__factory, IPoolAdapter, DebtMonitorMock__factory, SwapManagerMock__factory, PriceOracleMock__factory, PoolAdapterMock2__factory, IERC20Metadata__factory, CTokenMock} from "../../typechain";
-import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo, IPrepareContractsSetupParams} from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 import {BigNumber, ContractTransaction} from "ethers";
 import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus, IPoolAdapterStatusNum} from "../baseUT/types/BorrowRepayDataTypes";
 import {getExpectedApr18} from "../baseUT/protocols/shared/aprUtils";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx2, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
   GAS_FIND_SWAP_STRATEGY, GAS_LIMIT, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY, GAS_TC_SAFE_LIQUIDATE,
 } from "../baseUT/types/GasLimit";
-import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {getSum} from "../baseUT/utils/CommonUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {BorrowRepayDataTypeUtils} from "../baseUT/utils/BorrowRepayDataTypeUtils";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
+import {ICreateControllerParams, TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {
+  BorrowManagerHelper,
+  IBorrowInputParams,
+  IPoolInstanceInfo,
+  IPrepareContractsSetupParams
+} from "../baseUT/app/BorrowManagerHelper";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
 
 describe("TetuConverterTest", () => {
 //region Constants

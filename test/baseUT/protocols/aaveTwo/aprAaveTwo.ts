@@ -21,11 +21,11 @@ import {
   IBaseToBorrowParams,
   makeBorrow, baseToBt, getExpectedApr18
 } from "../shared/aprUtils";
-import {AaveTwoPlatformFabric} from "../../parts/fabrics/AaveTwoPlatformFabric";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {getDifference} from "../../utils/CommonUtils";
 import {IAaveKeyState, IAaveKeyTestValues} from "../aaveShared/aaveDataTypes";
+import {AaveTwoPlatformFabric} from "../../logic/fabrics/AaveTwoPlatformFabric";
 
 //region Data types
 export interface IAaveTwoReserveData {

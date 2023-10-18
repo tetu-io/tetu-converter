@@ -21,12 +21,12 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {BorrowRepayUsesCase} from "../../baseUT/uses-cases/app/BorrowRepayUsesCase";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {HundredFinancePlatformFabric} from "../../baseUT/parts/fabrics/HundredFinancePlatformFabric";
-import {DForcePlatformFabric} from "../../baseUT/parts/fabrics/DForcePlatformFabric";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCore} from "../../baseUT/cores/maticCore";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {HundredFinancePlatformFabric} from "../../baseUT/logic/fabrics/HundredFinancePlatformFabric";
+import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
+import {MaticCore} from "../../baseUT/chains/maticCore";
 
 /**
  * For any landing platform:

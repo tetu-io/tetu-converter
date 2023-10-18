@@ -13,12 +13,12 @@ import {
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {Misc} from "../../scripts/utils/Misc";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 /**
  * Most proxy contracts are proxy-contracts, that can be updated by proxy-updater only.

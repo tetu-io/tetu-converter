@@ -2,15 +2,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {
-  BorrowManager__factory,
-  Compound3PlatformAdapter,
-  Compound3PlatformAdapter__factory,
-  ConverterController,
-  IComet,
-  IComet__factory, ICometRewards, ICometRewards__factory, IERC20__factory,
-  IERC20Metadata__factory, IPriceFeed__factory
-} from "../../../typechain";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {expect} from "chai";
@@ -24,7 +15,7 @@ import {addLiquidatorPath} from "../../../baseUT/protocols/tetu-liquidator/TetuL
 import {defaultAbiCoder, formatUnits, getAddress, parseUnits} from "ethers/lib/utils";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {Compound3ChangePriceUtils} from "../../../baseUT/protocols/compound3/Compound3ChangePriceUtils";
-import {PredictBrUsesCase} from "../../../baseUT/uses-cases/app/PredictBrUsesCase";
+import {PredictBrUsesCase} from "../../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
@@ -33,6 +24,16 @@ import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
 import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
 import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {Compound3PlatformActor} from "../../../baseUT/protocols/compound3/Compound3PlatformActor";
+import {
+  BorrowManager__factory, Compound3PlatformAdapter, Compound3PlatformAdapter__factory,
+  ConverterController, IComet,
+  IComet__factory, ICometRewards,
+  ICometRewards__factory,
+  IERC20__factory,
+  IERC20Metadata__factory,
+  IPriceFeed__factory
+} from "../../../../typechain";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -74,16 +75,13 @@ describe("Compound3PlatformAdapterTest", () => {
     part10000: number
   ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
     const comet = IComet__factory.connect(cometAddress, deployer)
-    return PredictBrUsesCase.predictBrTest(
-      deployer,
-      new Compound3PlatformActor(comet, collateralAsset),
-      {
-        collateralAsset,
-        borrowAsset: await comet.baseToken(),
-        collateralHolders,
-        part10000
-      }
-    )
+    const actor = new Compound3PlatformActor(deployer, comet, collateralAsset);
+    return PredictBrUsesCase.predictBrTest(deployer, actor,{
+      collateralAsset,
+      borrowAsset: await comet.baseToken(),
+      collateralHolders,
+      part10000
+    });
   }
 //endregion Test predict-br impl
 

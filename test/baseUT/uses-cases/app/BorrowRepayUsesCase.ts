@@ -11,22 +11,22 @@ import {
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {IMockTestInputParams, ITestSingleBorrowParams, ITestTwoBorrowsParams} from "../../types/BorrowRepayDataTypes";
-import {ILendingPlatformFabric} from "../parts/fabrics/ILendingPlatformFabric";
-import {TetuConverterApp} from "../helpers/TetuConverterApp";
-import {MocksHelper} from "../helpers/MocksHelper";
 import {areAlmostEqual, setInitialBalance} from "../../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {BorrowAction} from "../actions/BorrowAction";
-import {RepayAction} from "../actions/RepayAction";
-import {MockPlatformFabric} from "../parts/fabrics/MockPlatformFabric";
-import {BorrowMockAction} from "../actions/BorrowMockAction";
-import {RepayMockAction} from "../actions/RepayMockAction";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {makeInfinityApprove} from "../../utils/transferUtils";
 import {IStrategyToConvert} from "../../protocols/shared/aprDataTypes";
-import {RepayActionUsingSwap} from "../actions/RepayActionUsingSwap";
-import {ClaimRewardsAction} from "../actions/ClaimRewardsAction";
 import {parseUnits} from "ethers/lib/utils";
+import {MocksHelper} from "../../app/MocksHelper";
+import {TetuConverterApp} from "../../app/TetuConverterApp";
+import {MockPlatformFabric} from "../../logic/fabrics/MockPlatformFabric";
+import {BorrowMockAction} from "../../logic/actions/BorrowMockAction";
+import {RepayMockAction} from "../../logic/actions/RepayMockAction";
+import {BorrowAction} from "../../logic/actions/BorrowAction";
+import {RepayAction} from "../../logic/actions/RepayAction";
+import {ILendingPlatformFabric} from "../../logic/fabrics/ILendingPlatformFabric";
+import {ClaimRewardsAction} from "../../logic/actions/ClaimRewardsAction";
+import {RepayActionUsingSwap} from "../../logic/actions/RepayActionUsingSwap";
 
 export interface IBorrowAction {
   collateralToken: TokenDataTypes,

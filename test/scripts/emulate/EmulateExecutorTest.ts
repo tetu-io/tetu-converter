@@ -1,18 +1,18 @@
 import {EmulateExecutor} from "../../../scripts/emulate/EmulateExecutor";
 import {EmulateWork} from "../../../scripts/emulate/EmulateWork";
 import {IERC20Metadata__factory} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ethers} from "hardhat";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {Aave3PlatformFabric} from "../../baseUT/parts/fabrics/Aave3PlatformFabric";
-import {AaveTwoPlatformFabric} from "../../baseUT/parts/fabrics/AaveTwoPlatformFabric";
-import {DForcePlatformFabric} from "../../baseUT/parts/fabrics/DForcePlatformFabric";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCore} from "../../baseUT/cores/maticCore";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {Aave3PlatformFabric} from "../../baseUT/logic/fabrics/Aave3PlatformFabric";
+import {AaveTwoPlatformFabric} from "../../baseUT/logic/fabrics/AaveTwoPlatformFabric";
+import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
+import {MocksHelper} from "../../baseUT/app/MocksHelper";
+import {MaticCore} from "../../baseUT/chains/maticCore";
 
 describe.skip("Run real work emulator @skip-on-coverage", () => {
   before(async function () {

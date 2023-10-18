@@ -1,10 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  ConverterController,
-  IERC20Metadata__factory, IPoolAdapter__factory
-} from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
@@ -28,11 +24,11 @@ import {
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
-import {ICoreAave3} from "../../../baseUT/protocols/aave3/Aave3DataTypes";
 import {MaticCore} from "../../../baseUT/chains/maticCore";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {ConverterController, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../../typechain";
 
 describe("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -68,6 +64,7 @@ describe("Aave3PoolAdapterIntTest", () => {
     ): Promise<IMakeBorrowTestResults> {
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converter,
         collateralToken,
         [collateralHolder],
@@ -516,6 +513,7 @@ describe("Aave3PoolAdapterIntTest", () => {
 
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken,
         [collateralHolder],
@@ -645,6 +643,7 @@ describe("Aave3PoolAdapterIntTest", () => {
       const targetHealthFactor2 = 202;
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken,
         [collateralHolder],
@@ -777,6 +776,7 @@ describe("Aave3PoolAdapterIntTest", () => {
     ) : Promise<IBorrowMaxAmountInIsolationModeResults>{
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken,
         collateralHolders,

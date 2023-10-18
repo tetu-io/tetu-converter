@@ -1,11 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  BorrowManager__factory, ConverterController,
-  HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory, IERC20Metadata__factory, IHfComptroller, IHfCToken,
-  IHfCToken__factory
-} from "../../../typechain";
 import {expect} from "chai";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {
@@ -15,7 +10,7 @@ import {
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
-import {PredictBrUsesCase} from "../../../baseUT/uses-cases/app/PredictBrUsesCase";
+import {IPredictBrParams, IPredictBrResults, PredictBrUsesCase} from "../../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {AprHundredFinance} from "../../../baseUT/protocols/hundred-finance/aprHundredFinance";
@@ -39,6 +34,15 @@ import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
 import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {HfPlatformActor} from "../../../baseUT/protocols/hundred-finance/HfPlatformActor";
+import {HundredFinanceUtils} from "../../../baseUT/protocols/hundred-finance/HundredFinanceUtils";
+import {
+  BorrowManager__factory,
+  ConverterController, HfAprLibFacade, HfPlatformAdapter,
+  HfPlatformAdapter__factory, IERC20Metadata__factory,
+  IHfComptroller,
+  IHfCToken,
+  IHfCToken__factory
+} from "../../../../typechain";
 
 describe.skip("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
@@ -885,37 +889,18 @@ describe.skip("Hundred finance, platform adapter", () => {
 
   describe("getBorrowRateAfterBorrow", () => {
     describe("Good paths", () => {
-      async function makeTest(
-        collateralAsset: string,
-        collateralCToken: string,
-        borrowAsset: string,
-        borrowCToken: string,
-        collateralHolders: string[],
-        part10000: number
-      ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
-        const borrowToken = IHfCToken__factory.connect(borrowCToken, deployer);
-        const collateralToken = IHfCToken__factory.connect(collateralCToken, deployer);
+      async function makeTest(p: IPredictBrParams) : Promise<IPredictBrResults> {
+        const collateralToken = IHfCToken__factory.connect(HundredFinanceUtils.getCToken(p.collateralAsset), deployer);
+        const borrowToken = IHfCToken__factory.connect(HundredFinanceUtils.getCToken(p.borrowAsset), deployer);
         const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-
-        return PredictBrUsesCase.predictBrTest(
-          deployer,
-          new HfPlatformActor(borrowToken, collateralToken, comptroller, deployer),
-          {
-            collateralAsset,
-            borrowAsset,
-            collateralHolders,
-            part10000
-          }
-        );
+        const actor = new HfPlatformActor(borrowToken, collateralToken, comptroller, deployer);
+        return PredictBrUsesCase.predictBrTest(deployer, actor, p);
       }
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const collateralAsset = MaticAddresses.DAI;
-          const collateralCToken = MaticAddresses.hDAI;
           const borrowAsset = MaticAddresses.USDC;
-          const borrowCToken = MaticAddresses.hUSDC;
-
           const collateralHolders = [
             MaticAddresses.HOLDER_DAI,
             MaticAddresses.HOLDER_DAI_2,
@@ -926,14 +911,12 @@ describe.skip("Hundred finance, platform adapter", () => {
           ];
           const part10000 = 1;
 
-          const r = await makeTest(
+          const r = await makeTest({
             collateralAsset,
-            collateralCToken,
             borrowAsset,
-            borrowCToken,
             collateralHolders,
             part10000
-          );
+          });
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 3);
           expect(ret).eq(true);
@@ -943,9 +926,7 @@ describe.skip("Hundred finance, platform adapter", () => {
       describe("Huge amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const collateralAsset = MaticAddresses.DAI;
-          const collateralCToken = MaticAddresses.hDAI;
           const borrowAsset = MaticAddresses.USDC;
-          const borrowCToken = MaticAddresses.hUSDC;
 
           const collateralHolders = [
             MaticAddresses.HOLDER_DAI,
@@ -957,14 +938,12 @@ describe.skip("Hundred finance, platform adapter", () => {
           ];
           const part10000 = 500;
 
-          const r = await makeTest(
+          const r = await makeTest({
             collateralAsset,
-            collateralCToken,
             borrowAsset,
-            borrowCToken,
             collateralHolders,
             part10000
-          );
+          });
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 3);
           expect(ret).eq(true);

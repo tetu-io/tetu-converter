@@ -6,14 +6,12 @@ import {
   POLYGON_NETWORK_ID
 } from "../../scripts/utils/HardhatUtils";
 import {IPoolAdapterStatusNum} from "../baseUT/types/BorrowRepayDataTypes";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {
   BorrowManager, BorrowManager__factory,
   ConverterController, ConverterController__factory,
   IERC20Metadata__factory, IPoolAdapter__factory,
   ITetuConverter
 } from "../../typechain";
-import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {Misc} from "../../scripts/utils/Misc";
@@ -21,6 +19,8 @@ import {BorrowRepayDataTypeUtils} from "../baseUT/utils/BorrowRepayDataTypeUtils
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests

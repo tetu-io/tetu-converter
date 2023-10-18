@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {
-  IERC20__factory, IERC20Metadata__factory
+  IERC20__factory, IERC20Metadata__factory, ITetuLiquidator__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {AprAave3} from "../../baseUT/protocols/aave3/aprAave3";
@@ -16,9 +16,8 @@ import {AprSwap} from "../../baseUT/protocols/shared/aprSwap";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
-import {ITetuLiquidator__factory} from "../../../typechain/factories/contracts/interfaces";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCore} from "../../baseUT/cores/maticCore";
+import {MaticCore} from "../../baseUT/chains/maticCore";
 
 /**
  * For any landing platform:

@@ -1,13 +1,9 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {AaveSharedLibFacade, IAaveTwoPriceOracle, IERC20Metadata__factory} from "../../../typechain";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
-import {expect} from "chai";
-import {parseUnits} from "ethers/lib/utils";
 import {AaveTwoHelper} from "../../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {IAaveTwoPriceOracle} from "../../../../typechain";
 
 describe.skip("AaveSharedLibTest", () => {
   const BASE_CURRENCY_DECIMALS = 18;
@@ -15,7 +11,7 @@ describe.skip("AaveSharedLibTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let facade: AaveSharedLibFacade;
+  // let facade: AaveSharedLibFacade;
   let priceOracle: IAaveTwoPriceOracle;
 //endregion Global vars for all tests
 

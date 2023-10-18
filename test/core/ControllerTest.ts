@@ -8,12 +8,12 @@ import {GAS_LIMIT_CONTROLLER_INITIALIZE} from "../baseUT/types/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {randomInt} from "crypto";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {
   controlGasLimitsEx2,
   HARDHAT_NETWORK_ID,
   HardhatUtils
 } from "../../scripts/utils/HardhatUtils";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
 
 describe("Controller", () => {
 //region Global vars for all tests

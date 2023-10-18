@@ -9,6 +9,7 @@ export interface IPredictBrParams {
   borrowAsset: string;
   collateralHolders: string[];
   part10000: number;
+  collateralAmount?: string; // by default - all amount available on the holder balances
 }
 
 export interface IPredictBrResults {

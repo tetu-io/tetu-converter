@@ -5,7 +5,7 @@ import {
   IERC20Metadata__factory,
   IHfCToken__factory,
   IPoolAdapter__factory
-} from "../../../typechain";
+} from "../../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";

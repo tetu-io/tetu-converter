@@ -1,11 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  Aave3PlatformAdapter,
-  Aave3PlatformAdapter__factory, BorrowManager__factory, ConverterController, IAavePool,
-  IAaveProtocolDataProvider, IERC20Metadata__factory
-} from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
@@ -14,7 +9,7 @@ import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../../baseUT/utils/aprUtils";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/app/PredictBrUsesCase";
+import {PredictBrUsesCase} from "../../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {AprAave3, getAave3StateInfo, IAave3StateInfo, IAaveReserveData} from "../../../baseUT/protocols/aave3/aprAave3";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {convertUnits} from "../../../baseUT/protocols/shared/aprUtils";
@@ -36,6 +31,13 @@ import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
 import {MaticCore} from "../../../baseUT/chains/maticCore";
 import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 import {Aave3PlatformActor} from "../../../baseUT/protocols/aave3/Aave3PlatformActor";
+import {
+  Aave3PlatformAdapter,
+  Aave3PlatformAdapter__factory,
+  BorrowManager__factory,
+  ConverterController,
+  IAavePool
+} from "../../../../typechain";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests

@@ -7,8 +7,8 @@ import {
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import {IAssetSourceInfo, IPriceOracleManager, PriceOracleManager} from "./PriceOracleManager";
 import {Misc} from "../../../../scripts/utils/Misc";
-import {MocksHelper} from "../../builders/MocksHelper";
 import {ICoreAave3} from "./Aave3DataTypes";
+import {MocksHelper} from "../../app/MocksHelper";
 
 export class PriceOracleManagerUtils {
   /**

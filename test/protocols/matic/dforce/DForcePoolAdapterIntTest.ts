@@ -1,12 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  ConverterController,
-  IDForceCToken__factory,
-  IERC20Metadata__factory,
-  IPoolAdapter__factory,
-} from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
@@ -20,10 +14,16 @@ import {transferAndApprove} from "../../../baseUT/utils/transferUtils";
 import {DForceTestUtils, IPrepareToBorrowResults} from "../../../baseUT/protocols/dforce/DForceTestUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {DForceHelper} from "../../../../scripts/integration/dforce/DForceHelper";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {DForceChangePriceUtils} from "../../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {
+  ConverterController,
+  IDForceCToken__factory,
+  IERC20Metadata__factory,
+  IPoolAdapter__factory
+} from "../../../../typechain";
 
 
 describe("DForcePoolAdapterIntTest", () => {

@@ -9,16 +9,16 @@ import {
   PoolAdapterMock__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {makeInfinityApprove} from "../baseUT/utils/transferUtils";
 import {GAS_LIMIT} from "../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
+import {BorrowManagerHelper} from "../baseUT/app/BorrowManagerHelper";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
 
 describe("PoolAdapterMock", () => {
 //region Global vars for all tests

@@ -8,9 +8,6 @@ import {
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BigNumber} from "ethers";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {
   controlGasLimitsEx2,
@@ -24,6 +21,9 @@ import {
 } from "../baseUT/types/GasLimit";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 const parseUnits = ethers.utils.parseUnits;
 

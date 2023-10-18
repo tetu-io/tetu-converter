@@ -3,14 +3,10 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {
   BorrowRepayUsesCase,
   IQuoteRepayResults
 } from "../baseUT/uses-cases/app/BorrowRepayUsesCase";
-import {HundredFinancePlatformFabric} from "../baseUT/parts/fabrics/HundredFinancePlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/parts/fabrics/DForcePlatformFabric";
-import {AaveTwoPlatformFabric} from "../baseUT/parts/fabrics/AaveTwoPlatformFabric";
 import {
   GAS_LIMIT_QUOTE_REPAY_AAVE3,
   GAS_LIMIT_QUOTE_REPAY_AAVE_TWO,
@@ -23,9 +19,14 @@ import {
 } from "../baseUT/types/GasLimit";
 import {controlGasLimitsEx2, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
+import {AaveTwoPlatformFabric} from "../baseUT/logic/fabrics/AaveTwoPlatformFabric";
+import {HundredFinancePlatformFabric} from "../baseUT/logic/fabrics/HundredFinancePlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/logic/fabrics/DForcePlatformFabric";
+import {AaveTwoHelper} from "../../scripts/integration/aaveTwo/AaveTwoHelper";
 
 describe("QuoteRepayTest", () => {
 //region Global vars for all tests
@@ -547,7 +548,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new AaveTwoPlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, (await AaveTwoHelper.getPriceOracle(deployer)).address)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {

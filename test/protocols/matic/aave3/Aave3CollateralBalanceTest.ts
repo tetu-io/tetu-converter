@@ -12,11 +12,10 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {SharedRepayToRebalanceUtils} from "../../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {Aave3ChangePricesUtils} from "../../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
-import {ConverterController} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
-import {ICoreAave3} from "../../../baseUT/protocols/aave3/Aave3DataTypes";
-import {MaticCore} from "../../baseUT/cores/maticCore";
+import {ConverterController} from "../../../../typechain";
+import {MaticCore} from "../../../baseUT/chains/maticCore";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 
 describe("Aave3CollateralBalanceTest", () => {
 //region Constants
@@ -71,6 +70,7 @@ describe("Aave3CollateralBalanceTest", () => {
 
     const d = await Aave3TestUtils.prepareToBorrow(
       deployer,
+      MaticCore.getCoreAave3(),
       controllerInstance,
       collateralToken,
       [collateralHolder],

@@ -2,13 +2,13 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Aave3PriceOracleMock, MockERC20} from "../../typechain";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../scripts/utils/Misc";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
 
 describe("PriceOracleTest", () => {
 //region Global vars for all tests

@@ -7,12 +7,12 @@ import {
   KeeperCallbackMock, KeeperCallbackMock__factory,
   KeeperCaller, KeeperMock__factory
 } from "../../typechain";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {expect} from "chai";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
 
 describe("KeeperTest", () => {
 //region Constants

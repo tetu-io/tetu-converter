@@ -2,7 +2,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {EntryKindsFacade} from "../../typechain";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {defaultAbiCoder, parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {
@@ -19,6 +18,7 @@ import {Misc} from "../../scripts/utils/Misc";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 describe("EntryKindsTest", () => {
 //region Global vars for all tests

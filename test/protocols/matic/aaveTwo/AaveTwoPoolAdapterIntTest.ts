@@ -1,11 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  ConverterController,
-  IERC20Metadata__factory,
-  IPoolAdapter__factory
-} from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
@@ -26,9 +21,10 @@ import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {ConverterController, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../../typechain";
 
 describe("AaveTwoPoolAdapterIntTest", () => {
 //region Global vars for all tests

@@ -1,10 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  BorrowManager__factory,
-  DForcePlatformAdapter__factory, IDForceInterestRateModel__factory,
-} from "../../../typechain";
 import {expect} from "chai";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {
@@ -15,12 +11,17 @@ import {
 import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {SupplyBorrowUsingDForce} from "../../../baseUT/uses-cases/protocols/dforce/SupplyBorrowUsingDForce";
-import {DForcePlatformFabric} from "../../baseUT/parts/fabrics/DForcePlatformFabric";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {DForcePlatformFabric} from "../../../baseUT/logic/fabrics/DForcePlatformFabric";
+import {
+  BorrowManager__factory,
+  DForcePlatformAdapter__factory,
+  IDForceInterestRateModel__factory
+} from "../../../../typechain";
 
 describe("DForceHelper tests", () => {
 //region Global vars for all tests

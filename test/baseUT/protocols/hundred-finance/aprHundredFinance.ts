@@ -16,10 +16,10 @@ import {
   convertUnits, getExpectedApr18, makeBorrow
 } from "../shared/aprUtils";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {HundredFinancePlatformFabric} from "../../parts/fabrics/HundredFinancePlatformFabric";
 import {HundredFinanceUtils} from "./HundredFinanceUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
+import {HundredFinancePlatformFabric} from "../../logic/fabrics/HundredFinancePlatformFabric";
 
 //region Data types
 interface IHfMarketState {
@@ -185,8 +185,8 @@ export class AprHundredFinance {
     details: IAprHfTwoResults,
     results: IBorrowResults
   }> {
-    const collateralCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.collateral.asset);
-    const borrowCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.borrow.asset);
+    const collateralCTokenAddress = HundredFinanceUtils.getCToken(p.collateral.asset);
+    const borrowCTokenAddress = HundredFinanceUtils.getCToken(p.borrow.asset);
 
     const comptroller = await HundredFinanceHelper.getComptroller(deployer);
     const cTokenCollateral = IHfCToken__factory.connect(collateralCTokenAddress, deployer);
@@ -242,31 +242,18 @@ export class AprHundredFinance {
     console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
 
     // make borrow
-    const borrowResults = await makeBorrow(
-      deployer
-      , p
-      , amountToBorrow
-      , new HundredFinancePlatformFabric()
-    );
+    const borrowResults = await makeBorrow(deployer, p, amountToBorrow, new HundredFinancePlatformFabric());
     const userAddress = borrowResults.poolAdapter;
     const borrowAmount = borrowResults.borrowAmount;
     console.log(`userAddress=${userAddress} borrowAmount=${borrowAmount} amountToBorrow=${amountToBorrow}`);
 
     // next => last
-    const next = await getHfStateInfo(comptroller
-      , cTokenCollateral
-      , cTokenBorrow
-      , userAddress
-    );
+    const next = await getHfStateInfo(comptroller, cTokenCollateral, cTokenBorrow, userAddress);
 
     // For borrow and collateral: move ahead on single block
     await hfHelper.accrueInterest(cTokenCollateral.address, cTokenBorrow.address);
 
-    const last = await getHfStateInfo(comptroller
-      , cTokenCollateral
-      , cTokenBorrow
-      , userAddress
-    );
+    const last = await getHfStateInfo(comptroller, cTokenCollateral, cTokenBorrow, userAddress);
 
     console.log("before", before);
     console.log("next", next);
@@ -313,10 +300,8 @@ export class AprHundredFinance {
     console.log("borrowAprExact", borrowCost36);
 
     // get collateral (in terms of collateral tokens) for next and last points
-    const collateralNextMul18 = next.collateral.account.balance
-      .mul(next.collateral.market.exchangeRateStored);
-    const collateralLastMul18 = last.collateral.account.balance
-      .mul(last.collateral.market.exchangeRateStored);
+    const collateralNextMul18 = next.collateral.account.balance.mul(next.collateral.market.exchangeRateStored);
+    const collateralLastMul18 = last.collateral.account.balance.mul(last.collateral.market.exchangeRateStored);
     const deltaCollateralMul18 = collateralLastMul18.sub(collateralNextMul18);
     const deltaCollateralBtMul18 = deltaCollateralMul18.mul(priceCollateral).div(priceBorrow);
     console.log("collateralNextMul18", collateralNextMul18);

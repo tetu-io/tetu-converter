@@ -8,7 +8,7 @@ import {
   CompoundLibFacade,
   MockERC20,
   CompoundPriceOracleMock,
-  CompoundInterestRateModelMock, IERC20Metadata__factory, CompoundAprLibFacade
+  CompoundInterestRateModelMock, IERC20Metadata__factory, CompoundAprLibFacade, IMToken, IERC20
 } from "../../../../typechain";
 import {expect} from "chai";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
@@ -117,6 +117,7 @@ describe("CompoundAprLibTest", () => {
       });
     });
   });
+
 
   describe("getBorrowCost36", () => {
     let snapshotLocal: string;

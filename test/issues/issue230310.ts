@@ -11,10 +11,10 @@ import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {GAS_LIMIT} from "../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
 
 interface IFindBorrowStrategyInput {
   collateralAsset: string;

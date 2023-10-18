@@ -10,7 +10,7 @@ import {
   IPoolAdapter__factory, ITetuConverter__factory,
   ITokenAddressProvider,
   TokenAddressProviderMock
-} from "../../../typechain";
+} from "../../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
@@ -33,11 +33,11 @@ import {
   HundredFinanceTestUtils, IBorrowResults, IMakeBorrowOrRepayBadPathsParams,
   IPrepareToBorrowResults
 } from "../../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 
 describe.skip("HfPoolAdapterUnitTest", () => {
 
@@ -2331,7 +2331,7 @@ describe.skip("HfPoolAdapterUnitTest", () => {
             await results.init.controller.tetuConverter(),
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          const {collateralAmountOut} = await tetuConverterAsUser.callStatic.quoteRepay(
             await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
@@ -2350,7 +2350,7 @@ describe.skip("HfPoolAdapterUnitTest", () => {
             await results.init.controller.tetuConverter(),
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          const {collateralAmountOut} = await tetuConverterAsUser.callStatic.quoteRepay(
             await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
@@ -2369,7 +2369,7 @@ describe.skip("HfPoolAdapterUnitTest", () => {
             await results.init.controller.tetuConverter(),
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          const {collateralAmountOut} = await tetuConverterAsUser.callStatic.quoteRepay(
             await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,

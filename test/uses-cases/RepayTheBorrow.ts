@@ -4,8 +4,6 @@ import {ethers} from "hardhat";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {BorrowRepayUsesCase} from "../baseUT/uses-cases/app/BorrowRepayUsesCase";
-import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {
   BorrowManager__factory, IBorrowManager,
@@ -18,9 +16,11 @@ import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {ITestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
-import {AaveTwoPlatformFabric} from "../baseUT/parts/fabrics/AaveTwoPlatformFabric";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {Misc} from "../../scripts/utils/Misc";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {AaveTwoPlatformFabric} from "../baseUT/logic/fabrics/AaveTwoPlatformFabric";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
 
 /**
  * Assume, some lending platform should be deactivated or

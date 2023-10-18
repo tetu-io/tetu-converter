@@ -11,12 +11,15 @@ import {AaveTwoTestUtils} from "../../../baseUT/protocols/aaveTwo/AaveTwoTestUti
 import {parseUnits} from "ethers/lib/utils";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {ConverterController} from "../../../../typechain";
 
 describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
+  let converterController: ConverterController;
 //endregion Global vars for all tests
 
 //region before, after
@@ -27,6 +30,8 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
+
+    converterController = await TetuConverterApp.createController(deployer);
   });
 
   after(async function () {
@@ -72,6 +77,7 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
     ) : Promise<IMakeBorrowAndRepayDustTokensTestResults>{
       const d = await AaveTwoTestUtils.prepareToBorrow(
         deployer,
+        converterController,
         collateralToken,
         collateralHolder,
         params.collateralAmountRequired,

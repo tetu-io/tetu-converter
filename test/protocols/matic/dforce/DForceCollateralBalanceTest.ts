@@ -10,9 +10,9 @@ import {SharedRepayToRebalanceUtils} from "../../../baseUT/protocols/shared/shar
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {DForceTestUtils, IInitialBorrowResults} from "../../../baseUT/protocols/dforce/DForceTestUtils";
 import {DForceChangePriceUtils} from "../../../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {ConverterController} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {ConverterController} from "../../../../typechain";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 
 describe("DForceCollateralBalanceTest", () => {
 //region Constants

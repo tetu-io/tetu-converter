@@ -7,7 +7,6 @@ import {
   LendingPlatformMock2,
   MockERC20
 } from "../../typechain";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {AppConstants} from "../baseUT/types/AppConstants";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
@@ -16,6 +15,7 @@ import {expect} from "chai";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {BorrowManagerLogicLib} from "../../typechain/contracts/tests/facades/BorrowManagerLogicLibFacade";
 import {BigNumber} from "ethers";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 describe("BorrowManagerLogicLibTest", () => {
 //region Global vars for all tests

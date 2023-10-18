@@ -1,7 +1,7 @@
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 
 export class HundredFinanceUtils {
-  static getCTokenAddressForAsset(asset: string) : string {
+  static getCToken(asset: string) : string {
     switch (asset) {
       case MaticAddresses.USDC: return MaticAddresses.hUSDC;
       case MaticAddresses.USDT: return MaticAddresses.hUSDT;

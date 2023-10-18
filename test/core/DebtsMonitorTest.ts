@@ -18,21 +18,14 @@ import {
   PoolAdapterStub, PoolAdapterStub__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {
-  BorrowManagerHelper,
-  IBorrowInputParams, IMockPoolParams, IPoolInstanceInfo
-} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {
   controlGasLimitsEx2,
@@ -40,6 +33,15 @@ import {
   HardhatUtils
 } from "../../scripts/utils/HardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/types/GasLimit";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
+import {
+  BorrowManagerHelper,
+  IBorrowInputParams,
+  IMockPoolParams,
+  IPoolInstanceInfo
+} from "../baseUT/app/BorrowManagerHelper";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests

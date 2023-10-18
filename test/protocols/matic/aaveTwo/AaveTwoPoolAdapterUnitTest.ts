@@ -1,14 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  Aave3PoolMock__factory,
-  AaveTwoPoolAdapter,
-  AaveTwoPoolAdapter__factory, AaveTwoPoolMock__factory,
-  BorrowManager__factory, ConverterController, DebtMonitor__factory,
-  IERC20Metadata__factory,
-  IPoolAdapter__factory, ITetuConverter__factory
-} from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
@@ -37,10 +29,7 @@ import {
   IMakeBorrowOrRepayBadPathsParams,
   IPrepareToBorrowResults
 } from "../../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {Misc} from "../../../../scripts/utils/Misc";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../../baseUT/types/BorrowRepayDataTypes";
@@ -50,6 +39,17 @@ import {IMakeRepayBadPathsParams} from "../../../baseUT/protocols/aaveShared/aav
 import {RepayUtils} from "../../../baseUT/protocols/shared/repayUtils";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {
+  AaveTwoPoolAdapter,
+  AaveTwoPoolAdapter__factory,
+  AaveTwoPoolMock__factory,
+  BorrowManager__factory,
+  ConverterController, DebtMonitor__factory, IERC20Metadata__factory,
+  IPoolAdapter__factory, ITetuConverter__factory
+} from "../../../../typechain";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 
 describe("AaveTwoPoolAdapterUnitTest", () => {
 //region Global vars for all tests

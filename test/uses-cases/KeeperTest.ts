@@ -1,20 +1,20 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {
   Borrower,
   IERC20__factory, IERC20Metadata__factory, Keeper__factory
 } from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../scripts/utils/Misc";
 import {GAS_LIMIT} from "../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 describe("Keeper test for reconversion @skip-on-coverage", () => {
 //region Global vars for all tests

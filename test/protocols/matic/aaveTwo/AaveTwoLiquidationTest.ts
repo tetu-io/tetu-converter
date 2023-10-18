@@ -9,6 +9,8 @@ import {SharedRepayToRebalanceUtils} from "../../../baseUT/protocols/shared/shar
 import {Misc} from "../../../../scripts/utils/Misc";
 import {AaveTwoTestUtils, IPrepareToLiquidationResults} from "../../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {ConverterController} from "../../../../typechain";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -29,6 +31,7 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
   let init: IPrepareToLiquidationResults;
+  let converterController: ConverterController;
 //endregion Global vars for all tests
 
 //region before, after
@@ -38,9 +41,11 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
+    converterController = await TetuConverterApp.createController(deployer);
 
     init = await AaveTwoTestUtils.prepareToLiquidation(
       deployer,
+      converterController,
       collateralAsset,
       collateralHolder,
       collateralAmountNum,

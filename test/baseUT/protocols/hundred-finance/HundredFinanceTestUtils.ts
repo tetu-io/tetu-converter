@@ -15,8 +15,6 @@ import {
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
-import {MocksHelper} from "../../helpers/MocksHelper";
-import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Misc} from "../../../../scripts/utils/Misc";
@@ -34,6 +32,8 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {GAS_LIMIT} from "../../types/GasLimit";
 import {IConversionPlan} from "../../types/AppDataTypes";
 import {TetuConverterApp} from "../../app/TetuConverterApp";
+import {MocksHelper} from "../../app/MocksHelper";
+import {AdaptersHelper} from "../../app/AdaptersHelper";
 
 //region Data types
 export interface IPrepareToBorrowResults {

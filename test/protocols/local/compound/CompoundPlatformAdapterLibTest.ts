@@ -620,7 +620,7 @@ describe("CompoundPlatformAdapterLibTest", () => {
     }
 
     async function getMaxAmountToBorrow(p: IParams): Promise<IResults> {
-      const comptroller = await MocksHelper.createCompoundComptrollerMockV2(signer);
+      const comptroller = await MocksHelper.createCompoundComptrollerMockV2(deployer);
 
       const borrowCToken = p.borrowCToken ?? cUsdt;
       const borrowAsset = MockERC20__factory.connect(await borrowCToken.underlying(), deployer);

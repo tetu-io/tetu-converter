@@ -21,14 +21,10 @@ import {
   GAS_LIMIT_BM_FIND_POOL_10,
   GAS_LIMIT_BM_FIND_POOL_100, GAS_LIMIT_BM_FIND_POOL_5
 } from "../baseUT/types/GasLimit";
-import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/AssetPairUtils";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {getExpectedApr18} from "../baseUT/protocols/shared/aprUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
@@ -37,6 +33,10 @@ import {
   HARDHAT_NETWORK_ID,
   HardhatUtils
 } from "../../scripts/utils/HardhatUtils";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {BorrowManagerHelper, IBorrowInputParams, IPoolInstanceInfo} from "../baseUT/app/BorrowManagerHelper";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests

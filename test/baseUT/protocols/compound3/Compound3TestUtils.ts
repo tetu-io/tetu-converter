@@ -8,15 +8,15 @@ import {
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {TetuConverterApp} from "../../helpers/TetuConverterApp";
-import {MocksHelper} from "../../helpers/MocksHelper";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
-import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {ethers} from "hardhat";
 import {BalanceUtils, IUserBalances} from "../../utils/BalanceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {GAS_LIMIT} from "../../types/GasLimit";
+import {TetuConverterApp} from "../../app/TetuConverterApp";
+import {MocksHelper} from "../../app/MocksHelper";
+import {AdaptersHelper} from "../../app/AdaptersHelper";
 
 
 export interface IPrepareToBorrowResults {

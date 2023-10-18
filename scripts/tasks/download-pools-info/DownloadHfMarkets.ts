@@ -1,7 +1,7 @@
 import {ethers, network} from "hardhat";
 import {writeFileSync} from "fs";
 import {IHfComptroller} from "../../../typechain";
-import {HundredFinanceHelper} from "./HundredFinanceHelper";
+import {HundredFinanceHelper} from "../../integration/hundred-finance/HundredFinanceHelper";
 
 /**
  * Download detailed info for all available Hundred-finance pool(s) and tokens

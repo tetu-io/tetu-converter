@@ -12,10 +12,10 @@ import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {ConverterController} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
-import {MaticCore} from "../../baseUT/cores/maticCore";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {ConverterController} from "../../../../typechain";
+import {MaticCore} from "../../../baseUT/chains/maticCore";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -69,6 +69,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       const converter = await loadFixture(createControllerDefaultFixture);
       init = await Aave3TestUtils.prepareToLiquidation(
         deployer,
+        MaticCore.getCoreAave3(),
         converter,
         collateralAsset,
         collateralHolder,
@@ -188,6 +189,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       const converter = await loadFixture(createControllerDefaultFixture);
       init = await Aave3TestUtils.prepareToLiquidation(
         deployer,
+        MaticCore.getCoreAave3(),
         converter,
         collateralAsset,
         collateralHolder,

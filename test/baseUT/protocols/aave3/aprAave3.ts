@@ -13,7 +13,6 @@ import {
   IBaseToBorrowParams,
   makeBorrow, baseToBt, getExpectedApr18
 } from "../shared/aprUtils";
-import {Aave3PlatformFabric} from "../../parts/fabrics/Aave3PlatformFabric";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -26,9 +25,11 @@ import {
 } from "../shared/aprDataTypes";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {getDifference} from "../../utils/CommonUtils";
-import {MocksHelper} from "../../helpers/MocksHelper";
 import {ICoreAave3} from "./Aave3DataTypes";
 import {IAaveKeyState, IAaveKeyTestValues} from "../aaveShared/aaveDataTypes";
+import {MocksHelper} from "../../app/MocksHelper";
+import {Aave3PlatformFabric} from "../../logic/fabrics/Aave3PlatformFabric";
+import {MaticCore} from "../../chains/maticCore";
 
 //region Data types
 export interface IAaveReserveData {
@@ -558,7 +559,9 @@ export class AprAave3 {
     }
 
     // let's check how prediction algo works
-    const predictedSupplyIncomeRays = await this.predictSupplyIncomeRays(deployer,
+    const predictedSupplyIncomeRays = await this.predictSupplyIncomeRays(
+      deployer,
+      MaticCore.getCoreAave3(),
       aavePool,
       collateralToken.address,
       amountCollateral,
@@ -571,7 +574,9 @@ export class AprAave3 {
     );
     console.log("predictedSupplyIncomeRays", predictedSupplyIncomeRays);
 
-    const predictedBorrowIncomeRays = await this.predictBorrowAprRays(deployer,
+    const predictedBorrowIncomeRays = await this.predictBorrowAprRays(
+      deployer,
+      MaticCore.getCoreAave3(),
       aavePool,
       collateralToken.address,
       borrowToken.address,

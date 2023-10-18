@@ -10,21 +10,20 @@ import {
 import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
-import {
-  Compound3PoolAdapter,
-  ConverterController,
-  ICometRewards__factory,
-  IERC20__factory,
-  IERC20Metadata__factory
-} from "../../../typechain";
 import {expect} from "chai";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {MocksHelper} from "../../../baseUT/app/MocksHelper";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {
+  Compound3PoolAdapter,
+  ConverterController,
+  ICometRewards__factory,
+  IERC20__factory, IERC20Metadata__factory
+} from "../../../../typechain";
 
 
 describe("Compound3PoolAdapterUnitTest", () => {

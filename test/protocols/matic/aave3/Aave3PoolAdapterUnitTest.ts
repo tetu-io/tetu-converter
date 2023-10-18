@@ -1,17 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  Aave3PoolAdapter__factory,
-  DebtMonitor__factory,
-  BorrowManager__factory,
-  IERC20Metadata__factory,
-  IPoolAdapter__factory,
-  ConverterController,
-  Aave3PoolAdapter,
-  Aave3PoolMock__factory,
-  ITetuConverter__factory,
-} from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
@@ -41,9 +30,6 @@ import {
   IBorrowResults,
   IMakeBorrowOrRepayBadPathsParams
 } from "../../../baseUT/protocols/aave3/Aave3TestUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../../baseUT/types/BorrowRepayDataTypes";
@@ -53,7 +39,16 @@ import {controlGasLimitsEx2, HardhatUtils, POLYGON_NETWORK_ID} from "../../../..
 import {GAS_FULL_REPAY, GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {IMakeRepayBadPathsParams} from "../../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../../baseUT/protocols/shared/repayUtils";
-import {MaticCore} from "../../baseUT/cores/maticCore";
+import {
+  Aave3PoolAdapter, Aave3PoolAdapter__factory,
+  Aave3PoolMock__factory, BorrowManager__factory,
+  ConverterController, DebtMonitor__factory,
+  IERC20Metadata__factory, IPoolAdapter__factory, ITetuConverter__factory
+} from "../../../../typechain";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {MocksHelper} from "../../../baseUT/app/MocksHelper";
+import {MaticCore} from "../../../baseUT/chains/maticCore";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Global vars for all tests

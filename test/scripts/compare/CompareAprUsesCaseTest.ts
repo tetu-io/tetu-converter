@@ -13,7 +13,6 @@ import {BigNumber} from "ethers";
 import {IERC20Metadata__factory, SwapManager__factory} from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {AprAave3} from "../../baseUT/protocols/aave3/aprAave3";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {AprAaveTwo} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
 import {AprDForce} from "../../baseUT/protocols/dforce/aprDForce";
 import {appendBorrowingTestResultsToFile, appendSwapTestResultsToFile} from "../../baseUT/protocols/shared/aprUtils";
@@ -21,9 +20,10 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {expect} from "chai";
 import {Misc} from "../../../scripts/utils/Misc";
 import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCore} from "../../baseUT/cores/maticCore";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
+import {MaticCore} from "../../baseUT/chains/maticCore";
 
 /**
  * Script to generate

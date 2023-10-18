@@ -1,19 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  BorrowManager__factory,
-  ConverterController,
-  DebtMonitor__factory,
-  DForceControllerMock, DForceCTokenMock,
-  DForcePoolAdapter, IDForceRewardDistributor__factory, IERC20__factory,
-  DForcePoolAdapter__factory,
-  IERC20Metadata__factory,
-  IPoolAdapter__factory, ITetuConverter__factory,
-  ITokenAddressProvider,
-  TokenAddressProviderMock, IWmatic__factory,
-} from "../../../typechain";
-import { ValueReceivedEventObject } from '../../../typechain/contracts/protocols/dforce/DForcePoolAdapter';
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
@@ -38,13 +25,32 @@ import {
   IMakeBorrowOrRepayBadPathsParams,
   IPrepareToBorrowResults
 } from "../../../baseUT/protocols/dforce/DForceTestUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {
+  DForcePoolAdapter,
+  ValueReceivedEventObject
+} from "../../../../typechain/contracts/protocols/dforce/DForcePoolAdapter";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {MocksHelper} from "../../../baseUT/app/MocksHelper";
+import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
+import {
+  BorrowManager__factory,
+  ConverterController,
+  DebtMonitor__factory,
+  DForceControllerMock, DForceCTokenMock,
+  DForcePoolAdapter__factory,
+  IDForceRewardDistributor__factory,
+  IERC20__factory,
+  IERC20Metadata__factory,
+  IPoolAdapter__factory,
+  ITetuConverter__factory,
+  ITokenAddressProvider,
+  IWmatic__factory,
+  TokenAddressProviderMock
+} from "../../../../typechain";
 
 describe("DForcePoolAdapterUnitTest", () => {
 //region Global vars for all tests

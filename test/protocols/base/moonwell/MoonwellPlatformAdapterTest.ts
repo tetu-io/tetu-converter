@@ -7,7 +7,11 @@ import {
   MoonwellPlatformAdapter,
   CompoundAprLibFacade,
   CompoundPlatformAdapterLibFacade,
-  MoonwellPlatformAdapter__factory, IERC20Metadata__factory, MoonwellPoolAdapter__factory, BorrowManager__factory
+  MoonwellPlatformAdapter__factory,
+  IERC20Metadata__factory,
+  MoonwellPoolAdapter__factory,
+  BorrowManager__factory,
+  IMToken__factory
 } from "../../../../typechain";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
@@ -32,6 +36,8 @@ import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {BigNumber} from "ethers";
 import {GAS_LIMIT_MOONWELL_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
 import {generateAssetPairs} from "../../../baseUT/utils/AssetPairUtils";
+import {IPredictBrParams, IPredictBrResults, PredictBrUsesCase} from "../../../baseUT/uses-cases/shared/PredictBrUsesCase";
+import {MoonwellPlatformActor} from "../../../baseUT/protocols/moonwell/MoonwellPlatformActor";
 
 describe("MoonwellPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -892,6 +898,43 @@ describe("MoonwellPlatformAdapterTest", () => {
           BaseAddresses.DAI,
           0
         ].join().toLowerCase());
+      });
+    });
+  });
+
+  describe("getBorrowRateAfterBorrow", () => {
+    describe("Good paths", () => {
+      async function makeTest(p: IPredictBrParams): Promise<IPredictBrResults> {
+        const collateralToken = IMToken__factory.connect(MoonwellUtils.getCToken(p.collateralAsset), signer);
+        const borrowToken = IMToken__factory.connect(MoonwellUtils.getCToken(p.borrowAsset), signer);
+        const comptroller = await MoonwellHelper.getComptroller(signer);
+        const actor = new MoonwellPlatformActor(borrowToken, collateralToken, comptroller, signer);
+        return PredictBrUsesCase.predictBrTest(signer, actor, p);
+      }
+
+      describe("small amount", () => {
+        it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          const r = await makeTest({
+            collateralAsset: BaseAddresses.DAI,
+            borrowAsset: BaseAddresses.USDDbC,
+            collateralHolders: [BaseAddresses.HOLDER_DAI],
+            part10000: 1, // 1/10000 of available liquidity
+          });
+
+          expect(r.br).approximately(r.brPredicted, 1000); // 755719373 vs 755719325
+        });
+      });
+
+      describe("Huge amount", () => {
+        it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          const r = await makeTest({
+            collateralAsset: BaseAddresses.DAI,
+            borrowAsset: BaseAddresses.USDDbC,
+            collateralHolders: [BaseAddresses.HOLDER_DAI, BaseAddresses.HOLDER_DAI_1, BaseAddresses.HOLDER_DAI_2, BaseAddresses.HOLDER_DAI_3],
+            part10000: 500 // 500/10000 of available liquidity
+          });
+          expect(r.br).approximately(r.brPredicted, 1000); // 789340079 vs 789340079
+        });
       });
     });
   });

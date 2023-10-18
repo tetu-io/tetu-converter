@@ -1,12 +1,9 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ConverterController, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
 import {
-  IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults
 } from "../../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
 import {Aave3TestUtils} from "../../../baseUT/protocols/aave3/Aave3TestUtils";
@@ -17,6 +14,9 @@ import {GAS_LIMIT} from "../../../baseUT/types/GasLimit";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
+import {MaticCore} from "../../../baseUT/chains/maticCore";
+import {ConverterController, IERC20Metadata__factory} from "../../../../typechain";
 
 describe("Aave3SingleBlockTest", () => {
 //region Global vars for all tests
@@ -56,6 +56,7 @@ describe("Aave3SingleBlockTest", () => {
     ) : Promise<IMakeBorrowAndRepayResults>{
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken,
         [collateralHolder],
@@ -154,6 +155,7 @@ describe("Aave3SingleBlockTest", () => {
       // register AAVE3 pool adapter
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken,
         [collateralHolder],
@@ -252,6 +254,7 @@ describe("Aave3SingleBlockTest", () => {
       // register AAVE3 pool adapter
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken,
         [collateralHolder],

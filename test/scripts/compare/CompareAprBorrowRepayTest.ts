@@ -5,11 +5,6 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {IStrategyToConvert} from "../../baseUT/protocols/shared/aprDataTypes";
 import {BigNumber} from "ethers";
 import {ConverterController, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {Aave3PlatformFabric} from "../../baseUT/parts/fabrics/Aave3PlatformFabric";
-import {AaveTwoPlatformFabric} from "../../baseUT/parts/fabrics/AaveTwoPlatformFabric";
-import {DForcePlatformFabric} from "../../baseUT/parts/fabrics/DForcePlatformFabric";
-import {HundredFinancePlatformFabric} from "../../baseUT/parts/fabrics/HundredFinancePlatformFabric";
 import {
   BorrowRepayUsesCase,
 } from "../../baseUT/uses-cases/app/BorrowRepayUsesCase";
@@ -20,6 +15,10 @@ import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChange
 import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
 import {writeFileSyncRestoreFolder} from "../../baseUT/utils/FileUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {AaveTwoPlatformFabric} from "../../baseUT/logic/fabrics/AaveTwoPlatformFabric";
+import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
+import {Aave3PlatformFabric} from "../../baseUT/logic/fabrics/Aave3PlatformFabric";
 
 describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants

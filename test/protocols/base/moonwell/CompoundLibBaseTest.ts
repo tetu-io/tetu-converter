@@ -1,7 +1,16 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BASE_NETWORK_ID, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
 import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
-import {CompoundLibFacade, ICompoundPriceOracle__factory, IMToken__factory, IERC20, IERC20Metadata, IERC20Metadata__factory, IMToken} from "../../../../typechain";
+import {
+  CompoundLibFacade,
+  ICompoundPriceOracle__factory,
+  IMToken__factory,
+  IERC20,
+  IERC20Metadata,
+  IERC20Metadata__factory,
+  IMToken,
+  CompoundAprLibFacade
+} from "../../../../typechain";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
@@ -14,6 +23,7 @@ describe("CompoundLibTest", () => {
   let snapshot: string;
   let deployer: SignerWithAddress;
   let facade: CompoundLibFacade;
+  let facadeApr: CompoundAprLibFacade;
   let usdc: IERC20Metadata;
   let cbEth: IERC20Metadata;
   let dai: IERC20Metadata;
@@ -34,6 +44,7 @@ describe("CompoundLibTest", () => {
     const signers = await ethers.getSigners();
     deployer = signers[0];
     facade = await DeployUtils.deployContract(deployer, "CompoundLibFacade") as CompoundLibFacade;
+    facadeApr = await DeployUtils.deployContract(deployer, "CompoundAprLibFacade") as CompoundAprLibFacade;
 
     usdc = IERC20Metadata__factory.connect(BaseAddresses.USDC, deployer);
     cbEth = IERC20Metadata__factory.connect(BaseAddresses.cbETH, deployer);
@@ -53,61 +64,6 @@ describe("CompoundLibTest", () => {
 //endregion before, after
 
 //region Unit tests
-  describe("getCore", () => {
-    interface IGetCoreParams {
-      cTokenCollateral: IMToken;
-      cTokenBorrow: IMToken;
-      nativeToken: IERC20;
-      cTokenNative: IMToken;
-    }
-    interface IGetCoreResults {
-      cTokenCollateral: string;
-      cTokenBorrow: string;
-      collateralAsset: string;
-      borrowAsset: string;
-    }
-
-    async function getCore(p: IGetCoreParams): Promise<IGetCoreResults> {
-      return facade.getCore(
-        {
-          cTokenNative: p.cTokenNative.address,
-          nativeToken: p.nativeToken.address,
-          compoundStorageVersion: 0 // not used here
-        },
-        p.cTokenCollateral.address,
-        p.cTokenBorrow.address
-      )
-    }
-
-    describe("not native tokens", () => {
-      let snapshotLocal: string;
-      before(async function () {
-        snapshotLocal = await TimeUtils.snapshot();
-      });
-      after(async function () {
-        await TimeUtils.rollback(snapshotLocal);
-      });
-
-      async function getCoreTest(): Promise<IGetCoreResults> {
-        return getCore({
-          cTokenNative: cWeth,
-          cTokenCollateral: cCbEth,
-          cTokenBorrow: cUsdc,
-          nativeToken: weth
-        });
-      }
-
-      it("should return expected assets", async () => {
-        const ret = await loadFixture(getCoreTest);
-        expect([ret.borrowAsset, ret.collateralAsset].join().toLowerCase()).eq([usdc.address, cbEth.address].join().toLowerCase());
-      });
-      it("should return expected cTokens", async () => {
-        const ret = await loadFixture(getCoreTest);
-        expect([ret.cTokenBorrow, ret.cTokenCollateral].join().toLowerCase()).eq([cUsdc.address, cCbEth.address].join().toLowerCase());
-      });
-    });
-  });
-
   describe("getUnderlying", () => {
     interface IGetUnderlyingParams {
       cToken: IMToken;
@@ -224,7 +180,7 @@ describe("CompoundLibTest", () => {
       // ~881121350
       const currentRate = await p.cTokenToBorrow.callStatic.borrowRatePerTimestamp();
 
-      const rate = await facade.getEstimatedBorrowRate(
+      const rate = await facadeApr.getEstimatedBorrowRate(
         model,
         p.cTokenToBorrow.address,
         parseUnits(p.amountToBorrow, decimalsBorrow)
@@ -279,7 +235,7 @@ describe("CompoundLibTest", () => {
       // ~462470961
       const currentRate = await p.cTokenToSupply.callStatic.supplyRatePerTimestamp();
 
-      const rate = await facade.getEstimatedSupplyRate(
+      const rate = await facadeApr.getEstimatedSupplyRate(
         model,
         p.cTokenToSupply.address,
         parseUnits(p.amountToSupply, decimalsCollateral)

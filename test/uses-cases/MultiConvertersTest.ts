@@ -2,17 +2,17 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {AaveTwoPlatformFabric} from "../baseUT/parts/fabrics/AaveTwoPlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/parts/fabrics/DForcePlatformFabric";
 import {IPlatformAdapter, IPlatformAdapter__factory, ITetuConverter} from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {GAS_LIMIT} from "../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
+import {AaveTwoPlatformFabric} from "../baseUT/logic/fabrics/AaveTwoPlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/logic/fabrics/DForcePlatformFabric";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
 
 describe("MultiConvertersTest", () => {
 //region Global vars for all tests

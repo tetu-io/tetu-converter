@@ -7,12 +7,12 @@ import {
 } from "../../typechain";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {PriceOracleManagerUtils} from "../baseUT/protocols/aave3/PriceOracleManagerUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {MaticCore} from "../baseUT/chains/maticCore";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 describe.skip("study, SCB672 - update keeper, check fixHealth", () => {
   before(async function () {

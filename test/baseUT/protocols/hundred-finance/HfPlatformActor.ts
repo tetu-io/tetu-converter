@@ -52,7 +52,7 @@ export class HfPlatformActor implements IPlatformActor {
     if (! this.libFacade) {
       this.libFacade = await MocksHelper.getHfAprLibFacade(this.signer);
     }
-    return this.libFacade.getBorrowRateAfterBorrow(HundredFinanceUtils.getCTokenAddressForAsset(borrowAsset), amountToBorrow);
+    return this.libFacade.getBorrowRateAfterBorrow(HundredFinanceUtils.getCToken(borrowAsset), amountToBorrow);
   }
 
 }

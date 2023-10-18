@@ -7,12 +7,12 @@ import {
   IERC20__factory,
   PriceOracleMock
 } from "../../../../typechain";
-import {MocksHelper} from "../../helpers/MocksHelper";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {generateAssetPairs} from "../../utils/AssetPairUtils";
+import {MocksHelper} from "../../app/MocksHelper";
 
 export class MockPlatformFabric implements ILendingPlatformFabric {
   public assets: string[];

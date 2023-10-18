@@ -9,9 +9,9 @@ import {
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
-import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {DForceHelper} from "../../../../scripts/integration/dforce/DForceHelper";
 import {generateAssetPairs} from "../../utils/AssetPairUtils";
+import {AdaptersHelper} from "../../app/AdaptersHelper";
 
 export class DForcePlatformFabric implements ILendingPlatformFabric {
     async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {

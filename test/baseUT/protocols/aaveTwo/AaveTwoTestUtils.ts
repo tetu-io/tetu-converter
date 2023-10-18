@@ -14,8 +14,6 @@ import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {ethers} from "hardhat";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
-import {MocksHelper} from "../../helpers/MocksHelper";
-import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
@@ -23,10 +21,11 @@ import {IAaveTwoUserAccountDataResults} from "./aprAaveTwo";
 import {AaveTwoChangePricesUtils} from "./AaveTwoChangePricesUtils";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
-import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {GAS_LIMIT} from "../../types/GasLimit";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {MocksHelper} from "../../app/MocksHelper";
+import {AdaptersHelper} from "../../app/AdaptersHelper";
 
 //region Data types
 export interface IPrepareToBorrowResults {

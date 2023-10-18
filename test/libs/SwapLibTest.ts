@@ -5,9 +5,9 @@ import {MockERC20, PriceOracleMock, SwapLibFacade,} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BigNumber} from "ethers";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {controlGasLimitsEx2, HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {GAS_SWAP_LIB_CONVERT_USING_PRICE_ORACLE, GAS_SWAP_LIB_IS_CONVERSION_VALID} from "../baseUT/types/GasLimit";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 const parseUnits = ethers.utils.parseUnits;
 

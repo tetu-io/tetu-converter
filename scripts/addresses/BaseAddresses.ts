@@ -51,6 +51,9 @@ export class BaseAddresses {
     public static HOLDER_USDC = "0x20fe51a9229eef2cf8ad9e89d91cab9312cf3b7a".toLowerCase();
     public static HOLDER_USDDBC = "0xd312818347fb054d30925488a7dcfab6e19e9421".toLowerCase();
     public static HOLDER_DAI = "0xef6ca7d0ea5d711a393c8626698a804a9ee885c4".toLowerCase();
+    public static HOLDER_DAI_1 = "0x20f03e26968b179025f65c1f4afadfd3959c8d03".toLowerCase();
+    public static HOLDER_DAI_2 = "0xc68a33de9ceac7bdaed242ae1dc40d673ed4f643".toLowerCase();
+    public static HOLDER_DAI_3 = "0xdfea018fac77287512404ac174d6d068c4e17a2e".toLowerCase();
     public static HOLDER_WELL = "0xea6a5607d6563abbf5cc10715c7ad144a12228e1".toLowerCase();
 //endregion ----------------------------------------------------- Holders
 }

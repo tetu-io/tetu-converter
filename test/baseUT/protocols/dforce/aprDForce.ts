@@ -17,11 +17,11 @@ import {
   changeDecimals,
   convertUnits, getExpectedApr18, makeBorrow
 } from "../shared/aprUtils";
-import {DForcePlatformFabric} from "../../parts/fabrics/DForcePlatformFabric";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {DForceUtils} from "./DForceUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
+import {DForcePlatformFabric} from "../../logic/fabrics/DForcePlatformFabric";
 
 //region Data types
 interface IDForceMarketState {

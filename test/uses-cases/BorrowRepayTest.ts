@@ -4,11 +4,7 @@ import {expect} from "chai";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {Aave3PlatformFabric} from "../baseUT/parts/fabrics/Aave3PlatformFabric";
 import {BorrowRepayUsesCase, IMakeTestSingleBorrowInstantRepayResults} from "../baseUT/uses-cases/app/BorrowRepayUsesCase";
-import {HundredFinancePlatformFabric} from "../baseUT/parts/fabrics/HundredFinancePlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/parts/fabrics/DForcePlatformFabric";
-import {AaveTwoPlatformFabric} from "../baseUT/parts/fabrics/AaveTwoPlatformFabric";
 import {
   GAS_LIMIT_INIT_BORROW_AAVE3,
   GAS_LIMIT_REPAY_AAVE3,
@@ -26,6 +22,10 @@ import {
 } from "../../scripts/utils/HardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {IERC20__factory} from "../../typechain";
+import {HundredFinancePlatformFabric} from "../baseUT/logic/fabrics/HundredFinancePlatformFabric";
+import {AaveTwoPlatformFabric} from "../baseUT/logic/fabrics/AaveTwoPlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/logic/fabrics/DForcePlatformFabric";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -151,10 +151,10 @@ describe("BorrowRepayTest", () => {
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx22(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE_TWO, (u, t) => {
+              controlGasLimitsEx2(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
-              controlGasLimitsEx22(results.gasUsedByRepay, GAS_LIMIT_REPAY_AAVE_TWO, (u, t) => {
+              controlGasLimitsEx2(results.gasUsedByRepay, GAS_LIMIT_REPAY_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -233,10 +233,10 @@ describe("BorrowRepayTest", () => {
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx22(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_DFORCE, (u, t) => {
+              controlGasLimitsEx2(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
-              controlGasLimitsEx22(results.gasUsedByRepay, GAS_LIMIT_REPAY_DFORCE, (u, t) => {
+              controlGasLimitsEx2(results.gasUsedByRepay, GAS_LIMIT_REPAY_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });
@@ -362,10 +362,10 @@ describe("BorrowRepayTest", () => {
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
-              controlGasLimitsEx22(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE_TWO, (u, t) => {
+              controlGasLimitsEx2(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
-              controlGasLimitsEx22(results.gasUsedByRepay, GAS_LIMIT_REPAY_AAVE_TWO, (u, t) => {
+              controlGasLimitsEx2(results.gasUsedByRepay, GAS_LIMIT_REPAY_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
             });

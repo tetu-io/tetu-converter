@@ -1,23 +1,11 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {
-  IERC20Metadata__factory,
-  IDForceController,
-  IDForceCToken,
-  IDForceCToken__factory,
-  DForcePlatformAdapter__factory,
-  DForceAprLibFacade,
-  BorrowManager__factory,
-  DForcePlatformAdapter,
-  ConverterController,
-  IDForceController__factory,
-} from "../../../typechain";
 import {expect} from "chai";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
-import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/app/PredictBrUsesCase";
+import {PredictBrUsesCase} from "../../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {DForceHelper, IDForceMarketData} from "../../../../scripts/integration/dforce/DForceHelper";
 import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
@@ -43,6 +31,14 @@ import {DForcePlatformActor} from "../../../baseUT/protocols/dforce/DForcePlatfo
 import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {DForcePlatformFabric} from "../../../baseUT/logic/fabrics/DForcePlatformFabric";
+import {
+  BorrowManager__factory,
+  ConverterController, DForceAprLibFacade, DForcePlatformAdapter, DForcePlatformAdapter__factory,
+  IDForceController, IDForceController__factory,
+  IDForceCToken,
+  IDForceCToken__factory,
+  IERC20Metadata__factory
+} from "../../../../typechain";
 
 describe("DForcePlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -86,17 +82,14 @@ describe("DForcePlatformAdapterTest", () => {
     const collateralToken = IDForceCToken__factory.connect(collateralCToken, deployer);
     const borrowToken = IDForceCToken__factory.connect(borrowCToken, deployer);
     const comptroller = await DForceHelper.getController(deployer);
+    const actor = new DForcePlatformActor(collateralToken, borrowToken, comptroller, deployer);
 
-    return PredictBrUsesCase.predictBrTest(
-      deployer,
-      new DForcePlatformActor(collateralToken, borrowToken, comptroller, deployer),
-      {
+    return PredictBrUsesCase.predictBrTest(deployer, actor, {
         collateralAsset,
         borrowAsset,
         collateralHolders,
         part10000,
-      }
-    );
+    });
   }
 //endregion Test predict-br impl
 

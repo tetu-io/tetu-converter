@@ -1,26 +1,28 @@
-import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {BigNumber, BigNumberish} from "ethers";
-import {GAS_LIMIT} from "../../types/GasLimit";
-import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {IPlatformActor} from "../../types/IPlatformActor";
 import {MocksHelper} from "../../app/MocksHelper";
 import {Compound3Utils} from "./Compound3Utils";
-import {Compound3AprLibFacade} from "../../../../typechain";
+import {Compound3AprLibFacade, IComet, IERC20__factory, IERC20Metadata__factory} from "../../../../typechain";
+import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 
-class Compound3PlatformActor implements IPlatformActor {
+export class Compound3PlatformActor implements IPlatformActor {
   comet: IComet;
   collateralAsset: string;
+  libFacade?: Compound3AprLibFacade;
+  signer: SignerWithAddress;
 
   constructor(
+    signer: SignerWithAddress,
     comet: IComet,
     collateralAsset: string
   ) {
     this.comet = comet;
     this.collateralAsset = collateralAsset;
+    this.signer = signer;
   }
 
   async getAvailableLiquidity() : Promise<BigNumber> {
-    return IERC20__factory.connect(await this.comet.baseToken(), deployer).balanceOf(this.comet.address)
+    return IERC20__factory.connect(await this.comet.baseToken(), this.signer).balanceOf(this.comet.address)
   }
 
   async getCurrentBR(): Promise<BigNumber> {
@@ -30,7 +32,7 @@ class Compound3PlatformActor implements IPlatformActor {
   }
 
   async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-    await IERC20Metadata__factory.connect(this.collateralAsset, deployer)
+    await IERC20Metadata__factory.connect(this.collateralAsset, this.signer)
       .approve(this.comet.address, collateralAmount);
     console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
     await this.comet.supply(this.collateralAsset, collateralAmount)

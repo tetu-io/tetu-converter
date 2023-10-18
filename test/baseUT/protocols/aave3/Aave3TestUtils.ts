@@ -11,8 +11,6 @@ import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {ethers} from "hardhat";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
-import {MocksHelper} from "../../helpers/MocksHelper";
-import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
@@ -25,6 +23,8 @@ import {parseUnits} from "ethers/lib/utils";
 import {GAS_LIMIT} from "../../types/GasLimit";
 import {ICoreAave3} from "./Aave3DataTypes";
 import {IConversionPlan} from "../../types/AppDataTypes";
+import {AdaptersHelper} from "../../app/AdaptersHelper";
+import {MocksHelper} from "../../app/MocksHelper";
 
 //region Data types
 export interface IPrepareToBorrowResults {

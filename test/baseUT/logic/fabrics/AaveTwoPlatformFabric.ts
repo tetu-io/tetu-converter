@@ -5,11 +5,11 @@ import {
   IERC20__factory
 } from "../../../../typechain";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
-import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper} from "../../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {generateAssetPairs} from "../../utils/AssetPairUtils";
+import {AdaptersHelper} from "../../app/AdaptersHelper";
 
 export class AaveTwoPlatformFabric implements ILendingPlatformFabric {
   async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {
