@@ -15,6 +15,7 @@ import "../../interfaces/ITokenAddressProvider.sol";
 import "../compound/CompoundPlatformAdapterLib.sol";
 import "./MoonwellLib.sol";
 import "hardhat/console.sol";
+import "../../integrations/moonwell/IMoonwellComptroller.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -23,6 +24,7 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   //region ----------------------------------------------------- Constants
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
+  uint constant public COUNT_SECONDS_PER_YEAR = 365 days; // 31536000;
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Variables
@@ -155,6 +157,8 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             );
             console.log("getConversionPlan.collateralAmount.2", plan.collateralAmount);
             console.log("getConversionPlan.amountToBorrow.2", plan.amountToBorrow);
+
+            plan.rewardsAmountInBorrowAsset36 = estimateRewardsAmountInBorrowAsset36(p_, v, plan, pd);
           }
         }
       }
@@ -167,15 +171,33 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       return plan;
     }
   }
-  //endregion ----------------------------------------------------- Get conversion plan
 
-  //region ----------------------------------------------------- Calculate borrow rate after borrowing in advance
-
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view returns (uint) {
-    return CompoundPlatformAdapterLib.getBorrowRateAfterBorrow(_state, borrowAsset_, amountToBorrow_);
+  /// @notice Estimate amount of any rewards that can be received for the borrowing according the {plan}
+  function estimateRewardsAmountInBorrowAsset36(
+    AppDataTypes.InputConversionParams memory p_,
+    CompoundPlatformAdapterLib.ConversionPlanLocal memory v,
+    AppDataTypes.ConversionPlan memory plan,
+    AppDataTypes.PricesAndDecimals memory pd
+  ) public view returns (uint) {
+    uint blocksPerDay = _state.controller.blocksPerDay();
+    (uint rewardsSupply, uint rewardsBorrow) = MoonwellLib.estimateRewardAmounts(
+      v.cTokenCollateral,
+      v.cTokenBorrow,
+      plan.collateralAmount,
+      plan.amountToBorrow,
+      uint32((
+        p_.countBlocks * COUNT_SECONDS_PER_YEAR / (blocksPerDay * 365)  // count seconds
+      ) / COUNT_SECONDS_PER_YEAR),
+      IMoonwellComptroller(address(v.comptroller)).rewardDistributor(),
+      ITetuLiquidator(_state.controller.tetuLiquidator()),
+      p_.borrowAsset
+    );
+    console.log("p_.countBlocks", p_.countBlocks);
+    console.log("rewardsSupply", rewardsSupply);
+    console.log("rewardsBorrow", rewardsBorrow);
+    return (rewardsSupply + rewardsBorrow) * 10**36 / pd.rb10powDec;
   }
-  //endregion ----------------------------------------------------- Calculate borrow rate after borrowing in advance
+  //endregion ----------------------------------------------------- Get conversion plan
 
   //region ----------------------------------------------------- Utils
 

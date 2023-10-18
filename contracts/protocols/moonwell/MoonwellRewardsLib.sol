@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import "../../integrations/moonwell/IMToken.sol";
 import "../../integrations/moonwell/IMoonwellMultiRewardDistributor.sol";
+import "hardhat/console.sol";
 
 /// @notice Routines to calculate supply and borrow reward amounts in advance
 ///         Based on the code from MultiRewardDistributor.sol, see https://github.com/moonwell-fi/moonwell-contracts-v2
@@ -43,6 +44,21 @@ library MoonwellRewardsLib {
     CurrentMarketData marketData;
     MTokenData mTokenInfo;
   }
+
+  struct LocalVars {
+    MultiRewardDistributorCommon.MarketConfig[] configs;
+    MultiRewardDistributorCommon.MarketConfig config;
+    CalculatedData calcData;
+    IndexUpdate supplyUpdateNow;
+    IndexUpdate supplyUpdate;
+    IndexUpdate borrowUpdateNow;
+    IndexUpdate borrowUpdate;
+    uint256 index;
+    uint userSupplyIndex;
+    uint userBorrowIndex;
+    uint256 supplierRewardsAccrued;
+    uint256 borrowerRewardsAccrued;
+  }
   //endregion ----------------------------------------------------------- Data types
 
   //region ----------------------------------------------------------- Public function
@@ -52,13 +68,28 @@ library MoonwellRewardsLib {
     uint amountToSupply_,
     uint amountToBorrow_,
     IMoonwellMultiRewardDistributor rewardDistributor
-  ) internal view returns (MultiRewardDistributorCommon.RewardInfo[] memory outputRewardData) {
+  ) internal view returns (
+    MultiRewardDistributorCommon.RewardInfo[] memory outputRewardData
+  ) {
+    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.1");
+    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.amountToSupply_", amountToSupply_);
+    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.amountToSupply in tokens", amountToSupply_ * 1e18 / mToken_.exchangeRateStored());
+    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.amountToBorrow_", amountToBorrow_);
+    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.borrowPeriodTimestamp_", borrowPeriodTimestamp_);
+    LocalVars memory v;
+
     // Global config for this mToken
-    MultiRewardDistributorCommon.MarketConfig[] memory configs = rewardDistributor.getAllMarketConfigs(address(mToken_));
-    outputRewardData = new MultiRewardDistributorCommon.RewardInfo[](configs.length);
+    v.configs = rewardDistributor.getAllMarketConfigs(address(mToken_));
+    outputRewardData = new MultiRewardDistributorCommon.RewardInfo[](v.configs.length);
+    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.2");
+    console.log("MoonwellRewardsLib.mToken_.totalSupply()", mToken_.totalSupply());
+    console.log("MoonwellRewardsLib.mToken_.totalBorrows()", mToken_.totalBorrows());
+    console.log("MoonwellRewardsLib.mToken_.borrowIndex()", mToken_.borrowIndex());
+
+    uint amountMTokensToSupply =  amountToSupply_ * 1e18 / mToken_.exchangeRateStored();
 
     // Code golf to avoid too many local vars :rolling-eyes:
-    CalculatedData memory calcData = CalculatedData({
+    v.calcData = CalculatedData({
         marketData: CurrentMarketData({
         totalMTokens: mToken_.totalSupply(),
         totalBorrows: mToken_.totalBorrows(),
@@ -66,60 +97,93 @@ library MoonwellRewardsLib {
       }),
       mTokenInfo: MTokenData({
       // we assume that new user is going to make new borrow
-        mTokenBalance: amountToSupply_,
+        mTokenBalance: amountMTokensToSupply,
         borrowBalanceStored: amountToBorrow_
       })
     });
 
-    for (uint256 index = 0; index < configs.length; index++) {
-      MultiRewardDistributorCommon.MarketConfig memory config = configs[index];
+    for (v.index = 0; v.index < v.configs.length; v.index++) {
+      v.config = v.configs[v.index];
 
-      // Calculate our new global supply index
-      IndexUpdate memory supplyUpdate = calculateNewIndex(
-        config.supplyEmissionsPerSec,
-        config.supplyGlobalTimestamp + borrowPeriodTimestamp_,
-        config.supplyGlobalIndex,
-        config.endTime,
-        calcData.marketData.totalMTokens
-      );
+      if (amountMTokensToSupply != 0) {
+        // Calculate new global supply index: current value => current block
+        v.supplyUpdateNow = calculateNewIndex(
+          v.config.supplyEmissionsPerSec,
+          v.config.supplyGlobalTimestamp,
+          v.config.supplyGlobalIndex,
+          v.config.endTime,
+          v.calcData.marketData.totalMTokens,
+          uint32(block.timestamp)
+        );
+        // Calculate new global supply index: current block => borrow period
+        v.supplyUpdate = calculateNewIndex(
+          v.config.supplyEmissionsPerSec,
+          v.supplyUpdateNow.newTimestamp,
+          v.supplyUpdateNow.newIndex,
+          v.config.endTime,
+          v.calcData.marketData.totalMTokens + amountMTokensToSupply,
+          v.supplyUpdateNow.newTimestamp + borrowPeriodTimestamp_
+        );
+        // Calculate outstanding supplier side rewards
+        v.supplierRewardsAccrued = calculateSupplyRewardsForUser(
+          v.supplyUpdate.newIndex,
+          v.calcData.mTokenInfo.mTokenBalance,
+          v.supplyUpdateNow.newIndex
+        );
+        console.log("v.config.supplyGlobalTimestamp", v.config.supplyGlobalTimestamp);
+        console.log("v.config.supplyGlobalIndex", v.config.supplyGlobalIndex);
+        console.log("uint32(block.timestamp)", uint32(block.timestamp));
+        console.log("v.supplyUpdateNow.newTimestamp", v.supplyUpdateNow.newTimestamp);
+        console.log("v.supplyUpdateNow.newIndex", v.supplyUpdateNow.newIndex);
+        console.log("v.supplyUpdate.newTimestamp", v.supplyUpdate.newTimestamp);
+        console.log("v.supplyUpdate.newIndex", v.supplyUpdate.newIndex);
+      }
 
-      // Calculate our new global borrow index
-      IndexUpdate memory borrowUpdate = calculateNewIndex(
-        config.borrowEmissionsPerSec,
-        config.borrowGlobalTimestamp + borrowPeriodTimestamp_,
-        config.borrowGlobalIndex,
-        config.endTime,
-        div_(
-          calcData.marketData.totalBorrows,
-          calcData.marketData.marketBorrowIndex
-        )
-      );
+      if (amountToBorrow_ != 0) {
+        // Calculate our new global borrow index
+        v.borrowUpdateNow = calculateNewIndex(
+          v.config.borrowEmissionsPerSec,
+          v.config.borrowGlobalTimestamp,
+          v.config.borrowGlobalIndex,
+          v.config.endTime,
+          div_(
+            v.calcData.marketData.totalBorrows,
+            v.calcData.marketData.marketBorrowIndex
+          ),
+          uint32(block.timestamp)
+        );
+        v.borrowUpdate = calculateNewIndex(
+          v.config.borrowEmissionsPerSec,
+          v.borrowUpdateNow.newTimestamp,
+          v.borrowUpdateNow.newIndex,
+          v.config.endTime,
+          div_(
+            v.calcData.marketData.totalBorrows + amountToBorrow_,
+            v.calcData.marketData.marketBorrowIndex
+          ),
+          v.config.supplyGlobalTimestamp + borrowPeriodTimestamp_
+        );
+        v.borrowerRewardsAccrued = calculateBorrowRewardsForUser(
+          v.borrowUpdate.newIndex,
+          v.calcData.marketData.marketBorrowIndex,
+          v.calcData.mTokenInfo,
+          v.borrowUpdateNow.newIndex
+        );
+      }
 
-      uint userSupplyIndex = config.supplyGlobalIndex; // _emissionConfig.supplierIndices[_user]
-      uint userBorrowIndex = config.borrowGlobalTimestamp; // _emissionConfig.supplierIndices[_user]
+      console.log("v.supplierRewardsAccrued", v.supplierRewardsAccrued);
+      console.log("v.borrowerRewardsAccrued", v.borrowerRewardsAccrued);
 
-      // Calculate outstanding supplier side rewards
-      uint256 supplierRewardsAccrued = calculateSupplyRewardsForUser(
-        supplyUpdate.newIndex,
-        0, // calcData.mTokenInfo.mTokenBalance,
-        userSupplyIndex
-      );
-
-      uint256 borrowerRewardsAccrued = calculateBorrowRewardsForUser(
-        borrowUpdate.newIndex,
-        calcData.marketData.marketBorrowIndex,
-        calcData.mTokenInfo,
-        userBorrowIndex
-      );
-
-      outputRewardData[index] = MultiRewardDistributorCommon.RewardInfo({
-        emissionToken: config.emissionToken,
-        totalAmount: borrowerRewardsAccrued + supplierRewardsAccrued,
-        supplySide: supplierRewardsAccrued,
-        borrowSide: borrowerRewardsAccrued
+      outputRewardData[v.index] = MultiRewardDistributorCommon.RewardInfo({
+        emissionToken: v.config.emissionToken,
+        totalAmount: v.borrowerRewardsAccrued + v.supplierRewardsAccrued,
+        supplySide: v.supplierRewardsAccrued,
+        borrowSide: v.borrowerRewardsAccrued
       });
+      console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.10");
     }
 
+    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.11");
     return outputRewardData;
   }
   //endregion ----------------------------------------------------------- Public function
@@ -188,59 +252,67 @@ library MoonwellRewardsLib {
   /// @param _rewardEndTime The end time for this reward config
   /// @param _denominator The denominator used in the calculation (supply side == mToken.totalSupply,
   ///        borrow side is (mToken.totalBorrows() / mToken.borrowIndex()).
+  /// @param blockTimestamp Timestamp of the final block where the borrow ends
   function calculateNewIndex(
     uint256 _emissionsPerSecond,
     uint32 _currentTimestamp,
     uint224 _currentIndex,
     uint256 _rewardEndTime,
-    uint256 _denominator
-  ) internal view returns (IndexUpdate memory) {
-    uint32 blockTimestamp = safe32(
-      block.timestamp,
-      "block timestamp exceeds 32 bits"
-    );
+    uint256 _denominator,
+    uint32 blockTimestamp
+  ) internal pure returns (IndexUpdate memory) {
+    console.log("MoonwellRewardsLib.calculateNewIndex.1");
     uint256 deltaTimestamps = sub_(
       blockTimestamp,
       uint256(_currentTimestamp)
     );
+    console.log("MoonwellRewardsLib.calculateNewIndex.2");
 
     // If our current block timestamp is newer than our emission end time, we need to halt
     // reward emissions by stinting the growth of the global index, but importantly not
     // the global timestamp. Should not be gte because the equivalent case makes a
     // 0 deltaTimestamp which doesn't accrue the last bit of rewards properly.
     if (blockTimestamp > _rewardEndTime) {
+      console.log("MoonwellRewardsLib.calculateNewIndex.3");
       // If our current index timestamp is less than our end time it means this
       // is the first time the endTime threshold has been breached, and we have
       // some left over rewards to accrue, so clamp deltaTimestamps to the whatever
       // window of rewards still remains.
       if (_currentTimestamp < _rewardEndTime) {
+        console.log("MoonwellRewardsLib.calculateNewIndex.4");
         deltaTimestamps = sub_(_rewardEndTime, _currentTimestamp);
       } else {
+        console.log("MoonwellRewardsLib.calculateNewIndex.5");
         // Otherwise just set deltaTimestamps to 0 to ensure that we short circuit in the next step
         deltaTimestamps = 0;
       }
     }
+    console.log("MoonwellRewardsLib.calculateNewIndex.6");
 
     // Short circuit to update the timestamp but *not* the index if there's nothing to calculate
     if (deltaTimestamps == 0 || _emissionsPerSecond == 0) {
+      console.log("MoonwellRewardsLib.calculateNewIndex.7");
       return
         IndexUpdate({
-        newIndex: _currentIndex,
-        newTimestamp: blockTimestamp
-      });
+          newIndex: _currentIndex,
+          newTimestamp: blockTimestamp
+        });
     }
 
+    console.log("MoonwellRewardsLib.calculateNewIndex.8");
     // At this point we know we have to calculate a new index, so do so
     uint256 tokenAccrued = mul_(deltaTimestamps, _emissionsPerSecond);
     Double memory ratio = _denominator > 0
       ? fraction(tokenAccrued, _denominator)
       : Double({mantissa: 0});
+    console.log("MoonwellRewardsLib.calculateNewIndex.9");
 
     uint224 newIndex = safe224(
       add_(Double({mantissa: _currentIndex}), ratio).mantissa,
       "new index exceeds 224 bits"
     );
 
+    console.log("MoonwellRewardsLib.calculateNewIndex.10");
     return IndexUpdate({newIndex: newIndex, newTimestamp: blockTimestamp});
   }
   //endregion ----------------------------------------------------------- Internal logic

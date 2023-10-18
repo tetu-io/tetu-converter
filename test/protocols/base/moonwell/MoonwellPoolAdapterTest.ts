@@ -98,9 +98,14 @@ describe("MoonwellPlatformAdapterTest", () => {
 
 //region Utils
   async function getConversionPlan(p: IMoonwellPreparePlan): Promise<IConversionPlanNum> {
-    const {
-      plan,
-    } = await MoonwellPlatformAdapterUtils.getConversionPlan(signer, comptroller, priceOracle, p, platformAdapter, poolAdapter.address);
+    const {plan} = await MoonwellPlatformAdapterUtils.getConversionPlan(
+      signer,
+      comptroller,
+      priceOracle,
+      p,
+      platformAdapter,
+      poolAdapter.address
+    );
     return plan;
   }
 
@@ -1044,6 +1049,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         collateralAsset: p.collateralAsset,
         borrowAsset: p.borrowAsset,
         amountIn: p.collateralAmount,
+        countBlocks: p.countBlocksBeforeClaimingRewards
       });
 
       // put collateral amount on TetuConverter balance
@@ -1085,10 +1091,27 @@ describe("MoonwellPlatformAdapterTest", () => {
     }
 
     describe("Good paths", () => {
-      it("should increase debt amount and collateral amount", async () => {
+      it("should increase debt amount and collateral amount DAI:USDC", async () => {
         const ret = await claimRewards({
           collateralAsset: BaseAddresses.DAI,
           borrowAsset: BaseAddresses.USDC,
+          collateralAmount: "1234",
+          countBlocksBeforeClaimingRewards: 10_000,
+        });
+        console.log(ret);
+        const ret2 = await claimRewards({
+          collateralAsset: BaseAddresses.DAI,
+          borrowAsset: BaseAddresses.USDC,
+          collateralAmount: "1234",
+          countBlocksBeforeClaimingRewards: 10_000,
+        });
+        expect(ret.amount).gt(0, "rewards should be paid");
+        expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
+      });
+      it("should increase debt amount and collateral amount USDC:USDDbC", async () => {
+        const ret = await claimRewards({
+          collateralAsset: BaseAddresses.USDC,
+          borrowAsset: BaseAddresses.USDDbC,
           collateralAmount: "1234",
           countBlocksBeforeClaimingRewards: 10_000,
         });
