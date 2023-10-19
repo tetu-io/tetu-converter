@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../interfaces/IConverterController.sol";
-import "../interfaces/ITetuConverter.sol";
-import "../openzeppelin/IERC20.sol";
-import "../interfaces/IPoolAdapter.sol";
-import "../openzeppelin/SafeERC20.sol";
-import "../interfaces/IKeeperCallback.sol";
-import "../interfaces/IBorrowManager.sol";
-import "../interfaces/ITetuConverterCallback.sol";
-import "../interfaces/IDebtMonitor.sol";
+import "../../interfaces/IConverterController.sol";
+import "../../interfaces/ITetuConverter.sol";
+import "../../openzeppelin/IERC20.sol";
+import "../../interfaces/IPoolAdapter.sol";
+import "../../openzeppelin/SafeERC20.sol";
+import "../../interfaces/IKeeperCallback.sol";
+import "../../interfaces/IBorrowManager.sol";
+import "../../interfaces/ITetuConverterCallback.sol";
+import "../../interfaces/IDebtMonitor.sol";
+import "../lending-platform/PoolAdapterMock.sol";
+
 import "hardhat/console.sol";
-import "./lending-platform/PoolAdapterMock.sol";
 
 /// @notice This contract emulates real TetuConverter-user behavior
 /// Terms:

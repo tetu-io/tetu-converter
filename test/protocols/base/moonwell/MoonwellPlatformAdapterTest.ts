@@ -9,7 +9,6 @@ import {
   CompoundPlatformAdapterLibFacade,
   MoonwellPlatformAdapter__factory,
   IERC20Metadata__factory,
-  MoonwellPoolAdapter__factory,
   BorrowManager__factory,
   IMToken__factory
 } from "../../../../typechain";

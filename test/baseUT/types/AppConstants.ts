@@ -19,4 +19,9 @@ export class AppConstants {
 
   public static readonly CONVERSION_KIND_SWAP_1 = 1;
   public static readonly CONVERSION_KIND_BORROW_2 = 2;
+
+  public static readonly BORROW_DIRECT_0 = 0;
+  public static readonly BORROW_REVERSE_1 = 1;
+  public static readonly REPAY_DIRECT_2 = 2;
+  public static readonly REPAY_REVERSE_3 = 3;
 }
