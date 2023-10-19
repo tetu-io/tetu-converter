@@ -159,6 +159,7 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             console.log("getConversionPlan.amountToBorrow.2", plan.amountToBorrow);
 
             plan.rewardsAmountInBorrowAsset36 = estimateRewardsAmountInBorrowAsset36(p_, v, plan, pd);
+            console.log("plan.rewardsAmountInBorrowAsset36", plan.rewardsAmountInBorrowAsset36);
           }
         }
       }
@@ -179,15 +180,15 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     AppDataTypes.ConversionPlan memory plan,
     AppDataTypes.PricesAndDecimals memory pd
   ) public view returns (uint) {
-    uint blocksPerDay = _state.controller.blocksPerDay();
+    uint periodSec = p_.countBlocks * COUNT_SECONDS_PER_YEAR / (_state.controller.blocksPerDay() * 365);
+    console.log("countBlocks", p_.countBlocks);
+    console.log("periodSec", periodSec);
     (uint rewardsSupply, uint rewardsBorrow) = MoonwellLib.estimateRewardAmounts(
       v.cTokenCollateral,
       v.cTokenBorrow,
       plan.collateralAmount,
       plan.amountToBorrow,
-      uint32((
-        p_.countBlocks * COUNT_SECONDS_PER_YEAR / (blocksPerDay * 365)  // count seconds
-      ) / COUNT_SECONDS_PER_YEAR),
+      uint32(periodSec == 0 ? 1 : periodSec),
       IMoonwellComptroller(address(v.comptroller)).rewardDistributor(),
       ITetuLiquidator(_state.controller.tetuLiquidator()),
       p_.borrowAsset

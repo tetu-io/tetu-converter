@@ -8,6 +8,9 @@ import "hardhat/console.sol";
 import "../../integrations/tetu/ITetuLiquidator.sol";
 
 library MoonwellLib {
+  /// @notice For any assets
+  uint constant public MIN_ALLOWED_AMOUNT_TO_LIQUIDATE = 1000;
+
   function initProtocolFeatures(CompoundLib.ProtocolFeatures memory dest) internal pure {
     dest.nativeToken = 0x4200000000000000000000000000000000000006;
     dest.cTokenNative = address(0);
@@ -70,7 +73,15 @@ library MoonwellLib {
   ) internal view returns (uint) {
     uint dest;
     for (uint i; i < data.length; ++i) {
-      dest += tetuLiquidator.getPrice(data[i].emissionToken, assetOut, data[i].totalAmount);
+      console.log("_getRewardTotalAmount.tetuLiquidator", address(tetuLiquidator));
+      console.log("_getRewardTotalAmount.amount", data[i].totalAmount);
+      console.log("_getRewardTotalAmount.emissionToken", data[i].emissionToken);
+      console.log("_getRewardTotalAmount.assetOut", assetOut);
+      if (data[i].totalAmount > MIN_ALLOWED_AMOUNT_TO_LIQUIDATE) {
+        uint priceOut = tetuLiquidator.getPrice(data[i].emissionToken, assetOut, data[i].totalAmount);
+        console.log("_getRewardTotalAmount.priceOut", priceOut);
+        dest += priceOut;
+      }
     }
     return dest;
   }

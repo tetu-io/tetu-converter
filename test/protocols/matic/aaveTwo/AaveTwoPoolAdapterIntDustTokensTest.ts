@@ -31,7 +31,7 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
     const signers = await ethers.getSigners();
     deployer = signers[0];
 
-    converterController = await TetuConverterApp.createController(deployer);
+    converterController = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   });
 
   after(async function () {

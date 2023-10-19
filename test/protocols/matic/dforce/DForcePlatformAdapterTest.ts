@@ -392,7 +392,7 @@ describe("DForcePlatformAdapterTest", () => {
     ) : Promise<{data: IContractsSet, platformAdapter: DForcePlatformAdapter}> {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
@@ -461,7 +461,7 @@ describe("DForcePlatformAdapterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -1250,7 +1250,7 @@ describe("DForcePlatformAdapterTest", () => {
           // use DForce-platform adapter to predict amount of rewards
           const controller = await TetuConverterApp.createController(
             deployer,
-            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+            {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
           );
           const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 
@@ -1301,7 +1301,7 @@ describe("DForcePlatformAdapterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -1393,7 +1393,7 @@ describe("DForcePlatformAdapterTest", () => {
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
-      controller = await TetuConverterApp.createController(deployer);
+      controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
     });
     after(async function () {
       await TimeUtils.rollback(snapshotLocal);
@@ -1474,7 +1474,7 @@ describe("DForcePlatformAdapterTest", () => {
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
 
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createDForcePoolAdapter(deployer);
       const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
         deployer,
@@ -1515,7 +1515,7 @@ describe("DForcePlatformAdapterTest", () => {
     describe("Good paths", () => {
       it("should assign expected value to frozen", async () => {
         const controller = await TetuConverterApp.createController(deployer,
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
 
         const comptroller = await DForceHelper.getController(deployer);
@@ -1544,7 +1544,7 @@ describe("DForcePlatformAdapterTest", () => {
         const comptroller = await DForceHelper.getController(deployer);
         const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
           deployer,
-          (await TetuConverterApp.createController(deployer)).address,
+          (await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,})).address,
           comptroller.address,
           ethers.Wallet.createRandom().address,
           [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
@@ -1559,7 +1559,7 @@ describe("DForcePlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
 
       const comptroller = await DForceHelper.getController(deployer);
       const pa = await AdaptersHelper.createDForcePlatformAdapter(

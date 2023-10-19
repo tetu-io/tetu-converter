@@ -9,6 +9,8 @@ import {MocksHelper} from "./MocksHelper";
 import {ethers} from "hardhat";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "../logic/fabrics/ILendingPlatformFabric";
+import {BASE_NETWORK_ID, HARDHAT_NETWORK_ID, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
 
 export interface IDeployInitFabricsSet {
   deploy: () => Promise<string>,
@@ -26,6 +28,9 @@ export interface ICoreContractFabrics {
 }
 
 export interface ICreateControllerParams {
+  /** see HardhatUtils.XXX_NETWORK_ID */
+  networkId: number;
+
   tetuConverterFabric?: IDeployInitFabricsSet;
   borrowManagerFabric?: IDeployInitFabricsSet;
   debtMonitorFabric?: IDeployInitFabricsSet;
@@ -50,7 +55,7 @@ export interface IBuildAppResults {
 }
 
 export class TetuConverterApp {
-  static async createController(deployer: SignerWithAddress, p?: ICreateControllerParams) : Promise<ConverterController> {
+  static async createController(deployer: SignerWithAddress, p: ICreateControllerParams) : Promise<ConverterController> {
     const tetuConverterFabric = p?.tetuConverterFabric
       || {
       deploy: async () => CoreContractsHelper.deployTetuConverter(deployer),
@@ -90,7 +95,7 @@ export class TetuConverterApp {
     const tetuLiquidatorFabric = async () => p?.tetuLiquidatorAddress
         || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address;
     const priceOracleFabric = p?.priceOracleFabric
-        || (async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address
+        || (async () => await this.getPriceOracleForNetwork(deployer, p?.networkId ?? HARDHAT_NETWORK_ID)
       );
 
     return CoreContractsHelper.createController(
@@ -113,11 +118,20 @@ export class TetuConverterApp {
     );
   }
 
-  static async buildApp(
-    deployer: SignerWithAddress,
-    fabrics?: ILendingPlatformFabric[],
-    p?: ICreateControllerParams
-  ) : Promise<IBuildAppResults> {
+  static async getPriceOracleForNetwork(deployer: SignerWithAddress, networkId: number): Promise<string> {
+    switch (networkId) {
+      case HARDHAT_NETWORK_ID:
+        return (await MocksHelper.getPriceOracleMock(deployer, [], [])).address;
+      case POLYGON_NETWORK_ID:
+        return (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address;
+      case BASE_NETWORK_ID:
+        return (await CoreContractsHelper.createPriceOracleMoonwell(deployer, BaseAddresses.MOONWELL_CHAINLINK_ORACLE)).address
+      default:
+        throw Error(`Price oracle for network ${networkId} was not found`);
+    }
+  }
+
+  static async buildApp(deployer: SignerWithAddress, p: ICreateControllerParams, fabrics?: ILendingPlatformFabric[]) : Promise<IBuildAppResults> {
     const controller = await this.createController(deployer, p);
 
     const pools: ILendingPlatformPoolInfo[] = [];

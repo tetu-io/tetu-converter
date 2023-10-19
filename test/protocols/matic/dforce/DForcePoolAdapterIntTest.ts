@@ -44,7 +44,7 @@ describe("DForcePoolAdapterIntTest", () => {
     // if signers[0] is used than newly created TetuConverter contract has not-zero USDC balance
     // and some tests don't pass
     deployer = signers[1];
-    controllerInstance = await TetuConverterApp.createController(deployer);
+    controllerInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   });
 
   after(async function () {

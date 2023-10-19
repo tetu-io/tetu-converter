@@ -42,7 +42,7 @@ describe("DForceCollateralBalanceTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    controllerInstance = await TetuConverterApp.createController(deployer);
+    controllerInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
 
     init = await makeInitialBorrow();
   });

@@ -312,7 +312,7 @@ describe.skip("Hundred finance, platform adapter", () => {
     ) : Promise<{data: IContractsSet, platformAdapter: HfPlatformAdapter}> {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
@@ -380,7 +380,7 @@ describe.skip("Hundred finance, platform adapter", () => {
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -958,7 +958,7 @@ describe.skip("Hundred finance, platform adapter", () => {
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -1048,7 +1048,7 @@ describe.skip("Hundred finance, platform adapter", () => {
   describe("registerCTokens", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        const controller = await TetuConverterApp.createController(deployer);
+        const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
         const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
           deployer,
           controller.address,
@@ -1080,7 +1080,7 @@ describe.skip("Hundred finance, platform adapter", () => {
     describe("Bad paths", () => {
       describe("Not governance", () => {
         it("should revert", async () => {
-          const controller = await TetuConverterApp.createController(deployer);
+          const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
           const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
             deployer,
             controller.address,
@@ -1099,7 +1099,7 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("Try to add not CToken", () => {
         it("should revert", async () => {
-          const controller = await TetuConverterApp.createController(deployer);
+          const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
           const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
             deployer,
             controller.address,
@@ -1123,7 +1123,7 @@ describe.skip("Hundred finance, platform adapter", () => {
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
 
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
       const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
         deployer,
@@ -1163,7 +1163,7 @@ describe.skip("Hundred finance, platform adapter", () => {
   describe("getMarketsInfo", () => {
     let platformAdapter: HfPlatformAdapter;
     before(async function () {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
       platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
         deployer,
@@ -1202,7 +1202,7 @@ describe.skip("Hundred finance, platform adapter", () => {
   describe("setFrozen", () => {
     it("should assign expected value to frozen", async () => {
       const controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
 
       const comptroller = await HundredFinanceHelper.getComptroller(deployer);
@@ -1229,7 +1229,7 @@ describe.skip("Hundred finance, platform adapter", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
       const pa = await AdaptersHelper.createHundredFinancePlatformAdapter(
         deployer,

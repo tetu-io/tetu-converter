@@ -27,6 +27,7 @@ import {RepayAction} from "../../logic/actions/RepayAction";
 import {ILendingPlatformFabric} from "../../logic/fabrics/ILendingPlatformFabric";
 import {ClaimRewardsAction} from "../../logic/actions/ClaimRewardsAction";
 import {RepayActionUsingSwap} from "../../logic/actions/RepayActionUsingSwap";
+import {POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 
 export interface IBorrowAction {
   collateralToken: TokenDataTypes,
@@ -305,8 +306,8 @@ export class BorrowRepayUsesCase {
     );
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
+      {networkId: POLYGON_NETWORK_ID}, // disable swap
       [fabric],
-      {}
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
@@ -451,8 +452,8 @@ export class BorrowRepayUsesCase {
   ) : Promise<IMakeTestSingleBorrowInstantRepayResults> {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
+      {networkId: POLYGON_NETWORK_ID}, // disable swap
       [fabric],
-      {} // disable swap
     );
     const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(deployer, p, controller);
 
@@ -506,8 +507,8 @@ export class BorrowRepayUsesCase {
     );
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
+      {networkId: POLYGON_NETWORK_ID}, // disable swap
       [fabric],
-      {} // disable swap
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
@@ -600,8 +601,8 @@ export class BorrowRepayUsesCase {
   ) : Promise<IMakeTwoBorrowsTwoRepaysResults> {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
+        {networkId: POLYGON_NETWORK_ID}, // disable swap
       [fabric],
-      {} // disable swap
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);

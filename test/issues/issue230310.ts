@@ -125,10 +125,11 @@ describe.skip("issue230310 (problem happens if mine interval > 1", () => {
     const signer = (await ethers.getSigners())[0];
     const {controller} = await TetuConverterApp.buildApp(
       signer,
-      [new Aave3PlatformFabric()],
       {
+        networkId: POLYGON_NETWORK_ID,
         tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
-      }
+      },
+      [new Aave3PlatformFabric()],
     );
 
     const converter = TetuConverter__factory.connect(await controller.tetuConverter(), signer);

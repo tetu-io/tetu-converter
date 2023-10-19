@@ -1,6 +1,6 @@
 import {
-  DeploySolutionUtils
-} from "./DeploySolutionUtils";
+  BaseDeploySolutionUtils
+} from "./BaseDeploySolutionUtils";
 import {ethers, network} from "hardhat";
 import {DeployerUtils} from "../../../utils/DeployerUtils";
 
@@ -13,8 +13,8 @@ import {DeployerUtils} from "../../../utils/DeployerUtils";
  * Set required network in .env, i.e.
  *      APP_HARDHAT_CHAIN_ID=137
  * and run one of the following commands to run the script on stand-alone hardhat:
- *      npx hardhat run scripts/deploy/DeploySolution.ts
- *      npx hardhat run --network localhost scripts/deploy/DeploySolution.ts
+ *      npx hardhat run scripts/chains/base/deploy/DeploySolution.ts
+ *      npx hardhat run --network localhost scripts/chains/base/deploy/DeploySolution.ts
  */
 async function main() {
   const net = await ethers.provider.getNetwork();
@@ -30,9 +30,8 @@ async function main() {
   }
 
   // https://docs.gelato.network/developer-services/automate/contract-addresses#polygon-matic
-  // Polygon / Matic, Automate
-  const gelatoOpsReady = "0x527a819db1eb0e34426297b03bae11F2f8B3A19E";
-  const proxyUpdater = "0x33b27e0a2506a4a2fbc213a01c51d0451745343a"; // tetu-contracts-v2 controller
+  const gelatoOpsReady = "0x527a819db1eb0e34426297b03bae11F2f8B3A19E"; // todo
+  const proxyUpdater = "0x33b27e0a2506a4a2fbc213a01c51d0451745343a"; // todo tetu-contracts-v2 controller
 
   const signer = localHardhatIsInUse
     ? await DeployerUtils.startImpersonate(
@@ -41,7 +40,7 @@ async function main() {
 
   console.log("signer", signer.address);
 
-  await DeploySolutionUtils.runMain(
+  await BaseDeploySolutionUtils.runMain(
     signer,
     gelatoOpsReady,
     proxyUpdater,

@@ -35,16 +35,17 @@ describe.skip("Run real work emulator @skip-on-coverage", () => {
 
     const {controller, pools} = await TetuConverterApp.buildApp(
       deployer,
-    [
+      {
+        networkId: POLYGON_NETWORK_ID,
+        tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR,
+        priceOracleFabric: async () => priceOracleAave3.address
+      },
+      [
         new Aave3PlatformFabric(),
         new AaveTwoPlatformFabric(),
         new DForcePlatformFabric(),
         //new HundredFinancePlatformFabric(),
       ],
-      {
-        tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR,
-        priceOracleFabric: async () => priceOracleAave3.address
-      }
     );
     const contractAddresses = new Map<string, string>([
       ["aave3:platformAdapter", pools[0].platformAdapter],

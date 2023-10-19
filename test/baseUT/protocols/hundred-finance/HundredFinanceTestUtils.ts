@@ -34,6 +34,7 @@ import {IConversionPlan} from "../../types/AppDataTypes";
 import {TetuConverterApp} from "../../app/TetuConverterApp";
 import {MocksHelper} from "../../app/MocksHelper";
 import {AdaptersHelper} from "../../app/AdaptersHelper";
+import {POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -147,7 +148,7 @@ export class HundredFinanceTestUtils {
     const periodInBlocks = 1000;
 
     // controller, dm, bm
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 

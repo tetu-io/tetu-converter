@@ -45,8 +45,8 @@ describe("BorrowRepayTest", () => {
 
     const r = await TetuConverterApp.buildApp(
       signer,
+      {networkId: POLYGON_NETWORK_ID}, // disable swap
       [new Aave3PlatformFabric()],
-      {} // disable swap
     );
     const governance = await Misc.impersonate(await r.controller.governance());
     controllerAsGov = ConverterController__factory.connect(r.controller.address, governance);

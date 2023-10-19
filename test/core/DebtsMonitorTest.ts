@@ -137,7 +137,7 @@ describe("DebtsMonitor", () => {
   }>{
     const periodInBlocks = 117;
 
-    const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+    const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
     const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
       core,
       deployer,
@@ -642,6 +642,7 @@ describe("DebtsMonitor", () => {
     async function makeConstructorTest(p?: IMakeConstructorTestParams): Promise<{ret: string, expected: string}> {
       const controller = await TetuConverterApp.createController(
         deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           debtMonitorFabric: {
             deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
             init: async (c, instance) => {
@@ -1866,6 +1867,7 @@ describe("DebtsMonitor", () => {
     it("should emit expected events", async () => {
       const controller = await TetuConverterApp.createController(
         deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           borrowManagerFabric: {deploy: async () => (await MocksHelper.createBorrowManagerStub(deployer, true)).address},
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: {

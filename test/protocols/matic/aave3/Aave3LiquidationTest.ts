@@ -58,7 +58,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
    * no platform adapters and no assets are registered.
    */
   async function createControllerDefaultFixture() : Promise<ConverterController> {
-    return  TetuConverterApp.createController(deployer);
+    return  TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   }
 //endregion Initial fixtures
 

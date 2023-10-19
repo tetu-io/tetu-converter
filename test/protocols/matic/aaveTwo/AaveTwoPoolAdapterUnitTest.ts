@@ -78,7 +78,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
    * no platform adapters and no assets are registered.
    */
   async function createControllerDefault() : Promise<ConverterController> {
-    return  TetuConverterApp.createController(deployer);
+    return  TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   }
 //endregion Initial fixtures
 
@@ -1602,7 +1602,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const poolAdapter = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
 
@@ -1809,7 +1809,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         const collateralAsset = MaticAddresses.DAI;
         const borrowAsset = MaticAddresses.WMATIC;
 
-        const controller = await TetuConverterApp.createController(deployer);
+        const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
         const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);
         await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
@@ -1885,7 +1885,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
         const collateralAmount = parseUnits("1000", collateralToken.decimals);
 
-        const controller = await TetuConverterApp.createController(deployer);
+        const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
         const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);
         await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 

@@ -13,6 +13,7 @@ import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../app/TetuConverterApp";
 import {ILendingPlatformFabric} from "../../logic/fabrics/ILendingPlatformFabric";
 import {MocksHelper} from "../../app/MocksHelper";
+import {POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 
 //region Make borrow
 /**
@@ -34,14 +35,15 @@ export async function makeBorrow (
   console.log("makeBorrow:", p, amountToBorrow);
   const {controller} = await TetuConverterApp.buildApp(
     deployer,
-    [fabric],
     {
+      networkId: POLYGON_NETWORK_ID,
       swapManagerFabric: {
         deploy: async () => (await MocksHelper.createSwapManagerMock(deployer)).address,
         init: async (controller, instance) => {},
       },
       tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
-    }
+    },
+    [fabric],
   );
   const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
   await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);

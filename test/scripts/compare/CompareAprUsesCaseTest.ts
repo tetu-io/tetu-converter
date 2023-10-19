@@ -261,8 +261,8 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   async function makeTestSwap(countBlocks: number, tasks: IBorrowTask[]): Promise<ISwapTestResults[]> {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
+      {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR},
       undefined,
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
     );
 
     const swapManager = SwapManager__factory.connect(await controller.swapManager(), deployer);
@@ -275,7 +275,7 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   }
 
   async function makeTestAave3(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const templateAdapterStub = ethers.Wallet.createRandom().address;
     const core = MaticCore.getCoreAave3();
 
@@ -301,7 +301,7 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   }
 
   async function makeTestAaveTwo(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
@@ -325,7 +325,7 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   }
 
   async function makeTestDForce(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
@@ -367,7 +367,7 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   }
 
   async function makeTestHundredFinance(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(

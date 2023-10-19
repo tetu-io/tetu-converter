@@ -110,7 +110,7 @@ describe("Compound3PoolAdapterUnitTest", () => {
 
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const poolAdapter = await AdaptersHelper.createCompound3PoolAdapter(deployer);
 

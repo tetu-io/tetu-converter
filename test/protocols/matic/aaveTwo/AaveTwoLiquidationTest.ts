@@ -41,7 +41,7 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    converterController = await TetuConverterApp.createController(deployer);
+    converterController = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
 
     init = await AaveTwoTestUtils.prepareToLiquidation(
       deployer,

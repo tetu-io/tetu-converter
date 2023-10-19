@@ -117,12 +117,12 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
       // setup TetuConverter app
       const {controller} = await TetuConverterApp.buildApp(
         deployer,
+        {networkId: POLYGON_NETWORK_ID}, // disable swap
         [
           params?.useAaveTwo
             ? new AaveTwoPlatformFabric()
             : new Aave3PlatformFabric()
         ],
-        {} // disable swap
       );
       const p = {
         collateral: {

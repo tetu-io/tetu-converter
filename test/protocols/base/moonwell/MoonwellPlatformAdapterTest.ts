@@ -10,7 +10,7 @@ import {
   MoonwellPlatformAdapter__factory,
   IERC20Metadata__factory,
   BorrowManager__factory,
-  IMToken__factory
+  IMToken__factory, TetuLiquidatorMock__factory
 } from "../../../../typechain";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
@@ -30,13 +30,15 @@ import {
 } from "../../../baseUT/protocols/moonwell/MoonwellPlatformAdapterUtils";
 import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
 import {MoonwellUtils} from "../../../baseUT/protocols/moonwell/MoonwellUtils";
-import {defaultAbiCoder, formatUnits} from "ethers/lib/utils";
+import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {BigNumber} from "ethers";
 import {GAS_LIMIT_MOONWELL_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
 import {generateAssetPairs} from "../../../baseUT/utils/AssetPairUtils";
 import {IPredictBrParams, IPredictBrResults, PredictBrUsesCase} from "../../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {MoonwellPlatformActor} from "../../../baseUT/protocols/moonwell/MoonwellPlatformActor";
+import {InjectUtils} from "../../../baseUT/chains/base/InjectUtils";
+import Base = Mocha.reporters.Base;
 
 describe("MoonwellPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -60,7 +62,7 @@ describe("MoonwellPlatformAdapterTest", () => {
     const signers = await ethers.getSigners();
     signer = signers[0];
 
-    converterController  = await TetuConverterApp.createController(signer,);
+    converterController  = await TetuConverterApp.createController(signer, {networkId: BASE_NETWORK_ID,});
     comptroller = await MoonwellHelper.getComptroller(signer);
     priceOracle = await MoonwellHelper.getPriceOracle(signer);
     facadeAprLib = await DeployUtils.deployContract(signer, "CompoundAprLibFacade") as CompoundAprLibFacade;

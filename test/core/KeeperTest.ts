@@ -66,6 +66,7 @@ describe("KeeperTest", () => {
     const controller: ConverterController = await TetuConverterApp.createController(
       signer,
       {
+        networkId: HARDHAT_NETWORK_ID,
         tetuConverterFabric: {
           deploy: async () => (await MocksHelper.createKeeperCallbackMock(signer)).address,
         },
@@ -511,6 +512,7 @@ describe("KeeperTest", () => {
       const controller = await TetuConverterApp.createController(
         deployer,
         {
+          networkId: HARDHAT_NETWORK_ID,
           keeperFabric: {
             deploy: async () => CoreContractsHelper.deployKeeper(deployer),
             init: async (c, instance) => {await CoreContractsHelper.initializeKeeper(
@@ -543,7 +545,7 @@ describe("KeeperTest", () => {
 
     describe("Good paths", () => {
       it("should create keeper successfully", async () => {
-        const controller = await TetuConverterApp.createController(deployer);
+        const controller = await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,});
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
         const ret = await keeper.controller();
@@ -553,6 +555,7 @@ describe("KeeperTest", () => {
         it("should set zero period (auto-update checking is disabled)", async () => {
           const controller = await TetuConverterApp.createController(
             deployer, {
+              networkId: HARDHAT_NETWORK_ID,
               blocksPerDayAutoUpdatePeriodSec: 0 // auto-update checking is disabled
             }
           );
@@ -564,6 +567,7 @@ describe("KeeperTest", () => {
         it("should set not zero period (auto-update checking is disabled)", async () => {
           const controller = await TetuConverterApp.createController(
             deployer, {
+              networkId: HARDHAT_NETWORK_ID,
               blocksPerDayAutoUpdatePeriodSec: 7 * 24 * 60 * 60 // 1 week
             }
           );
@@ -595,7 +599,7 @@ describe("KeeperTest", () => {
         const governance = deployer;
         const controller = await TetuConverterApp.createController(
           governance,
-          {blocksPerDayAutoUpdatePeriodSec: 1}
+          {networkId: HARDHAT_NETWORK_ID,blocksPerDayAutoUpdatePeriodSec: 1}
         );
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
         const before = await keeper.blocksPerDayAutoUpdatePeriodSec();
@@ -609,7 +613,7 @@ describe("KeeperTest", () => {
         const governance = deployer;
         const controller = await TetuConverterApp.createController(
           governance,
-          {blocksPerDayAutoUpdatePeriodSec: 1}
+          {networkId: HARDHAT_NETWORK_ID, blocksPerDayAutoUpdatePeriodSec: 1}
         );
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
         const before = await keeper.blocksPerDayAutoUpdatePeriodSec();
@@ -622,7 +626,7 @@ describe("KeeperTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if not governance", async () => {
-        const controller = await TetuConverterApp.createController(deployer);
+        const controller = await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,});
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
         await expect(
@@ -670,7 +674,7 @@ describe("KeeperTest", () => {
         const governance = deployer;
         const controller = await TetuConverterApp.createController(
           governance,
-          {blocksPerDayAutoUpdatePeriodSec: 1}
+          {networkId: HARDHAT_NETWORK_ID, blocksPerDayAutoUpdatePeriodSec: 1}
         );
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
         const before = await keeper.operators(operator);
@@ -685,7 +689,7 @@ describe("KeeperTest", () => {
         const operator = ethers.Wallet.createRandom().address;
         const controller = await TetuConverterApp.createController(
           deployer,
-          {blocksPerDayAutoUpdatePeriodSec: 1}
+          {networkId: HARDHAT_NETWORK_ID, blocksPerDayAutoUpdatePeriodSec: 1}
         );
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
         await expect(

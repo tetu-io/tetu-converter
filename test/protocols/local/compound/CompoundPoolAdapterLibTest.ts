@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {HARDHAT_NETWORK_ID, HardhatUtils, } from "../../../../scripts/utils/HardhatUtils";
+import {HARDHAT_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID,} from "../../../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
@@ -84,6 +84,7 @@ describe("CompoundPoolAdapterLibTest", () => {
     priceOracle = await MocksHelper.createCompoundPriceOracle(signer);
 
     controller = await TetuConverterApp.createController(signer, {
+      networkId: POLYGON_NETWORK_ID,
       debtMonitorFabric: {
         deploy: async () => debtMonitor.address,
         init: async (controller, instance) => {

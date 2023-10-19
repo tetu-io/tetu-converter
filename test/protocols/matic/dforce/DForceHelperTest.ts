@@ -75,7 +75,7 @@ describe("DForceHelper tests", () => {
     // use DForce-platform adapter to predict amount of rewards
     const controller = await TetuConverterApp.createController(
       deployer,
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
     );
     const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 
@@ -133,7 +133,7 @@ describe("DForceHelper tests", () => {
     // use DForce-platform adapter to predict amount of rewards
     const controller = await TetuConverterApp.createController(
       deployer,
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
     );
     const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 

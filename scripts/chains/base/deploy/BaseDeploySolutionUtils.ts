@@ -13,10 +13,10 @@ import {
 import {appendFileSync} from "fs";
 import {ethers, network} from "hardhat";
 import {Misc} from "../../../utils/Misc";
-import {MaticAddresses} from "../../../addresses/MaticAddresses";
 import {writeFileSyncRestoreFolder} from "../../../../test/baseUT/utils/FileUtils";
 import {CoreContractsHelper} from "../../../../test/baseUT/app/CoreContractsHelper";
 import {AdaptersHelper} from "../../../../test/baseUT/app/AdaptersHelper";
+import {BaseAddresses} from "../../../addresses/BaseAddresses";
 
 //region Data types
 export interface IControllerSetupParams {
@@ -87,7 +87,7 @@ export interface ITargetHealthFactorValue {
 
 const GAS_DEPLOY_LIMIT = 8_000_000;
 
-export class DeploySolutionUtils {
+export class BaseDeploySolutionUtils {
 //region Main script
   static async runMain(
     signer: SignerWithAddress,
@@ -99,7 +99,7 @@ export class DeploySolutionUtils {
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     /// Initial settings
     const destPathTxt = "tmp/deployed.txt";
-    const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
+    const tetuLiquidatorAddress = BaseAddresses.TETU_LIQUIDATOR;
     const controllerSetupParams: IControllerSetupParams = {
       blocksPerDay: 41142,
       minHealthFactor2: 105,
@@ -114,110 +114,31 @@ export class DeploySolutionUtils {
     }
 
     const targetHealthFactorsAssets = [
-      MaticAddresses.USDC,
-      MaticAddresses.USDT,
-      MaticAddresses.DAI,
-      MaticAddresses.EURS,
-      MaticAddresses.jEUR,
-      MaticAddresses.WETH,
-      MaticAddresses.WMATIC,
-      MaticAddresses.WBTC
+      BaseAddresses.USDC,
+      BaseAddresses.USDDbC,
+      BaseAddresses.DAI,
+      BaseAddresses.WETH,
     ];
     const targetHealthFactorsValues = [
       115, // MaticAddresses.USDC,
-      115, // MaticAddresses.USDT,
+      115, // MaticAddresses.USDDbC,
       115, // MaticAddresses.DAI,
-      115, // MaticAddresses.EURS,
-      200, // MaticAddresses.jEUR,
       200, // MaticAddresses.WETH,
-      200, // MaticAddresses.WMATIC,
-      200, // MaticAddresses.WBTC
     ];
 
-    const deployAave3 = true;
-    const aave3Pool = MaticAddresses.AAVE_V3_POOL;
-    const aave3AssetPairs = DeploySolutionUtils.generateAssetPairs([
-      MaticAddresses.USDC,
-      MaticAddresses.USDT,
-      MaticAddresses.DAI,
-      // MaticAddresses.EURS,
-      // MaticAddresses.jEUR,
-      MaticAddresses.WETH,
-      MaticAddresses.WMATIC,
-      MaticAddresses.WBTC,
-      MaticAddresses.MaticX,
-      MaticAddresses.stMATIC,
-      MaticAddresses.miMATIC
-    ]);
-
-    const deployAaveTwo = true;
-    const aaveTwoPool = MaticAddresses.AAVE_TWO_POOL;
-    const aaveTwoPairs = DeploySolutionUtils.generateAssetPairs([
-      MaticAddresses.USDC,
-      MaticAddresses.USDT,
-      MaticAddresses.DAI,
-      MaticAddresses.WMATIC,
-      MaticAddresses.WETH,
-      MaticAddresses.WBTC
-    ]);
-
-    const deployDForce = true;
-    const dForceComptroller = MaticAddresses.DFORCE_CONTROLLER;
-    const dForceCTokens = [
-      MaticAddresses.dForce_iDAI,
-      MaticAddresses.dForce_iMATIC,
-      MaticAddresses.dForce_iUSDC,
-      MaticAddresses.dForce_iWETH,
-      MaticAddresses.dForce_iUSDT,
-      MaticAddresses.dForce_iWBTC,
-      // MaticAddresses.dForce_iEUX,
-      MaticAddresses.dForce_iUSX,
-      // MaticAddresses.dForce_iDF,
-      // MaticAddresses.dForce_iAAVE,
-      // MaticAddresses.dForce_iCRV
+    const deployMoonwell = true;
+    const moonwellComptroller = BaseAddresses.MOONWELL_COMPTROLLER;
+    const moonwellCTokens = [
+      BaseAddresses.MOONWELL_USDC,
+      BaseAddresses.MOONWELL_USDBC,
+      BaseAddresses.MOONWELL_DAI,
+      BaseAddresses.MOONWELL_WETH,
     ];
-    const dForcePairs = DeploySolutionUtils.generateAssetPairs([
-      MaticAddresses.USDC,
-      MaticAddresses.USDT,
-      MaticAddresses.DAI,
-      MaticAddresses.WMATIC,
-      MaticAddresses.WETH,
-      MaticAddresses.WBTC,
-      MaticAddresses.dForce_USD
-    ]);
-
-    const deployHundredFinance = false; // disabled, HF is not profitable anymore
-    const hundredFinanceComptroller = MaticAddresses.HUNDRED_FINANCE_COMPTROLLER;
-    const hundredFinanceCTokens = [
-      MaticAddresses.hDAI,
-      MaticAddresses.hMATIC,
-      MaticAddresses.hUSDC,
-      MaticAddresses.hETH,
-      MaticAddresses.hUSDT,
-      MaticAddresses.hWBTC,
-      // MaticAddresses.hLINK,
-      // MaticAddresses.hFRAX,
-    ];
-    const hundredFinancePairs = DeploySolutionUtils.generateAssetPairs([
-      MaticAddresses.USDC,
-      MaticAddresses.USDT,
-      MaticAddresses.DAI,
-      MaticAddresses.WMATIC,
-      MaticAddresses.WETH,
-      MaticAddresses.WBTC,
-    ]);
-
-
-    const deployCompound3 = true;
-    const compound3Rewards = MaticAddresses.COMPOUND3_COMET_REWARDS;
-    const compound3Comets = [
-      MaticAddresses.COMPOUND3_COMET_USDC,
-    ];
-    const compound3Pairs = DeploySolutionUtils.generateAssetPairs([
-      MaticAddresses.USDC,
-      MaticAddresses.WMATIC,
-      MaticAddresses.WETH,
-      MaticAddresses.WBTC,
+    const hundredFinancePairs = BaseDeploySolutionUtils.generateAssetPairs([
+      BaseAddresses.USDC,
+      BaseAddresses.USDDbC,
+      BaseAddresses.DAI,
+      BaseAddresses.WETH,
     ]);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -226,7 +147,7 @@ export class DeploySolutionUtils {
 
     console.log("Deploy contracts");
     // Deploy all core contracts
-    const deployCoreResults = await DeploySolutionUtils.deployCoreContracts(
+    const deployCoreResults = await BaseDeploySolutionUtils.deployCoreContracts(
       signer,
       proxyUpdater,
       gelatoOpsReady,
@@ -242,95 +163,26 @@ export class DeploySolutionUtils {
     const deployedPlatformAdapters: IPlatformAdapterResult[] = [];
 
     // Deploy all Platform adapters and pool adapters
-    const platformAdapterAave3 = deployAave3
-      ? await DeploySolutionUtils.createPlatformAdapterAAVE3(signer,
+    const platformAdapterHundredFinance = deployMoonwell
+      ? await BaseDeploySolutionUtils.createPlatformAdapterHundredFinance(signer,
         deployCoreResults.controller,
-        aave3Pool
-      )
-      : undefined;
-    if (platformAdapterAave3) {
-      console.log("Register platform adapter AAVE3");
-      deployedPlatformAdapters.push(platformAdapterAave3);
-
-      await DeploySolutionUtils.registerPlatformAdapter(
-        borrowManager,
-        platformAdapterAave3.platformAdapterAddress,
-        aave3AssetPairs
-      );
-    }
-
-    const platformAdapterAaveTwo = deployAaveTwo
-      ? await DeploySolutionUtils.createPlatformAdapterAAVETwo(signer,
-        deployCoreResults.controller,
-        aaveTwoPool
-      )
-      : undefined;
-    if (platformAdapterAaveTwo) {
-      console.log("Register platform adapter AAVE2");
-      deployedPlatformAdapters.push(platformAdapterAaveTwo);
-      await DeploySolutionUtils.registerPlatformAdapter(
-        borrowManager,
-        platformAdapterAaveTwo.platformAdapterAddress,
-        aaveTwoPairs
-      );
-    }
-
-    const platformAdapterDForce = deployDForce
-      ? await DeploySolutionUtils.createPlatformAdapterDForce(signer,
-        deployCoreResults.controller,
-        dForceComptroller,
-        dForceCTokens
-      )
-      : undefined;
-    if (platformAdapterDForce) {
-      console.log("Register platform adapter DForce");
-      deployedPlatformAdapters.push(platformAdapterDForce);
-      await DeploySolutionUtils.registerPlatformAdapter(
-        borrowManager,
-        platformAdapterDForce.platformAdapterAddress,
-        dForcePairs
-      );
-    }
-
-    const platformAdapterHundredFinance = deployHundredFinance
-      ? await DeploySolutionUtils.createPlatformAdapterHundredFinance(signer,
-        deployCoreResults.controller,
-        hundredFinanceComptroller,
-        hundredFinanceCTokens,
+        moonwellComptroller,
+        moonwellCTokens,
       )
       : undefined;
     if (platformAdapterHundredFinance) {
       console.log("Register platform adapter HundredFinance");
       deployedPlatformAdapters.push(platformAdapterHundredFinance);
-      await DeploySolutionUtils.registerPlatformAdapter(
+      await BaseDeploySolutionUtils.registerPlatformAdapter(
         borrowManager,
         platformAdapterHundredFinance.platformAdapterAddress,
         hundredFinancePairs
       );
     }
 
-
-    const platformAdapterCompound3 = deployCompound3
-      ? await DeploySolutionUtils.createPlatformAdapterCompound3(
-        signer,
-        deployCoreResults.controller,
-        compound3Comets,
-        compound3Rewards,
-        borrowManager.address
-      )
-      : undefined;
-    if (platformAdapterCompound3) {
-      console.log("Register platform adapter Compound3");
-      deployedPlatformAdapters.push(platformAdapterCompound3);
-      await DeploySolutionUtils.registerPlatformAdapter(
-        borrowManager,
-        platformAdapterCompound3.platformAdapterAddress,
-        compound3Pairs
-      );
-    }
-
     console.log("setTargetHealthFactors");
     // set target health factors
+    // todo const txParam = await txParams2();
     await RunHelper.runAndWait(
       () =>  borrowManager.setTargetHealthFactors(
         targetHealthFactorsAssets,
@@ -341,7 +193,7 @@ export class DeploySolutionUtils {
 
     console.log("write results to file");
     // save deploy results to file
-    await DeploySolutionUtils.writeResultsToFile(
+    await BaseDeploySolutionUtils.writeResultsToFile(
       destPathTxt,
       deployCoreResults,
       deployedPlatformAdapters,
@@ -364,7 +216,7 @@ export class DeploySolutionUtils {
     keeperSetupParams: IKeeperSetupParams,
     alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
-    const priceOracle = alreadyDeployed?.priceOracle || (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address;
+    const priceOracle = alreadyDeployed?.priceOracle || (await CoreContractsHelper.createPriceOracleMoonwell(deployer, BaseAddresses.MOONWELL_CHAINLINK_ORACLE)).address;
     console.log("Result PriceOracle: ", priceOracle);
 
     const controllerAddress = alreadyDeployed?.controller || await CoreContractsHelper.deployController(deployer);

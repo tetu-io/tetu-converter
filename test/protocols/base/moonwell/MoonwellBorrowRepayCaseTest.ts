@@ -7,7 +7,7 @@ import {
   IMoonwellPriceOracle,
   MoonwellPlatformAdapter
 } from "../../../../typechain";
-import {BASE_NETWORK_ID, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
+import {BASE_NETWORK_ID, HARDHAT_NETWORK_ID, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
@@ -38,7 +38,7 @@ describe("MoonwellBorrowRepayCaseTest", () => {
     const signers = await ethers.getSigners();
     signer = signers[0];
 
-    converterController = await TetuConverterApp.createController(signer,);
+    converterController = await TetuConverterApp.createController(signer, {networkId: BASE_NETWORK_ID,});
     comptroller = await MoonwellHelper.getComptroller(signer);
 
     poolAdapterTemplate = (await AdaptersHelper.createMoonwellPoolAdapter(signer)).address;

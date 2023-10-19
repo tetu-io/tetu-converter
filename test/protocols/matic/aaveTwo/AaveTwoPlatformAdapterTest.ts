@@ -82,7 +82,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
     ) : Promise<{data: IContractsSet, platformAdapter: AaveTwoPlatformAdapter}> {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
@@ -145,7 +145,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -932,7 +932,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -1022,7 +1022,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
       const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
 
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
       const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
         deployer,
@@ -1059,7 +1059,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
     describe("Good paths", () => {
       it("should assign expected value to frozen", async () => {
         const controller = await TetuConverterApp.createController(deployer,
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
 
         const aavePool = await AaveTwoHelper.getAavePool(deployer);
@@ -1086,7 +1086,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       it("should assign expected value to frozen", async () => {
         const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
           deployer,
-          (await TetuConverterApp.createController(deployer)).address,
+          (await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,})).address,
           (await AaveTwoHelper.getAavePool(deployer)).address,
           ethers.Wallet.createRandom().address,
         );
@@ -1100,7 +1100,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
 
       const pa = await AdaptersHelper.createAaveTwoPlatformAdapter(
         deployer,

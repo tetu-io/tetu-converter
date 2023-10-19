@@ -116,6 +116,7 @@ describe("BorrowManager", () => {
     return TetuConverterApp.createController(
       signer,
       {
+        networkId: HARDHAT_NETWORK_ID,
         borrowManagerFabric: {
           deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
           init: async (c, instance) => {
@@ -269,7 +270,7 @@ describe("BorrowManager", () => {
     periodInBlocks: number,
     params?: IMakeTestFindConverterParams
   ) : Promise<IMakeTestFindConverterResults> {
-    const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+    const core = await CoreContracts.build(await TetuConverterApp.createController(signer, {networkId: HARDHAT_NETWORK_ID,}));
     const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
     if (params?.targetHealthFactor) {
@@ -355,7 +356,7 @@ describe("BorrowManager", () => {
     };
 
     // initialize app
-    const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+    const core = await CoreContracts.build(await TetuConverterApp.createController(signer, {networkId: HARDHAT_NETWORK_ID,}));
     const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, p);
 
     await core.bm.setRewardsFactor(rewardsFactor);
@@ -471,7 +472,7 @@ describe("BorrowManager", () => {
       ]
     };
 
-    const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+    const core = await CoreContracts.build(await TetuConverterApp.createController(signer, {networkId: HARDHAT_NETWORK_ID,}));
     const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
     const tc = ITetuConverter__factory.connect(await core.controller.tetuConverter(), signer);
@@ -528,6 +529,7 @@ describe("BorrowManager", () => {
       const controller = await TetuConverterApp.createController(
         signer,
         {
+          networkId: HARDHAT_NETWORK_ID,
           borrowManagerFabric: {
             deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
             init: async (c, instance) => {await CoreContractsHelper.initializeBorrowManager(
@@ -1510,7 +1512,7 @@ describe("BorrowManager", () => {
         it("should create and initialize an instance of the converter contract", async () => {
           // create borrow manager (BM) with single pool
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+          const core = await CoreContracts.build(await TetuConverterApp.createController(signer, {networkId: HARDHAT_NETWORK_ID,}));
           const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           // register pool adapter
@@ -1589,7 +1591,7 @@ describe("BorrowManager", () => {
       describe("Wrong converter address", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+          const core = await CoreContracts.build(await TetuConverterApp.createController(signer, {networkId: HARDHAT_NETWORK_ID,}));
           const {sourceToken, targetToken} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           const bmAsTc = IBorrowManager__factory.connect(
@@ -1609,7 +1611,7 @@ describe("BorrowManager", () => {
       describe("Not TetuConverter", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+          const core = await CoreContracts.build(await TetuConverterApp.createController(signer, {networkId: HARDHAT_NETWORK_ID,}));
           const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           const bmAsNotTc = IBorrowManager__factory.connect(core.bm.address, signer);
@@ -1989,6 +1991,7 @@ describe("BorrowManager", () => {
     it("should emit expected events (check all except OnRemoveAssetPairs)", async () => {
       const controller = await TetuConverterApp.createController(
         signer, {
+          networkId: HARDHAT_NETWORK_ID,
           borrowManagerFabric: {
             deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
             init: async (c, instance) => {
@@ -2044,6 +2047,7 @@ describe("BorrowManager", () => {
     it("should emit expected events", async () => {
       const controller = await TetuConverterApp.createController(
         signer, {
+          networkId: HARDHAT_NETWORK_ID,
           borrowManagerFabric: {
             deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
             init: async (c, instance) => {

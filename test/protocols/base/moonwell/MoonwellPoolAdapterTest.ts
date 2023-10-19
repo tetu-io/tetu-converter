@@ -6,7 +6,7 @@ import {
   IERC20__factory, IERC20Metadata,
   IERC20Metadata__factory,
   IMoonwellComptroller,
-  IMoonwellPriceOracle,
+  IMoonwellPriceOracle, ITetuLiquidator__factory,
   MoonwellPlatformAdapter,
   MoonwellPoolAdapter,
   MoonwellPoolAdapter__factory,
@@ -35,6 +35,7 @@ import {generateAssetPairs} from "../../../baseUT/utils/AssetPairUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {BigNumber} from "ethers";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
+import {InjectUtils} from "../../../baseUT/chains/base/InjectUtils";
 
 describe("MoonwellPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -62,9 +63,11 @@ describe("MoonwellPlatformAdapterTest", () => {
     tetuConverterReplacer = await DeployUtils.deployContract(signer, "TetuConverterReplacer") as TetuConverterReplacer;
     converterController = await TetuConverterApp.createController(
       signer, {
+        networkId: BASE_NETWORK_ID,
         tetuConverterFabric: {
           deploy: async () => tetuConverterReplacer.address,
         },
+        tetuLiquidatorAddress: BaseAddresses.TETU_LIQUIDATOR
       }
     );
     comptroller = await MoonwellHelper.getComptroller(signer);
@@ -1035,6 +1038,12 @@ describe("MoonwellPlatformAdapterTest", () => {
     }
 
     async function claimRewards(p: IParams): Promise<IResults> {
+      await InjectUtils.registerWethWellPoolInLiquidator(signer);
+      const liquidator = await ITetuLiquidator__factory.connect(BaseAddresses.TETU_LIQUIDATOR, signer);
+      const test = await liquidator.getPrice(BaseAddresses.WELL, BaseAddresses.USDC, BigNumber.from("65147450812097255374"));
+      console.log("test", test);
+
+
       const receiver = ethers.Wallet.createRandom().address;
       const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
 
@@ -1096,7 +1105,7 @@ describe("MoonwellPlatformAdapterTest", () => {
           collateralAsset: BaseAddresses.DAI,
           borrowAsset: BaseAddresses.USDC,
           collateralAmount: "1234",
-          countBlocksBeforeClaimingRewards: 10_000,
+          countBlocksBeforeClaimingRewards: 50_000,
         });
         console.log(ret);
         const ret2 = await claimRewards({
@@ -1120,6 +1129,49 @@ describe("MoonwellPlatformAdapterTest", () => {
         expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
       });
     });
+    describe("temp test", () => {
+      it("todo", async () => {
+        await InjectUtils.registerWethWellPoolInLiquidator(signer);
+        const assets = [
+          BaseAddresses.WETH,
+          BaseAddresses.USDC,
+          BaseAddresses.USDDbC,
+          BaseAddresses.DAI,
+        ]
+
+        const liquidator = await ITetuLiquidator__factory.connect(BaseAddresses.TETU_LIQUIDATOR, signer);
+        const well = IERC20Metadata__factory.connect(BaseAddresses.WELL, signer);
+        const decimalsWell = await well.decimals();
+
+        for (const asset of assets) {
+          const assetName = await IERC20Metadata__factory.connect(asset, signer).symbol();
+          const assetDecimals = await IERC20Metadata__factory.connect(asset, signer).decimals();
+          const source1 = parseUnits("1000", decimalsWell);
+          const fromWell = await liquidator.getPrice(BaseAddresses.WELL, asset, source1);
+          console.log(`well ${source1.toString()} => ${assetName} ${fromWell.toString()}`);
+
+          const source2 = parseUnits("1000", assetDecimals);
+          const toWell = await liquidator.getPrice(asset, BaseAddresses.WELL, source2);
+          console.log(`${assetName} ${source2.toString()}=> well ${toWell.toString()}`);
+        }
+
+        const sourceTest1 = BigNumber.from("65147450812097255374");
+        const test1 = await liquidator.getPrice(BaseAddresses.WELL, BaseAddresses.USDC, sourceTest1.toString());
+        console.log(`WELL ${sourceTest1.toString()} => USDC ${test1.toString()}`);
+
+        const sourceTest2 = BigNumber.from("33");
+        const test2 = await liquidator.getPrice(BaseAddresses.WELL, BaseAddresses.USDC, sourceTest2.toString());
+        console.log(`WELL ${sourceTest2.toString()} => USDC ${test2.toString()}`);
+
+        // const receiver = ethers.Wallet.createRandom().address;
+        // await BalanceUtils.getAmountFromHolder(BaseAddresses.WELL, BaseAddresses.HOLDER_WELL, receiver, parseUnits("1", 18));
+        // await IERC20Metadata__factory.connect(BaseAddresses.USDC, await Misc.impersonate(receiver)).approve(liquidator.address, Misc.MAX_UINT);
+        // await liquidator.connect(await Misc.impersonate(receiver)).liquidate(BaseAddresses.WELL, BaseAddresses.USDC, sourceTest2, 100_000);
+        // const balance = await IERC20Metadata__factory.connect(BaseAddresses.USDC, signer).balanceOf(receiver);
+        // console.log("balance", balance);
+      });
+    });
+
 //endregion Unit tests
   });
 

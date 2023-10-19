@@ -1232,8 +1232,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     describe("HundredFinance DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
         const {controller} = await TetuConverterApp.buildApp(deployer,
+          {networkId: POLYGON_NETWORK_ID,}, // disable swap
           [new HundredFinancePlatformFabric()],
-          {} // disable swap
         );
         const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(
           deployer,
@@ -1254,8 +1254,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     describe("DForce DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
         const {controller} = await TetuConverterApp.buildApp(deployer,
+            {networkId: POLYGON_NETWORK_ID,}, // disable swap
           [new DForcePlatformFabric()],
-          {} // disable swap
         );
         await DForceChangePriceUtils.setupPriceOracleMock(deployer, true);
         const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(
@@ -1277,8 +1277,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     describe("Swap DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
         const {controller} = await TetuConverterApp.buildApp(deployer,
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}, // disable swap
           [],
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR} // disable swap
         );
         await DForceChangePriceUtils.setupPriceOracleMock(deployer, true);
         const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(

@@ -7,6 +7,9 @@ import {
 import {CoreContracts} from "../types/CoreContracts";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {TetuConverterApp} from "./TetuConverterApp";
+import {CoreContractsHelper} from "./CoreContractsHelper";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {HARDHAT_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 export interface IPoolInfo {
     /** The length of array should be equal to the count of underlying */
@@ -166,7 +169,7 @@ export class BorrowManagerHelper {
         pools: IPoolInstanceInfo[],
     }>{
         // initialize app
-        const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+        const core = await CoreContracts.build(await TetuConverterApp.createController(signer, {networkId: HARDHAT_NETWORK_ID}));
 
         // create all platform adapters
         // and register all possible asset-pairs for each platform adapter in the borrow manager

@@ -41,7 +41,7 @@ describe("TetuLiquidatorSwapTest", () => {
     signer = signers[0];
 
     // Deploy all application contracts
-    controller = await TetuConverterApp.createController(signer, {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR});
+    controller = await TetuConverterApp.createController(signer, {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR});
 
     // Deploy SwapManager
     swapManager = SwapManager__factory.connect(await controller.swapManager(), signer) as SwapManager;

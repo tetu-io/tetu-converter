@@ -67,7 +67,7 @@ describe("DForcePoolAdapterUnitTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[1];
-    controllerInstance = await TetuConverterApp.createController(deployer);
+    controllerInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   });
 
   after(async function () {
@@ -1725,7 +1725,7 @@ describe("DForcePoolAdapterUnitTest", () => {
 
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
 
       const poolAdapter = await AdaptersHelper.createDForcePoolAdapter(deployer);

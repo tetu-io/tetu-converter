@@ -14,6 +14,7 @@ import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../app/TetuConverterApp";
 import {MocksHelper} from "../../app/MocksHelper";
+import {POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 
 export interface IMakeSwapTestResults {
   strategyToConvert: IStrategyToConvert;
@@ -39,10 +40,11 @@ export class AprSwap {
   ) : Promise<IMakeSwapTestResults> {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
-      undefined,// there are no registered lending platforms, only swap is possible
       {
+        networkId: POLYGON_NETWORK_ID,
         tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
-      }
+      },
+      undefined,// there are no registered lending platforms, only swap is possible
     );
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 4000);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);

@@ -306,7 +306,7 @@ describe("Compound3PlatformAdapterTest", () => {
     ): Promise<{ data: IContractsSet, platformAdapter: Compound3PlatformAdapter }> {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
@@ -367,7 +367,7 @@ describe("Compound3PlatformAdapterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       await addLiquidatorPath(
         MaticAddresses.TETU_LIQUIDATOR,
@@ -792,7 +792,7 @@ describe("Compound3PlatformAdapterTest", () => {
       it("incorrect asset", async () => {
         const controller = await TetuConverterApp.createController(
           deployer,
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
         const libFacade = await MocksHelper.getCompound3AprLibFacade(deployer);
 
@@ -808,7 +808,7 @@ describe("Compound3PlatformAdapterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -924,7 +924,7 @@ describe("Compound3PlatformAdapterTest", () => {
       it("should assign expected value to frozen", async () => {
         const controller = await TetuConverterApp.createController(
           deployer,
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
         const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
           deployer,
@@ -945,7 +945,7 @@ describe("Compound3PlatformAdapterTest", () => {
       it("should assign expected value to frozen", async () => {
         const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
           deployer,
-          (await TetuConverterApp.createController(deployer)).address,
+          (await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,})).address,
           ethers.Wallet.createRandom().address,
           [MaticAddresses.COMPOUND3_COMET_USDC],
           MaticAddresses.COMPOUND3_COMET_REWARDS
@@ -962,7 +962,7 @@ describe("Compound3PlatformAdapterTest", () => {
     it("add, remove comets", async () => {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
@@ -983,7 +983,7 @@ describe("Compound3PlatformAdapterTest", () => {
     it("should throw if the index is out of range", async () => {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
@@ -997,7 +997,7 @@ describe("Compound3PlatformAdapterTest", () => {
     it("should throw if not governance", async () => {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
@@ -1017,7 +1017,7 @@ describe("Compound3PlatformAdapterTest", () => {
     it("should throw if not governance", async () => {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
@@ -1035,7 +1035,7 @@ describe("Compound3PlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const pa = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
         controller.address,

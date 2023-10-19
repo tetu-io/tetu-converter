@@ -87,6 +87,7 @@ describe("SwapManager", () => {
     // Deploy all application contracts
     controller = await TetuConverterApp.createController(deployer,
       {
+        networkId: HARDHAT_NETWORK_ID,
         tetuLiquidatorAddress: liquidator.address,
         priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(
             deployer,
@@ -139,6 +140,7 @@ describe("SwapManager", () => {
       const controllerLocal = await TetuConverterApp.createController(
         deployer,
         {
+          networkId: HARDHAT_NETWORK_ID,
           borrowManagerFabric: TetuConverterApp.getRandomSet(),
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: TetuConverterApp.getRandomSet(),
@@ -632,6 +634,7 @@ describe("SwapManager", () => {
       )).address;
       const localController = await TetuConverterApp.createController(
         deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           borrowManagerFabric: TetuConverterApp.getRandomSet(),
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: TetuConverterApp.getRandomSet(),

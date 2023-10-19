@@ -1,4 +1,4 @@
-import {DeploySolutionUtils} from "../../../scripts/chains/polygon/deploy/DeploySolutionUtils";
+import {MaticDeploySolutionUtils} from "../../../scripts/chains/polygon/deploy/MaticDeploySolutionUtils";
 import {ethers} from "hardhat";
 import {IOps__factory} from "../../../typechain";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
@@ -18,7 +18,7 @@ describe("Run DeploySolution script under debugger @skip-on-coverage", () => {
       (await ethers.getSigners())[0]
     ).taskTreasury());
 
-    const r = await DeploySolutionUtils.runMain((await ethers.getSigners())[0], gelato, proxyUpdater);
+    const r = await MaticDeploySolutionUtils.runMain((await ethers.getSigners())[0], gelato, proxyUpdater);
     console.log(r);
   });
 });

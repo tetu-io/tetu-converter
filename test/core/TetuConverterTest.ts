@@ -226,7 +226,7 @@ describe("TetuConverterTest", () => {
   }
 
   async function buildCoreContracts(): Promise<CoreContracts> {
-    return CoreContracts.build(await TetuConverterApp.createController(deployer));
+    return CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
   }
 
 //endregion Initialization
@@ -498,6 +498,7 @@ describe("TetuConverterTest", () => {
       const controller = await TetuConverterApp.createController(
         deployer,
         {
+          networkId: HARDHAT_NETWORK_ID,
           tetuConverterFabric: {
             deploy: async () => CoreContractsHelper.deployTetuConverter(deployer),
             init: async (c, instance) => {await CoreContractsHelper.initializeTetuConverter(
@@ -575,6 +576,7 @@ describe("TetuConverterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         })
       );
@@ -955,6 +957,7 @@ describe("TetuConverterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         })
       );
@@ -1165,6 +1168,7 @@ describe("TetuConverterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         })
       );
@@ -1396,7 +1400,7 @@ describe("TetuConverterTest", () => {
 
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
-      core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
     });
     after(async function () {
       await TimeUtils.rollback(snapshotLocal);
@@ -1534,6 +1538,7 @@ describe("TetuConverterTest", () => {
         await TetuConverterApp.createController(
           deployer,
           {
+            networkId: HARDHAT_NETWORK_ID,
             swapManagerFabric: {
               deploy: async () => (await MocksHelper.createSwapManagerMock(deployer)).address
             }
@@ -1968,7 +1973,7 @@ describe("TetuConverterTest", () => {
       it("should not exceed gas threshold", async () => {
         const receiver = ethers.Wallet.createRandom().address;
 
-        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
         const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, {
           tetuAppSetupParams: {skipPreregistrationOfPoolAdapters: true}
         });
@@ -2019,7 +2024,7 @@ describe("TetuConverterTest", () => {
 
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
-      core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
     });
     after(async function () {
       await TimeUtils.rollback(snapshotLocal);
@@ -2180,7 +2185,7 @@ describe("TetuConverterTest", () => {
               const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
               const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
-              const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+              const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
               const {poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
                 await prepareContracts(core, tt);
               const poolInstance = poolInstances[0];
@@ -2275,6 +2280,7 @@ describe("TetuConverterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         })
       );
@@ -2912,7 +2918,7 @@ describe("TetuConverterTest", () => {
       it("should not exceed gas threshold", async () => {
         const receiver = ethers.Wallet.createRandom().address;
 
-        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
         const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, {
           tetuAppSetupParams: {skipPreregistrationOfPoolAdapters: true}
         });
@@ -3228,7 +3234,7 @@ describe("TetuConverterTest", () => {
 
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
-      core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
     });
     after(async function () {
       await TimeUtils.rollback(snapshotLocal);
@@ -3457,6 +3463,7 @@ describe("TetuConverterTest", () => {
         await TetuConverterApp.createController(
           deployer,
           {
+            networkId: HARDHAT_NETWORK_ID,
             debtMonitorFabric: {deploy: async () => (await MocksHelper.createDebtMonitorMock(deployer)).address}
           }
         )
@@ -3695,7 +3702,7 @@ describe("TetuConverterTest", () => {
 
     describe("Borrow, partial repay", () => {
       it("should emit expected events", async () => {
-        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
         const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
 
         await expect(
@@ -3742,7 +3749,7 @@ describe("TetuConverterTest", () => {
     describe("Borrow, repay too much", () => {
       describe("swap is not available, return un-paid amount", () => {
         it("should emit expected events", async () => {
-          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
           const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
 
           await expect(
@@ -3793,6 +3800,7 @@ describe("TetuConverterTest", () => {
       describe("swap is available, swap un-paid amount", () => {
         it("should emit expected events", async () => {
           const cp: ICreateControllerParams = {
+            networkId: HARDHAT_NETWORK_ID,
             priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
           };
           const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, cp));
@@ -3870,7 +3878,7 @@ describe("TetuConverterTest", () => {
     describe("Require repay", () => {
       describe("Rebalancing", () => {
         it("should emit expected events", async () => {
-          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
           const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
 
           await init.userContract.borrowExactAmount(
@@ -3913,7 +3921,7 @@ describe("TetuConverterTest", () => {
       });
       describe("Close liquidated position", () => {
         it("should emit expected events", async () => {
-          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
           const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, {usePoolAdapterStub: true});
 
           const tcAsKeeper = TetuConverter__factory.connect(
@@ -3948,7 +3956,7 @@ describe("TetuConverterTest", () => {
 
     describe("Claim rewards", () => {
       it("should emit expected events", async () => {
-        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
         const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
 
         await init.userContract.borrowExactAmount(
@@ -4024,7 +4032,7 @@ describe("TetuConverterTest", () => {
     describe("Good paths", () => {
       describe("The amount is approved by a user contract", () => {
         it("should return expected values", async () => {
-          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
           const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0);
           const r = await makeTestOnRequireAmountBySwapManager(init, ethers.Wallet.createRandom().address);
           expect(r.ret).eq(r.expected);
@@ -4032,7 +4040,7 @@ describe("TetuConverterTest", () => {
       });
       describe("The amount is approved by TetuConverter", () => {
         it("should return expected values", async () => {
-          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
           const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0);
           const r = await makeTestOnRequireAmountBySwapManager(init, init.core.tc.address);
           expect(r.ret).eq(r.expected);
@@ -4041,7 +4049,7 @@ describe("TetuConverterTest", () => {
     });
     describe("Bad paths", () => {
       it("revert if called by not swap manager", async () => {
-        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
         const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0);
         await expect(
           makeTestOnRequireAmountBySwapManager(init, init.core.tc.address, ethers.Wallet.createRandom().address)
@@ -4058,6 +4066,7 @@ describe("TetuConverterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         })
       );
@@ -4236,6 +4245,7 @@ describe("TetuConverterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         })
       );
@@ -4599,6 +4609,7 @@ describe("TetuConverterTest", () => {
         // initialize TetuConverter-app
         const core = await CoreContracts.build(
           await TetuConverterApp.createController(deployer, {
+            networkId: HARDHAT_NETWORK_ID,
             priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
           })
         );
@@ -4694,7 +4705,7 @@ describe("TetuConverterTest", () => {
     async function makeRepayTheBorrowTest(
       p: IRepayTheBorrowParams
     ): Promise<IRepayTheBorrowResults> {
-      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
       const init = await prepareTetuAppWithMultipleLendingPlatforms(
         core,
         p.collateralAmounts.length,
@@ -5399,7 +5410,7 @@ describe("TetuConverterTest", () => {
       const poolAdapter = await MocksHelper.createPoolAdapterMock2(deployer);
       const user = await MocksHelper.createTetuConverterCallbackMock(deployer);
 
-      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {}));
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
       await core.controller.setWhitelistValues([user.address], true);
       await core.bm.addAssetPairs(
         platformAdapter.address,
@@ -5736,7 +5747,7 @@ describe("TetuConverterTest", () => {
     });
 
     it("should return single open position after borrowing", async () => {
-      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
       await makeBorrow(init, [100], BigNumber.from(100), BigNumber.from(100_000));
       const r = await core.tc.getPositions(init.userContract.address, init.sourceToken.address, init.targetToken.address);
@@ -5752,6 +5763,7 @@ describe("TetuConverterTest", () => {
         const targetToken = await MocksHelper.createMockedCToken(deployer, 7);
 
         const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         }));
 
@@ -5771,6 +5783,7 @@ describe("TetuConverterTest", () => {
         const sourceToken = await MocksHelper.createMockedCToken(deployer, 6);
 
         const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         }));
 
@@ -5839,7 +5852,7 @@ describe("TetuConverterTest", () => {
     }
 
     async function makeRequireRepay(p: IRequireRepayParams): Promise<IRequireRepayResults> {
-      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
       const init = await prepareTetuAppWithMultipleLendingPlatforms(
         core,
         p.collateralAmounts.length,

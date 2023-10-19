@@ -80,7 +80,7 @@ describe("PoolAdapterMock", () => {
           const amountBorrowedUserInitial = getBigNumberFrom(1000, tt.targetDecimals);
 
           // create borrow manager (BM) with single pool and DebtMonitor (DM)
-          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,}));
           const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
             core,
             deployer,

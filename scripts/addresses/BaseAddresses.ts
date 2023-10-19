@@ -15,6 +15,8 @@ export class BaseAddresses {
 
 //region -------------------------------------------------------- Tetu
     public static TETU_LIQUIDATOR = "0x22e2625F9d8c28CB4BcE944E9d64efb4388ea991";
+    public static TETU_DISTOPIA_SWAPPER = "0x60BF9c1FC8b93B6400608c82107a852C54aD110F";
+    public static TETU_UNIV3_SWAPPER = "0x00379dD90b2A337C4652E286e4FBceadef940a21";
 //endregion -------------------------------------------------------- Tetu
 
 //region ----------------------------------------------------- AAVE3
@@ -44,6 +46,11 @@ export class BaseAddresses {
     public static POOL_WETH_WELL_VOLATILE_AMM = "0xffA3F8737C39e36dec4300B162c2153c67c8352f";
 //endregion ----------------------------------------------------- Moonwell
 
+//region ----------------------------------------------------- UniswapV3
+    // stable pools
+    public static UNISWAPV3_USDC_USDbC_100 = '0x06959273E9A65433De71F5A452D529544E07dDD0'.toLowerCase()
+    public static UNISWAPV3_DAI_USDbC_100 = '0x22F9623817F152148B4E080E98Af66FBE9C5AdF8'.toLowerCase()
+//endregion ----------------------------------------------------- UniswapV3
 
 //region ----------------------------------------------------- Holders
     public static HOLDER_WETH = "0x4b581deda2f2c0650c3dfc506c86a8c140d9f699".toLowerCase();

@@ -44,13 +44,15 @@ describe("MultiConvertersTest", () => {
     // set up TetuConverter app with all known lending platforms
     const app = await TetuConverterApp.buildApp(
       deployer,
+      { networkId: POLYGON_NETWORK_ID,
+        priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address
+      },  // disable swap, enable price oracle
       [
         new Aave3PlatformFabric(),
         new AaveTwoPlatformFabric(),
         new DForcePlatformFabric(),
         // new HundredFinancePlatformFabric()
       ],
-      {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address} // disable swap, enable price oracle
     );
     platformAdapters = app.pools.map(x => IPlatformAdapter__factory.connect(x.platformAdapter, deployer));
     tetuConverter = app.tc;

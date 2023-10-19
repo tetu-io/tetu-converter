@@ -1,13 +1,13 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  BorrowManager__factory,
-  ConverterController, ConverterController__factory,
-  DebtMonitor__factory,
-  Keeper__factory,
-  PriceOracle,
-  SwapManager__factory,
-  TetuConverter__factory,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    BorrowManager__factory,
+    ConverterController, ConverterController__factory,
+    DebtMonitor__factory,
+    Keeper__factory,
+    PriceOracle, PriceOracleMoonwell,
+    SwapManager__factory,
+    TetuConverter__factory,
 } from "../../../typechain";
 import {BigNumber, ContractTransaction} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
@@ -141,8 +141,12 @@ export class CoreContractsHelper {
 //endregion Initialize core contracts
 
 //region Create core contracts
+
   public static async createPriceOracle(signer: SignerWithAddress, priceOracleAave3: string): Promise<PriceOracle> {
     return (await DeployUtils.deployContract(signer, "PriceOracle",priceOracleAave3)) as PriceOracle;
+  }
+  public static async createPriceOracleMoonwell(signer: SignerWithAddress, priceOracleMoonwell: string): Promise<PriceOracleMoonwell> {
+      return (await DeployUtils.deployContract(signer, "PriceOracleMoonwell", priceOracleMoonwell)) as PriceOracleMoonwell;
   }
 //endregion Create core contracts
 }

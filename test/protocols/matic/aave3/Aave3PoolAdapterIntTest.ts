@@ -44,7 +44,7 @@ describe("Aave3PoolAdapterIntTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    converterInstance = await TetuConverterApp.createController(deployer);
+    converterInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   });
 
   after(async function () {

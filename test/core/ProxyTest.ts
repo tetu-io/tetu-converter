@@ -55,7 +55,7 @@ describe("ProxyTest", () => {
 
 //region Fixtures
   async function createController(): Promise<ConverterController> {
-    return TetuConverterApp.createController(deployer);
+    return TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,});
   }
   async function deployController(): Promise<string> {
     return CoreContractsHelper.deployController(deployer);

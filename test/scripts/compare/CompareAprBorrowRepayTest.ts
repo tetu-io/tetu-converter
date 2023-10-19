@@ -56,22 +56,22 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
+         {networkId: POLYGON_NETWORK_ID,}, // disable swap
         [new Aave3PlatformFabric()],
-        {} // disable swap
       );
       controllerForAave3 = controller;
     }
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
+         {networkId: POLYGON_NETWORK_ID,}, // disable swap
         [new AaveTwoPlatformFabric()],
-        {} // disable swap
       );
       controllerForAaveTwo = controller;
     }
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
+         {networkId: POLYGON_NETWORK_ID,}, // disable swap
         [new DForcePlatformFabric()],
-        {} // disable swap
       );
       controllerForDForce = controller;
       // Let's replace DForce's price oracle by mocked version
@@ -87,8 +87,8 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
     // }
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
-        [],
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR} // enable swap
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}, // enable swap
+            [],
       );
       controllerSwap = controller;
     }

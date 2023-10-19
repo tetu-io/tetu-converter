@@ -17,6 +17,7 @@ import {GAS_LIMIT} from "../../types/GasLimit";
 import {TetuConverterApp} from "../../app/TetuConverterApp";
 import {MocksHelper} from "../../app/MocksHelper";
 import {AdaptersHelper} from "../../app/AdaptersHelper";
+import {POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 
 
 export interface IPrepareToBorrowResults {
@@ -98,6 +99,7 @@ export class Compound3TestUtils {
 
     // controller, dm, bm
     const controller = await TetuConverterApp.createController(deployer, {
+      networkId: POLYGON_NETWORK_ID,
       minHealthFactor2: p?.minHealthFactor2,
       targetHealthFactor2: p?.targetHealthFactor2,
     });
