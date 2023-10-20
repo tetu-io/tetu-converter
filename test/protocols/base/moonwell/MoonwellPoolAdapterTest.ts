@@ -37,7 +37,7 @@ import {BigNumber} from "ethers";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {InjectUtils} from "../../../baseUT/chains/base/InjectUtils";
 
-describe("MoonwellPlatformAdapterTest", () => {
+describe("MoonwellPoolAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let signer: SignerWithAddress;
@@ -1105,15 +1105,15 @@ describe("MoonwellPlatformAdapterTest", () => {
           collateralAsset: BaseAddresses.DAI,
           borrowAsset: BaseAddresses.USDC,
           collateralAmount: "1234",
-          countBlocksBeforeClaimingRewards: 50_000,
-        });
-        console.log(ret);
-        const ret2 = await claimRewards({
-          collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDC,
-          collateralAmount: "1234",
           countBlocksBeforeClaimingRewards: 10_000,
         });
+        console.log(ret);
+        // const ret2 = await claimRewards({
+        //   collateralAsset: BaseAddresses.DAI,
+        //   borrowAsset: BaseAddresses.USDC,
+        //   collateralAmount: "1234",
+        //   countBlocksBeforeClaimingRewards: 10_000,
+        // });
         expect(ret.amount).gt(0, "rewards should be paid");
         expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
       });
@@ -1129,7 +1129,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
       });
     });
-    describe("temp test", () => {
+    describe("temp test @skip-on-coverage", () => {
       it("todo", async () => {
         await InjectUtils.registerWethWellPoolInLiquidator(signer);
         const assets = [

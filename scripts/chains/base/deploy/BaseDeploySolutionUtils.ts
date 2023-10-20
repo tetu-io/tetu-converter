@@ -62,7 +62,6 @@ export interface IDeployCoreResults {
   controllerSetupParams: IControllerSetupParams;
   borrowManagerSetupParams: IBorrowManagerSetupParams;
   keeperSetupParams: IKeeperSetupParams;
-  gelatoOpsReady: string;
   proxyUpdater: string;
 }
 
@@ -93,7 +92,6 @@ export class BaseDeploySolutionUtils {
 //region Main script
   static async runMain(
     signer: SignerWithAddress,
-    gelatoOpsReady: string,
     proxyUpdater: string,
     alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
@@ -152,7 +150,6 @@ export class BaseDeploySolutionUtils {
     const deployCoreResults = await BaseDeploySolutionUtils.deployCoreContracts(
       signer,
       proxyUpdater,
-      gelatoOpsReady,
       tetuLiquidatorAddress,
       controllerSetupParams,
       borrowManagerSetupParams,
@@ -211,7 +208,6 @@ export class BaseDeploySolutionUtils {
   static async deployCoreContracts(
     deployer: SignerWithAddress,
     proxyUpdater: string,
-    gelatoOpsReady: string,
     tetuLiquidator: string,
     controllerSetupParams: IControllerSetupParams,
     borrowManagerSetupParams: IBorrowManagerSetupParams,
@@ -322,7 +318,6 @@ export class BaseDeploySolutionUtils {
       controllerSetupParams,
       borrowManagerSetupParams,
       keeperSetupParams,
-      gelatoOpsReady,
       proxyUpdater
     }
   }

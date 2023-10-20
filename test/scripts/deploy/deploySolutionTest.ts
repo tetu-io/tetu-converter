@@ -34,10 +34,9 @@ describe("Run DeploySolution script under debugger @skip-on-coverage", () => {
     });
 
     it("should return expected values", async () => {
-      const gelatoStub = signer.address;
       const proxyUpdater = signer.address;
 
-      const r = await BaseDeploySolutionUtils.runMain((await ethers.getSigners())[0], gelatoStub, proxyUpdater);
+      const r = await BaseDeploySolutionUtils.runMain((await ethers.getSigners())[0], proxyUpdater);
       console.log(r);
     });
   });

@@ -29,21 +29,16 @@ async function main() {
     });
   }
 
-  // https://docs.gelato.network/developer-services/automate/contract-addresses#polygon-matic
-  const gelatoOpsReady = "0x527a819db1eb0e34426297b03bae11F2f8B3A19E"; // todo
-  const proxyUpdater = "0x33b27e0a2506a4a2fbc213a01c51d0451745343a"; // todo tetu-contracts-v2 controller
-
   const signer = localHardhatIsInUse
     ? await DeployerUtils.startImpersonate(
       process?.env.APP_PRIVATE_GOVERNANCE_ACCOUNT_FOR_HARDHAT || (await ethers.getSigners())[0].address)
     : (await ethers.getSigners())[0];
 
+  const proxyUpdater = signer.address; // todo tetu-contracts-v2 controller
+
   console.log("signer", signer.address);
 
-  await BaseDeploySolutionUtils.runMain(
-    signer,
-    gelatoOpsReady,
-    proxyUpdater,
+  await BaseDeploySolutionUtils.runMain(signer, proxyUpdater,
     // already deployed if necessary
     {
     }

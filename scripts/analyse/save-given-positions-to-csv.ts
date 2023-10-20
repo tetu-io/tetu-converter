@@ -58,7 +58,7 @@ function getPlatformAdapterName(platformKind: number): string {
  *      npx hardhat run scripts/analyse/save-given-positions-to-csv.ts
  */
 async function main() {
-  const BLOCKS = [46872907];
+  const BLOCKS = [48814578];
 
   const converterController = "0x2df21e2a115fcB3d850Fbc67237571bBfB566e99";
   const pathOut = "./tmp/given-positions.csv";
