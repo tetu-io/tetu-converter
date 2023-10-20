@@ -3,7 +3,6 @@ pragma solidity 0.8.17;
 
 import "../../integrations/moonwell/IMToken.sol";
 import "../../integrations/moonwell/IMoonwellMultiRewardDistributor.sol";
-import "hardhat/console.sol";
 
 /// @notice Routines to calculate supply and borrow reward amounts in advance
 ///         Based on the code from MultiRewardDistributor.sol, see https://github.com/moonwell-fi/moonwell-contracts-v2
@@ -71,20 +70,11 @@ library MoonwellRewardsLib {
   ) internal view returns (
     MultiRewardDistributorCommon.RewardInfo[] memory outputRewardData
   ) {
-    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.1");
-    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.amountToSupply_", amountToSupply_);
-    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.amountToSupply in tokens", amountToSupply_ * 1e18 / mToken_.exchangeRateStored());
-    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.amountToBorrow_", amountToBorrow_);
-    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.borrowPeriodTimestamp_", borrowPeriodTimestamp_);
     LocalVars memory v;
 
     // Global config for this mToken
     v.configs = rewardDistributor.getAllMarketConfigs(address(mToken_));
     outputRewardData = new MultiRewardDistributorCommon.RewardInfo[](v.configs.length);
-    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.2");
-    console.log("MoonwellRewardsLib.mToken_.totalSupply()", mToken_.totalSupply());
-    console.log("MoonwellRewardsLib.mToken_.totalBorrows()", mToken_.totalBorrows());
-    console.log("MoonwellRewardsLib.mToken_.borrowIndex()", mToken_.borrowIndex());
 
     uint amountMTokensToSupply =  amountToSupply_ * 1e18 / mToken_.exchangeRateStored();
 
@@ -130,13 +120,6 @@ library MoonwellRewardsLib {
           v.calcData.mTokenInfo.mTokenBalance,
           v.supplyUpdateNow.newIndex
         );
-        console.log("v.config.supplyGlobalTimestamp", v.config.supplyGlobalTimestamp);
-        console.log("v.config.supplyGlobalIndex", v.config.supplyGlobalIndex);
-        console.log("uint32(block.timestamp)", uint32(block.timestamp));
-        console.log("v.supplyUpdateNow.newTimestamp", v.supplyUpdateNow.newTimestamp);
-        console.log("v.supplyUpdateNow.newIndex", v.supplyUpdateNow.newIndex);
-        console.log("v.supplyUpdate.newTimestamp", v.supplyUpdate.newTimestamp);
-        console.log("v.supplyUpdate.newIndex", v.supplyUpdate.newIndex);
       }
 
       if (amountToBorrow_ != 0) {
@@ -171,19 +154,14 @@ library MoonwellRewardsLib {
         );
       }
 
-      console.log("v.supplierRewardsAccrued", v.supplierRewardsAccrued);
-      console.log("v.borrowerRewardsAccrued", v.borrowerRewardsAccrued);
-
       outputRewardData[v.index] = MultiRewardDistributorCommon.RewardInfo({
         emissionToken: v.config.emissionToken,
         totalAmount: v.borrowerRewardsAccrued + v.supplierRewardsAccrued,
         supplySide: v.supplierRewardsAccrued,
         borrowSide: v.borrowerRewardsAccrued
       });
-      console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.10");
     }
 
-    console.log("MoonwellRewardsLib.getOutstandingRewardsForUser.11");
     return outputRewardData;
   }
   //endregion ----------------------------------------------------------- Public function
@@ -261,37 +239,30 @@ library MoonwellRewardsLib {
     uint256 _denominator,
     uint32 blockTimestamp
   ) internal pure returns (IndexUpdate memory) {
-    console.log("MoonwellRewardsLib.calculateNewIndex.1");
     uint256 deltaTimestamps = sub_(
       blockTimestamp,
       uint256(_currentTimestamp)
     );
-    console.log("MoonwellRewardsLib.calculateNewIndex.2");
 
     // If our current block timestamp is newer than our emission end time, we need to halt
     // reward emissions by stinting the growth of the global index, but importantly not
     // the global timestamp. Should not be gte because the equivalent case makes a
     // 0 deltaTimestamp which doesn't accrue the last bit of rewards properly.
     if (blockTimestamp > _rewardEndTime) {
-      console.log("MoonwellRewardsLib.calculateNewIndex.3");
       // If our current index timestamp is less than our end time it means this
       // is the first time the endTime threshold has been breached, and we have
       // some left over rewards to accrue, so clamp deltaTimestamps to the whatever
       // window of rewards still remains.
       if (_currentTimestamp < _rewardEndTime) {
-        console.log("MoonwellRewardsLib.calculateNewIndex.4");
         deltaTimestamps = sub_(_rewardEndTime, _currentTimestamp);
       } else {
-        console.log("MoonwellRewardsLib.calculateNewIndex.5");
         // Otherwise just set deltaTimestamps to 0 to ensure that we short circuit in the next step
         deltaTimestamps = 0;
       }
     }
-    console.log("MoonwellRewardsLib.calculateNewIndex.6");
 
     // Short circuit to update the timestamp but *not* the index if there's nothing to calculate
     if (deltaTimestamps == 0 || _emissionsPerSecond == 0) {
-      console.log("MoonwellRewardsLib.calculateNewIndex.7");
       return
         IndexUpdate({
           newIndex: _currentIndex,
@@ -299,20 +270,17 @@ library MoonwellRewardsLib {
         });
     }
 
-    console.log("MoonwellRewardsLib.calculateNewIndex.8");
     // At this point we know we have to calculate a new index, so do so
     uint256 tokenAccrued = mul_(deltaTimestamps, _emissionsPerSecond);
     Double memory ratio = _denominator > 0
       ? fraction(tokenAccrued, _denominator)
       : Double({mantissa: 0});
-    console.log("MoonwellRewardsLib.calculateNewIndex.9");
 
     uint224 newIndex = safe224(
       add_(Double({mantissa: _currentIndex}), ratio).mantissa,
       "new index exceeds 224 bits"
     );
 
-    console.log("MoonwellRewardsLib.calculateNewIndex.10");
     return IndexUpdate({newIndex: newIndex, newTimestamp: blockTimestamp});
   }
   //endregion ----------------------------------------------------------- Internal logic

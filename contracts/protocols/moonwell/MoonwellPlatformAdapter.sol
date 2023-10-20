@@ -14,7 +14,6 @@ import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../compound/CompoundPlatformAdapterLib.sol";
 import "./MoonwellLib.sol";
-import "hardhat/console.sol";
 import "../../integrations/moonwell/IMoonwellComptroller.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
@@ -34,12 +33,10 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   //region ----------------------------------------------------- Constructor and initialization
   /// @param template_ Template of the pool adapter
   constructor (address controller_, address comptroller_, address template_, address[] memory activeCTokens_) {
-    console.log("constructor");
     CompoundLib.ProtocolFeatures memory f;
     MoonwellLib.initProtocolFeatures(f);
 
     CompoundPlatformAdapterLib.init(_state, f, controller_, comptroller_, template_, activeCTokens_);
-    console.log("constructor.done");
   }
 
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
@@ -141,8 +138,6 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           (plan.collateralAmount, plan.amountToBorrow) = CompoundPlatformAdapterLib.getAmountsForEntryKind(
             p_, plan.liquidationThreshold18, healthFactor2_, pd, true
           );
-          console.log("getConversionPlan.collateralAmount.1", plan.collateralAmount);
-          console.log("getConversionPlan.amountToBorrow.1", plan.amountToBorrow);
 
           // Validate the borrow, calculate amounts for APR
           if (plan.amountToBorrow != 0 && plan.collateralAmount != 0) {
@@ -155,11 +150,8 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             ) = CompoundPlatformAdapterLib.getValuesForApr(
               plan.collateralAmount, plan.amountToBorrow, f, v.cTokenCollateral, v.cTokenBorrow, p_.countBlocks, pd
             );
-            console.log("getConversionPlan.collateralAmount.2", plan.collateralAmount);
-            console.log("getConversionPlan.amountToBorrow.2", plan.amountToBorrow);
 
             plan.rewardsAmountInBorrowAsset36 = estimateRewardsAmountInBorrowAsset36(p_, v, plan, pd);
-            console.log("plan.rewardsAmountInBorrowAsset36", plan.rewardsAmountInBorrowAsset36);
           }
         }
       }
@@ -181,8 +173,6 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     AppDataTypes.PricesAndDecimals memory pd
   ) public view returns (uint) {
     uint periodSec = p_.countBlocks * COUNT_SECONDS_PER_YEAR / (_state.controller.blocksPerDay() * 365);
-    console.log("countBlocks", p_.countBlocks);
-    console.log("periodSec", periodSec);
     (uint rewardsSupply, uint rewardsBorrow) = MoonwellLib.estimateRewardAmounts(
       v.cTokenCollateral,
       v.cTokenBorrow,
@@ -193,9 +183,6 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       ITetuLiquidator(_state.controller.tetuLiquidator()),
       p_.borrowAsset
     );
-    console.log("p_.countBlocks", p_.countBlocks);
-    console.log("rewardsSupply", rewardsSupply);
-    console.log("rewardsBorrow", rewardsBorrow);
     return (rewardsSupply + rewardsBorrow) * 10**36 / pd.rb10powDec;
   }
   //endregion ----------------------------------------------------- Get conversion plan

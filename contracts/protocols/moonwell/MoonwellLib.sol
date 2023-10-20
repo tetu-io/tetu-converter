@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 import "../compound/CompoundLib.sol";
 import "../../libs/AppDataTypes.sol";
 import "./MoonwellRewardsLib.sol";
-import "hardhat/console.sol";
 import "../../integrations/tetu/ITetuLiquidator.sol";
 
 library MoonwellLib {
@@ -40,7 +39,6 @@ library MoonwellLib {
     uint rewardsSupply,
     uint rewardsBorrow
   ) {
-    console.log("predictRewards.1");
     MultiRewardDistributorCommon.RewardInfo[] memory outputRewardData;
     outputRewardData = MoonwellRewardsLib.getOutstandingRewardsForUser(
       IMToken(cTokenCollateral),
@@ -49,9 +47,7 @@ library MoonwellLib {
       0,
       IMoonwellMultiRewardDistributor(rewardDistributor)
     );
-    console.log("predictRewards.2");
     rewardsSupply = _getRewardTotalAmount(outputRewardData, tetuLiquidator, borrowAsset);
-    console.log("predictRewards.3");
     outputRewardData = MoonwellRewardsLib.getOutstandingRewardsForUser(
       IMToken(cTokenBorrow),
       borrowPeriodTimestamp_,
@@ -59,9 +55,7 @@ library MoonwellLib {
       amountToBorrow,
       IMoonwellMultiRewardDistributor(rewardDistributor)
     );
-    console.log("predictRewards.4");
     rewardsBorrow = _getRewardTotalAmount(outputRewardData, tetuLiquidator, borrowAsset);
-    console.log("predictRewards.5");
   }
 
   /// @notice Enumerate all rewards in {data}, converter to {assetOut}, return total amount
@@ -73,13 +67,8 @@ library MoonwellLib {
   ) internal view returns (uint) {
     uint dest;
     for (uint i; i < data.length; ++i) {
-      console.log("_getRewardTotalAmount.tetuLiquidator", address(tetuLiquidator));
-      console.log("_getRewardTotalAmount.amount", data[i].totalAmount);
-      console.log("_getRewardTotalAmount.emissionToken", data[i].emissionToken);
-      console.log("_getRewardTotalAmount.assetOut", assetOut);
       if (data[i].totalAmount > MIN_ALLOWED_AMOUNT_TO_LIQUIDATE) {
         uint priceOut = tetuLiquidator.getPrice(data[i].emissionToken, assetOut, data[i].totalAmount);
-        console.log("_getRewardTotalAmount.priceOut", priceOut);
         dest += priceOut;
       }
     }

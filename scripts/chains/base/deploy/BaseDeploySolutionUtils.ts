@@ -393,6 +393,8 @@ export class BaseDeploySolutionUtils {
     writeFileSyncRestoreFolder(destPathTxt, '\n-----------\n', { encoding: 'utf8', flag: 'a' });
     appendFileSync(destPathTxt, `${new Date().toISOString()}\n`, 'utf8');
     appendFileSync(destPathTxt, `${network.name}\n`, 'utf8');
+    appendFileSync(destPathTxt, `chain id = ${Misc.getChainId()}\n`, 'utf8');
+    appendFileSync(destPathTxt, `chain name = ${Misc.getChainName()}\n`, 'utf8');
     appendFileSync(destPathTxt, `${(await ethers.provider.getNetwork()).name}\n`, 'utf8');
 
     for (const [key, value] of Object.entries(deployCoreResults)) {

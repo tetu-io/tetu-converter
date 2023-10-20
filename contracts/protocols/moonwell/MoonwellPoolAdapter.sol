@@ -136,7 +136,6 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     address rewardToken,
     uint amount
   ) {
-    console.log("claimRewards.1");
     IMoonwellComptroller _comptroller = IMoonwellComptroller(address(_state.comptroller));
 
     address[] memory markets = new address[](2);
@@ -145,7 +144,6 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     _comptroller.claimReward(address(this), markets);
 
     amount = IERC20(WELL_TOKEN).balanceOf(address(this));
-    console.log("claimRewards.amount", amount);
     if (amount != 0) {
       IERC20(WELL_TOKEN).transfer(receiver_, amount);
       rewardToken = WELL_TOKEN;

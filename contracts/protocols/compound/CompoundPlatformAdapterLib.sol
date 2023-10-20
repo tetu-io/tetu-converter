@@ -20,7 +20,6 @@ import "../../integrations/compound/ICompoundComptrollerBaseV2.sol";
 import "../../libs/AppErrors.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../libs/EntryKinds.sol";
-import "hardhat/console.sol";
 
 library CompoundPlatformAdapterLib {
   using SafeERC20 for IERC20;
@@ -140,13 +139,8 @@ library CompoundPlatformAdapterLib {
     CompoundLib.ProtocolFeatures memory f_,
     address[] memory cTokens_
   ) internal {
-    console.log("_registerCTokens");
-    console.log("_registerCTokens,cTokenNative", f_.cTokenNative);
-    console.log("_registerCTokens,nativeToken", f_.nativeToken);
     uint len = cTokens_.length;
     for (uint i; i < len; i = AppUtils.uncheckedInc(i)) {
-      console.log("_registerCTokens,i", i);
-      console.log("_registerCTokens,cTokens_[i]", cTokens_[i]);
       // Special case: there is no underlying for native token, so we store nativeToken:cTokenForNativeToken
       state.activeAssets[CompoundLib.getUnderlying(f_, cTokens_[i])] = cTokens_[i];
     }
