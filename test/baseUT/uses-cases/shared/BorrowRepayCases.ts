@@ -1,15 +1,21 @@
 import {IPoolAdapterStatusNum} from "../../types/BorrowRepayDataTypes";
-import {IERC20Metadata__factory, ITetuConverter, UserEmulator} from "../../../../typechain";
-import {BigNumber, BigNumberish, BytesLike} from "ethers";
+import {
+  BorrowManager__factory,
+  ConverterController__factory,
+  IERC20Metadata__factory, IPoolAdapter__factory,
+  ITetuConverter,
+  UserEmulator
+} from "../../../../typechain";
+import {BigNumber, BytesLike} from "ethers";
 import {IConversionPlanNum} from "../../types/AppDataTypes";
-import {PromiseOrValue} from "../../../../typechain/common";
 import {AppConstants} from "../../types/AppConstants";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {BalanceUtils} from "../../utils/BalanceUtils";
+import {BorrowRepayDataTypeUtils} from "../../utils/BorrowRepayDataTypeUtils";
 
-interface IBorrowRepaySetup {
+export interface IBorrowRepaySetup {
   tetuConverter: ITetuConverter;
   user: UserEmulator;
   collateralAsset: string;
@@ -18,22 +24,24 @@ interface IBorrowRepaySetup {
   borrowAssetHolder: string;
   userBorrowAssetBalance?: string;
   userCollateralAssetBalance?: string;
+  /** Receive all borrowed and repay amounts */
+  receiver: string;
 }
 
-interface IBorrowPairParams {
-  /** True - direct debt, false - reverse debt */
-  directDebt: boolean;
+export interface IBorrowPairParams {
   /** AmountIn to borrow. It's set in collateral asset for entry kinds 0 and 1 and in borrow asset for entry kind 2 */
-  borrowAmountIn: string;
+  amountIn: string;
 
+  /** False - direct debt, true - reverse debt */
+  reverseDebt?: boolean; // false by default
   exactAmountOut?: string; // 0 by default, it means that max amount should be borrowed
   entryData?: string; // 0x1 by default
-  borrowAmountIsInBorrowAsset?: boolean; // false by default
+  isAmountInBorrowAsset?: boolean; // false by default
 }
 
-interface IRepayPairParams {
-  /** True - direct debt, false - reverse debt */
-  repayDirectDebt: boolean;
+export interface IRepayPairParams {
+  /** False - direct debt, true - reverse debt */
+  repayReverseDebt?: boolean;
   /** 100_000 = 100% */
   repayPart: number;
   /** Don't use repayPart, pay exactAmount instead */
@@ -44,19 +52,19 @@ interface IRepayPairParams {
  * Params for 1) borrow 2) repay
  * Both actions are optional
  */
-interface IBorrowRepayPairParams {
+export interface IBorrowRepayPairParams {
   borrow?: IBorrowPairParams;
   repay?: IRepayPairParams;
 }
 
-interface IBorrowResults {
+export interface IBorrowResults {
   collateralAsset: string;
   borrowAsset: string;
   converter: string;
   borrowedAmount: number;
 }
 
-interface IRepayResults {
+export interface IRepayResults {
   collateralAsset: string;
   borrowAsset: string;
   /* amount of borrowed asset received back */
@@ -69,7 +77,7 @@ interface IRepayResults {
   swappedLeftoverBorrow: number;
 }
 
-interface IBorrowRepayPairResults {
+export interface IBorrowRepayPairResults {
   borrow: IBorrowResults[];
   repay: IRepayResults[];
 
@@ -81,6 +89,8 @@ interface IBorrowRepayPairResults {
 
   tetuConverterCollateralAssetBalance: number;
   tetuConverterBorrowAssetBalance: number;
+
+  status: IPoolAdapterStatusNum;
 }
 
 
@@ -131,7 +141,6 @@ export class BorrowRepayCases {
     const borrowAsset = await IERC20Metadata__factory.connect(p.borrowAsset, signer);
     const decimalsCollateral = await collateralAsset.decimals();
     const decimalsBorrow = await borrowAsset.decimals();
-    const receiver = ethers.Wallet.createRandom().address;
 
     // set up user-emulator balances
     if (p.userCollateralAssetBalance) {
@@ -149,33 +158,37 @@ export class BorrowRepayCases {
     const receivers: string[] = [];
 
     const borrowIndices: number[] = [];
+    const borrowDirect: boolean[] = [];
     const repayIndices: number[] = [];
+    const repayDirect: boolean[] = [];
 
     for (const pair of pairs) {
       // prepare borrow
       if (pair.borrow) {
-        actionKinds.push(pair.borrow.directDebt ? AppConstants.BORROW_DIRECT_0 : AppConstants.BORROW_REVERSE_1);
+        actionKinds.push(pair.borrow.reverseDebt ? AppConstants.BORROW_REVERSE_1 : AppConstants.BORROW_DIRECT_0);
         amountsIn.push(
-          parseUnits(pair.borrow.borrowAmountIn, pair.borrow.directDebt ? decimalsCollateral : decimalsBorrow)
+          parseUnits(pair.borrow.amountIn, pair.borrow.reverseDebt ? decimalsBorrow : decimalsCollateral)
         );
         amountsOut.push(
-          parseUnits(pair.borrow.exactAmountOut ?? "0", pair.borrow.directDebt ? decimalsBorrow : decimalsCollateral)
+          parseUnits(pair.borrow.exactAmountOut ?? "0", pair.borrow.reverseDebt ? decimalsCollateral : decimalsBorrow)
         );
         entryData.push(pair.borrow.entryData ?? "0x");
-        receivers.push(receiver);
+        receivers.push(p.receiver);
         borrowIndices.push(actionKinds.length - 1);
+        borrowDirect.push(!pair.borrow.reverseDebt);
       }
 
       // prepare repay
       if (pair.repay) {
-        actionKinds.push(pair.repay.repayDirectDebt ? AppConstants.REPAY_DIRECT_2 : AppConstants.REPAY_REVERSE_3);
+        actionKinds.push(pair.repay.repayReverseDebt ? AppConstants.REPAY_REVERSE_3 : AppConstants.REPAY_DIRECT_2);
         amountsIn.push(
-          parseUnits(pair.repay.exactAmount ?? "0", pair.repay.repayDirectDebt ? decimalsBorrow : decimalsCollateral)
+          parseUnits(pair.repay.exactAmount ?? "0", pair.repay.repayReverseDebt ? decimalsCollateral : decimalsBorrow)
         );
         amountsOut.push(BigNumber.from(pair.repay.repayPart ?? 0));
         entryData.push("0x"); // not used
-        receivers.push(receiver);
+        receivers.push(p.receiver);
         repayIndices.push(actionKinds.length - 1);
+        repayDirect.push(!pair.repay.repayReverseDebt);
       }
     }
 
@@ -183,27 +196,34 @@ export class BorrowRepayCases {
     const ret = await p.user.callStatic.borrowRepaySequence(actionKinds, amountsIn, amountsOut, entryData, receivers);
     await p.user.borrowRepaySequence(actionKinds, amountsIn, amountsOut, entryData, receivers);
 
+    // let's get status of the single available pool adapter
+    const converterController = ConverterController__factory.connect(await p.tetuConverter.controller(), signer);
+    const borrowManager = BorrowManager__factory.connect(await converterController.borrowManager(), signer);
+    const poolAdapter = IPoolAdapter__factory.connect(await borrowManager.listPoolAdapters(0), signer);
+    const status = await poolAdapter.getStatus();
+
     return {
-      borrow: borrowIndices.map(index => ({
-        collateralAsset: ret[index].collateralAsset,
-        borrowAsset: ret[index].borrowAsset,
-        borrowedAmount: +formatUnits(ret[index].borrowedAmount, ret[index].borrowAsset === p.borrowAsset ? decimalsBorrow : decimalsCollateral),
-        converter: ret[index].converter
+      borrow: borrowIndices.map((retIndex, itemIndex) => ({
+        collateralAsset: ret[retIndex].collateralAsset,
+        borrowAsset: ret[retIndex].borrowAsset,
+        borrowedAmount: +formatUnits(ret[retIndex].borrowedAmount, borrowDirect[itemIndex] ? decimalsBorrow : decimalsCollateral),
+        converter: ret[retIndex].converter
       })),
-      repay: repayIndices.map(index => ({
-        collateralAsset: ret[index].collateralAsset,
-        borrowAsset: ret[index].borrowAsset,
-        borrowedAmount: +formatUnits(ret[index].borrowedAmount, ret[index].borrowAsset === p.borrowAsset ? decimalsBorrow : decimalsCollateral),
-        collateralAmount: +formatUnits(ret[index].collateralAmount, ret[index].collateralAsset === p.collateralAsset ? decimalsCollateral : decimalsBorrow),
-        swappedLeftoverBorrow: +formatUnits(ret[index].swappedLeftoverBorrow, ret[index].borrowAsset === p.borrowAsset ? decimalsBorrow : decimalsCollateral),
-        swappedLeftoverCollateral: +formatUnits(ret[index].swappedLeftoverCollateral, ret[index].collateralAsset === p.collateralAsset ? decimalsCollateral : decimalsBorrow),
+      repay: repayIndices.map((retIndex, itemIndex) => ({
+        collateralAsset: ret[retIndex].collateralAsset,
+        borrowAsset: ret[retIndex].borrowAsset,
+        borrowedAmount: +formatUnits(ret[retIndex].borrowedAmount, repayDirect[itemIndex] ? decimalsBorrow : decimalsCollateral),
+        collateralAmount: +formatUnits(ret[retIndex].collateralAmount, repayDirect[itemIndex] ? decimalsCollateral : decimalsBorrow),
+        swappedLeftoverBorrow: +formatUnits(ret[retIndex].swappedLeftoverBorrow, repayDirect[itemIndex] ? decimalsBorrow : decimalsCollateral),
+        swappedLeftoverCollateral: +formatUnits(ret[retIndex].swappedLeftoverCollateral, repayDirect[itemIndex] ? decimalsCollateral : decimalsBorrow),
       })),
-      receiverBorrowAssetBalance: +formatUnits(await borrowAsset.balanceOf(receiver), decimalsBorrow),
-      receiverCollateralAssetBalance: +formatUnits(await collateralAsset.balanceOf(receiver), decimalsCollateral),
+      receiverBorrowAssetBalance: +formatUnits(await borrowAsset.balanceOf(p.receiver), decimalsBorrow),
+      receiverCollateralAssetBalance: +formatUnits(await collateralAsset.balanceOf(p.receiver), decimalsCollateral),
       userBorrowAssetBalance: +formatUnits(await borrowAsset.balanceOf(p.user.address), decimalsBorrow),
       userCollateralAssetBalance: +formatUnits(await collateralAsset.balanceOf(p.user.address), decimalsCollateral),
       tetuConverterBorrowAssetBalance: +formatUnits(await borrowAsset.balanceOf(p.tetuConverter.address), decimalsBorrow),
       tetuConverterCollateralAssetBalance: +formatUnits(await collateralAsset.balanceOf(p.tetuConverter.address), decimalsCollateral),
+      status: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(status, decimalsCollateral, decimalsBorrow)
     }
   }
 }
