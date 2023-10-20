@@ -115,13 +115,13 @@ export class BaseDeploySolutionUtils {
 
     const targetHealthFactorsAssets = [
       BaseAddresses.USDC,
-      BaseAddresses.USDDbC,
+      BaseAddresses.USDbC,
       BaseAddresses.DAI,
       BaseAddresses.WETH,
     ];
     const targetHealthFactorsValues = [
       115, // MaticAddresses.USDC,
-      115, // MaticAddresses.USDDbC,
+      115, // MaticAddresses.USDbC,
       115, // MaticAddresses.DAI,
       200, // MaticAddresses.WETH,
     ];
@@ -136,7 +136,7 @@ export class BaseDeploySolutionUtils {
     ];
     const moonwellPairs = BaseDeploySolutionUtils.generateAssetPairs([
       BaseAddresses.USDC,
-      BaseAddresses.USDDbC,
+      BaseAddresses.USDbC,
       BaseAddresses.DAI,
       BaseAddresses.WETH,
     ]);

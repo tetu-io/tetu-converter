@@ -82,8 +82,8 @@ describe("MoonwellBorrowRepayCaseTest", () => {
   }
   const ASSET_PAIRS: IAssetsPair[] = [
     {collateralAsset: BaseAddresses.USDC, borrowAsset: BaseAddresses.DAI},
-    {collateralAsset: BaseAddresses.USDDbC, borrowAsset: BaseAddresses.USDC},
-    {collateralAsset: BaseAddresses.DAI, borrowAsset: BaseAddresses.USDDbC},
+    {collateralAsset: BaseAddresses.USDbC, borrowAsset: BaseAddresses.USDC},
+    {collateralAsset: BaseAddresses.DAI, borrowAsset: BaseAddresses.USDbC},
   ]
 
   HEALTH_FACTOR_PAIRS.forEach((healthFactorsPair: IHealthFactorsPair) => {

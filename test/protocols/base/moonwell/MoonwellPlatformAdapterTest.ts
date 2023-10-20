@@ -208,8 +208,8 @@ describe("MoonwellPlatformAdapterTest", () => {
           {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "10000"},
           {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "5000"},
           {collateral: BaseAddresses.WETH, borrow: BaseAddresses.DAI, amount: "1"},
-          {collateral: BaseAddresses.USDDbC, borrow: BaseAddresses.DAI, amount: "1", entryKind: 1},
-          {collateral: BaseAddresses.USDDbC, borrow: BaseAddresses.USDC, amount: "1", entryKind: 2},
+          {collateral: BaseAddresses.USDbC, borrow: BaseAddresses.DAI, amount: "1", entryKind: 1},
+          {collateral: BaseAddresses.USDbC, borrow: BaseAddresses.USDC, amount: "1", entryKind: 2},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
           const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}, ${b.entryKind ?? 0}`;
@@ -298,7 +298,7 @@ describe("MoonwellPlatformAdapterTest", () => {
 
         it("should return borrow amount equal to max available amount", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDDbC,
+            collateralAsset: BaseAddresses.USDbC,
             borrowAsset: BaseAddresses.DAI,
             amountIn: "10000000000000000000000000",
           });
@@ -318,7 +318,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         /**  totalBorrows    <    borrowCap       <       totalBorrows + available cash */
         it("maxAmountToBorrow is equal to borrowCap - totalBorrows", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDDbC,
+            collateralAsset: BaseAddresses.USDbC,
             borrowAsset: BaseAddresses.DAI,
             amountIn: "10000000000000000000000000",
             setMinBorrowCapacityDelta: "7"
@@ -329,7 +329,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         /** totalBorrows    <     totalBorrows + available cash    <     borrowCap */
         it("maxAmountToBorrow is equal to available cash if borrowCap is huge", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDDbC,
+            collateralAsset: BaseAddresses.USDbC,
             borrowAsset: BaseAddresses.DAI,
             amountIn: "1",
             setMinBorrowCapacityDelta: "7000000000000000000000000000000"
@@ -341,7 +341,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         /** borrowCap   <     totalBorrows    <   totalBorrows + available cash */
         it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDDbC,
+            collateralAsset: BaseAddresses.USDbC,
             borrowAsset: BaseAddresses.DAI,
             amountIn: "1",
             setBorrowCapacityExceeded: true
@@ -361,7 +361,7 @@ describe("MoonwellPlatformAdapterTest", () => {
 
         it("should return no plan", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDDbC,
+            collateralAsset: BaseAddresses.USDbC,
             borrowAsset: BaseAddresses.DAI,
             amountIn: "1",
             frozen: true
@@ -382,7 +382,7 @@ describe("MoonwellPlatformAdapterTest", () => {
 
           it("should return not zero borrow amount", async () => {
             const r = await getConversionPlan({
-              collateralAsset: BaseAddresses.USDDbC,
+              collateralAsset: BaseAddresses.USDbC,
               borrowAsset: BaseAddresses.DAI,
               amountIn: "6338.199834",
               entryData: defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
@@ -403,7 +403,7 @@ describe("MoonwellPlatformAdapterTest", () => {
           it("should split source amount on the parts with almost same cost", async () => {
             const collateralAmount = 1000;
             const r = await getConversionPlan({
-              collateralAsset: BaseAddresses.USDDbC,
+              collateralAsset: BaseAddresses.USDbC,
               borrowAsset: BaseAddresses.DAI,
               amountIn: collateralAmount.toString(),
               entryKind: AppConstants.ENTRY_KIND_1,
@@ -437,7 +437,7 @@ describe("MoonwellPlatformAdapterTest", () => {
             const collateralAmount = 10;
             const amountIn = (await getConversionPlan({
               collateralAsset: BaseAddresses.DAI,
-              borrowAsset: BaseAddresses.USDDbC,
+              borrowAsset: BaseAddresses.USDbC,
               amountIn: collateralAmount.toString(),
             })).plan.amountToBorrow;
             console.log("collateralAmount", collateralAmount);
@@ -445,7 +445,7 @@ describe("MoonwellPlatformAdapterTest", () => {
 
             const r = await getConversionPlan({
               collateralAsset: BaseAddresses.DAI,
-              borrowAsset: BaseAddresses.USDDbC,
+              borrowAsset: BaseAddresses.USDbC,
               amountIn: amountIn.toString(),
               entryData: defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2]),
               entryKind: AppConstants.ENTRY_KIND_2,
@@ -520,14 +520,14 @@ describe("MoonwellPlatformAdapterTest", () => {
           it("should return expected borrow and collateral amounts", async () => {
             // let's get max available borrow amount
             const sample = await getConversionPlan({
-              collateralAsset: BaseAddresses.USDDbC,
+              collateralAsset: BaseAddresses.USDbC,
               borrowAsset: BaseAddresses.DAI,
               amountIn: "1",
             });
 
             // let's try to borrow amount using collateral that exceeds max borrow amount
             const r = await getConversionPlan({
-              collateralAsset: BaseAddresses.USDDbC,
+              collateralAsset: BaseAddresses.USDbC,
               borrowAsset: BaseAddresses.DAI,
               amountIn: (sample.plan.maxAmountToBorrow + 1000).toString(),
               entryKind: AppConstants.ENTRY_KIND_2,
@@ -551,7 +551,7 @@ describe("MoonwellPlatformAdapterTest", () => {
 
       async function tryGetConversionPlan(
         badPathsParams: IMoonwellPreparePlanBadPaths,
-        collateralAsset: string = BaseAddresses.USDDbC,
+        collateralAsset: string = BaseAddresses.USDbC,
         borrowAsset: string = BaseAddresses.DAI,
         collateralAmount: string = "1",
       ) : Promise<IConversionPlanNum> {
@@ -646,7 +646,7 @@ describe("MoonwellPlatformAdapterTest", () => {
               cTokenBorrow: BaseAddresses.MOONWELL_WETH,
               platformAdapter: platformAdapterNoWeth.address
             },
-            BaseAddresses.USDDbC,
+            BaseAddresses.USDbC,
             BaseAddresses.WETH,
           )).converter).eq(Misc.ZERO_ADDRESS);
         });
@@ -655,14 +655,14 @@ describe("MoonwellPlatformAdapterTest", () => {
         it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () => {
           const planBorrowCapacityNotLimited = await tryGetConversionPlan(
             {},
-            BaseAddresses.USDDbC,
+            BaseAddresses.USDbC,
             BaseAddresses.DAI,
             "1"
           );
           console.log("planBorrowCapacityNotLimited", planBorrowCapacityNotLimited);
           const plan = await tryGetConversionPlan(
             {setMinBorrowCapacity: true},
-            BaseAddresses.USDDbC,
+            BaseAddresses.USDbC,
             BaseAddresses.DAI,
             "10000000000000000000000000000000"
           );
@@ -683,7 +683,7 @@ describe("MoonwellPlatformAdapterTest", () => {
       it("should not exceed gas limits", async () => {
         const ret = await getConversionPlan({
           collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDDbC,
+          borrowAsset: BaseAddresses.USDbC,
           amountIn: "1"
         });
 
@@ -717,7 +717,7 @@ describe("MoonwellPlatformAdapterTest", () => {
 
         expect([
           await platformAdapterLocal.activeAssets(BaseAddresses.USDC),  // (!) not registered
-          await platformAdapterLocal.activeAssets(BaseAddresses.USDDbC),
+          await platformAdapterLocal.activeAssets(BaseAddresses.USDbC),
           await platformAdapterLocal.activeAssets(BaseAddresses.DAI),
         ].join().toLowerCase()).eq([
           Misc.ZERO_ADDRESS,
@@ -904,7 +904,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const r = await makeTest({
             collateralAsset: BaseAddresses.DAI,
-            borrowAsset: BaseAddresses.USDDbC,
+            borrowAsset: BaseAddresses.USDbC,
             collateralHolders: [BaseAddresses.HOLDER_DAI],
             part10000: 1, // 1/10000 of available liquidity
           });
@@ -917,7 +917,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const r = await makeTest({
             collateralAsset: BaseAddresses.DAI,
-            borrowAsset: BaseAddresses.USDDbC,
+            borrowAsset: BaseAddresses.USDbC,
             collateralHolders: [BaseAddresses.HOLDER_DAI, BaseAddresses.HOLDER_DAI_1, BaseAddresses.HOLDER_DAI_2, BaseAddresses.HOLDER_DAI_3],
             part10000: 500 // 500/10000 of available liquidity
           });

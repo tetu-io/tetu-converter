@@ -22,8 +22,8 @@ contract PriceOracleMoonwell is IPriceOracle {
     address mToken;
     if (asset == 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913) { // usdc
       mToken = 0xEdc817A28E8B93B03976FBd4a3dDBc9f7D176c22; // mUsdc
-    } else if (asset == 0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA) { // USDDbC
-      mToken = 0x703843C3379b52F9FF486c9f5892218d2a065cC8; // mUSDDbC
+    } else if (asset == 0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA) { // USDbC
+      mToken = 0x703843C3379b52F9FF486c9f5892218d2a065cC8; // mUSDbC
     } else if (asset == 0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb) {
       mToken = 0x73b06D8d18De422E269645eaCe15400DE7462417; // mDAI
     } else if (asset == 0x4200000000000000000000000000000000000006) {

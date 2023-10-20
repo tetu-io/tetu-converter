@@ -5,7 +5,7 @@ export class BaseAddresses {
     /** Coinbase Wrapped Staked ETH */
     public static cbETH = "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22".toLowerCase();
     public static USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".toLowerCase();
-    public static USDDbC = "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA".toLowerCase();
+    public static USDbC = "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA".toLowerCase();
     public static DAI = "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb".toLowerCase();
 
     /** https://docs.moonwell.fi/moonwell/protocol-information/contracts */
@@ -43,7 +43,7 @@ export class BaseAddresses {
     public static MOONWELL_WETH = "0x628ff693426583D9a7FB391E54366292F509D457".toLowerCase();
     public static MOONWELL_CBETH = "0x3bf93770f2d4a794c3d9EBEfBAeBAE2a8f09A5E5".toLowerCase();
 
-    public static POOL_WETH_WELL_VOLATILE_AMM = "0xffA3F8737C39e36dec4300B162c2153c67c8352f";
+    public static POOL_WETH_WELL_VOLATILE_AMM = "0xffA3F8737C39e36dec4300B162c2153c67c8352f".toLowerCase();
 //endregion ----------------------------------------------------- Moonwell
 
 //region ----------------------------------------------------- UniswapV3
@@ -56,7 +56,7 @@ export class BaseAddresses {
     public static HOLDER_WETH = "0x4b581deda2f2c0650c3dfc506c86a8c140d9f699".toLowerCase();
     public static HOLDER_CBETH = "0x4b581deda2f2c0650c3dfc506c86a8c140d9f699".toLowerCase();
     public static HOLDER_USDC = "0x20fe51a9229eef2cf8ad9e89d91cab9312cf3b7a".toLowerCase();
-    public static HOLDER_USDDBC = "0xd312818347fb054d30925488a7dcfab6e19e9421".toLowerCase();
+    public static HOLDER_USDBC = "0xd312818347fb054d30925488a7dcfab6e19e9421".toLowerCase();
     public static HOLDER_DAI = "0xef6ca7d0ea5d711a393c8626698a804a9ee885c4".toLowerCase();
     public static HOLDER_DAI_1 = "0x20f03e26968b179025f65c1f4afadfd3959c8d03".toLowerCase();
     public static HOLDER_DAI_2 = "0xc68a33de9ceac7bdaed242ae1dc40d673ed4f643".toLowerCase();

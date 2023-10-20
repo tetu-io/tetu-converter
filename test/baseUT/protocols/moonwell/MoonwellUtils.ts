@@ -7,7 +7,7 @@ export class MoonwellUtils {
       case BaseAddresses.DAI: return BaseAddresses.MOONWELL_DAI;
       case BaseAddresses.cbETH: return BaseAddresses.MOONWELL_CBETH;
       case BaseAddresses.WETH: return BaseAddresses.MOONWELL_WETH;
-      case BaseAddresses.USDDbC: return BaseAddresses.MOONWELL_USDBC;
+      case BaseAddresses.USDbC: return BaseAddresses.MOONWELL_USDBC;
     }
     throw Error(`Cannot find moonwel MToken for the asset ${asset}`);
   }
@@ -28,7 +28,7 @@ export class MoonwellUtils {
       BaseAddresses.DAI,
       BaseAddresses.cbETH,
       BaseAddresses.WETH,
-      BaseAddresses.USDDbC
+      BaseAddresses.USDbC
     ]
   }
 
@@ -38,7 +38,7 @@ export class MoonwellUtils {
       case BaseAddresses.DAI: return "dai";
       case BaseAddresses.cbETH: return "cbETH"
       case BaseAddresses.WETH: return "weth";
-      case BaseAddresses.USDDbC: return "USDDbC";
+      case BaseAddresses.USDbC: return "USDbC";
       default: return address;
     }
   }
@@ -49,7 +49,7 @@ export class MoonwellUtils {
       case BaseAddresses.DAI: return BaseAddresses.HOLDER_DAI;
       case BaseAddresses.cbETH: return BaseAddresses.HOLDER_CBETH;
       case BaseAddresses.WETH: return BaseAddresses.HOLDER_WETH;
-      case BaseAddresses.USDDbC: return BaseAddresses.HOLDER_USDDBC;
+      case BaseAddresses.USDbC: return BaseAddresses.HOLDER_USDBC;
       default: throw Error(`holder not found for ${asset}`);
     }
   }

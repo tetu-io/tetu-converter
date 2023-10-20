@@ -200,11 +200,11 @@ describe("MoonwellPoolAdapterTest", () => {
       }
       describe("Not-native token", () => {
         const BORROWS: IBorrowParams[] = [
-          {collateral: BaseAddresses.USDDbC, borrow: BaseAddresses.USDC, amount: "2500"},
+          {collateral: BaseAddresses.USDbC, borrow: BaseAddresses.USDC, amount: "2500"},
           {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDC, amount: "1"},
           {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "50000"},
-          {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDDbC, amount: "1000"},
-          {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDDbC, amount: "0.01"},
+          {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDbC, amount: "1000"},
+          {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDbC, amount: "0.01"},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
           const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
@@ -372,11 +372,11 @@ describe("MoonwellPoolAdapterTest", () => {
           });
 
           const BORROWS: IRepayParams[] = [
-            {collateral: BaseAddresses.USDDbC, borrow: BaseAddresses.USDC, amount: "2500"},
+            {collateral: BaseAddresses.USDbC, borrow: BaseAddresses.USDC, amount: "2500"},
             {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDC, amount: "1"},
             {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "50000"},
-            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDDbC, amount: "1000"},
-            {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDDbC, amount: "0.01"},
+            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDbC, amount: "1000"},
+            {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDbC, amount: "0.01"},
           ];
           BORROWS.forEach(function (b: IRepayParams) {
             const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
@@ -455,7 +455,7 @@ describe("MoonwellPoolAdapterTest", () => {
         async function repayTest(): Promise<IResults>  {
           return repay({
             collateralAsset: BaseAddresses.USDC,
-            borrowAsset: BaseAddresses.USDDbC,
+            borrowAsset: BaseAddresses.USDbC,
             collateralAmount: "100",
             repayPart: 20_000
           });
@@ -678,8 +678,8 @@ describe("MoonwellPoolAdapterTest", () => {
           title: "Not native token",
           borrows: [
             {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "50000"},
-            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDDbC, amount: "1000"},
-            {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDDbC, amount: "0.1"},
+            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDbC, amount: "1000"},
+            {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDbC, amount: "0.1"},
           ]
         },
       ];
@@ -771,7 +771,7 @@ describe("MoonwellPoolAdapterTest", () => {
       it("should revert if not TetuConverter", async () => {
         const pr = await prepare({
           collateralAsset: BaseAddresses.USDC,
-          borrowAsset: BaseAddresses.USDDbC,
+          borrowAsset: BaseAddresses.USDbC,
           collateralAmount: "1000",
           targetHealthFactorBeforeRepay: "2",
           targetHealthFactorBeforeBorrow: "3",
@@ -1117,10 +1117,10 @@ describe("MoonwellPoolAdapterTest", () => {
         expect(ret.amount).gt(0, "rewards should be paid");
         expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
       });
-      it("should increase debt amount and collateral amount USDC:USDDbC", async () => {
+      it("should increase debt amount and collateral amount USDC:USDbC", async () => {
         const ret = await claimRewards({
           collateralAsset: BaseAddresses.USDC,
-          borrowAsset: BaseAddresses.USDDbC,
+          borrowAsset: BaseAddresses.USDbC,
           collateralAmount: "1234",
           countBlocksBeforeClaimingRewards: 10_000,
         });
@@ -1135,7 +1135,7 @@ describe("MoonwellPoolAdapterTest", () => {
         const assets = [
           BaseAddresses.WETH,
           BaseAddresses.USDC,
-          BaseAddresses.USDDbC,
+          BaseAddresses.USDbC,
           BaseAddresses.DAI,
         ]
 

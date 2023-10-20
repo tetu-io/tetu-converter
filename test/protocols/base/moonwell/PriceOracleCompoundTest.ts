@@ -44,7 +44,7 @@ describe("PriceOracleCompoundTest", () => {
       expect(await getAssetPrice(BaseAddresses.USDC)).approximately(1, 0.1);
     })
     it("check USDbC price", async () => {
-      expect(await getAssetPrice(BaseAddresses.USDDbC)).approximately(1, 0.1);
+      expect(await getAssetPrice(BaseAddresses.USDbC)).approximately(1, 0.1);
     })
     it("check USDbC price", async () => {
       expect(await getAssetPrice(BaseAddresses.DAI)).approximately(1, 0.1);

@@ -33,7 +33,7 @@ export class InjectUtils {
         pool: BaseAddresses.UNISWAPV3_USDC_USDbC_100,
         swapper: BaseAddresses.TETU_UNIV3_SWAPPER,
         tokenIn: BaseAddresses.USDC,
-        tokenOut: BaseAddresses.USDDbC
+        tokenOut: BaseAddresses.USDbC
       }],
       true
     );
@@ -43,7 +43,7 @@ export class InjectUtils {
         pool: BaseAddresses.UNISWAPV3_DAI_USDbC_100,
         swapper: BaseAddresses.TETU_UNIV3_SWAPPER,
         tokenIn: BaseAddresses.DAI,
-        tokenOut: BaseAddresses.USDDbC
+        tokenOut: BaseAddresses.USDbC
       }],
       true
     );
