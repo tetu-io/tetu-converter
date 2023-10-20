@@ -19,8 +19,8 @@ contract UserEmulator { // todo is ITetuConverterCallback {
   using SafeERC20 for IERC20;
   IConverterController private _controller;
   ITetuConverter private _tc;
-  address private _asset0;
-  address private _asset1;
+  address public collateralAsset;
+  address public borrowAsset;
   uint private _periodInBlocks;
 
   //region--------------------------------------------- Data types
@@ -50,8 +50,8 @@ contract UserEmulator { // todo is ITetuConverterCallback {
   //region--------------------------------------------- Initialization and setup
   constructor (address controller_, address collateralAsset_, address borrowAsset_, uint periodInBlocks) {
     _controller = IConverterController(controller_);
-    _asset0 = collateralAsset_;
-    _asset1 = borrowAsset_;
+    collateralAsset = collateralAsset_;
+    borrowAsset = borrowAsset_;
     _periodInBlocks = periodInBlocks;
     _tc = ITetuConverter(_controller.tetuConverter());
   }
@@ -79,56 +79,56 @@ contract UserEmulator { // todo is ITetuConverterCallback {
       console.log("borrowRepaySequence.i", i);
       if (actionKinds[i] == uint(ActionKind.BORROW_DIRECT_0)) {
         console.log("borrowRepaySequence.1.amountsOut[i]", amountsOut[i]);
-        r[i].collateralAsset = _asset0;
-        r[i].borrowAsset = _asset1;
+        r[i].collateralAsset = collateralAsset;
+        r[i].borrowAsset = borrowAsset;
 
         if (amountsOut[i] == 0) {
           console.log("borrowRepaySequence.2");
-          (r[i].converter, r[i].borrowedAmount) = _borrowByPlan(entryData[i], amountsIn[i], _asset0, _asset1, receivers[i]);
+          (r[i].converter, r[i].borrowedAmount) = _borrowByPlan(entryData[i], amountsIn[i], collateralAsset, borrowAsset, receivers[i]);
         } else {
           console.log("borrowRepaySequence.3");
-          (r[i].converter, r[i].borrowedAmount) = _borrowExact(entryData[i], amountsIn[i], amountsOut[i], _asset0, _asset1, receivers[i]);
+          (r[i].converter, r[i].borrowedAmount) = _borrowExact(entryData[i], amountsIn[i], amountsOut[i], collateralAsset, borrowAsset, receivers[i]);
         }
       } else if (actionKinds[i] == uint(ActionKind.BORROW_REVERSE_1)) {
         console.log("borrowRepaySequence.4.amountsOut[i]", amountsOut[i]);
-        r[i].collateralAsset = _asset1;
-        r[i].borrowAsset = _asset0;
+        r[i].collateralAsset = borrowAsset;
+        r[i].borrowAsset = collateralAsset;
 
         if (amountsOut[i] == 0) {
           console.log("borrowRepaySequence.5");
-          (r[i].converter, r[i].borrowedAmount) = _borrowByPlan(entryData[i], amountsIn[i], _asset1, _asset0, receivers[i]);
+          (r[i].converter, r[i].borrowedAmount) = _borrowByPlan(entryData[i], amountsIn[i], borrowAsset, collateralAsset, receivers[i]);
         } else {
           console.log("borrowRepaySequence.6");
-          (r[i].converter, r[i].borrowedAmount) = _borrowExact(entryData[i], amountsIn[i], amountsOut[i], _asset1, _asset0, receivers[i]);
+          (r[i].converter, r[i].borrowedAmount) = _borrowExact(entryData[i], amountsIn[i], amountsOut[i], borrowAsset, collateralAsset, receivers[i]);
         }
       } else if (actionKinds[i] == uint(ActionKind.REPAY_DIRECT_2)) {
         console.log("borrowRepaySequence.7");
-        r[i].collateralAsset = _asset0;
-        r[i].borrowAsset = _asset1;
+        r[i].collateralAsset = collateralAsset;
+        r[i].borrowAsset = borrowAsset;
 
         if (amountsIn[i] == 0 && amountsOut[i] == 100_000) { // full repay
           console.log("borrowRepaySequence.8");
           (
             r[i].collateralAmount, r[i].borrowedAmount, r[i].swappedLeftoverCollateral, r[i].swappedLeftoverBorrow
-          ) = _repayFull(_asset0, _asset1, receivers[i]);
+          ) = _repayFull(collateralAsset, borrowAsset, receivers[i]);
         } else { // partial repay
           console.log("borrowRepaySequence.9");
           (
             r[i].collateralAmount, r[i].borrowedAmount, r[i].swappedLeftoverCollateral, r[i].swappedLeftoverBorrow
-          ) = _repayExact(_asset0, _asset1, amountsIn[i], receivers[i], amountsOut[i]);
+          ) = _repayExact(collateralAsset, borrowAsset, amountsIn[i], receivers[i], amountsOut[i]);
         }
       } else if (actionKinds[i] == uint(ActionKind.REPAY_REVERSE_3)) {
-        r[i].collateralAsset = _asset1;
-        r[i].borrowAsset = _asset0;
+        r[i].collateralAsset = borrowAsset;
+        r[i].borrowAsset = collateralAsset;
 
         if (amountsIn[i] == 0 && amountsOut[i] == 100_000) { // full repay
           (
             r[i].collateralAmount, r[i].borrowedAmount, r[i].swappedLeftoverCollateral, r[i].swappedLeftoverBorrow
-          ) = _repayFull(_asset1, _asset0, receivers[i]);
+          ) = _repayFull(borrowAsset, collateralAsset, receivers[i]);
         } else { // partial repay
           (
             r[i].collateralAmount, r[i].borrowedAmount, r[i].swappedLeftoverCollateral, r[i].swappedLeftoverBorrow
-          ) = _repayExact(_asset1, _asset0, amountsIn[i], receivers[i], amountsOut[i]);
+          ) = _repayExact(borrowAsset, collateralAsset, amountsIn[i], receivers[i], amountsOut[i]);
         }
       }
     }
@@ -143,29 +143,29 @@ contract UserEmulator { // todo is ITetuConverterCallback {
   function _borrowByPlan(
     bytes memory entryData,
     uint amountIn,
-    address collateralAsset,
-    address borrowAsset,
+    address collateralAsset_,
+    address borrowAsset_,
     address receiver
   ) internal returns (
     address converter,
     uint borrowedAmount
   ) {
     console.log("_borrowByPlan.amountIn", amountIn);
-    IERC20(collateralAsset).approve(address(_tc), amountIn);
+    IERC20(collateralAsset_).approve(address(_tc), amountIn);
     (
       address[] memory converters,
       uint[] memory collateralAmountsOut,
       uint[] memory amountToBorrowsOut,
-    ) = _tc.findBorrowStrategies(entryData, collateralAsset, amountIn, borrowAsset, _periodInBlocks);
+    ) = _tc.findBorrowStrategies(entryData, collateralAsset_, amountIn, borrowAsset_, _periodInBlocks);
     require(converters.length > 0, AppErrors.POOL_ADAPTER_NOT_FOUND);
 
-    require(IERC20(collateralAsset).balanceOf(address(this)) >= amountIn, "UserEmulator has insufficient balance of collateral");
+    require(IERC20(collateralAsset_).balanceOf(address(this)) >= amountIn, "UserEmulator has insufficient balance of collateral");
 
     console.log("_borrowByPlan.converter", converters[0]);
     console.log("_borrowByPlan.collateralAmountsOut", collateralAmountsOut[0]);
     console.log("_borrowByPlan.amountToBorrowsOut", amountToBorrowsOut[0]);
     // borrow and receive borrowed-amount to receiver's balance
-    borrowedAmount = _tc.borrow(converters[0], collateralAsset, collateralAmountsOut[0], borrowAsset, amountToBorrowsOut[0], receiver);
+    borrowedAmount = _tc.borrow(converters[0], collateralAsset_, collateralAmountsOut[0], borrowAsset_, amountToBorrowsOut[0], receiver);
     return (converters[0], borrowedAmount);
   }
 
@@ -174,21 +174,21 @@ contract UserEmulator { // todo is ITetuConverterCallback {
     bytes memory entryData,
     uint amountIn,
     uint amountOut,
-    address collateralAsset,
-    address borrowAsset,
+    address collateralAsset_,
+    address borrowAsset_,
     address receiver
   ) internal returns (
     address converter,
     uint borrowedAmount
   ) {
-    IERC20(collateralAsset).approve(address(_tc), amountIn);
-    (address[] memory converters,,,) = _tc.findBorrowStrategies(entryData, collateralAsset, amountIn, borrowAsset, _periodInBlocks);
+    IERC20(collateralAsset_).approve(address(_tc), amountIn);
+    (address[] memory converters,,,) = _tc.findBorrowStrategies(entryData, collateralAsset_, amountIn, borrowAsset_, _periodInBlocks);
     require(converters.length > 0, AppErrors.POOL_ADAPTER_NOT_FOUND);
 
-    require(IERC20(collateralAsset).balanceOf(address(this)) >= amountIn, "UserEmulator has insufficient balance of collateral");
+    require(IERC20(collateralAsset_).balanceOf(address(this)) >= amountIn, "UserEmulator has insufficient balance of collateral");
 
     // borrow and receive borrowed-amount to receiver's balance
-    borrowedAmount = _tc.borrow(converters[0], collateralAsset, amountIn, borrowAsset, amountOut, receiver);
+    borrowedAmount = _tc.borrow(converters[0], collateralAsset_, amountIn, borrowAsset_, amountOut, receiver);
     return (converters[0], borrowedAmount);
   }
   //endregion--------------------------------------------- Borrow utils
