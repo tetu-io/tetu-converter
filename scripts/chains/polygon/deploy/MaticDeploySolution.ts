@@ -13,8 +13,8 @@ import {DeployerUtils} from "../../../utils/DeployerUtils";
  * Set required network in .env, i.e.
  *      APP_HARDHAT_CHAIN_ID=137
  * and run one of the following commands to run the script on stand-alone hardhat:
- *      npx hardhat run scripts/chains/matic/deploy/DeploySolution.ts
- *      npx hardhat run --network localhost scripts/chains/matic/deploy/DeploySolution.ts
+ *      npx hardhat run scripts/chains/matic/deploy/MaticDeploySolution.ts
+ *      npx hardhat run --network localhost scripts/chains/matic/deploy/MaticDeploySolution.ts
  */
 async function main() {
   const net = await ethers.provider.getNetwork();

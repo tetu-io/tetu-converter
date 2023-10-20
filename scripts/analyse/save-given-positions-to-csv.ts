@@ -50,6 +50,79 @@ function getPlatformAdapterName(platformKind: number): string {
   }
 }
 
+function writeToCsv(positions: IPositionInfo[]) {
+  const pathOut = "./tmp/given-positions.csv";
+
+  // ----------------------------  write statistics to CSV columns
+  const headers = [
+    "block",
+    "hoursPassed",
+    "poolAdapter",
+    "platform",
+    "collateralAssetName",
+    "borrowAssetName",
+    "collateralAmount",
+    "amountToPay",
+    "healthFactor",
+    "user",
+    "opened",
+    "collateralAmountLiquidated",
+    "debtGapRequired",
+    "origin",
+    "collateralAsset",
+    "borrowAsset",
+    "platformAdapter",
+  ];
+  const columns: string[][] = [];
+  columns.push(headers);
+  for (const p of positions) {
+    columns.push([
+      p.block.toString(),
+      (Math.round(p.hoursPassed * 10)/10).toString(),
+      p.poolAdapter,
+      p.platform,
+      p.collateralAssetName,
+      p.borrowAssetName,
+      p.collateralAmount.toString(),
+      p.amountToPay.toString(),
+      p.healthFactor.toString(),
+      p.user,
+      p.opened.toString(),
+      p.collateralAmountLiquidated.toString(),
+      p.debtGapRequired.toString(),
+      p.origin,
+      p.collateralAsset,
+      p.borrowAsset,
+      p.platformAdapter,
+    ]);
+  }
+
+  // ----------------------------  transpose
+  const lines: string[][] = [];
+  const countLines = headers.length;
+  for (let nline = 0; nline < countLines; ++nline) {
+    const line: string[] = [];
+    for (let ncol = 0; ncol < columns.length; ++ncol) {
+      if (nline !== 0 || ncol === 0 || columns[ncol][nline] !== columns[ncol - 1][nline]) {
+        line.push(columns[ncol][nline]);
+      } else {
+        // show block for first position only
+        // to visually distinct positions-set for each block
+        line.push("");
+      }
+    }
+    lines.push(line);
+  }
+
+  for (let nline = 0; nline < lines.length; ++nline) {
+    writeFileSync(
+      pathOut,
+      lines[nline].join(";") + "\n",
+      {encoding: 'utf8', flag: nline === 0 ? "w" : "a"}
+    );
+  }
+}
+
 /**
  *
  * Save all positions in TetuConverter for the given block to csv
@@ -58,10 +131,14 @@ function getPlatformAdapterName(platformKind: number): string {
  *      npx hardhat run scripts/analyse/save-given-positions-to-csv.ts
  */
 async function main() {
-  const BLOCKS = [48814578];
+  const blockFrom = 48801578;
+  const blockTo = 48871578;
+  const BLOCKS = [blockFrom,];
+  for (let i = blockFrom + 1000; i < blockTo; i += 1000) {
+    BLOCKS.push(i);
+  }
 
   const converterController = "0x2df21e2a115fcB3d850Fbc67237571bBfB566e99";
-  const pathOut = "./tmp/given-positions.csv";
 
   const net = await ethers.provider.getNetwork();
   console.log(net, `network name="${network.name}"`);
@@ -91,10 +168,10 @@ async function main() {
 
     const countPositions = (await debtMonitor.getCountPositions()).toNumber();
 
-    const current_block = await ethers.provider.getBlockNumber();
-    const blockInfo = await ethers.provider.getBlock(current_block);
+    const currentBlock = await ethers.provider.getBlockNumber();
+    const blockInfo = await ethers.provider.getBlock(currentBlock);
 
-    console.log("current block", current_block);
+    console.log("current block", currentBlock);
     console.log("current timestamp", getCurrentTimestamp());
     console.log("block timestamp", blockInfo.timestamp);
 
@@ -112,7 +189,7 @@ async function main() {
 
       const blockTimestamp = blockInfo.timestamp.valueOf();
       const position: IPositionInfo = {
-        block: current_block,
+        block: currentBlock,
         timestamp:  blockTimestamp,
         hoursPassed: Math.abs(currentTimestamp.valueOf() - blockTimestamp.valueOf()) / 60/60, // s => hours
 
@@ -135,78 +212,13 @@ async function main() {
         opened: status.opened,
         origin: config.originConverter
       };
+
       positions.push(position);
       console.log(position);
 
+      writeToCsv(positions);
     }
-  }
-  // ----------------------------  write statistics to CSV columns
-  const headers = [
-    "block",
-    "hoursPassed",
-    "poolAdapter",
-    "platform",
-    "collateralAssetName",
-    "borrowAssetName",
-    "collateralAmount",
-    "amountToPay",
-    "healthFactor",
-    "user",
-    "opened",
-    "collateralAmountLiquidated",
-    "debtGapRequired",
-    "origin",
-    "collateralAsset",
-    "borrowAsset",
-    "platformAdapter",
-  ];
-  const columns: string[][] = [];
-  columns.push(headers);
-  for (const p of positions) {
-    columns.push([
-     p.block.toString(),
-     (Math.round(p.hoursPassed * 10)/10).toString(),
-     p.poolAdapter,
-     p.platform,
-     p.collateralAssetName,
-     p.borrowAssetName,
-     p.collateralAmount.toString(),
-     p.amountToPay.toString(),
-     p.healthFactor.toString(),
-     p.user,
-     p.opened.toString(),
-     p.collateralAmountLiquidated.toString(),
-     p.debtGapRequired.toString(),
-     p.origin,
-     p.collateralAsset,
-     p.borrowAsset,
-      p.platformAdapter,
-    ]);
-  }
 
-  // ----------------------------  transpose
-  const lines: string[][] = [];
-  const countLines = headers.length;
-  for (let nline = 0; nline < countLines; ++nline) {
-    const line: string[] = [];
-    for (let ncol = 0; ncol < columns.length; ++ncol) {
-      if (nline !== 0 || ncol == 0 || columns[ncol][nline] != columns[ncol - 1][nline]) {
-        line.push(columns[ncol][nline]);
-      } else {
-        // show block for first position only
-        // to visually distinct positions-set for each block
-        line.push("");
-      }
-    }
-    lines.push(line);
-  }
-
-  for (let nline = 0; nline < lines.length; ++nline) {
-    writeFileSync(
-      pathOut,
-      lines[nline].join(";") + "\n",
-      {encoding: 'utf8', flag: nline === 0 ? "w" : "a"}
-    );
   }
 }
 
