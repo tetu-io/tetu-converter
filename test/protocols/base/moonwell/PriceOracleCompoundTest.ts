@@ -2,7 +2,7 @@ import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {BASE_NETWORK_ID, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
 import {ethers} from "hardhat";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {IERC20Metadata__factory, PriceOracleMoonwell} from "../../../../typechain";
+import {PriceOracleMoonwell} from "../../../../typechain";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
 import {formatUnits} from "ethers/lib/utils";

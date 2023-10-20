@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import "./MoonwellLib.sol";
+import "../compound/CompoundPlatformAdapterLib.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
@@ -12,8 +14,6 @@ import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
-import "../compound/CompoundPlatformAdapterLib.sol";
-import "./MoonwellLib.sol";
 import "../../integrations/moonwell/IMoonwellComptroller.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/

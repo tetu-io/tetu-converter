@@ -3,21 +3,7 @@ import {HARDHAT_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID,} from "../../../..
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
-import {
-  MockERC20,
-  CompoundCTokenBaseMock,
-  CompoundPoolAdapterLibFacade,
-  ConverterController,
-  Borrower,
-  IERC20Metadata__factory,
-  TokenAddressProviderMock,
-  IERC20__factory,
-  CompoundComptrollerMockV2,
-  CompoundComptrollerMockV1,
-  CompoundPriceOracleMock,
-  MockERC20__factory,
-  DebtMonitorMock,
-} from "../../../../typechain";
+import {MockERC20, CompoundCTokenBaseMock, CompoundPoolAdapterLibFacade, ConverterController, Borrower, IERC20Metadata__factory, TokenAddressProviderMock, CompoundComptrollerMockV2, IERC20__factory, CompoundComptrollerMockV1, CompoundPriceOracleMock, MockERC20__factory, DebtMonitorMock,} from "../../../../typechain";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 import {BigNumber} from "ethers";

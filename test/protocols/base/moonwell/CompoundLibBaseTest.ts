@@ -1,16 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BASE_NETWORK_ID, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
 import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
-import {
-  CompoundLibFacade,
-  ICompoundPriceOracle__factory,
-  IMToken__factory,
-  IERC20,
-  IERC20Metadata,
-  IERC20Metadata__factory,
-  IMToken,
-  CompoundAprLibFacade
-} from "../../../../typechain";
+import {CompoundLibFacade, ICompoundPriceOracle__factory, IMToken__factory, IERC20Metadata, IERC20Metadata__factory, IMToken, CompoundAprLibFacade} from "../../../../typechain";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";

@@ -3,13 +3,7 @@ import {HARDHAT_NETWORK_ID, HardhatUtils, } from "../../../../scripts/utils/Hard
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
-import {
-  CompoundCTokenBaseMock,
-  CompoundLibFacade,
-  MockERC20,
-  CompoundPriceOracleMock,
-  CompoundInterestRateModelMock, IERC20Metadata__factory
-} from "../../../../typechain";
+import {CompoundCTokenBaseMock, CompoundLibFacade, MockERC20, CompoundPriceOracleMock,} from "../../../../typechain";
 import {expect} from "chai";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {formatUnits, parseUnits} from "ethers/lib/utils";

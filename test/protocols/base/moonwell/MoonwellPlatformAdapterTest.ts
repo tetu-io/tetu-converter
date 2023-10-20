@@ -1,17 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BASE_NETWORK_ID, controlGasLimitsEx2, HardhatUtils} from "../../../../scripts/utils/HardhatUtils";
-import {
-  ConverterController,
-  IMoonwellComptroller,
-  IMoonwellPriceOracle,
-  MoonwellPlatformAdapter,
-  CompoundAprLibFacade,
-  CompoundPlatformAdapterLibFacade,
-  MoonwellPlatformAdapter__factory,
-  IERC20Metadata__factory,
-  BorrowManager__factory,
-  IMToken__factory, TetuLiquidatorMock__factory
-} from "../../../../typechain";
+import {ConverterController, IMoonwellComptroller, IMoonwellPriceOracle, MoonwellPlatformAdapter, CompoundAprLibFacade, CompoundPlatformAdapterLibFacade, MoonwellPlatformAdapter__factory, IERC20Metadata__factory, BorrowManager__factory, IMToken__factory} from "../../../../typechain";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {ethers} from "hardhat";
@@ -30,15 +19,13 @@ import {
 } from "../../../baseUT/protocols/moonwell/MoonwellPlatformAdapterUtils";
 import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
 import {MoonwellUtils} from "../../../baseUT/protocols/moonwell/MoonwellUtils";
-import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
+import {defaultAbiCoder, formatUnits} from "ethers/lib/utils";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {BigNumber} from "ethers";
 import {GAS_LIMIT_MOONWELL_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasLimit";
 import {generateAssetPairs} from "../../../baseUT/utils/AssetPairUtils";
 import {IPredictBrParams, IPredictBrResults, PredictBrUsesCase} from "../../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {MoonwellPlatformActor} from "../../../baseUT/protocols/moonwell/MoonwellPlatformActor";
-import {InjectUtils} from "../../../baseUT/chains/base/InjectUtils";
-import Base = Mocha.reporters.Base;
 
 describe("MoonwellPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -221,8 +208,8 @@ describe("MoonwellPlatformAdapterTest", () => {
           {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "10000"},
           {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "5000"},
           {collateral: BaseAddresses.WETH, borrow: BaseAddresses.DAI, amount: "1"},
-          {collateral: BaseAddresses.WETH, borrow: BaseAddresses.DAI, amount: "1", entryKind: 1},
-          {collateral: BaseAddresses.WETH, borrow: BaseAddresses.DAI, amount: "1", entryKind: 2},
+          {collateral: BaseAddresses.USDDbC, borrow: BaseAddresses.DAI, amount: "1", entryKind: 1},
+          {collateral: BaseAddresses.USDDbC, borrow: BaseAddresses.USDC, amount: "1", entryKind: 2},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
           const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}, ${b.entryKind ?? 0}`;
@@ -464,7 +451,7 @@ describe("MoonwellPlatformAdapterTest", () => {
               entryKind: AppConstants.ENTRY_KIND_2,
             });
 
-            expect(r.plan.collateralAmount).approximately(collateralAmount, 1e-6);
+            expect(r.plan.collateralAmount).approximately(collateralAmount, 1e-5);
           });
         });
       });

@@ -78,7 +78,6 @@ library MoonwellRewardsLib {
 
     uint amountMTokensToSupply =  amountToSupply_ * 1e18 / mToken_.exchangeRateStored();
 
-    // Code golf to avoid too many local vars :rolling-eyes:
     v.calcData = CalculatedData({
         marketData: CurrentMarketData({
         totalMTokens: mToken_.totalSupply(),
@@ -144,7 +143,7 @@ library MoonwellRewardsLib {
             v.calcData.marketData.totalBorrows + amountToBorrow_,
             v.calcData.marketData.marketBorrowIndex
           ),
-          v.config.supplyGlobalTimestamp + borrowPeriodTimestamp_
+          v.borrowUpdateNow.newTimestamp + borrowPeriodTimestamp_
         );
         v.borrowerRewardsAccrued = calculateBorrowRewardsForUser(
           v.borrowUpdate.newIndex,
