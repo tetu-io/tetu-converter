@@ -129,10 +129,9 @@ export class CoreContractsHelper {
     signer: SignerWithAddress,
     controller: string,
     instance: string,
-    gelatoOpsAddress: string,
     blocksPerDayAutoUpdatePeriodSec: number = 3 * 24 * 60 * 60 // 3 days by default
   ): Promise<ContractTransaction> {
-    return Keeper__factory.connect(instance, signer).init(controller, gelatoOpsAddress, blocksPerDayAutoUpdatePeriodSec);
+    return Keeper__factory.connect(instance, signer).init(controller, blocksPerDayAutoUpdatePeriodSec);
   }
 
   public static async initializeSwapManager(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {

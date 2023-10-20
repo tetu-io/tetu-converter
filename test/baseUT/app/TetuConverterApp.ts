@@ -81,7 +81,6 @@ export class TetuConverterApp {
           deployer,
           controller,
           instance,
-          (await MocksHelper.createKeeperCaller(deployer)).address, // default keeper caller
           p?.blocksPerDayAutoUpdatePeriodSec
         )}
       };

@@ -81,7 +81,7 @@ describe("KeeperTest", () => {
             init: async (c: string, instance: string) => {
               // Create real keeper and wrap it by mocked keeper
               const realKeeper = await CoreContractsHelper.deployKeeper(signer);
-              await CoreContractsHelper.initializeKeeper(signer, c, realKeeper, keeperCaller.address, blocksPerDayAutoUpdatePeriodSec);
+              await CoreContractsHelper.initializeKeeper(signer, c, realKeeper, blocksPerDayAutoUpdatePeriodSec);
               await KeeperMock__factory.connect(
                 await ConverterController__factory.connect(c, signer).keeper(),
                 signer
@@ -91,7 +91,7 @@ describe("KeeperTest", () => {
           : {
             deploy: async () => CoreContractsHelper.deployKeeper(signer),
             init: async (c, instance) => {
-              await CoreContractsHelper.initializeKeeper(signer, c, instance, keeperCaller.address, blocksPerDayAutoUpdatePeriodSec);
+              await CoreContractsHelper.initializeKeeper(signer, c, instance, blocksPerDayAutoUpdatePeriodSec);
             }
           },
         swapManagerFabric: TetuConverterApp.getRandomSet(),
@@ -519,7 +519,6 @@ describe("KeeperTest", () => {
               deployer,
               p?.useZeroController ? Misc.ZERO_ADDRESS : c,
               instance,
-              p?.useZeroOps ? Misc.ZERO_ADDRESS : (await MocksHelper.createKeeperCaller(deployer)).address,
               p?.blocksPerDayAutoUpdatePeriodSec || 0
             );},
           },
@@ -535,7 +534,6 @@ describe("KeeperTest", () => {
         const keeper = await Keeper__factory.connect(await controller.keeper(), deployer);
         await Keeper__factory.connect(await controller.keeper(), deployer).init(
           controller.address,
-          await keeper.ops(),
           await keeper.blocksPerDayAutoUpdatePeriodSec()
         );
       }
@@ -582,9 +580,6 @@ describe("KeeperTest", () => {
       describe("Zero address", () => {
         it("should revert if controller is zero", async () => {
           await expect(makeInitTest({useZeroController: true})).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-        });
-        it("should revert if ops is zero", async () => {
-          await expect(makeInitTest({useZeroOps: true})).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
         });
         it("should revert on second initialization", async () => {
           await expect(makeInitTest({useSecondInitialization: true})).revertedWith("Initializable: contract is already initialized");

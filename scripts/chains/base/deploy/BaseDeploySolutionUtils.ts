@@ -5,10 +5,11 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {RunHelper} from "../../../utils/RunHelper";
 import {BigNumber} from "ethers";
 import {
+  BorrowManager__factory,
   ConverterController,
-  ConverterController__factory,
+  ConverterController__factory, DebtMonitor__factory,
   IBorrowManager,
-  IBorrowManager__factory
+  IBorrowManager__factory, Keeper__factory, SwapManager__factory, TetuConverter__factory
 } from "../../../../typechain";
 import {appendFileSync} from "fs";
 import {ethers, network} from "hardhat";
@@ -17,6 +18,7 @@ import {writeFileSyncRestoreFolder} from "../../../../test/baseUT/utils/FileUtil
 import {CoreContractsHelper} from "../../../../test/baseUT/app/CoreContractsHelper";
 import {AdaptersHelper} from "../../../../test/baseUT/app/AdaptersHelper";
 import {BaseAddresses} from "../../../addresses/BaseAddresses";
+import {txParams2} from "../../../utils/DeployHelpers";
 
 //region Data types
 export interface IControllerSetupParams {
@@ -68,7 +70,7 @@ export interface IPlatformAdapterResult {
   lendingPlatformTitle: string;
   platformAdapterAddress: string;
   converters: string[];
-  /* All cTokens (actual for DForce, HundredFinance only and comets for Compound3) */
+  /* All cTokens (actual for compound-based platforms) */
   cTokensActive?: string[];
   /* We need to manually set priceOracle for HundredFinance only */
   priceOracle?: string;
@@ -134,7 +136,7 @@ export class BaseDeploySolutionUtils {
       BaseAddresses.MOONWELL_DAI,
       BaseAddresses.MOONWELL_WETH,
     ];
-    const hundredFinancePairs = BaseDeploySolutionUtils.generateAssetPairs([
+    const moonwellPairs = BaseDeploySolutionUtils.generateAssetPairs([
       BaseAddresses.USDC,
       BaseAddresses.USDDbC,
       BaseAddresses.DAI,
@@ -163,31 +165,31 @@ export class BaseDeploySolutionUtils {
     const deployedPlatformAdapters: IPlatformAdapterResult[] = [];
 
     // Deploy all Platform adapters and pool adapters
-    const platformAdapterHundredFinance = deployMoonwell
-      ? await BaseDeploySolutionUtils.createPlatformAdapterHundredFinance(signer,
+    const platformAdapterMoonwell = deployMoonwell
+      ? await BaseDeploySolutionUtils.createPlatformAdapterMoonwell(signer,
         deployCoreResults.controller,
         moonwellComptroller,
         moonwellCTokens,
       )
       : undefined;
-    if (platformAdapterHundredFinance) {
-      console.log("Register platform adapter HundredFinance");
-      deployedPlatformAdapters.push(platformAdapterHundredFinance);
+    if (platformAdapterMoonwell) {
+      console.log("Register platform adapter Moonwell");
+      deployedPlatformAdapters.push(platformAdapterMoonwell);
       await BaseDeploySolutionUtils.registerPlatformAdapter(
         borrowManager,
-        platformAdapterHundredFinance.platformAdapterAddress,
-        hundredFinancePairs
+        platformAdapterMoonwell.platformAdapterAddress,
+        moonwellPairs
       );
     }
 
     console.log("setTargetHealthFactors");
     // set target health factors
-    // todo const txParam = await txParams2();
+    const tp = await txParams2();
     await RunHelper.runAndWait(
       () =>  borrowManager.setTargetHealthFactors(
         targetHealthFactorsAssets,
         targetHealthFactorsValues,
-        {gasLimit: GAS_DEPLOY_LIMIT}
+        {...tp, gasLimit: GAS_DEPLOY_LIMIT}
       )
     );
 
@@ -233,48 +235,80 @@ export class BaseDeploySolutionUtils {
     const tetuConverter = alreadyDeployed?.tetuConverter || await CoreContractsHelper.deployTetuConverter(deployer);
     console.log("Result tetuConverter", tetuConverter);
 
-    await RunHelper.runAndWait(
-      () => ConverterController__factory.connect(controllerAddress, deployer).init(
-        proxyUpdater,
-        deployer.address,
-        tetuConverter,
-        borrowManager,
-        debtMonitor,
-        keeper,
-        swapManager,
-        priceOracle,
-        tetuLiquidator,
-        controllerSetupParams.blocksPerDay,
-        {gasLimit: GAS_DEPLOY_LIMIT}
-      )
-    );
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(
+        () => ConverterController__factory.connect(controllerAddress, deployer).init(
+          proxyUpdater,
+          deployer.address,
+          tetuConverter,
+          borrowManager,
+          debtMonitor,
+          keeper,
+          swapManager,
+          priceOracle,
+          tetuLiquidator,
+          controllerSetupParams.blocksPerDay,
+          {...tp, gasLimit: GAS_DEPLOY_LIMIT}
+        )
+      );
+    }
 
     const controller: ConverterController = ConverterController__factory.connect(controllerAddress, deployer);
-    await RunHelper.runAndWait(() => controller.setMinHealthFactor2(controllerSetupParams.minHealthFactor2));
-    await RunHelper.runAndWait(() => controller.setTargetHealthFactor2(controllerSetupParams.targetHealthFactor2));
-    await RunHelper.runAndWait(() => controller.setDebtGap(controllerSetupParams.debtGap));
-    console.log("Controller was initialized");
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(() => controller.setMinHealthFactor2(controllerSetupParams.minHealthFactor2, {...tp, gasLimit: GAS_DEPLOY_LIMIT}));
+    }
 
-    await RunHelper.runAndWait(
-      () => CoreContractsHelper.initializeBorrowManager(deployer, controllerAddress, borrowManager, borrowManagerSetupParams.rewardsFactor)
-    );
-    console.log("borrowManager was initialized");
-    await RunHelper.runAndWait(
-      () => CoreContractsHelper.initializeKeeper(deployer, controllerAddress, keeper, gelatoOpsReady, keeperSetupParams?.blocksPerDayAutoUpdatePeriodSec)
-    );
-    console.log("keeper was initialized");
-    await RunHelper.runAndWait(
-      () => CoreContractsHelper.initializeTetuConverter(deployer, controllerAddress, tetuConverter)
-    );
-    console.log("tetuConverter was initialized");
-    await RunHelper.runAndWait(
-      () => CoreContractsHelper.initializeDebtMonitor(deployer, controllerAddress, debtMonitor)
-    );
-    console.log("debtMonitor was initialized");
-    await RunHelper.runAndWait(
-      () => CoreContractsHelper.initializeSwapManager(deployer, controllerAddress, swapManager)
-    );
-    console.log("swapManager was initialized");
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(() => controller.setTargetHealthFactor2(controllerSetupParams.targetHealthFactor2, {...tp, gasLimit: GAS_DEPLOY_LIMIT}));
+    }
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(() => controller.setDebtGap(controllerSetupParams.debtGap, {...tp, gasLimit: GAS_DEPLOY_LIMIT}));
+      console.log("Controller was initialized");
+    }
+
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(
+        () => BorrowManager__factory.connect(borrowManager, deployer).init(controllerAddress, borrowManagerSetupParams.rewardsFactor, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
+      );
+      console.log("borrowManager was initialized");
+    }
+
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(
+        () => Keeper__factory.connect(keeper, deployer).init(controllerAddress, keeperSetupParams?.blocksPerDayAutoUpdatePeriodSec, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
+      );
+      console.log("keeper was initialized");
+    }
+
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(
+        () => TetuConverter__factory.connect(tetuConverter, deployer).init(controllerAddress, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
+      );
+      console.log("tetuConverter was initialized");
+    }
+
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(
+        () => DebtMonitor__factory.connect(debtMonitor, deployer).init(controllerAddress, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
+      );
+      console.log("debtMonitor was initialized");
+    }
+
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(
+        () => SwapManager__factory.connect(swapManager, deployer).init(controllerAddress, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
+      );
+      console.log("swapManager was initialized");
+    }
 
     return {
       controller: controllerAddress,
@@ -295,79 +329,14 @@ export class BaseDeploySolutionUtils {
 //endregion Setup core
 
 //region Platform adapters
-  static async createPlatformAdapterAAVE3(
-    deployer: SignerWithAddress,
-    controller: string,
-    aavePoolAddress: string
-  ) : Promise<IPlatformAdapterResult> {
-    const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
-    const converterEModde = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);
-    const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-      deployer,
-      controller,
-      aavePoolAddress,
-      converterNormal.address,
-      converterEModde.address,
-    );
-
-    return {
-      lendingPlatformTitle: "AAVE v3",
-      converters: [converterNormal.address, converterEModde.address],
-      platformAdapterAddress: platformAdapter.address
-    }
-  }
-
-  static async createPlatformAdapterAAVETwo(
-    deployer: SignerWithAddress,
-    controller: string,
-    aavePoolAddress: string
-  ) : Promise<IPlatformAdapterResult> {
-    const converterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
-    const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-      deployer,
-      controller,
-      aavePoolAddress,
-      converterNormal.address,
-    );
-
-    return {
-      lendingPlatformTitle: "AAVE-TWO",
-      converters: [converterNormal.address],
-      platformAdapterAddress: platformAdapter.address
-    }
-  }
-
-  static async createPlatformAdapterDForce(
-    deployer: SignerWithAddress,
-    controller: string,
-    comptroller: string,
-    cTokensActive: string[]
-  ) : Promise<IPlatformAdapterResult> {
-    const converterNormal = await AdaptersHelper.createDForcePoolAdapter(deployer);
-    const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
-      deployer,
-      controller,
-      comptroller,
-      converterNormal.address,
-      cTokensActive,
-    );
-
-    return {
-      lendingPlatformTitle: "DForce",
-      converters: [converterNormal.address],
-      platformAdapterAddress: platformAdapter.address,
-      cTokensActive
-    }
-  }
-
-  static async createPlatformAdapterHundredFinance(
+  static async createPlatformAdapterMoonwell(
     deployer: SignerWithAddress,
     controller: string,
     comptroller: string,
     cTokensActive: string[],
   ) : Promise<IPlatformAdapterResult> {
-    const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
-    const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+    const converterNormal = await AdaptersHelper.createMoonwellPoolAdapter(deployer);
+    const platformAdapter = await AdaptersHelper.createMoonwellPlatformAdapter(
       deployer,
       controller,
       comptroller,
@@ -376,35 +345,10 @@ export class BaseDeploySolutionUtils {
     );
 
     return {
-      lendingPlatformTitle: "Hundred Finance",
+      lendingPlatformTitle: "Moonwell",
       converters: [converterNormal.address],
       platformAdapterAddress: platformAdapter.address,
       cTokensActive,
-    }
-  }
-
-  static async createPlatformAdapterCompound3(
-    deployer: SignerWithAddress,
-    controller: string,
-    comets: string[],
-    cometRewards: string,
-    borrowManager: string
-  ) : Promise<IPlatformAdapterResult> {
-    const converterNormal = await AdaptersHelper.createCompound3PoolAdapter(deployer);
-    const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
-      deployer,
-      controller,
-      converterNormal.address,
-      comets,
-      cometRewards,
-      borrowManager,
-    );
-
-    return {
-      lendingPlatformTitle: "Compound3",
-      converters: [converterNormal.address],
-      platformAdapterAddress: platformAdapter.address,
-      cTokensActive: comets,
     }
   }
 //endregion Platform adapters
@@ -416,12 +360,13 @@ export class BaseDeploySolutionUtils {
     assetPairs: IPlatformAdapterAssets
   ) {
     console.log("registerPlatformAdapter", platformAdapter, assetPairs);
+    const tp = await txParams2();
     await RunHelper.runAndWait(
       () => borrowManager.addAssetPairs(
         platformAdapter,
         assetPairs.leftAssets,
         assetPairs.rightAssets,
-        {gasLimit: GAS_DEPLOY_LIMIT}
+        {...tp, gasLimit: GAS_DEPLOY_LIMIT}
       )
     );
   }

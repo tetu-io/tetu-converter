@@ -408,7 +408,7 @@ export class MaticDeploySolutionUtils {
     );
     console.log("borrowManager was initialized");
     await RunHelper.runAndWait(
-      () => CoreContractsHelper.initializeKeeper(deployer, controllerAddress, keeper, gelatoOpsReady, keeperSetupParams?.blocksPerDayAutoUpdatePeriodSec)
+      () => CoreContractsHelper.initializeKeeper(deployer, controllerAddress, keeper, keeperSetupParams?.blocksPerDayAutoUpdatePeriodSec)
     );
     console.log("keeper was initialized");
     await RunHelper.runAndWait(
