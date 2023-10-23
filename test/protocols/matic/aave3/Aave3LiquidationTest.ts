@@ -15,7 +15,7 @@ import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {ConverterController} from "../../../../typechain";
-import {MaticCore} from "../../../baseUT/chains/maticCore";
+import {MaticCore} from "../../../baseUT/chains/polygon/maticCore";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens

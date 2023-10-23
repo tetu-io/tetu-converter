@@ -12,7 +12,7 @@ import {Aave3PlatformFabric} from "../../baseUT/logic/fabrics/Aave3PlatformFabri
 import {AaveTwoPlatformFabric} from "../../baseUT/logic/fabrics/AaveTwoPlatformFabric";
 import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
-import {MaticCore} from "../../baseUT/chains/maticCore";
+import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 
 describe.skip("Run real work emulator @skip-on-coverage", () => {
   before(async function () {

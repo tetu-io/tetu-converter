@@ -26,7 +26,7 @@ import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUt
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {HundredFinancePlatformFabric} from "../../baseUT/logic/fabrics/HundredFinancePlatformFabric";
 import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
-import {MaticCore} from "../../baseUT/chains/maticCore";
+import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 
 /**
  * For any landing platform:

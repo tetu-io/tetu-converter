@@ -1,5 +1,5 @@
-import {ICoreAave3} from "../protocols/aave3/Aave3DataTypes";
-import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
+import {ICoreAave3} from "../../protocols/aave3/Aave3DataTypes";
+import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
 
 export class BaseCore {
     static getCoreAave3() : ICoreAave3 {

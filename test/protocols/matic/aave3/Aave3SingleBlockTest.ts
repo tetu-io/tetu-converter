@@ -15,7 +15,7 @@ import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
-import {MaticCore} from "../../../baseUT/chains/maticCore";
+import {MaticCore} from "../../../baseUT/chains/polygon/maticCore";
 import {ConverterController, IERC20Metadata__factory} from "../../../../typechain";
 
 describe("Aave3SingleBlockTest", () => {

@@ -5,6 +5,7 @@ import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {HundredFinanceHelper} from "../../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {generateAssetPairs} from "../../utils/AssetPairUtils";
 import {AdaptersHelper} from "../../app/AdaptersHelper";
+import {HundredFinanceUtils} from "../../protocols/hundred-finance/HundredFinanceUtils";
 
 export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
     async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {
@@ -17,16 +18,7 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
             controller.address,
             comptroller.address,
             converter.address,
-            [
-                MaticAddresses.hDAI,
-                MaticAddresses.hMATIC,
-                MaticAddresses.hUSDC,
-                MaticAddresses.hETH,
-                MaticAddresses.hUSDT,
-                MaticAddresses.hWBTC,
-                MaticAddresses.hFRAX,
-                MaticAddresses.hLINK,
-            ]
+            HundredFinanceUtils.getAllCTokens()
         );
 
         const bm: IBorrowManager = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);

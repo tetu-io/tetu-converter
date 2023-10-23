@@ -23,7 +23,7 @@ import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundr
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
-import {MaticCore} from "../../baseUT/chains/maticCore";
+import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 
 /**
  * Script to generate

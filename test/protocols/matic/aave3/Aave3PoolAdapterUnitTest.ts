@@ -48,7 +48,7 @@ import {
 import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {MocksHelper} from "../../../baseUT/app/MocksHelper";
-import {MaticCore} from "../../../baseUT/chains/maticCore";
+import {MaticCore} from "../../../baseUT/chains/polygon/maticCore";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Global vars for all tests

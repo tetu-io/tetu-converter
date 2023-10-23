@@ -200,7 +200,10 @@ contract UserEmulator { // todo is ITetuConverterCallback {
     uint swappedLeftoverCollateralOut,
     uint swappedLeftoverBorrowOut
   ) {
+    console.log("_repayFull");
     (uint amountToPay,) = _tc.getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, true);
+    console.log("_repayFull.amountToPay", amountToPay);
+    console.log("_repayFull.borrow asset balance of emulator", IERC20(borrowedAsset_).balanceOf(address(_tc)));
     IERC20(borrowedAsset_).safeTransfer(address(_tc), amountToPay);
     (collateralAmountOut,
       returnedBorrowAmountOut,

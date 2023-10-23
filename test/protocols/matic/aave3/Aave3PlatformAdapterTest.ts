@@ -28,7 +28,7 @@ import {ICoreAave3} from "../../../baseUT/protocols/aave3/Aave3DataTypes";
 import {IConversionPlan} from "../../../baseUT/types/AppDataTypes";
 import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {AdaptersHelper} from "../../../baseUT/app/AdaptersHelper";
-import {MaticCore} from "../../../baseUT/chains/maticCore";
+import {MaticCore} from "../../../baseUT/chains/polygon/maticCore";
 import {MocksHelper} from "../../../baseUT/app/MocksHelper";
 import {Aave3PlatformActor} from "../../../baseUT/protocols/aave3/Aave3PlatformActor";
 import {

@@ -29,7 +29,7 @@ import {ICoreAave3} from "./Aave3DataTypes";
 import {IAaveKeyState, IAaveKeyTestValues} from "../aaveShared/aaveDataTypes";
 import {MocksHelper} from "../../app/MocksHelper";
 import {Aave3PlatformFabric} from "../../logic/fabrics/Aave3PlatformFabric";
-import {MaticCore} from "../../chains/maticCore";
+import {MaticCore} from "../../chains/polygon/maticCore";
 
 //region Data types
 export interface IAaveReserveData {
