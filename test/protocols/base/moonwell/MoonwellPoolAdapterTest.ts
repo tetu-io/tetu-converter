@@ -36,6 +36,7 @@ import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {BigNumber} from "ethers";
 import {AppConstants} from "../../../baseUT/types/AppConstants";
 import {InjectUtils} from "../../../baseUT/chains/base/InjectUtils";
+import {BaseUtils} from "../../../baseUT/chains/base/BaseUtils";
 
 describe("MoonwellPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -152,7 +153,7 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = await MoonwellUtils.getHolder(p.collateralAsset);
+      const collateralHolder = await BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -207,7 +208,7 @@ describe("MoonwellPoolAdapterTest", () => {
           {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDbC, amount: "0.01"},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
-          const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
+          const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
           describe(testName, () => {
             it("should borrow expected amount", async () => {
               const ret = await borrow({
@@ -226,7 +227,7 @@ describe("MoonwellPoolAdapterTest", () => {
           {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "1000"},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
-          const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
+          const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
           describe(testName, () => {
             it("should borrow expected amount", async () => {
               const ret = await borrow({
@@ -285,8 +286,8 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = MoonwellUtils.getHolder(p.collateralAsset);
-      const borrowHolder = MoonwellUtils.getHolder(p.borrowAsset);
+      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
+      const borrowHolder = BaseUtils.getHolder(p.borrowAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -379,7 +380,7 @@ describe("MoonwellPoolAdapterTest", () => {
             {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDbC, amount: "0.01"},
           ];
           BORROWS.forEach(function (b: IRepayParams) {
-            const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
+            const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
             async function repayTest(): Promise<IResults>  {
               return repay({
                 collateralAsset: b.collateral,
@@ -418,7 +419,7 @@ describe("MoonwellPoolAdapterTest", () => {
             {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "1000"},
           ];
           BORROWS.forEach(function (b: IRepayParams) {
-            const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
+            const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
             async function repayTest(): Promise<IResults>  {
               return repay({
                 collateralAsset: b.collateral,
@@ -564,8 +565,8 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = MoonwellUtils.getHolder(p.collateralAsset);
-      const borrowHolder = MoonwellUtils.getHolder(p.borrowAsset);
+      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
+      const borrowHolder = BaseUtils.getHolder(p.borrowAsset);
 
       // set up initial health factor
       await converterController.connect(converterGovernance).setTargetHealthFactor2(parseUnits(p.targetHealthFactorBeforeBorrow, 2));
@@ -687,7 +688,7 @@ describe("MoonwellPoolAdapterTest", () => {
       TESTS.forEach(function (test: ITest) {
         describe(test.title, () => {
           test.borrows.forEach(function (b: IParamsForPrepare) {
-            const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}`;
+            const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
             describe(testName, () => {
               let snapshotLocal: string;
               let pr: IPrepareResults;
@@ -853,7 +854,7 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = MoonwellUtils.getHolder(p.collateralAsset);
+      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -951,7 +952,7 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = MoonwellUtils.getHolder(p.collateralAsset);
+      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -1051,7 +1052,7 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = MoonwellUtils.getHolder(p.collateralAsset);
+      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({

@@ -34,7 +34,7 @@ async function main() {
       process?.env.APP_PRIVATE_GOVERNANCE_ACCOUNT_FOR_HARDHAT || (await ethers.getSigners())[0].address)
     : (await ethers.getSigners())[0];
 
-  const proxyUpdater = signer.address; // todo tetu-contracts-v2 controller
+  const proxyUpdater = "0x255707B70BF90aa112006E1b07B9AeA6De021424"; // TetuController-V2
 
   console.log("signer", signer.address);
 

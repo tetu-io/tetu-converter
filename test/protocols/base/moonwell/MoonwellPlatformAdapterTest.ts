@@ -26,6 +26,7 @@ import {GAS_LIMIT_MOONWELL_GET_CONVERSION_PLAN} from "../../../baseUT/types/GasL
 import {generateAssetPairs} from "../../../baseUT/utils/AssetPairUtils";
 import {IPredictBrParams, IPredictBrResults, PredictBrUsesCase} from "../../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {MoonwellPlatformActor} from "../../../baseUT/protocols/moonwell/MoonwellPlatformActor";
+import {BaseUtils} from "../../../baseUT/chains/base/BaseUtils";
 
 describe("MoonwellPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -212,7 +213,7 @@ describe("MoonwellPlatformAdapterTest", () => {
           {collateral: BaseAddresses.USDbC, borrow: BaseAddresses.USDC, amount: "1", entryKind: 2},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
-          const testName = `${MoonwellUtils.getAssetName(b.collateral)} - ${MoonwellUtils.getAssetName(b.borrow)}, ${b.entryKind ?? 0}`;
+          const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}, ${b.entryKind ?? 0}`;
           describe(testName, () => {
             let snapshotLocal: string;
             before(async function () {

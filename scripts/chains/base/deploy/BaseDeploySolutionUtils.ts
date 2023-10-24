@@ -101,7 +101,7 @@ export class BaseDeploySolutionUtils {
     const destPathTxt = "tmp/deployed.txt";
     const tetuLiquidatorAddress = BaseAddresses.TETU_LIQUIDATOR;
     const controllerSetupParams: IControllerSetupParams = {
-      blocksPerDay: 41142,
+      blocksPerDay: 43200,
       minHealthFactor2: 105,
       targetHealthFactor2: 200,
       debtGap: 1_000

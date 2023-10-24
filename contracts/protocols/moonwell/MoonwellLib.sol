@@ -5,7 +5,6 @@ import "../compound/CompoundLib.sol";
 import "./MoonwellRewardsLib.sol";
 import "../../libs/AppDataTypes.sol";
 import "../../integrations/tetu/ITetuLiquidator.sol";
-import "hardhat/console.sol";
 
 library MoonwellLib {
   /// @notice For any assets
@@ -40,7 +39,6 @@ library MoonwellLib {
     uint rewardsSupply,
     uint rewardsBorrow
   ) {
-    console.log("estimateRewardAmounts.1");
     MultiRewardDistributorCommon.RewardInfo[] memory outputRewardData;
     outputRewardData = MoonwellRewardsLib.getOutstandingRewardsForUser(
       IMToken(cTokenCollateral),
@@ -49,7 +47,6 @@ library MoonwellLib {
       0,
       IMoonwellMultiRewardDistributor(rewardDistributor)
     );
-    console.log("estimateRewardAmounts.2");
     rewardsSupply = _getRewardTotalAmount(outputRewardData, tetuLiquidator, borrowAsset);
     outputRewardData = MoonwellRewardsLib.getOutstandingRewardsForUser(
       IMToken(cTokenBorrow),
@@ -58,7 +55,6 @@ library MoonwellLib {
       amountToBorrow,
       IMoonwellMultiRewardDistributor(rewardDistributor)
     );
-    console.log("estimateRewardAmounts.3");
     rewardsBorrow = _getRewardTotalAmount(outputRewardData, tetuLiquidator, borrowAsset);
   }
 
