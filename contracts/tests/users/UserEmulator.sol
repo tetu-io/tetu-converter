@@ -77,6 +77,8 @@ contract UserEmulator { // todo is ITetuConverterCallback {
 
     for (uint i; i < len; ++i) {
       console.log("borrowRepaySequence.i", i);
+      console.log("borrowRepaySequence.amountsIn[i]", amountsIn[i]);
+      console.log("borrowRepaySequence.amountsOut[i]", amountsOut[i]);
       if (actionKinds[i] == uint(ActionKind.BORROW_DIRECT_0)) {
         console.log("borrowRepaySequence.1.amountsOut[i]", amountsOut[i]);
         r[i].collateralAsset = collateralAsset;
@@ -222,6 +224,7 @@ contract UserEmulator { // todo is ITetuConverterCallback {
     uint swappedLeftoverCollateralOut,
     uint swappedLeftoverBorrowOut
   ) {
+    console.log("_repayExact");
     uint amountIn;
     if (repayPart == 0) {
       amountIn = amountToPay_;
@@ -229,6 +232,8 @@ contract UserEmulator { // todo is ITetuConverterCallback {
       (amountIn,) = _tc.getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, true);
       amountIn = amountIn * repayPart / 100_000;
     }
+    console.log("_repayExact.repayPart", repayPart);
+    console.log("_repayExact.amountIn", amountIn);
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc), amountIn);
     (collateralAmountOut,

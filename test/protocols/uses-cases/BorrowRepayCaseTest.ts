@@ -57,56 +57,19 @@ describe("BorrowRepayCaseTest", () => {
     { // Polygon
       networkId: POLYGON_NETWORK_ID,
       platforms: [
-        // { // AAVE3 on Polygon
-        //   async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-        //     const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-        //       signer0,
-        //       converterController0,
-        //       MaticAddresses.AAVE_V3_POOL,
-        //       (await AdaptersHelper.createAave3PoolAdapter(signer0)).address,
-        //       (await AdaptersHelper.createAave3PoolAdapterEMode(signer0)).address,
-        //       borrowManagerAsGov0.address,
-        //     ) as Aave3PlatformAdapter;
-        //
-        //     // register the platform adapter in TetuConverter app
-        //     const pairs = generateAssetPairs(Aave3Utils.getAllAssetsMatic());
-        //     await borrowManagerAsGov0.addAssetPairs(
-        //       platformAdapter.address,
-        //       pairs.map(x => x.smallerAddress),
-        //       pairs.map(x => x.biggerAddress)
-        //     );
-        //
-        //     return platformAdapter;
-        //   },
-        //   platformUtilsProviderBuilder() {
-        //     return new Aave3UtilsProviderMatic();
-        //   },
-        //   assetPairs: [
-        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT"},
-        //     {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC"},
-        //
-        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI"},
-        //     {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC"},
-        //
-        //     {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.MaticX, collateralAssetName: "WMATIC", borrowAssetName: "MaticX"},
-        //   ]
-        // },
-        { // Hundred finance on Polygon
-          platformUtilsProviderBuilder() {
-            return new HundredFinanceUtilsProvider();
-          },
+        { // AAVE3 on Polygon
           async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+            const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
               signer0,
               converterController0,
-              MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-              (await AdaptersHelper.createHundredFinancePoolAdapter(signer0)).address,
-              HundredFinanceUtils.getAllCTokens(),
+              MaticAddresses.AAVE_V3_POOL,
+              (await AdaptersHelper.createAave3PoolAdapter(signer0)).address,
+              (await AdaptersHelper.createAave3PoolAdapterEMode(signer0)).address,
               borrowManagerAsGov0.address,
-            ) as HfPlatformAdapter;
+            ) as Aave3PlatformAdapter;
 
             // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(HundredFinanceUtils.getAllAssets());
+            const pairs = generateAssetPairs(Aave3Utils.getAllAssetsMatic());
             await borrowManagerAsGov0.addAssetPairs(
               platformAdapter.address,
               pairs.map(x => x.smallerAddress),
@@ -115,21 +78,58 @@ describe("BorrowRepayCaseTest", () => {
 
             return platformAdapter;
           },
+          platformUtilsProviderBuilder() {
+            return new Aave3UtilsProviderMatic();
+          },
           assetPairs: [
             {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT"},
             {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC"},
 
             {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI"},
             {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC"},
+
+            {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.MaticX, collateralAssetName: "WMATIC", borrowAssetName: "MaticX"},
           ]
         },
+        // { // Hundred finance on Polygon: todo check on manually deployed protocol
+        //   platformUtilsProviderBuilder() {
+        //     return new HundredFinanceUtilsProvider();
+        //   },
+        //   async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+        //     const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+        //       signer0,
+        //       converterController0,
+        //       MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+        //       (await AdaptersHelper.createHundredFinancePoolAdapter(signer0)).address,
+        //       HundredFinanceUtils.getAllCTokens(),
+        //       borrowManagerAsGov0.address,
+        //     ) as HfPlatformAdapter;
+        //
+        //     // register the platform adapter in TetuConverter app
+        //     const pairs = generateAssetPairs(HundredFinanceUtils.getAllAssets());
+        //     await borrowManagerAsGov0.addAssetPairs(
+        //       platformAdapter.address,
+        //       pairs.map(x => x.smallerAddress),
+        //       pairs.map(x => x.biggerAddress)
+        //     );
+        //
+        //     return platformAdapter;
+        //   },
+        //   assetPairs: [
+        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT"},
+        //     {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC"},
+        //
+        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI"},
+        //     {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC"},
+        //   ]
+        // },
       ]
     },
 
     { // Base chain
       networkId: BASE_NETWORK_ID,
       platforms: [
-        // { // AAVE3 on Base chain
+        // { // AAVE3 on Base chain: todo uncomment when AAVE will have 2 stablecoins on Base chain
         //   platformUtilsProviderBuilder() {
         //     return new Aave3UtilsProviderBase();
         //   },
@@ -194,7 +194,6 @@ describe("BorrowRepayCaseTest", () => {
         },
       ]
     },
-
   ]
 //endregion Constants
 
@@ -209,7 +208,7 @@ describe("BorrowRepayCaseTest", () => {
 //endregion Global vars for all tests
 
   NETWORKS.forEach(network => {
-    describe(`${network.networkId}`, () => {
+    describe(`${network.networkId}`, function () {
       before(async function () {
         await HardhatUtils.setupBeforeTest(network.networkId);
         this.timeout(1200000);
@@ -227,7 +226,7 @@ describe("BorrowRepayCaseTest", () => {
       });
 
       network.platforms.forEach(platform => {
-        describe(`${platform.platformUtilsProviderBuilder().getPlatformName()}`, () => {
+        describe(`${platform.platformUtilsProviderBuilder().getPlatformName()}`, function () {
           let platformUtilsProvider: IPlatformUtilsProvider;
           let snapshotLevel0: string;
           before(async function () {
@@ -242,7 +241,7 @@ describe("BorrowRepayCaseTest", () => {
 
           describe("Borrow/repay single action per block", function () {
             const HEALTH_FACTOR_PAIRS: IHealthFactorsPair[] = [
-              {minValue: "1.05", targetValue: "1.20"},
+              {minValue: "1.05", targetValue: "1.15"},
               {minValue: "1.01", targetValue: "1.03"},
             ];
 
@@ -325,41 +324,58 @@ describe("BorrowRepayCaseTest", () => {
                         });
 
                         describe("partial repay", function () {
-                          let snapshotLevel4: string;
-                          let repayResults: IBorrowRepayPairResults;
-                          before(async function () {
-                            snapshotLevel4 = await TimeUtils.snapshot();
-                            repayResults = await BorrowRepayCases.borrowRepayPairsSingleBlock(
-                              signer,
-                              {
-                                tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
-                                user: userEmulator,
-                                borrowAsset: assetPair.borrowAsset,
-                                collateralAsset: assetPair.collateralAsset,
-                                borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
-                                userBorrowAssetBalance: "0",
-                                userCollateralAssetBalance: "0",
-                                receiver: RECEIVER
-                              },
-                              [{repay: {repayPart: 25_000}}] // pay 25%
-                            );
-                            console.log("repayResults", repayResults);
-                          });
-                          after(async function () {
-                            await TimeUtils.rollback(snapshotLevel4);
-                          });
+                          const REPAY_PARTS = [1000, 25_000, 98_900];
 
-                          it("should reduce debt on expected value", async () => {
-                            expect(repayResults.status.amountToPay).approximately(
-                              borrowResults.borrow[0].borrowedAmount - plusDebtGap(borrowResults.borrow[0].borrowedAmount * 0.25, borrowResults.status.debtGapRequired),
-                              1e-3);
-                          });
-                          it("should receive expected amount of collateral on receiver's balance", async () => {
-                            expect(repayResults.receiverCollateralAssetBalance).approximately(plusDebtGap(1000 * 0.25, borrowResults.status.debtGapRequired), 1e-3);
-                          });
-                          it("the debt should have health factor near to the target value", async () => {
-                            expect(repayResults.status.healthFactor).approximately(Number(healthFactorsPair.targetValue), 1e-4);
+                          REPAY_PARTS.forEach(repayPart => {
+                            describe(`repay part ${repayPart/100_000}`, function () {
+                              let snapshotLevel4: string;
+                              let repayResults: IBorrowRepayPairResults;
+                              before(async function () {
+                                snapshotLevel4 = await TimeUtils.snapshot();
+                                repayResults = await BorrowRepayCases.borrowRepayPairsSingleBlock(
+                                  signer,
+                                  {
+                                    tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                                    user: userEmulator,
+                                    borrowAsset: assetPair.borrowAsset,
+                                    collateralAsset: assetPair.collateralAsset,
+                                    borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                                    collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                                    userBorrowAssetBalance: "0",
+                                    userCollateralAssetBalance: "0",
+                                    receiver: RECEIVER
+                                  },
+                                  [{repay: {repayPart}}]
+                                );
+                                console.log("repayResults", repayResults);
+                              });
+                              after(async function () {
+                                await TimeUtils.rollback(snapshotLevel4);
+                              });
+
+                              it("should reduce debt on expected value", async () => {
+                                expect(repayResults.status.amountToPay).approximately(
+                                  borrowResults.borrow[0].borrowedAmount
+                                  - plusDebtGap(
+                                    borrowResults.borrow[0].borrowedAmount,
+                                    borrowResults.status.debtGapRequired,
+                                    repayPart
+                                  ),
+                                  1e-3);
+                              });
+                              it("should receive expected amount of collateral on receiver's balance", async () => {
+                                expect(repayResults.receiverCollateralAssetBalance).approximately(
+                                  plusDebtGap(1000, borrowResults.status.debtGapRequired, repayPart),
+                                  1e-3
+                                );
+                              });
+                              it("the debt should have health factor >= target value", async () => {
+                                expect(repayResults.status.healthFactor).approximately(
+                                  Number(healthFactorsPair.targetValue),
+                                  repayPart > 99_000 ? 0.01 : 1e-4
+                                );
+                              });
+                            });
                           });
                         });
                         describe("full repay", function () {

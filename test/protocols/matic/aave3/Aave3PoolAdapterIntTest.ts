@@ -132,7 +132,8 @@ describe("Aave3PoolAdapterIntTest", () => {
             ));
           });
         });
-        describe("DAI-18 : USDC-6", () => {
+        /** The test is replaced by BorrowRepayCaseTest */
+        describe.skip("DAI-18 : USDC-6", () => {
           let snapshotLocal: string;
           before(async function () {
             snapshotLocal = await TimeUtils.snapshot();
@@ -206,7 +207,8 @@ describe("Aave3PoolAdapterIntTest", () => {
             ));
           });
         });
-        describe("USDC-6 : DAI-18", () => {
+        /** The test is replaced by BorrowRepayCaseTest */
+        describe.skip("USDC-6 : DAI-18", () => {
           let snapshotLocal: string;
           before(async function () {
             snapshotLocal = await TimeUtils.snapshot();
@@ -1224,7 +1226,8 @@ describe("Aave3PoolAdapterIntTest", () => {
       }
     }
     describe("Good paths", () => {
-      describe("Borrow and repay modest amount", () => {
+      /** The test is replaced by BorrowRepayCaseTest */
+      describe.skip("Borrow and repay modest amount", () => {
         describe("Partial repay of borrowed amount", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
@@ -1249,7 +1252,8 @@ describe("Aave3PoolAdapterIntTest", () => {
             });
           });
         });
-        describe("Full repay of borrowed amount", () => {
+        /** The test is replaced by BorrowRepayCaseTest */
+        describe.skip("Full repay of borrowed amount", () => {
           it("should return expected balances", async () => {
             const initialBorrowAmountOnUserBalance = 1;
             const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
