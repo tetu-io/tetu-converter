@@ -2,9 +2,11 @@ import {ethers, network} from "hardhat";
 import {BorrowManager__factory, ConverterController__factory} from "../../typechain";
 import {RunHelper} from "../utils/RunHelper";
 import {BaseAddresses} from "../addresses/BaseAddresses";
-import {BaseDeploySolutionUtils} from "../chains/base/deploy/BaseDeploySolutionUtils";
+import {BaseDeploySolutionUtils, IPlatformAdapterResult} from "../chains/base/deploy/BaseDeploySolutionUtils";
 import {Misc} from "../utils/Misc";
 import {txParams2} from "../utils/DeployHelpers";
+import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {AdaptersHelper} from "../../test/baseUT/app/AdaptersHelper";
 
 //region Platform adapters
 async function createPlatformAdapterMoonwell(
@@ -54,8 +56,7 @@ async function main() {
   // }
 
   const signer = await Misc.impersonate("0xF1dCce3a6c321176C62b71c091E3165CC9C3816E")
-    // (await ethers.getSigners())[0];
-
+  // const signer = (await ethers.getSigners())[0];
 
   const controller = "0x1AC16b6aBeEE14487DE6CF946d05A0dE5169a917"; // base, v.1.2.1
   const borrowManager = await ConverterController__factory.connect(controller, signer).borrowManager();
@@ -101,14 +102,14 @@ async function main() {
     moonwellCTokens,
   );
 
-  console.log("Register new adapters");
+  console.log("Register new adapters", platformAdapterMoonwell);
   const tp = await txParams2();
   await RunHelper.runAndWait(
-    () => borrowManager.addAssetPairs(
-      platformAdapter,
-      assetPairs.leftAssets,
-      assetPairs.rightAssets,
-      {...tp, gasLimit: GAS_DEPLOY_LIMIT}
+    () => bm.addAssetPairs(
+      platformAdapterMoonwell.platformAdapterAddress,
+      moonwellPairs.leftAssets,
+      moonwellPairs.rightAssets,
+      {...tp, gasLimit: 8_000_000}
     )
   );
 
