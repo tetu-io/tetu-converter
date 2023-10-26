@@ -274,7 +274,8 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(collateralBalanceATokens.gte(aaveTokensBalance)).eq(true);
         });
       });
-      describe("Supply and borrow not-matic (CRV, USDC)", () => {
+      /** Block 48937698: Token mint has been paused */
+      describe.skip("Supply and borrow not-matic (CRV, USDC)", () => {
         const collateralAsset = MaticAddresses.CRV;
         const collateralCToken = MaticAddresses.dForce_iCRV;
         const collateralHolder = MaticAddresses.HOLDER_CRV;

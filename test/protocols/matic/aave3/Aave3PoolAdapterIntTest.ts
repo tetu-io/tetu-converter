@@ -1271,7 +1271,7 @@ describe("Aave3PoolAdapterIntTest", () => {
         describe("Full repay of borrowed amount", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              const initialBorrowAmountOnUserBalance = 10000;
+              const initialBorrowAmountOnUserBalance = 20000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
@@ -1284,7 +1284,7 @@ describe("Aave3PoolAdapterIntTest", () => {
           });
           describe("WMATIC => DAI", () => {
             it("should return expected balances", async () => {
-              const initialBorrowAmountOnUserBalance = 10000;
+              const initialBorrowAmountOnUserBalance = 20000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
