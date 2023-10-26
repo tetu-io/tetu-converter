@@ -30,7 +30,7 @@ import {expect} from "chai";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {Aave3Utils} from "../../baseUT/protocols/aave3/Aave3Utils";
 import {Aave3UtilsProviderMatic} from "../../baseUT/protocols/aave3/utils-providers/Aave3UtilsProviderMatic";
-import {plusDebtGap} from "../../baseUT/utils/DebtGapUtils";
+import {plusDebtGap, withDebtGap} from "../../baseUT/utils/DebtGapUtils";
 import {MoonwellUtils} from "../../baseUT/protocols/moonwell/MoonwellUtils";
 import {MoonwellHelper} from "../../../scripts/integration/moonwell/MoonwellHelper";
 import {MoonwellUtilsProvider} from "../../baseUT/protocols/moonwell/MoonwellUtilsProvider";
@@ -774,8 +774,13 @@ describe("BorrowRepayCaseTest", () => {
                       expect(repayResults.status.collateralAmount).eq(0);
                     });
                     it("should set expected receiver and user borrow balances", async () => {
+                      console.log("borrowResults", borrowResults);
+                      console.log("results", repayResults);
                       const totalBorrowedAmount = borrowResults.borrow[0].borrowedAmount + borrowResults.borrow[1].borrowedAmount;
-                      expect(repayResults.receiverBorrowAssetBalance).gt(totalBorrowedAmount);
+                      expect(repayResults.receiverBorrowAssetBalance).approximately(
+                        withDebtGap(totalBorrowedAmount, borrowResults.status.debtGapRequired),
+                        5 // some part of debt gap can be taken to pay debts
+                      );
                       expect(repayResults.userBorrowAssetBalance + repayResults.receiverBorrowAssetBalance).approximately(2000,0.1);
                     });
                     it("should set expected receiver and user collateral balances", async () => {
