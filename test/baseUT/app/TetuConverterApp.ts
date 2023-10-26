@@ -94,7 +94,7 @@ export class TetuConverterApp {
     const tetuLiquidatorFabric = async () => p?.tetuLiquidatorAddress
         || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address;
     const priceOracleFabric = p?.priceOracleFabric
-        || (async () => await this.getPriceOracleForNetwork(deployer, p?.networkId ?? HARDHAT_NETWORK_ID)
+        || (async () => this.getPriceOracleForNetwork(deployer, p?.networkId ?? HARDHAT_NETWORK_ID)
       );
 
     return CoreContractsHelper.createController(
