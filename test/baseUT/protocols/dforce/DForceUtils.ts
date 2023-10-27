@@ -15,4 +15,31 @@ export class DForceUtils {
     }
     throw Error(`Cannot find dForce_XXX token for asset ${asset}`);
   }
+
+  static getAllCTokens(): string[] {
+    return [
+      MaticAddresses.dForce_iUSDC,
+      MaticAddresses.dForce_iUSDT,
+      MaticAddresses.dForce_iUSX,
+      MaticAddresses.dForce_iDAI,
+      MaticAddresses.dForce_iWETH,
+      MaticAddresses.dForce_iWBTC,
+      // MaticAddresses.dForce_iAAVE,
+      MaticAddresses.dForce_iCRV,
+      MaticAddresses.dForce_iMATIC
+    ];
+  }
+
+  static getAllAssets(): string[] {
+    return [
+      MaticAddresses.USDC,
+      MaticAddresses.USDT,
+      MaticAddresses.dForce_USD,
+      MaticAddresses.DAI,
+      MaticAddresses.WETH,
+      MaticAddresses.WBTC,
+      MaticAddresses.CRV,
+      MaticAddresses.WMATIC
+    ];
+  }
 }

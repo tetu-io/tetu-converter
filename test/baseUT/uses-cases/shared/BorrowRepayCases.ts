@@ -147,7 +147,7 @@ export interface IFunctionalTestConfig {
   poolAdapterTemplate: string;
   platformAdapter: MoonwellPlatformAdapter;
   chainUtilsProvider: IPlatformUtilsProvider;
-  assetPairs: IAssetsPair[];
+  assetPairs: IAssetsPairConfig[];
   periodInBlocks: number;
   receiver: string;
 }
@@ -157,11 +157,19 @@ export interface IHealthFactorsPair {
   targetValue: string;
 }
 
-export interface IAssetsPair {
+export interface IAssetsPairConfig {
   collateralAsset: string;
   borrowAsset: string;
   collateralAssetName: string;
   borrowAssetName: string;
+
+  /**
+   * By default, a borrow is made with required target health factor.
+   * In the case of very low target health factor (i.e. 1.03) it can be less than min allowed health factor
+   * (i.e. on aave2: liquidationThreshold18/LTV = 1.0625)
+   * So, in the tests that check result health factor we should use following value if it specified.
+   */
+  minTargetHealthFactor?: string;
 }
 
 
@@ -257,6 +265,27 @@ export class BorrowRepayCases {
       tetuConverterCollateralAssetBalance: +formatUnits(await collateralAsset.balanceOf(p.tetuConverter.address), decimalsCollateral),
       status: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(status, decimalsCollateral, decimalsBorrow)
     }
+  }
+
+  /**
+   * By default, a borrow is made with required target health factor.
+   * In the case of very low target health factor (i.e. 1.03) it can be less than min allowed health factor
+   * (i.e. on aave2: liquidationThreshold18/LTV = 1.0625)
+   *
+   * This function detects what value of health factor should be expected in the test
+   */
+  static getTargetHealthFactor(assetPair: IAssetsPairConfig, healthFactorsPair: IHealthFactorsPair): number {
+    if (assetPair.minTargetHealthFactor === undefined) {
+      return Number(healthFactorsPair.targetValue);
+    }
+    const minAllowed = Number(assetPair.minTargetHealthFactor);
+    const valueInTest = Number(healthFactorsPair.targetValue);
+    return minAllowed < valueInTest
+      ? valueInTest
+      // healthFactor = liquidationThreshold18 / ltv18 - is min allowed health factor on AAVE
+      // but real health factor should be higher - we need some reserve
+      // so, we add such reserve - see implementation of AAVE platform adapters
+      : minAllowed * Number(healthFactorsPair.targetValue) / Number(healthFactorsPair.minValue);
   }
 }
 

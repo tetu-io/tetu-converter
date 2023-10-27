@@ -1,9 +1,9 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  Aave3PlatformAdapter,
+  Aave3PlatformAdapter, AaveTwoPlatformAdapter,
   BorrowManager,
   BorrowManager__factory,
-  ConverterController, HfPlatformAdapter,
+  ConverterController, DForcePlatformAdapter, HfPlatformAdapter,
   IPlatformAdapter, ITetuConverter__factory, MoonwellPlatformAdapter,
   UserEmulator
 } from "../../../typechain";
@@ -17,7 +17,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {generateAssetPairs} from "../../baseUT/utils/AssetPairUtils";
 import {
   BorrowRepayCases,
-  IAssetsPair,
+  IAssetsPairConfig,
   IBorrowRepayPairResults,
   IHealthFactorsPair,
 } from "../../baseUT/uses-cases/shared/BorrowRepayCases";
@@ -37,8 +37,12 @@ import {MoonwellUtilsProvider} from "../../baseUT/protocols/moonwell/MoonwellUti
 import {Aave3UtilsProviderBase} from "../../baseUT/protocols/aave3/utils-providers/Aave3UtilsProviderBase";
 import {HundredFinanceUtilsProvider} from "../../baseUT/protocols/hundred-finance/HundredFinanceUtilsProvider";
 import {HundredFinanceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceUtils";
+import {AaveTwoUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoUtils";
+import {AaveTwoUtilsProvider} from "../../baseUT/protocols/aaveTwo/AaveTwoUtilsProvider";
+import {DForceUtils} from "../../baseUT/protocols/dforce/DForceUtils";
+import {DForceUtilsProvider} from "../../baseUT/protocols/dforce/DForceUtilsProvider";
 
-describe("BorrowRepayCaseTest", () => {
+describe("BorrowRepayCaseTest (stablecoins)", () => {
   interface IChainParams {
     networkId: number;
     platforms: IPlatformParams[];
@@ -46,7 +50,7 @@ describe("BorrowRepayCaseTest", () => {
   interface IPlatformParams {
     platformAdapterBuilder: (signer: SignerWithAddress, converterController: string, borrowManagerAsGov: BorrowManager) => Promise<IPlatformAdapter>;
     platformUtilsProviderBuilder: () => IPlatformUtilsProvider,
-    assetPairs: IAssetsPair[];
+    assetPairs: IAssetsPairConfig[];
   }
 
 //region Constants
@@ -57,6 +61,39 @@ describe("BorrowRepayCaseTest", () => {
     { // Polygon
       networkId: POLYGON_NETWORK_ID,
       platforms: [
+        { // AAVETwo on Polygon
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+              signer0,
+              converterController0,
+              MaticAddresses.AAVE_TWO_POOL,
+              (await AdaptersHelper.createAaveTwoPoolAdapter(signer0)).address,
+              borrowManagerAsGov0.address,
+            ) as AaveTwoPlatformAdapter;
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(AaveTwoUtils.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          platformUtilsProviderBuilder() {
+            return new AaveTwoUtilsProvider();
+          },
+          assetPairs: [
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", minTargetHealthFactor: "1.0625"},
+
+            // AAVE 2 doesn't allow to use USDT as a collateral
+            // {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC"},
+
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", minTargetHealthFactor: "1.0625"},
+            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", minTargetHealthFactor: "1.0625"},
+          ]
+        },
         { // AAVE3 on Polygon
           async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
             const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
@@ -91,6 +128,39 @@ describe("BorrowRepayCaseTest", () => {
             {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.MaticX, collateralAssetName: "WMATIC", borrowAssetName: "MaticX"},
           ]
         },
+        { // DForce on Polygon
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+              signer0,
+              converterController0,
+              MaticAddresses.DFORCE_CONTROLLER,
+              (await AdaptersHelper.createDForcePoolAdapter(signer0)).address,
+              DForceUtils.getAllCTokens(),
+              borrowManagerAsGov0.address,
+            ) as DForcePlatformAdapter;
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(DForceUtils.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          platformUtilsProviderBuilder() {
+            return new DForceUtilsProvider();
+          },
+          assetPairs: [
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT"},
+            {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC"},
+
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI"},
+            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC"},
+          ]
+        },
+
         // { // Hundred finance on Polygon: todo check on manually deployed protocol
         //   platformUtilsProviderBuilder() {
         //     return new HundredFinanceUtilsProvider();
@@ -241,8 +311,8 @@ describe("BorrowRepayCaseTest", () => {
 
           describe("Borrow/repay single action per block", function () {
             const HEALTH_FACTOR_PAIRS: IHealthFactorsPair[] = [
-              {minValue: "1.05", targetValue: "1.15"},
               {minValue: "1.01", targetValue: "1.03"},
+              {minValue: "1.05", targetValue: "1.15"},
             ];
 
             HEALTH_FACTOR_PAIRS.forEach(function (healthFactorsPair: IHealthFactorsPair) {
@@ -259,7 +329,7 @@ describe("BorrowRepayCaseTest", () => {
                   await TimeUtils.rollback(snapshotLevel1);
                 });
 
-                platform.assetPairs.forEach(function (assetPair: IAssetsPair) {
+                platform.assetPairs.forEach(function (assetPair: IAssetsPairConfig) {
                   describe(`${assetPair.collateralAssetName} : ${assetPair.borrowAssetName}`, function () {
                     let snapshotLevel2: string;
                     let userEmulator: UserEmulator;
@@ -320,7 +390,8 @@ describe("BorrowRepayCaseTest", () => {
                           expect(borrowResults.receiverBorrowAssetBalance).eq(borrowResults.borrow[0].borrowedAmount);
                         });
                         it("the debt should have health factor near to the target value", async () => {
-                          expect(borrowResults.status.healthFactor).approximately(Number(healthFactorsPair.targetValue), 1e-3);
+
+                          expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
                         });
 
                         describe("partial repay", function () {
@@ -370,10 +441,7 @@ describe("BorrowRepayCaseTest", () => {
                                 );
                               });
                               it("the debt should have health factor >= target value", async () => {
-                                expect(repayResults.status.healthFactor).approximately(
-                                  Number(healthFactorsPair.targetValue),
-                                  repayPart > 99_000 ? 0.01 : 1e-4
-                                );
+                                expect(repayResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair),0.005);
                               });
                             });
                           });
@@ -439,7 +507,7 @@ describe("BorrowRepayCaseTest", () => {
                                 collateralAsset: assetPair.collateralAsset,
                                 borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
                                 collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
-                                receiver: RECEIVER
+                                receiver: RECEIVER,
                               },
                               [{borrow: {amountIn: "100",}}]
                             );
@@ -455,7 +523,7 @@ describe("BorrowRepayCaseTest", () => {
                             expect(secondBorrowResults.receiverBorrowAssetBalance).approximately(borrowResults.borrow[0].borrowedAmount + secondBorrowResults.borrow[0].borrowedAmount, 1e-5);
                           });
                           it("the debt should have health factor near to the target value", async () => {
-                            expect(secondBorrowResults.status.healthFactor).approximately(Number(healthFactorsPair.targetValue), 1e-3);
+                            expect(secondBorrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
                           });
                         });
 
@@ -507,7 +575,7 @@ describe("BorrowRepayCaseTest", () => {
                           expect(borrowResults.receiverBorrowAssetBalance).eq(borrowResults.borrow[0].borrowedAmount);
                         });
                         it("the debt should have health factor near to the target value", async () => {
-                          expect(borrowResults.status.healthFactor).approximately(Number(healthFactorsPair.targetValue), 1e-3);
+                          expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
                         });
                       });
                     });
@@ -552,7 +620,7 @@ describe("BorrowRepayCaseTest", () => {
                           expect(borrowResults.receiverBorrowAssetBalance).eq(borrowResults.borrow[0].borrowedAmount);
                         });
                         it("the debt should have health factor near to the target value", async () => {
-                          expect(borrowResults.status.healthFactor).approximately(Number(healthFactorsPair.targetValue), 1e-3);
+                          expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
                         });
 
                         describe("full repay", function () {
@@ -614,7 +682,7 @@ describe("BorrowRepayCaseTest", () => {
               await TimeUtils.rollback(snapshotLevel1);
             });
 
-            platform.assetPairs.forEach((assetPair: IAssetsPair) => {
+            platform.assetPairs.forEach((assetPair: IAssetsPairConfig) => {
               describe(`${assetPair.collateralAssetName} : ${assetPair.borrowAssetName}`, () => {
                 let snapshotLevel2: string;
                 let userEmulator: UserEmulator;

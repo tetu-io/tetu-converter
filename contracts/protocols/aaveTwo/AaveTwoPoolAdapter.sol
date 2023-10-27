@@ -18,6 +18,7 @@ import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 import "../../libs/AppUtils.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v2-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -151,6 +152,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
+    console.log("AAVE2.borrow.collateralAmount_", collateralAmount_);
+    console.log("AAVE2.borrow.borrowAmount_", borrowAmount_);
     IConverterController c = controller;
     _onlyTetuConverter(c);
 
@@ -158,11 +161,14 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     address assetBorrow = borrowAsset;
 
     uint newCollateralBalanceATokens = _supply(pool, collateralAsset, collateralAmount_) + collateralBalanceATokens;
+    console.log("AAVE2.borrow.collateralBalanceATokens", collateralBalanceATokens);
     collateralBalanceATokens = newCollateralBalanceATokens;
+    console.log("AAVE2.borrow.newCollateralBalanceATokens", newCollateralBalanceATokens);
 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     uint balanceBorrowAsset0 = IERC20(assetBorrow).balanceOf(address(this));
+    console.log("AAVE2.borrow.balanceBorrowAsset0", balanceBorrowAsset0);
     pool.borrow(
       assetBorrow,
       borrowAmount_,

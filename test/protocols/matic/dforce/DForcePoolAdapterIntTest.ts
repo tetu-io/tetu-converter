@@ -218,12 +218,6 @@ describe("DForcePoolAdapterIntTest", () => {
   describe("borrow", () => {
     describe("Good paths", () => {
       describe("Borrow small fixed amount", () => {
-        describe("DAI-18 : usdc-6", () => {
-          it("should return expected balances", async () => {
-            const r = await testBorrowDaiUsdc(100_000, 10);
-            expect(r.ret).eq(r.expected);
-          });
-        });
         describe("WBTC : Matic", () => {
           it("should return expected balances", async () => {
             const r = await testBorrowWbtcMatic(1, 10);
@@ -726,51 +720,11 @@ describe("DForcePoolAdapterIntTest", () => {
         badPathParams
       );
     }
-
-    async function usdtUSDC(
-      useMaxAvailableCollateral: boolean,
-      fullRepay: boolean,
-      initialBorrowAmountOnUserBalanceNum?: number,
-      badPathParams?: IBorrowAndRepayBadParams
-    ) : Promise<{ret: string, expected: string}> {
-      const collateralAsset = MaticAddresses.USDT;
-      const collateralHolder = MaticAddresses.HOLDER_USDT;
-      const collateralCTokenAddress = MaticAddresses.dForce_iUSDT;
-
-      const borrowAsset = MaticAddresses.USDC;
-      const borrowHolder = MaticAddresses.HOLDER_USDC;
-      const borrowCTokenAddress = MaticAddresses.dForce_iUSDC;
-
-      return collateralToBorrow(
-        useMaxAvailableCollateral,
-        fullRepay,
-        initialBorrowAmountOnUserBalanceNum,
-        {
-          asset: collateralAsset,
-          holder: collateralHolder,
-          cToken: collateralCTokenAddress
-        },
-        {
-          asset: borrowAsset,
-          holder: borrowHolder,
-          cToken: borrowCTokenAddress
-        },
-        100_000,
-        10,
-        badPathParams
-      );
-    }
 //endregion Utils
 
     describe("Good paths", () => {
       describe("Borrow and repay fixed small amount", () =>{
         describe("Partial repay of borrowed amount", () => {
-          describe("DAI => USDC", () => {
-            it("should return expected balances", async () => {
-              const r = await daiUSDC(false, false);
-              expect(r.ret).eq(r.expected);
-            });
-          });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
               const r = await daiWMatic(false, false);
@@ -788,17 +742,6 @@ describe("DForcePoolAdapterIntTest", () => {
           });
         });
         describe("Full repay of borrowed amount", () => {
-          describe("DAI => USDC", () => {
-            it("should return expected balances", async () => {
-              const initialBorrowAmountOnUserBalance = 100;
-              const r = await daiUSDC(
-                false,
-                true,
-                initialBorrowAmountOnUserBalance
-              );
-              expect(r.ret).eq(r.expected);
-            });
-          });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
               const initialBorrowAmountOnUserBalance = 100;
@@ -814,12 +757,6 @@ describe("DForcePoolAdapterIntTest", () => {
       });
       describe("Borrow max available amount using all available collateral", () =>{
         describe("Partial repay of borrowed amount", () => {
-          describe("DAI => USDC", () => {
-            it("should return expected balances", async () => {
-              const r = await daiUSDC(false, false);
-              expect(r.ret).eq(r.expected);
-            });
-          });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
               const r = await daiWMatic(false, false);
@@ -828,32 +765,10 @@ describe("DForcePoolAdapterIntTest", () => {
           });
         });
         describe("Full repay of borrowed amount", () => {
-          describe("DAI => USDC", () => {
-            it("should return expected balances", async () => {
-              const initialBorrowAmountOnUserBalance = 100;
-              const r = await daiUSDC(
-                false,
-                true,
-                initialBorrowAmountOnUserBalance
-              );
-              expect(r.ret).eq(r.expected);
-            });
-          });
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
               const initialBorrowAmountOnUserBalance = 100;
               const r = await daiWMatic(
-                false,
-                true,
-                initialBorrowAmountOnUserBalance
-              );
-              expect(r.ret).eq(r.expected);
-            });
-          });
-          describe("USDT => USDC", () => {
-            it("should return expected balances", async () => {
-              const initialBorrowAmountOnUserBalance = 100;
-              const r = await usdtUSDC(
                 false,
                 true,
                 initialBorrowAmountOnUserBalance
