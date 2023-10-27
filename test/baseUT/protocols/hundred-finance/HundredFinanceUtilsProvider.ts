@@ -12,5 +12,8 @@ export class HundredFinanceUtilsProvider implements IPlatformUtilsProvider {
   getAssetHolder(asset: string): string {
     return PolygonUtils.getHolder(asset);
   }
+  getAdditionalAssetHolders(asset: string): string[] {
+    return PolygonUtils.getAdditionalAssetHolders(asset);
+  }
 }
 

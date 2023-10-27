@@ -5,6 +5,7 @@ import {IAaveToken__factory} from "../../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
+import {BaseUtils} from "../../chains/base/BaseUtils";
 
 export class Aave3Utils {
   /* Calculate max allowed amount to borrow by markets configuration data */
@@ -81,13 +82,13 @@ export class Aave3Utils {
       MaticAddresses.USDT,
       MaticAddresses.DAI,
       MaticAddresses.WETH,
+      MaticAddresses.wstETH,
       MaticAddresses.WBTC,
       MaticAddresses.WMATIC,
       MaticAddresses.BALANCER,
       MaticAddresses.miMATIC,
       MaticAddresses.stMATIC,
       MaticAddresses.MaticX,
-      MaticAddresses.wstETH
     ];
   }
 
@@ -109,11 +110,11 @@ export class Aave3Utils {
   }
 
   static getHolderBase(asset: string): string {
-    switch (asset) {
-      case BaseAddresses.USDbC: return BaseAddresses.HOLDER_USDBC;
-      case BaseAddresses.WETH: return BaseAddresses.HOLDER_WETH;
-      case BaseAddresses.cbETH: return BaseAddresses.HOLDER_CBETH;
-      default: throw Error(`No holder found for asset ${asset}`);
-    }
+    return BaseUtils.getHolder(asset);
   }
+
+  static getAdditionalAssetHoldersBase(asset: string): string[] {
+    return BaseUtils.getAdditionalAssetHolders(asset);
+  }
+
 }

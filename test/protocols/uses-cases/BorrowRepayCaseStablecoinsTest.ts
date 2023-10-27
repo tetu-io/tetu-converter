@@ -313,6 +313,7 @@ describe("BorrowRepayCaseTest (stablecoins)", () => {
             const HEALTH_FACTOR_PAIRS: IHealthFactorsPair[] = [
               {minValue: "1.01", targetValue: "1.03"},
               {minValue: "1.05", targetValue: "1.15"},
+              {minValue: "1.01", targetValue: "1.08", singleAssetPairOnly: true},
             ];
 
             HEALTH_FACTOR_PAIRS.forEach(function (healthFactorsPair: IHealthFactorsPair) {
@@ -330,174 +331,40 @@ describe("BorrowRepayCaseTest (stablecoins)", () => {
                 });
 
                 platform.assetPairs.forEach(function (assetPair: IAssetsPairConfig) {
-                  describe(`${assetPair.collateralAssetName} : ${assetPair.borrowAssetName}`, function () {
-                    let snapshotLevel2: string;
-                    let userEmulator: UserEmulator;
-                    before(async function () {
-                      snapshotLevel2 = await TimeUtils.snapshot();
-                      userEmulator = await DeployUtils.deployContract(
-                        signer,
-                        "UserEmulator",
-                        converterController.address,
-                        assetPair.collateralAsset,
-                        assetPair.borrowAsset,
-                        PERIOD_IN_BLOCKS
-                      ) as UserEmulator;
-                      await converterController.connect(converterGovernance).setWhitelistValues([userEmulator.address], true);
-                    });
-                    after(async function () {
-                      await TimeUtils.rollback(snapshotLevel2);
-                    });
+                  if (!healthFactorsPair.singleAssetPairOnly || assetPair === platform.assetPairs[0]) {
+                    describe(`${assetPair.collateralAssetName} : ${assetPair.borrowAssetName}`, function () {
+                      let snapshotLevel2: string;
+                      let userEmulator: UserEmulator;
+                      before(async function () {
+                        snapshotLevel2 = await TimeUtils.snapshot();
+                        userEmulator = await DeployUtils.deployContract(
+                          signer,
+                          "UserEmulator",
+                          converterController.address,
+                          assetPair.collateralAsset,
+                          assetPair.borrowAsset,
+                          PERIOD_IN_BLOCKS
+                        ) as UserEmulator;
+                        await converterController.connect(converterGovernance).setWhitelistValues([userEmulator.address], true);
+                      });
+                      after(async function () {
+                        await TimeUtils.rollback(snapshotLevel2);
+                      });
 
-                    describe("entry kind 0", function () {
-                      describe("borrow", function () {
-                        let snapshotLevel3: string;
-                        let borrowResults: IBorrowRepayPairResults;
-                        before(async function () {
-                          snapshotLevel3 = await TimeUtils.snapshot();
-                          borrowResults = await loadFixture(makeBorrowTest);
-                          console.log("borrowResults", borrowResults);
-                        });
-                        after(async function () {
-                          await TimeUtils.rollback(snapshotLevel3);
-                        });
-
-                        async function makeBorrowTest(): Promise<IBorrowRepayPairResults> {
-                          return BorrowRepayCases.borrowRepayPairsSingleBlock(
-                            signer,
-                            {
-                              tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
-                              user: userEmulator,
-                              borrowAsset: assetPair.borrowAsset,
-                              collateralAsset: assetPair.collateralAsset,
-                              borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                              collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
-                              userBorrowAssetBalance: "1000",
-                              userCollateralAssetBalance: "1500",
-                              receiver: RECEIVER
-                            },
-                            [{borrow: {amountIn: "1000",}}]
-                          );
-                        }
-
-                        it("should borrow not zero amount", async () => {
-                          expect(borrowResults.borrow[0].borrowedAmount).gt(0); // stablecoin : stablecoin
-                        });
-                        it("should modify user balance in expected way", async () => {
-                          expect(borrowResults.userCollateralAssetBalance).eq(500);
-                        });
-                        it("should put borrowed amount on receiver balance", async () => {
-                          expect(borrowResults.receiverBorrowAssetBalance).eq(borrowResults.borrow[0].borrowedAmount);
-                        });
-                        it("the debt should have health factor near to the target value", async () => {
-
-                          expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
-                        });
-
-                        describe("partial repay", function () {
-                          const REPAY_PARTS = [1000, 25_000, 98_900];
-
-                          REPAY_PARTS.forEach(repayPart => {
-                            describe(`repay part ${repayPart/100_000}`, function () {
-                              let snapshotLevel4: string;
-                              let repayResults: IBorrowRepayPairResults;
-                              before(async function () {
-                                snapshotLevel4 = await TimeUtils.snapshot();
-                                repayResults = await BorrowRepayCases.borrowRepayPairsSingleBlock(
-                                  signer,
-                                  {
-                                    tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
-                                    user: userEmulator,
-                                    borrowAsset: assetPair.borrowAsset,
-                                    collateralAsset: assetPair.collateralAsset,
-                                    borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                    collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
-                                    userBorrowAssetBalance: "0",
-                                    userCollateralAssetBalance: "0",
-                                    receiver: RECEIVER
-                                  },
-                                  [{repay: {repayPart}}]
-                                );
-                                console.log("repayResults", repayResults);
-                              });
-                              after(async function () {
-                                await TimeUtils.rollback(snapshotLevel4);
-                              });
-
-                              it("should reduce debt on expected value", async () => {
-                                expect(repayResults.status.amountToPay).approximately(
-                                  borrowResults.borrow[0].borrowedAmount
-                                  - plusDebtGap(
-                                    borrowResults.borrow[0].borrowedAmount,
-                                    borrowResults.status.debtGapRequired,
-                                    repayPart
-                                  ),
-                                  1e-3);
-                              });
-                              it("should receive expected amount of collateral on receiver's balance", async () => {
-                                expect(repayResults.receiverCollateralAssetBalance).approximately(
-                                  plusDebtGap(1000, borrowResults.status.debtGapRequired, repayPart),
-                                  1e-3
-                                );
-                              });
-                              it("the debt should have health factor >= target value", async () => {
-                                expect(repayResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair),0.005);
-                              });
-                            });
-                          });
-                        });
-                        describe("full repay", function () {
-                          let snapshotLevel4: string;
-                          let results: IBorrowRepayPairResults;
+                      describe("entry kind 0", function () {
+                        describe("borrow", function () {
+                          let snapshotLevel3: string;
+                          let borrowResults: IBorrowRepayPairResults;
                           before(async function () {
-                            snapshotLevel4 = await TimeUtils.snapshot();
-                            results = await BorrowRepayCases.borrowRepayPairsSingleBlock(
-                              signer,
-                              {
-                                tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
-                                user: userEmulator,
-                                borrowAsset: assetPair.borrowAsset,
-                                collateralAsset: assetPair.collateralAsset,
-                                borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
-                                userBorrowAssetBalance: "0",
-                                userCollateralAssetBalance: "0",
-                                receiver: RECEIVER
-                              },
-                              [{repay: {repayPart: 100_000}}] // full repay
-                            );
+                            snapshotLevel3 = await TimeUtils.snapshot();
+                            borrowResults = await loadFixture(makeBorrowTest);
+                            console.log("borrowResults", borrowResults);
                           });
                           after(async function () {
-                            await TimeUtils.rollback(snapshotLevel4);
-                          });
-                          it("should repay debt completely", async () => {
-                            expect(results.status.amountToPay).eq(0);
-                            expect(results.status.opened).eq(false);
-                            expect(results.status.collateralAmount).eq(0);
-                          });
-                          it("should return full collateral to the receiver", async () => {
-                            expect(results.receiverCollateralAssetBalance).approximately(1000, 1e-3);
-                          });
-                          it("should reduce user balance on repaid-amount", async () => {
-                            expect(results.userBorrowAssetBalance).approximately(
-                              1000 - plusDebtGap(borrowResults.borrow[0].borrowedAmount, borrowResults.status.debtGapRequired),
-                              0.1
-                            );
-                          });
-                        });
-                        describe("second borrow", function () {
-                          let snapshotLevel4: string;
-                          let secondBorrowResults: IBorrowRepayPairResults;
-                          before(async function () {
-                            snapshotLevel4 = await TimeUtils.snapshot();
-                            secondBorrowResults = await loadFixture(makeSecondBorrowTest);
-                            console.log("secondBorrowResults", secondBorrowResults);
-                          });
-                          after(async function () {
-                            await TimeUtils.rollback(snapshotLevel4);
+                            await TimeUtils.rollback(snapshotLevel3);
                           });
 
-                          async function makeSecondBorrowTest(): Promise<IBorrowRepayPairResults> {
+                          async function makeBorrowTest(): Promise<IBorrowRepayPairResults> {
                             return BorrowRepayCases.borrowRepayPairsSingleBlock(
                               signer,
                               {
@@ -507,128 +374,178 @@ describe("BorrowRepayCaseTest (stablecoins)", () => {
                                 collateralAsset: assetPair.collateralAsset,
                                 borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
                                 collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
-                                receiver: RECEIVER,
+                                userBorrowAssetBalance: "1000",
+                                userCollateralAssetBalance: "1500",
+                                receiver: RECEIVER
                               },
-                              [{borrow: {amountIn: "100",}}]
+                              [{borrow: {amountIn: "1000",}}]
                             );
                           }
 
                           it("should borrow not zero amount", async () => {
-                            expect(secondBorrowResults.borrow[0].borrowedAmount).gt(0); // stablecoin : stablecoin
+                            expect(borrowResults.borrow[0].borrowedAmount).gt(0); // stablecoin : stablecoin
                           });
                           it("should modify user balance in expected way", async () => {
-                            expect(secondBorrowResults.userCollateralAssetBalance).eq(500 - 100);
+                            expect(borrowResults.userCollateralAssetBalance).eq(500);
                           });
                           it("should put borrowed amount on receiver balance", async () => {
-                            expect(secondBorrowResults.receiverBorrowAssetBalance).approximately(borrowResults.borrow[0].borrowedAmount + secondBorrowResults.borrow[0].borrowedAmount, 1e-5);
+                            expect(borrowResults.receiverBorrowAssetBalance).eq(borrowResults.borrow[0].borrowedAmount);
                           });
                           it("the debt should have health factor near to the target value", async () => {
-                            expect(secondBorrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
+
+                            expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
                           });
-                        });
 
+                          describe("partial repay", function () {
+                            const REPAY_PARTS = [1000, 25_000, 98_900];
+
+                            REPAY_PARTS.forEach(repayPart => {
+                              describe(`repay part ${repayPart / 100_000}`, function () {
+                                let snapshotLevel4: string;
+                                let repayResults: IBorrowRepayPairResults;
+                                before(async function () {
+                                  snapshotLevel4 = await TimeUtils.snapshot();
+                                  repayResults = await BorrowRepayCases.borrowRepayPairsSingleBlock(
+                                    signer,
+                                    {
+                                      tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                                      user: userEmulator,
+                                      borrowAsset: assetPair.borrowAsset,
+                                      collateralAsset: assetPair.collateralAsset,
+                                      borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                                      collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                                      userBorrowAssetBalance: "0",
+                                      userCollateralAssetBalance: "0",
+                                      receiver: RECEIVER
+                                    },
+                                    [{repay: {repayPart}}]
+                                  );
+                                  console.log("repayResults", repayResults);
+                                });
+                                after(async function () {
+                                  await TimeUtils.rollback(snapshotLevel4);
+                                });
+
+                                it("should reduce debt on expected value", async () => {
+                                  expect(repayResults.status.amountToPay).approximately(
+                                    borrowResults.borrow[0].borrowedAmount
+                                    - plusDebtGap(
+                                      borrowResults.borrow[0].borrowedAmount,
+                                      borrowResults.status.debtGapRequired,
+                                      repayPart
+                                    ),
+                                    1e-3);
+                                });
+                                it("should receive expected amount of collateral on receiver's balance", async () => {
+                                  expect(repayResults.receiverCollateralAssetBalance).approximately(
+                                    plusDebtGap(1000, borrowResults.status.debtGapRequired, repayPart),
+                                    1e-3
+                                  );
+                                });
+                                it("the debt should have health factor >= target value", async () => {
+                                  expect(repayResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
+                                });
+                              });
+                            });
+                          });
+                          describe("full repay", function () {
+                            let snapshotLevel4: string;
+                            let results: IBorrowRepayPairResults;
+                            before(async function () {
+                              snapshotLevel4 = await TimeUtils.snapshot();
+                              results = await BorrowRepayCases.borrowRepayPairsSingleBlock(
+                                signer,
+                                {
+                                  tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                                  user: userEmulator,
+                                  borrowAsset: assetPair.borrowAsset,
+                                  collateralAsset: assetPair.collateralAsset,
+                                  borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                                  collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                                  userBorrowAssetBalance: "0",
+                                  userCollateralAssetBalance: "0",
+                                  receiver: RECEIVER
+                                },
+                                [{repay: {repayPart: 100_000}}] // full repay
+                              );
+                            });
+                            after(async function () {
+                              await TimeUtils.rollback(snapshotLevel4);
+                            });
+                            it("should repay debt completely", async () => {
+                              expect(results.status.amountToPay).eq(0);
+                              expect(results.status.opened).eq(false);
+                              expect(results.status.collateralAmount).eq(0);
+                            });
+                            it("should return full collateral to the receiver", async () => {
+                              expect(results.receiverCollateralAssetBalance).approximately(1000, 1e-3);
+                            });
+                            it("should reduce user balance on repaid-amount", async () => {
+                              expect(results.userBorrowAssetBalance).approximately(
+                                1000 - plusDebtGap(borrowResults.borrow[0].borrowedAmount, borrowResults.status.debtGapRequired),
+                                0.1
+                              );
+                            });
+                          });
+                          describe("second borrow", function () {
+                            let snapshotLevel4: string;
+                            let secondBorrowResults: IBorrowRepayPairResults;
+                            before(async function () {
+                              snapshotLevel4 = await TimeUtils.snapshot();
+                              secondBorrowResults = await loadFixture(makeSecondBorrowTest);
+                              console.log("secondBorrowResults", secondBorrowResults);
+                            });
+                            after(async function () {
+                              await TimeUtils.rollback(snapshotLevel4);
+                            });
+
+                            async function makeSecondBorrowTest(): Promise<IBorrowRepayPairResults> {
+                              return BorrowRepayCases.borrowRepayPairsSingleBlock(
+                                signer,
+                                {
+                                  tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                                  user: userEmulator,
+                                  borrowAsset: assetPair.borrowAsset,
+                                  collateralAsset: assetPair.collateralAsset,
+                                  borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                                  collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                                  receiver: RECEIVER,
+                                },
+                                [{borrow: {amountIn: "100",}}]
+                              );
+                            }
+
+                            it("should borrow not zero amount", async () => {
+                              expect(secondBorrowResults.borrow[0].borrowedAmount).gt(0); // stablecoin : stablecoin
+                            });
+                            it("should modify user balance in expected way", async () => {
+                              expect(secondBorrowResults.userCollateralAssetBalance).eq(500 - 100);
+                            });
+                            it("should put borrowed amount on receiver balance", async () => {
+                              expect(secondBorrowResults.receiverBorrowAssetBalance).approximately(borrowResults.borrow[0].borrowedAmount + secondBorrowResults.borrow[0].borrowedAmount, 1e-5);
+                            });
+                            it("the debt should have health factor near to the target value", async () => {
+                              expect(secondBorrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
+                            });
+                          });
+
+                        });
                       });
-                    });
-                    describe("entry kind 1", function () {
-                      describe("borrow", function () {
-                        let snapshotLevel3: string;
-                        let borrowResults: IBorrowRepayPairResults;
-                        before(async function () {
-                          snapshotLevel3 = await TimeUtils.snapshot();
-                          borrowResults = await loadFixture(makeBorrowTest);
-                          console.log("borrowResults", borrowResults);
-                        });
-                        after(async function () {
-                          await TimeUtils.rollback(snapshotLevel3);
-                        });
-
-                        async function makeBorrowTest(): Promise<IBorrowRepayPairResults> {
-                          return BorrowRepayCases.borrowRepayPairsSingleBlock(
-                            signer,
-                            {
-                              tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
-                              user: userEmulator,
-                              borrowAsset: assetPair.borrowAsset,
-                              collateralAsset: assetPair.collateralAsset,
-                              borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                              collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
-                              userBorrowAssetBalance: "1000",
-                              userCollateralAssetBalance: "1500",
-                              receiver: RECEIVER,
-                            },
-                            [{
-                              borrow: {
-                                amountIn: "1000",
-                                entryData: defaultAbiCoder.encode(["uint256", "uint256", "uint256"], [AppConstants.ENTRY_KIND_1, 1, 1])
-                              }
-                            }]
-                          );
-                        }
-
-                        it("should borrow not zero amount", async () => {
-                          expect(borrowResults.borrow[0].borrowedAmount).gt(0);
-                        });
-                        it("should modify user balance in expected way", async () => {
-                          expect(borrowResults.userCollateralAssetBalance).approximately(1500 - borrowResults.status.collateralAmount, 1e-5);
-                        });
-                        it("should put borrowed amount on receiver balance", async () => {
-                          expect(borrowResults.receiverBorrowAssetBalance).eq(borrowResults.borrow[0].borrowedAmount);
-                        });
-                        it("the debt should have health factor near to the target value", async () => {
-                          expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
-                        });
-                      });
-                    });
-                    describe("use 1 token as collateral", function () {
-                      describe("borrow", function () {
-                        let snapshotLevel3: string;
-                        let borrowResults: IBorrowRepayPairResults;
-                        before(async function () {
-                          snapshotLevel3 = await TimeUtils.snapshot();
-                          borrowResults = await loadFixture(makeBorrowTest);
-                          console.log("borrowResults", borrowResults);
-                        });
-                        after(async function () {
-                          await TimeUtils.rollback(snapshotLevel3);
-                        });
-
-                        async function makeBorrowTest(): Promise<IBorrowRepayPairResults> {
-                          return BorrowRepayCases.borrowRepayPairsSingleBlock(
-                            signer,
-                            {
-                              tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
-                              user: userEmulator,
-                              borrowAsset: assetPair.borrowAsset,
-                              collateralAsset: assetPair.collateralAsset,
-                              borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                              collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
-                              userBorrowAssetBalance: "1",
-                              userCollateralAssetBalance: "1.5",
-                              receiver: RECEIVER
-                            },
-                            [{borrow: {amountIn: "1",}}]
-                          );
-                        }
-
-                        it("should borrow not zero amount", async () => {
-                          expect(borrowResults.borrow[0].borrowedAmount).gt(0.3); // stablecoin : stablecoin
-                        });
-                        it("should modify user balance in expected way", async () => {
-                          expect(borrowResults.userCollateralAssetBalance).eq(0.5);
-                        });
-                        it("should put borrowed amount on receiver balance", async () => {
-                          expect(borrowResults.receiverBorrowAssetBalance).eq(borrowResults.borrow[0].borrowedAmount);
-                        });
-                        it("the debt should have health factor near to the target value", async () => {
-                          expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
-                        });
-
-                        describe("full repay", function () {
-                          let snapshotLevel4: string;
-                          let results: IBorrowRepayPairResults;
+                      describe("entry kind 1", function () {
+                        describe("borrow", function () {
+                          let snapshotLevel3: string;
+                          let borrowResults: IBorrowRepayPairResults;
                           before(async function () {
-                            snapshotLevel4 = await TimeUtils.snapshot();
-                            results = await BorrowRepayCases.borrowRepayPairsSingleBlock(
+                            snapshotLevel3 = await TimeUtils.snapshot();
+                            borrowResults = await loadFixture(makeBorrowTest);
+                            console.log("borrowResults", borrowResults);
+                          });
+                          after(async function () {
+                            await TimeUtils.rollback(snapshotLevel3);
+                          });
+
+                          async function makeBorrowTest(): Promise<IBorrowRepayPairResults> {
+                            return BorrowRepayCases.borrowRepayPairsSingleBlock(
                               signer,
                               {
                                 tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
@@ -637,31 +554,196 @@ describe("BorrowRepayCaseTest (stablecoins)", () => {
                                 collateralAsset: assetPair.collateralAsset,
                                 borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
                                 collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
-                                userBorrowAssetBalance: "0",
-                                userCollateralAssetBalance: "0",
-                                receiver: RECEIVER
+                                userBorrowAssetBalance: "1000",
+                                userCollateralAssetBalance: "1500",
+                                receiver: RECEIVER,
                               },
-                              [{repay: {repayPart: 100_000}}] // full repay
+                              [{
+                                borrow: {
+                                  amountIn: "1000",
+                                  entryData: defaultAbiCoder.encode(["uint256", "uint256", "uint256"], [AppConstants.ENTRY_KIND_1, 1, 1])
+                                }
+                              }]
                             );
+                          }
+
+                          it("should borrow not zero amount", async () => {
+                            expect(borrowResults.borrow[0].borrowedAmount).gt(0);
+                          });
+                          it("should modify user balance in expected way", async () => {
+                            expect(borrowResults.userCollateralAssetBalance).approximately(1500 - borrowResults.status.collateralAmount, 1e-5);
+                          });
+                          it("should put borrowed amount on receiver balance", async () => {
+                            expect(borrowResults.receiverBorrowAssetBalance).eq(borrowResults.borrow[0].borrowedAmount);
+                          });
+                          it("the debt should have health factor near to the target value", async () => {
+                            expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
+                          });
+                        });
+                      });
+                      describe("use 1 token as collateral", function () {
+                        describe("borrow", function () {
+                          let snapshotLevel3: string;
+                          let borrowResults: IBorrowRepayPairResults;
+                          before(async function () {
+                            snapshotLevel3 = await TimeUtils.snapshot();
+                            borrowResults = await loadFixture(makeBorrowTest);
+                            console.log("borrowResults", borrowResults);
                           });
                           after(async function () {
-                            await TimeUtils.rollback(snapshotLevel4);
+                            await TimeUtils.rollback(snapshotLevel3);
                           });
-                          it("should repay debt completely", async () => {
-                            expect(results.status.amountToPay).eq(0);
-                            expect(results.status.opened).eq(false);
-                            expect(results.status.collateralAmount).eq(0);
+
+                          async function makeBorrowTest(): Promise<IBorrowRepayPairResults> {
+                            return BorrowRepayCases.borrowRepayPairsSingleBlock(
+                              signer,
+                              {
+                                tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                                user: userEmulator,
+                                borrowAsset: assetPair.borrowAsset,
+                                collateralAsset: assetPair.collateralAsset,
+                                borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                                collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                                userBorrowAssetBalance: "1",
+                                userCollateralAssetBalance: "1.5",
+                                receiver: RECEIVER
+                              },
+                              [{borrow: {amountIn: "1",}}]
+                            );
+                          }
+
+                          it("should borrow not zero amount", async () => {
+                            expect(borrowResults.borrow[0].borrowedAmount).gt(0.3); // stablecoin : stablecoin
                           });
-                          it("should return full collateral to the receiver", async () => {
-                            expect(results.receiverCollateralAssetBalance).approximately(1, 1e-3);
+                          it("should modify user balance in expected way", async () => {
+                            expect(borrowResults.userCollateralAssetBalance).eq(0.5);
                           });
-                          it("should reduce user balance on repaid-amount", async () => {
-                            expect(results.userBorrowAssetBalance).approximately(1 - borrowResults.borrow[0].borrowedAmount, 0.01);
+                          it("should put borrowed amount on receiver balance", async () => {
+                            expect(borrowResults.receiverBorrowAssetBalance).eq(borrowResults.borrow[0].borrowedAmount);
+                          });
+                          it("the debt should have health factor near to the target value", async () => {
+                            expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
+                          });
+
+                          describe("full repay", function () {
+                            let snapshotLevel4: string;
+                            let results: IBorrowRepayPairResults;
+                            before(async function () {
+                              snapshotLevel4 = await TimeUtils.snapshot();
+                              results = await BorrowRepayCases.borrowRepayPairsSingleBlock(
+                                signer,
+                                {
+                                  tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                                  user: userEmulator,
+                                  borrowAsset: assetPair.borrowAsset,
+                                  collateralAsset: assetPair.collateralAsset,
+                                  borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                                  collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                                  userBorrowAssetBalance: "0",
+                                  userCollateralAssetBalance: "0",
+                                  receiver: RECEIVER
+                                },
+                                [{repay: {repayPart: 100_000}}] // full repay
+                              );
+                            });
+                            after(async function () {
+                              await TimeUtils.rollback(snapshotLevel4);
+                            });
+                            it("should repay debt completely", async () => {
+                              expect(results.status.amountToPay).eq(0);
+                              expect(results.status.opened).eq(false);
+                              expect(results.status.collateralAmount).eq(0);
+                            });
+                            it("should return full collateral to the receiver", async () => {
+                              expect(results.receiverCollateralAssetBalance).approximately(1, 1e-3);
+                            });
+                            it("should reduce user balance on repaid-amount", async () => {
+                              expect(results.userBorrowAssetBalance).approximately(1 - borrowResults.borrow[0].borrowedAmount, 0.01);
+                            });
+                          });
+                        });
+                      });
+                      describe("use max available amount as collateral", function () {
+                        describe("borrow", function () {
+                          let snapshotLevel3: string;
+                          let borrowResults: IBorrowRepayPairResults;
+                          before(async function () {
+                            snapshotLevel3 = await TimeUtils.snapshot();
+                            borrowResults = await loadFixture(makeBorrowTest);
+                            console.log("borrowResults", borrowResults);
+                          });
+                          after(async function () {
+                            await TimeUtils.rollback(snapshotLevel3);
+                          });
+
+                          async function makeBorrowTest(): Promise<IBorrowRepayPairResults> {
+                            return BorrowRepayCases.borrowRepayPairsSingleBlock(
+                              signer,
+                              {
+                                tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                                user: userEmulator,
+                                borrowAsset: assetPair.borrowAsset,
+                                collateralAsset: assetPair.collateralAsset,
+                                borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                                collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+
+                                  // Borrowed amount is put on user's balance
+                                  // we assume, that borrowed amount + 100_000  is enough for full repay
+                                userBorrowAssetBalance: "100000",
+                                userCollateralAssetBalance: Number.MAX_SAFE_INTEGER.toString(),
+                                additionalCollateralAssetHolders: platformUtilsProvider.getAdditionalAssetHolders(assetPair.borrowAsset),
+                              },
+                              [{borrow: {amountIn: "0",}}]
+                            );
+                          }
+
+                          it("should borrow not zero amount", async () => {
+                            expect(borrowResults.borrow[0].borrowedAmount).gt(0);
+                          });
+                          it("should put borrowed amount on user's balance", async () => {
+                            expect(borrowResults.userBorrowAssetBalance).approximately(borrowResults.borrow[0].borrowedAmount + 100_000, 0.1);
+                          });
+                          it("the debt should have health factor near to the target value", async () => {
+                            expect(borrowResults.status.healthFactor).approximately(BorrowRepayCases.getTargetHealthFactor(assetPair, healthFactorsPair), 0.005);
+                          });
+
+                          describe("full repay", function () {
+                            let snapshotLevel4: string;
+                            let results: IBorrowRepayPairResults;
+                            before(async function () {
+                              snapshotLevel4 = await TimeUtils.snapshot();
+                              results = await BorrowRepayCases.borrowRepayPairsSingleBlock(
+                                signer,
+                                {
+                                  tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                                  user: userEmulator,
+                                  borrowAsset: assetPair.borrowAsset,
+                                  collateralAsset: assetPair.collateralAsset,
+                                  borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                                  collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                                  userBorrowAssetBalance: "0",
+                                  userCollateralAssetBalance: "0",
+                                  receiver: RECEIVER
+                                },
+                                [{repay: {repayPart: 100_000}}] // full repay
+                              );
+                            });
+                            after(async function () {
+                              await TimeUtils.rollback(snapshotLevel4);
+                            });
+                            it("should repay debt completely", async () => {
+                              expect(results.status.amountToPay).eq(0);
+                              expect(results.status.opened).eq(false);
+                              expect(results.status.collateralAmount).eq(0);
+                            });
+                            it("should return full collateral to the receiver", async () => {
+                              expect(results.receiverCollateralAssetBalance).approximately(borrowResults.status.collateralAmount, 1);
+                            });
                           });
                         });
                       });
                     });
-                  });
+                  }
                 });
               });
             });

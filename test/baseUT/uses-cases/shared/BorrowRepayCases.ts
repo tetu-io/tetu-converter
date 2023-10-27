@@ -1,7 +1,7 @@
 import {IPoolAdapterStatusNum} from "../../types/BorrowRepayDataTypes";
 import {
   BorrowManager__factory, ConverterController,
-  ConverterController__factory,
+  ConverterController__factory, IERC20__factory,
   IERC20Metadata__factory, IMoonwellComptroller, IPoolAdapter__factory,
   ITetuConverter, ITetuConverter__factory, MoonwellPlatformAdapter,
   UserEmulator
@@ -19,6 +19,7 @@ import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import {IPlatformUtilsProvider} from "../../types/IPlatformUtilsProvider";
+import {Misc} from "../../../../scripts/utils/Misc";
 
 export interface IBorrowRepaySetup {
   tetuConverter: ITetuConverter;
@@ -29,8 +30,10 @@ export interface IBorrowRepaySetup {
   borrowAssetHolder: string;
   userBorrowAssetBalance?: string;
   userCollateralAssetBalance?: string;
-  /** Receive all borrowed and repay amounts */
-  receiver: string;
+  /** Receive all borrowed and repay amounts. User by default */
+  receiver?: string;
+
+  additionalCollateralAssetHolders?: string[];
 }
 
 export interface IBorrowPairParams {
@@ -138,23 +141,11 @@ interface IBorrowRepayCommandResults {
   userBorrowAssetBalance: string;
 }
 
-export interface IFunctionalTestConfig {
-  signer: SignerWithAddress;
-
-  converterController: ConverterController;
-  converterGovernance: SignerWithAddress;
-  comptroller: IMoonwellComptroller;
-  poolAdapterTemplate: string;
-  platformAdapter: MoonwellPlatformAdapter;
-  chainUtilsProvider: IPlatformUtilsProvider;
-  assetPairs: IAssetsPairConfig[];
-  periodInBlocks: number;
-  receiver: string;
-}
-
 export interface IHealthFactorsPair {
   minValue: string;
   targetValue: string;
+
+  singleAssetPairOnly?: boolean;
 }
 
 export interface IAssetsPairConfig {
@@ -183,7 +174,18 @@ export class BorrowRepayCases {
 
     // set up user-emulator balances
     if (p.userCollateralAssetBalance) {
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, p.collateralAssetHolder, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
+      if (Number(p.userCollateralAssetBalance) === Number.MAX_SAFE_INTEGER) {
+        await BalanceUtils.getRequiredAmountFromHolders(
+          undefined,
+          await IERC20Metadata__factory.connect(p.collateralAsset, signer),
+          p.additionalCollateralAssetHolders
+            ? [p.collateralAssetHolder, ...p.additionalCollateralAssetHolders]
+            : [p.collateralAssetHolder],
+          p.user.address
+        );
+      } else {
+        await BalanceUtils.getAmountFromHolder(p.collateralAsset, p.collateralAssetHolder, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
+      }
     }
     if (p.userBorrowAssetBalance) {
       await BalanceUtils.getAmountFromHolder(p.borrowAsset, p.borrowAssetHolder, p.user.address, parseUnits(p.userBorrowAssetBalance, decimalsBorrow));
@@ -206,13 +208,15 @@ export class BorrowRepayCases {
       if (pair.borrow) {
         actionKinds.push(pair.borrow.reverseDebt ? AppConstants.BORROW_REVERSE_1 : AppConstants.BORROW_DIRECT_0);
         amountsIn.push(
-          parseUnits(pair.borrow.amountIn, pair.borrow.reverseDebt ? decimalsBorrow : decimalsCollateral)
+          pair.borrow.amountIn === "0" || pair.borrow.amountIn === Number.MAX_SAFE_INTEGER.toString() // max available amount
+            ? await IERC20__factory.connect(p.collateralAsset, signer).balanceOf(p.user.address)
+            : parseUnits(pair.borrow.amountIn, pair.borrow.reverseDebt ? decimalsBorrow : decimalsCollateral)
         );
         amountsOut.push(
           parseUnits(pair.borrow.exactAmountOut ?? "0", pair.borrow.reverseDebt ? decimalsCollateral : decimalsBorrow)
         );
         entryData.push(pair.borrow.entryData ?? "0x");
-        receivers.push(p.receiver);
+        receivers.push(p.receiver ?? p.user.address);
         borrowIndices.push(actionKinds.length - 1);
         borrowDirect.push(!pair.borrow.reverseDebt);
       }
@@ -225,7 +229,7 @@ export class BorrowRepayCases {
         );
         amountsOut.push(BigNumber.from(pair.repay.repayPart ?? 0));
         entryData.push("0x"); // not used
-        receivers.push(p.receiver);
+        receivers.push(p.receiver ?? p.user.address);
         repayIndices.push(actionKinds.length - 1);
         repayDirect.push(!pair.repay.repayReverseDebt);
       }
@@ -257,8 +261,8 @@ export class BorrowRepayCases {
         swappedLeftoverBorrow: +formatUnits(ret[retIndex].swappedLeftoverBorrow, repayDirect[itemIndex] ? decimalsBorrow : decimalsCollateral),
         swappedLeftoverCollateral: +formatUnits(ret[retIndex].swappedLeftoverCollateral, repayDirect[itemIndex] ? decimalsCollateral : decimalsBorrow),
       })),
-      receiverBorrowAssetBalance: +formatUnits(await borrowAsset.balanceOf(p.receiver), decimalsBorrow),
-      receiverCollateralAssetBalance: +formatUnits(await collateralAsset.balanceOf(p.receiver), decimalsCollateral),
+      receiverBorrowAssetBalance: +formatUnits(await borrowAsset.balanceOf(p.receiver ?? p.user.address), decimalsBorrow),
+      receiverCollateralAssetBalance: +formatUnits(await collateralAsset.balanceOf(p.receiver ?? p.user.address), decimalsCollateral),
       userBorrowAssetBalance: +formatUnits(await borrowAsset.balanceOf(p.user.address), decimalsBorrow),
       userCollateralAssetBalance: +formatUnits(await collateralAsset.balanceOf(p.user.address), decimalsCollateral),
       tetuConverterBorrowAssetBalance: +formatUnits(await borrowAsset.balanceOf(p.tetuConverter.address), decimalsBorrow),

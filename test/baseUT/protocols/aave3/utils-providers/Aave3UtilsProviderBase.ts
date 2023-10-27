@@ -12,4 +12,7 @@ export class Aave3UtilsProviderBase implements  IPlatformUtilsProvider {
   getAssetHolder(asset: string): string {
     return Aave3Utils.getHolderBase(asset);
   }
+  getAdditionalAssetHolders(asset: string): string[] {
+    return Aave3Utils.getAdditionalAssetHoldersBase(asset);
+}
 }

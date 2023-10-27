@@ -119,7 +119,10 @@ export class MaticAddresses {
   public static HOLDER_MI_MATIC = "0x26c60b38fe7e55d699c8102c18cc5d7152e0762e";
   public static HOLDER_ST_MATIC = "0x8e846313dfafd5ac3621966ed0cc69889105f802";
   public static HOLDER_MATIC_X = "0x7eeaa8f220cb72767d40da0a1b5783a5f8bd8e5e";
-  public static HOLDER_WST_ETH = "0x2b44d9764fbbd2b07fbc48212aee4da331806062";
+
+  public static HOLDER_WSTETH = "0x2b44d9764fbbd2B07fbc48212aee4Da331806062";
+  public static HOLDER_WSTETH_1 = "0xF7626459234e9249808A06aA08dc6b67c8e0A2fc";
+  public static HOLDER_WSTETH_2 = "0x708800fBf7a7e8E65B1D8BBF651c5c32019e7325";
 //endregion Asset biggest holders
 
 //region AAVE-v3
