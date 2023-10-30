@@ -2101,7 +2101,7 @@ describe("TetuConverterTest", () => {
       interface IParams {
         collateralAmounts: number[];
         exactBorrowAmounts: number[];
-        amountToRepayNum: number;
+        amountToRepay: string;
         setupTetuLiquidatorToSwapBorrowToCollateral?: boolean; // false by default
         /** Price impact in TetuLiquidator. Only not zero is used to set up liquidator */
         priceImpact?: number;
@@ -2114,44 +2114,35 @@ describe("TetuConverterTest", () => {
         notWhitelisted?: boolean;
       }
 
-      interface IRepayOutputValues {
-        collateralAmountOut: BigNumber;
-        returnedBorrowAmountOut: BigNumber;
-        swappedLeftoverCollateralOut: BigNumber;
-        swappedLeftoverBorrowOut: BigNumber;
-      }
-
-      interface IRepayResults {
+      interface IResults {
         countOpenedPositions: number;
-        totalDebtAmountOut: BigNumber;
-        totalCollateralAmountOut: BigNumber;
-        init: ISetupResults;
-        receiverCollateralBalanceBeforeRepay: BigNumber;
-        receiverCollateralBalanceAfterRepay: BigNumber;
-        receiverBorrowAssetBalanceBeforeRepay: BigNumber;
-        receiverBorrowAssetBalanceAfterRepay: BigNumber;
-        repayOutput: IRepayOutputValues;
+        totalDebtAmountOut: number;
+        totalCollateralAmountOut: number;
+        receiverCollateralBalanceBeforeRepay: number;
+        receiverCollateralBalanceAfterRepay: number;
+        receiverBorrowAssetBalanceBeforeRepay: number;
+        receiverBorrowAssetBalanceAfterRepay: number;
+
+        collateralAmountOut: number;
+        returnedBorrowAmountOut: number;
+        swappedLeftoverCollateralOut: number;
+        swappedLeftoverBorrowOut: number;
       }
 
-      async function makeRepayTest(p: IParams): Promise<IRepayResults> {
-        const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
-          p.collateralAmounts.length,
-          {tetuAppSetupParams: {
-            setupTetuLiquidatorToSwapBorrowToCollateral: p.setupTetuLiquidatorToSwapBorrowToCollateral,
-            priceImpact: p.priceImpact
-          }}
-        );
+      async function makeRepayTest(init: ISetupResults, p: IParams): Promise<IResults> {
         await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
           [init.sourceToken.address, init.targetToken.address],
           [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
         );
-        const targetTokenDecimals = await init.targetToken.decimals();
+
+        const borrowDecimals = await init.targetToken.decimals();
+        const collateralDecimals = await init.sourceToken.decimals();
 
         if (p?.initialConverterBalanceCollateral) {
-          await init.sourceToken.mint(init.core.tc.address, parseUnits(p.initialConverterBalanceCollateral, await init.sourceToken.decimals()));
+          await init.sourceToken.mint(init.core.tc.address, parseUnits(p.initialConverterBalanceCollateral, collateralDecimals));
         }
         if (p?.initialConverterBalanceBorrowAsset) {
-          await init.targetToken.mint(init.core.tc.address, parseUnits(p.initialConverterBalanceBorrowAsset, targetTokenDecimals));
+          await init.targetToken.mint(init.core.tc.address, parseUnits(p.initialConverterBalanceBorrowAsset, borrowDecimals));
         }
 
         if (p.collateralAmounts.length) {
@@ -2171,7 +2162,7 @@ describe("TetuConverterTest", () => {
           await DeployerUtils.startImpersonate(init.userContract.address)
         );
 
-        const amountToRepay = await getBigNumberFrom(p.amountToRepayNum, targetTokenDecimals);
+        const amountToRepay = parseUnits(p.amountToRepay, borrowDecimals);
         const amountToSendToTetuConverter = p?.userSendsNotEnoughAmountToTetuConverter
           ? amountToRepay.div(2)
           : amountToRepay;
@@ -2232,125 +2223,288 @@ describe("TetuConverterTest", () => {
 
         return {
           countOpenedPositions: borrowsAfterRepay.length,
-          totalDebtAmountOut,
-          totalCollateralAmountOut,
-          init,
-          receiverCollateralBalanceAfterRepay,
-          receiverCollateralBalanceBeforeRepay,
-          receiverBorrowAssetBalanceBeforeRepay,
-          receiverBorrowAssetBalanceAfterRepay,
-          repayOutput
+
+          totalDebtAmountOut: +formatUnits(totalDebtAmountOut, borrowDecimals),
+          totalCollateralAmountOut: +formatUnits(totalCollateralAmountOut, collateralDecimals),
+          receiverCollateralBalanceAfterRepay: +formatUnits(receiverCollateralBalanceAfterRepay, collateralDecimals),
+          receiverCollateralBalanceBeforeRepay: +formatUnits(receiverCollateralBalanceBeforeRepay, collateralDecimals),
+          receiverBorrowAssetBalanceBeforeRepay: +formatUnits(receiverBorrowAssetBalanceBeforeRepay, borrowDecimals),
+          receiverBorrowAssetBalanceAfterRepay: +formatUnits(receiverBorrowAssetBalanceAfterRepay, borrowDecimals),
+
+          collateralAmountOut: +formatUnits(repayOutput.collateralAmountOut, collateralDecimals),
+          returnedBorrowAmountOut: +formatUnits(repayOutput.returnedBorrowAmountOut, borrowDecimals),
+          swappedLeftoverBorrowOut: +formatUnits(repayOutput.swappedLeftoverBorrowOut, borrowDecimals),
+          swappedLeftoverCollateralOut: +formatUnits(repayOutput.swappedLeftoverCollateralOut, collateralDecimals)
         }
       }
 
-      describe("Good paths", () => {
+      describe("Swap manager is not enabled", () => {
+        describe("Single lending platform", () => {
+          let init: ISetupResults;
+          let snapshotLocal0: string;
+          before(async function () {
+            snapshotLocal0 = await TimeUtils.snapshot();
+            init = await prepareTetuAppWithMultipleLendingPlatforms(core,
+              1,
+              {tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral: false,}}
+            );
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal0);
+          });
+          it("should return expected values after partial repay", async () => {
+            const exactBorrowAmount = 120;
+            const r = await makeRepayTest(init,{
+              collateralAmounts: [1_000_000],
+              exactBorrowAmounts: [exactBorrowAmount],
+              amountToRepay: "70"
+            });
+
+            expect(r.countOpenedPositions).eq(1);
+            expect(r.totalDebtAmountOut).eq(120 - 70);
+          });
+          it("should return expected values after full repay", async () => {
+            const r = await makeRepayTest(init,{
+              collateralAmounts: [1_000_000],
+              exactBorrowAmounts: [120],
+              amountToRepay: "120"
+            });
+
+            expect(r.countOpenedPositions).eq(0);
+            expect(r.totalDebtAmountOut).eq(0);
+          });
+          it("should return unswapped borrow asset back to receiver if SwapManager doesn't have a conversion way", async () => {
+            const r = await makeRepayTest(init,{
+              collateralAmounts: [1_000_000],
+              exactBorrowAmounts: [120],
+              amountToRepay: "220",
+              setupTetuLiquidatorToSwapBorrowToCollateral: false // swapManager doesn't have a conversion way
+            });
+
+            expect(r.countOpenedPositions).eq(0);
+            expect(r.totalDebtAmountOut).eq(0);
+            expect(r.receiverBorrowAssetBalanceAfterRepay - r.receiverBorrowAssetBalanceBeforeRepay).eq(220 - 120);
+          });
+          describe("Try to hack", () => {
+            describe("Try to broke repay by sending small amount of borrow asset on balance of the TetuConverter", () => {
+              it("should return expected values", async () => {
+                const r = await makeRepayTest(init,{
+                  collateralAmounts: [1_000_000],
+                  exactBorrowAmounts: [120],
+                  amountToRepay: "70",
+                  hackSendBorrowAssetAmountToBalance: "1"
+                });
+
+                expect(r.countOpenedPositions).eq(1);
+                expect(r.totalDebtAmountOut).eq(120 - 70);
+              });
+            });
+          });
+          describe("Bad paths", () => {
+            describe("Receiver is null", () => {
+              it("should revert", async () => {
+                await expect(
+                  makeRepayTest(init,{
+                    collateralAmounts: [1_000_000],
+                    exactBorrowAmounts: [120],
+                    amountToRepay: "120",
+                    receiverIsNull: true
+                  })
+                ).revertedWith("TC-1 zero address");
+              });
+            });
+            describe("Send incorrect amount-to-repay to TetuConverter", () => {
+              it("should revert", async () => {
+                await expect(
+                  makeRepayTest(init,{
+                    collateralAmounts: [1_000_000],
+                    exactBorrowAmounts: [120],
+                    amountToRepay: "121", // (1)
+                    userSendsNotEnoughAmountToTetuConverter: true
+                  })
+                ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
+              });
+            });
+            describe("Not zero amount was put on balance of TetuConverter", () => {
+              it("should return expected values", async () => {
+                const r = await makeRepayTest(init,{
+                  collateralAmounts: [1_000_000],
+                  exactBorrowAmounts: [120],
+                  amountToRepay: "120",
+                  initialConverterBalanceBorrowAsset: "200000",
+                  initialConverterBalanceCollateral: "500000",
+                });
+
+                expect(r.countOpenedPositions).eq(0);
+                expect(r.totalDebtAmountOut).eq(+formatUnits((120 - 120).toString(), await init.targetToken.decimals()));
+                expect(+formatUnits(await init.targetToken.balanceOf(init.core.tc.address), await init.targetToken.decimals())).eq(200_000);
+                expect(+formatUnits(await init.sourceToken.balanceOf(init.core.tc.address), await init.sourceToken.decimals())).eq(500_000);
+              });
+            });
+            describe("Not whitelisted", () => {
+              it("should revert", async () => {
+                await expect(
+                  makeRepayTest(init,{
+                    collateralAmounts: [1_000_000],
+                    exactBorrowAmounts: [120],
+                    amountToRepay: "120",
+                    notWhitelisted: true
+                  })
+                ).revertedWith("TC-57 whitelist"); // OUT_OF_WHITE_LIST
+              });
+            });
+          });
+        });
+        describe("Three lending platform", () => {
+          let init: ISetupResults;
+          let snapshotLocal0: string;
+          before(async function () {
+            snapshotLocal0 = await TimeUtils.snapshot();
+            init = await prepareTetuAppWithMultipleLendingPlatforms(core,
+              3,
+              {tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral: false,}}
+            );
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal0);
+          });
+          describe("Partial repay of single pool adapter", () => {
+            it("should return expected values", async () => {
+              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
+              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
+              const r = await makeRepayTest(init,{
+                collateralAmounts,
+                exactBorrowAmounts,
+                amountToRepay: "100"
+              });
+
+              expect(r.countOpenedPositions).eq(3);
+              expect(r.totalDebtAmountOut).eq(1600 - 100);
+            });
+          });
+          describe("Partial repay, full repay of first pool adapter", () => {
+            it("should return expected values", async () => {
+              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
+              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
+              const r = await makeRepayTest(init,{
+                collateralAmounts,
+                exactBorrowAmounts,
+                amountToRepay: "200"
+              });
+
+              expect(r.countOpenedPositions).eq(2);
+              expect(r.totalDebtAmountOut).eq(1600 - 200);
+            });
+          });
+          describe("Partial repay, two pool adapters", () => {
+            it("should return expected values", async () => {
+              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
+              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
+              const r = await makeRepayTest(init,{
+                collateralAmounts,
+                exactBorrowAmounts,
+                amountToRepay: "600"
+              });
+
+              expect(r.countOpenedPositions).eq(1);
+              expect(r.totalDebtAmountOut).eq(1600 - 600);
+            });
+          });
+          describe("Partial repay, all pool adapters", () => {
+            it("should return expected values", async () => {
+              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
+              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
+              const r = await makeRepayTest(init,{
+                collateralAmounts,
+                exactBorrowAmounts,
+                amountToRepay: "1500"
+              });
+
+              expect(r.countOpenedPositions).eq(1);
+              expect(r.totalDebtAmountOut).eq(1600 - 1500);
+            });
+          });
+          describe("Full repay, no swap", () => {
+            it("should return expected values", async () => {
+              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
+              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
+
+              const r = await makeRepayTest(init,{
+                collateralAmounts,
+                exactBorrowAmounts,
+                amountToRepay: "1600"
+              });
+
+              expect(r.countOpenedPositions).eq(0);
+              expect(r.totalDebtAmountOut).eq(0);
+              expect(r.collateralAmountOut).eq(1_000_000 + 2_000_000 + 3_000_000);
+              expect(r.returnedBorrowAmountOut).eq(0);
+              expect(r.swappedLeftoverCollateralOut).eq(0);
+              expect(r.swappedLeftoverBorrowOut).eq(0);
+            });
+          });
+
+          /**
+           * There are two lending platforms wth debt gaps = true
+           * Make small borrow - $15, collateral = 30
+           * Make large borrow using different lending platform - $1000, collateral = 2000
+           * Now, the total amount of debt is $1015, total collateral 2030
+           * Because of debt gap Converter returns amount to repay = 1025.15
+           * Make repay 98% of the debt.
+           * So, amount to repay is 1025.15*98/100 = 1004.647
+           * The first debt $1000 is repaid with 1% debt gap
+           * So, $1004.647 will be used to cover the first debt $1000
+           * $1000 will be used to cover the debt,
+           * $4.647 1) either will be returned to the user 2) OR used to cover second debt
+           * This test ensures that option 2) is used
+           * We expect to receive collateral = 2030*1004.647/1025.15 = 1989.4
+           */
+          describe("SCB-821", function () {
+// todo
+          });
+        });
+      });
+      describe("Swap manager is enabled", () => {
         describe("No lending platforms", () => {
+          let init: ISetupResults;
+          let snapshotLocal0: string;
+          before(async function () {
+            snapshotLocal0 = await TimeUtils.snapshot();
+            init = await prepareTetuAppWithMultipleLendingPlatforms(core,
+              0,
+              {tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral: true,}}
+            );
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal0);
+          });
+
           describe("Pure swap", () => {
             describe("Collateral and borrow prices are equal", () => {
               it("should return expected values", async () => {
-                const amountToRepay = 70;
-                const r = await makeRepayTest({
+                const r = await makeRepayTest(init,{
                   collateralAmounts: [],
                   exactBorrowAmounts: [],
-                  amountToRepayNum: amountToRepay,
+                  amountToRepay: "70",
                   setupTetuLiquidatorToSwapBorrowToCollateral: true
                 });
-                const expectedCollateralAmountToReceive = getBigNumberFrom(
-                  amountToRepay, // the prices are equal
-                  await r.init.sourceToken.decimals()
-                );
 
-                const ret = [
-                  r.countOpenedPositions,
-                  r.totalDebtAmountOut.toString(),
-                  r.receiverCollateralBalanceAfterRepay.sub(r.receiverCollateralBalanceBeforeRepay).toString(),
-                ].join();
-
-                const expected = [
-                  0,
-                  0,
-                  expectedCollateralAmountToReceive.toString()
-                ].join();
-
-                expect(ret).eq(expected);
+                expect(r.countOpenedPositions).eq(0);
+                expect(r.totalDebtAmountOut).eq(0);
+                expect(r.receiverCollateralBalanceAfterRepay - r.receiverCollateralBalanceBeforeRepay).eq(70);
               });
             });
           });
         });
         describe("Single lending platform", () => {
-          describe("Partial repay", () => {
-            it("should return expected values", async () => {
-              const amountToRepay = 70;
-              const exactBorrowAmount = 120;
-              const r = await makeRepayTest({
-                collateralAmounts: [1_000_000],
-                exactBorrowAmounts: [exactBorrowAmount],
-                amountToRepayNum: amountToRepay
-              });
-
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              const expected = [
-                1,
-                getBigNumberFrom(exactBorrowAmount - amountToRepay, await r.init.targetToken.decimals())
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
+          let snapshotLocal0: string;
+          before(async function () {
+            snapshotLocal0 = await TimeUtils.snapshot();
           });
-          describe("Full repay", () => {
-            it("should return expected values", async () => {
-              const exactBorrowAmount = 120;
-              const amountToRepay = exactBorrowAmount;
-              const r = await makeRepayTest({
-                collateralAmounts:[1_000_000],
-                exactBorrowAmounts: [exactBorrowAmount],
-                amountToRepayNum: amountToRepay
-              });
-
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              const expected = [
-                0,
-                getBigNumberFrom(exactBorrowAmount - amountToRepay, await r.init.targetToken.decimals())
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal0);
           });
-          describe("SwapManager wap doesn't have a conversion way", () => {
-            it("should return unswapped borrow asset back to receiver", async () => {
-              const exactBorrowAmount = 120;
-              const amountToSwap = 100;
-              const amountToRepay = exactBorrowAmount + amountToSwap;
-              const r = await makeRepayTest({
-                collateralAmounts: [1_000_000],
-                exactBorrowAmounts: [exactBorrowAmount],
-                amountToRepayNum: amountToRepay,
-                setupTetuLiquidatorToSwapBorrowToCollateral: false // swapManager doesn't have a conversion way
-              });
 
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut,
-                r.receiverBorrowAssetBalanceAfterRepay.sub(r.receiverBorrowAssetBalanceBeforeRepay)
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              const expected = [
-                0,
-                0,
-                getBigNumberFrom(amountToSwap, await r.init.targetToken.decimals()),
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
-          });
           describe("Full repay with swap", () => {
             it("should return expected values", async () => {
               const initialCollateralAmount = 1_000_000;
@@ -2362,404 +2516,154 @@ describe("TetuConverterTest", () => {
               const PRICE_IMPACT_NUMERATOR = 100_000; // SwapManager.PRICE_IMPACT_NUMERATOR
               const priceImpact = PRICE_IMPACT_NUMERATOR / 100; // 1%
 
-              const amountToRepay = exactBorrowAmount + amountBorrowAssetToSwap;
-              const r = await makeRepayTest({
+              const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
+                1,
+                {tetuAppSetupParams: {
+                  setupTetuLiquidatorToSwapBorrowToCollateral: true,
+                  priceImpact
+                }}
+              );
+
+              const r = await makeRepayTest(init,{
                 collateralAmounts: [initialCollateralAmount],
                 exactBorrowAmounts: [exactBorrowAmount],
-                amountToRepayNum: amountToRepay,
+                amountToRepay: "520",
                 setupTetuLiquidatorToSwapBorrowToCollateral: true,
                 priceImpact
               });
 
               // the prices of borrow and collateral assets are equal
-              const expectedCollateralAmountFromSwapping = amountBorrowAssetToSwap
-                * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR;
+              const expectedCollateralAmountFromSwapping = amountBorrowAssetToSwap * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR;
 
-              const expectedCollateralAmountToReceive = getBigNumberFrom(
-                initialCollateralAmount + expectedCollateralAmountFromSwapping,
-                await r.init.sourceToken.decimals()
-              );
-
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut,
-                r.receiverCollateralBalanceAfterRepay.sub(r.receiverCollateralBalanceBeforeRepay),
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              const expected = [
-                0,
-                0,
-                expectedCollateralAmountToReceive.toString()
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
-          });
-          describe("Try to hack", () => {
-            describe("Try to broke repay by sending small amount of borrow asset on balance of the TetuConverter", () => {
-              it("should return expected values", async () => {
-                const amountToRepay = 70;
-                const exactBorrowAmount = 120;
-                const r = await makeRepayTest({
-                  collateralAmounts: [1_000_000],
-                  exactBorrowAmounts: [exactBorrowAmount],
-                  amountToRepayNum: amountToRepay,
-                  hackSendBorrowAssetAmountToBalance: "1"
-                });
-
-                const ret = [
-                  r.countOpenedPositions,
-                  r.totalDebtAmountOut
-                ].map(x => BalanceUtils.toString(x)).join("\n");
-
-                const expected = [
-                  1,
-                  getBigNumberFrom(exactBorrowAmount - amountToRepay, await r.init.targetToken.decimals())
-                ].map(x => BalanceUtils.toString(x)).join("\n");
-
-                expect(ret).eq(expected);
-              });
-            });
-          });
-          describe("Bad paths", () => {
-            describe("Receiver is null", () => {
-              it("should revert", async () => {
-                const exactBorrowAmount = 120;
-                const amountToRepay = exactBorrowAmount + 1; // (!)
-                await expect(
-                  makeRepayTest({
-                    collateralAmounts: [1_000_000],
-                    exactBorrowAmounts: [exactBorrowAmount],
-                    amountToRepayNum: amountToRepay,
-                    receiverIsNull: true
-                  })
-                ).revertedWith("TC-1 zero address");
-              });
-            });
-            describe("Send incorrect amount-to-repay to TetuConverter", () => {
-              it("should revert", async () => {
-                const exactBorrowAmount = 120;
-                const amountToRepay = exactBorrowAmount + 1; // (!)
-                await expect(
-                  makeRepayTest({
-                    collateralAmounts:[1_000_000],
-                    exactBorrowAmounts: [exactBorrowAmount],
-                    amountToRepayNum: amountToRepay,
-                    userSendsNotEnoughAmountToTetuConverter: true
-                  })
-                ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
-              });
-            });
-            describe("Not zero amount was put on balance of TetuConverter", () => {
-              it("should return expected values", async () => {
-                const exactBorrowAmount = 120;
-                const amountToRepay = exactBorrowAmount;
-                const r = await makeRepayTest({
-                  collateralAmounts: [1_000_000],
-                  exactBorrowAmounts: [exactBorrowAmount],
-                  amountToRepayNum: amountToRepay,
-                  initialConverterBalanceBorrowAsset: "200000",
-                  initialConverterBalanceCollateral: "500000",
-                });
-
-                expect(r.countOpenedPositions).eq(0);
-                expect(r.totalDebtAmountOut).eq(+formatUnits((exactBorrowAmount - amountToRepay).toString(), await r.init.targetToken.decimals()));
-                expect(+formatUnits(await r.init.targetToken.balanceOf(r.init.core.tc.address), await r.init.targetToken.decimals())).eq(200_000);
-                expect(+formatUnits(await r.init.sourceToken.balanceOf(r.init.core.tc.address), await r.init.sourceToken.decimals())).eq(500_000);
-              });
-            });
-            describe("Not whitelisted", () => {
-              it("should revert", async () => {
-                const exactBorrowAmount = 120;
-                const amountToRepay = exactBorrowAmount + 1; // (!)
-                await expect(
-                  makeRepayTest({
-                    collateralAmounts: [1_000_000],
-                    exactBorrowAmounts: [exactBorrowAmount],
-                    amountToRepayNum: amountToRepay,
-                    notWhitelisted: true
-                  })
-                ).revertedWith("TC-57 whitelist"); // OUT_OF_WHITE_LIST
-              });
-            });
-          });
-          describe("Gas estimation @skip-on-coverage", () => {
-            it("should not exceed gas threshold", async () => {
-              const receiver = ethers.Wallet.createRandom().address;
-
-              const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, {
-                tetuAppSetupParams: {skipPreregistrationOfPoolAdapters: true}
-              });
-
-              const sourceAmount = parseUnits("1000", await init.sourceToken.decimals());
-
-              const tcAsUser = ITetuConverter__factory.connect(
-                core.tc.address,
-                await DeployerUtils.startImpersonate(init.userContract.address)
-              );
-              await IERC20__factory.connect(
-                init.sourceToken.address,
-                await DeployerUtils.startImpersonate(init.userContract.address)
-              ).approve(core.tc.address, sourceAmount);
-
-              const plan = await tcAsUser.callStatic.findConversionStrategy(
-                "0x", // entry data
-                init.sourceToken.address,
-                sourceAmount,
-                init.targetToken.address,
-                1000
-              );
-
-              await tcAsUser.borrow(
-                plan.converter,
-                init.sourceToken.address,
-                plan.collateralAmountOut,
-                init.targetToken.address,
-                plan.amountToBorrowOut,
-                receiver,
-                {gasLimit: GAS_LIMIT}
-              );
-              console.log("Collateral used", plan.collateralAmountOut.toString());
-              console.log("Borrowed amount", plan.amountToBorrowOut.toString());
-              await MockERC20__factory.connect(
-                init.targetToken.address,
-                await DeployerUtils.startImpersonate(init.userContract.address)
-              ).mint(core.tc.address, plan.amountToBorrowOut);
-              const gasUsed = await tcAsUser.estimateGas.repay(
-                init.sourceToken.address,
-                init.targetToken.address,
-                plan.amountToBorrowOut,
-                receiver,
-                {gasLimit: GAS_LIMIT}
-              );
-
-              controlGasLimitsEx2(gasUsed, GAS_TC_REPAY, (u, t) => {
-                expect(u).to.be.below(t);
-              });
+              expect(r.countOpenedPositions).eq(0);
+              expect(r.totalDebtAmountOut).eq(0);
+              expect(r.receiverCollateralBalanceAfterRepay - r.receiverCollateralBalanceBeforeRepay).eq(initialCollateralAmount + expectedCollateralAmountFromSwapping);
             });
           });
         });
         describe("Three lending platform", () => {
-          describe("Partial repay of single pool adapter", () => {
-            it("should return expected values", async () => {
-              const amountToRepay = 100;
-              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
-              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
-              const r = await makeRepayTest({
-                collateralAmounts,
-                exactBorrowAmounts,
-                amountToRepayNum: amountToRepay
-              });
+          // We need to set big price impact
+          // TetuConverter should prefer to use borrowing instead swapping
+          const PRICE_IMPACT_NUMERATOR = 100_000; // SwapManager.PRICE_IMPACT_NUMERATOR
+          const priceImpact = PRICE_IMPACT_NUMERATOR / 100; // 1%
 
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              const expected = [
-                3,
-                getBigNumberFrom(1600 - 100, await r.init.targetToken.decimals())
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
+          let init: ISetupResults;
+          let snapshotLocal0: string;
+          before(async function () {
+            snapshotLocal0 = await TimeUtils.snapshot();
+            init = await prepareTetuAppWithMultipleLendingPlatforms(core,
+              3,
+              {tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral: true, priceImpact}}
+            );
           });
-          describe("Partial repay, full repay of first pool adapter", () => {
-            it("should return expected values", async () => {
-              const amountToRepay = 200;
-              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
-              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
-              const r = await makeRepayTest({
-                collateralAmounts,
-                exactBorrowAmounts,
-                amountToRepayNum: amountToRepay
-              });
-
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              const expected = [
-                2,
-                getBigNumberFrom(1600 - 200, await r.init.targetToken.decimals())
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal0);
           });
-          describe("Partial repay, two pool adapters", () => {
-            it("should return expected values", async () => {
-              const amountToRepay = 600;
-              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
-              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
-              const r = await makeRepayTest({
-                collateralAmounts,
-                exactBorrowAmounts,
-                amountToRepayNum: amountToRepay
-              });
 
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              const expected = [
-                1,
-                getBigNumberFrom(1600 - 600, await r.init.targetToken.decimals())
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
-          });
-          describe("Partial repay, all pool adapters", () => {
-            it("should return expected values", async () => {
-              const amountToRepay = 1500;
-              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
-              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
-              const r = await makeRepayTest({
-                collateralAmounts,
-                exactBorrowAmounts,
-                amountToRepayNum: amountToRepay
-              });
-
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              const expected = [
-                1,
-                getBigNumberFrom(1600 - 1500, await r.init.targetToken.decimals())
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
-          });
-          describe("Full repay, no swap", () => {
-            it("should return expected values", async () => {
-              const amountToRepay = 1600;
-              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
-              const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
-              const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev + cur, 0);
-              const r = await makeRepayTest({
-                collateralAmounts,
-                exactBorrowAmounts,
-                amountToRepayNum: amountToRepay
-              });
-
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut.toString(),
-
-                r.repayOutput.collateralAmountOut,
-                r.repayOutput.returnedBorrowAmountOut,
-                r.repayOutput.swappedLeftoverCollateralOut,
-                r.repayOutput.swappedLeftoverBorrowOut
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              const expected = [
-                0,
-                getBigNumberFrom(0, await r.init.targetToken.decimals()),
-
-                parseUnits(totalCollateralAmount.toString(), await r.init.sourceToken.decimals()),
-                0, // there is no leftover
-                0,
-                0
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
-          });
           describe("Full repay with swap", () => {
             it("should return expected values", async () => {
               const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
               const exactBorrowAmounts = [200, 400, 1000];
-              const totalBorrowAmount = exactBorrowAmounts.reduce((prev, cur) => prev + cur, 0);
               const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev + cur, 0);
               const amountToSwap = 300;
-              const amountToRepay = totalBorrowAmount + amountToSwap;
 
-              // We need to set big price impact
-              // TetuConverter should prefer to use borrowing instead swapping
-              const PRICE_IMPACT_NUMERATOR = 100_000; // SwapManager.PRICE_IMPACT_NUMERATOR
-              const priceImpact = PRICE_IMPACT_NUMERATOR / 100; // 1%
-
-              const r = await makeRepayTest({
+              const r = await makeRepayTest(init,{
                 collateralAmounts,
                 exactBorrowAmounts,
-                amountToRepayNum: amountToRepay,
+                amountToRepay: "1900", // 200 + 400 + 1000 + 300
                 setupTetuLiquidatorToSwapBorrowToCollateral: true,
                 priceImpact
               });
-
-              const ret = [
-                r.countOpenedPositions,
-                r.totalDebtAmountOut.toString(),
-                r.receiverCollateralBalanceAfterRepay.sub(r.receiverCollateralBalanceBeforeRepay),
-                r.receiverBorrowAssetBalanceAfterRepay.sub(r.receiverBorrowAssetBalanceBeforeRepay)
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              // the prices of borrow and collateral assets are equal
-              const expectedCollateralAmountFromSwapping = amountToSwap
-                * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR;
-
-              const expectedCollateralAmountToReceive = getBigNumberFrom(
-                totalCollateralAmount + expectedCollateralAmountFromSwapping,
-                await r.init.sourceToken.decimals()
-              );
-
-              const expected = [
-                0,
-                getBigNumberFrom(0, await r.init.targetToken.decimals()),
-                expectedCollateralAmountToReceive,
-                0
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
-            });
-            it("should return expected output values", async () => {
-              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
-              const exactBorrowAmounts = [200, 400, 1000];
-              const totalBorrowAmount = exactBorrowAmounts.reduce((prev, cur) => prev + cur, 0);
-              const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev + cur, 0);
-              const amountToSwap = 300;
-              const amountToRepay = totalBorrowAmount + amountToSwap;
-
-              // We need to set big price impact
-              // TetuConverter should prefer to use borrowing instead swapping
-              const PRICE_IMPACT_NUMERATOR = 100_000; // SwapManager.PRICE_IMPACT_NUMERATOR
-              const priceImpact = PRICE_IMPACT_NUMERATOR / 100; // 1%
-
-              const r = await makeRepayTest({
-                collateralAmounts,
-                exactBorrowAmounts,
-                amountToRepayNum: amountToRepay,
-                setupTetuLiquidatorToSwapBorrowToCollateral: true,
-                priceImpact
-              });
-              console.log(r);
-
-              const ret = [
-                r.repayOutput.collateralAmountOut,
-                r.repayOutput.returnedBorrowAmountOut,
-                r.repayOutput.swappedLeftoverCollateralOut,
-                r.repayOutput.swappedLeftoverBorrowOut
-              ].map(x => BalanceUtils.toString(x)).join("\n");
 
               // the prices of borrow and collateral assets are equal
               const expectedCollateralAmountFromSwapping = amountToSwap * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR;
               const expectedCollateralAmountToReceive = totalCollateralAmount + expectedCollateralAmountFromSwapping;
 
-              const expected = [
-                parseUnits(expectedCollateralAmountToReceive.toString(), await r.init.sourceToken.decimals()),
-                0, // there is no not-swapped leftover
-                parseUnits(expectedCollateralAmountFromSwapping.toString(), await r.init.sourceToken.decimals()),
-                parseUnits(amountToSwap.toString(), await r.init.targetToken.decimals()),
-              ].map(x => BalanceUtils.toString(x)).join("\n");
-
-              expect(ret).eq(expected);
+              expect(r.countOpenedPositions).eq(0);
+              expect(r.totalDebtAmountOut).eq(0);
+              expect(r.receiverCollateralBalanceAfterRepay - r.receiverCollateralBalanceBeforeRepay).eq(expectedCollateralAmountToReceive);
+              expect(r.receiverBorrowAssetBalanceAfterRepay - r.receiverBorrowAssetBalanceBeforeRepay).eq(0);
             });
+            it("should return expected output values", async () => {
+              const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
+              const exactBorrowAmounts = [200, 400, 1000];
+              const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev + cur, 0);
+              const amountToSwap = 300;
+
+              const r = await makeRepayTest(init,{
+                collateralAmounts,
+                exactBorrowAmounts,
+                amountToRepay: "1900", // 200 + 400 + 1000 + 300
+                setupTetuLiquidatorToSwapBorrowToCollateral: true,
+                priceImpact
+              });
+              console.log(r);
+
+              // the prices of borrow and collateral assets are equal
+              const expectedCollateralAmountFromSwapping = amountToSwap * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR;
+              const expectedCollateralAmountToReceive = totalCollateralAmount + expectedCollateralAmountFromSwapping;
+
+              expect(r.collateralAmountOut).eq(expectedCollateralAmountToReceive);
+              expect(r.returnedBorrowAmountOut).eq(0);
+              expect(r.swappedLeftoverCollateralOut).eq(expectedCollateralAmountFromSwapping);
+              expect(r.swappedLeftoverBorrowOut).eq(amountToSwap);
+            });
+          });
+        });
+      });
+
+      describe("Gas estimation @skip-on-coverage", () => {
+        it("should not exceed gas threshold", async () => {
+          const receiver = ethers.Wallet.createRandom().address;
+
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, {
+            tetuAppSetupParams: {skipPreregistrationOfPoolAdapters: true}
+          });
+
+          const sourceAmount = parseUnits("1000", await init.sourceToken.decimals());
+
+          const tcAsUser = ITetuConverter__factory.connect(
+            core.tc.address,
+            await DeployerUtils.startImpersonate(init.userContract.address)
+          );
+          await IERC20__factory.connect(
+            init.sourceToken.address,
+            await DeployerUtils.startImpersonate(init.userContract.address)
+          ).approve(core.tc.address, sourceAmount);
+
+          const plan = await tcAsUser.callStatic.findConversionStrategy(
+            "0x", // entry data
+            init.sourceToken.address,
+            sourceAmount,
+            init.targetToken.address,
+            1000
+          );
+
+          await tcAsUser.borrow(
+            plan.converter,
+            init.sourceToken.address,
+            plan.collateralAmountOut,
+            init.targetToken.address,
+            plan.amountToBorrowOut,
+            receiver,
+            {gasLimit: GAS_LIMIT}
+          );
+          console.log("Collateral used", plan.collateralAmountOut.toString());
+          console.log("Borrowed amount", plan.amountToBorrowOut.toString());
+          await MockERC20__factory.connect(
+            init.targetToken.address,
+            await DeployerUtils.startImpersonate(init.userContract.address)
+          ).mint(core.tc.address, plan.amountToBorrowOut);
+          const gasUsed = await tcAsUser.estimateGas.repay(
+            init.sourceToken.address,
+            init.targetToken.address,
+            plan.amountToBorrowOut,
+            receiver,
+            {gasLimit: GAS_LIMIT}
+          );
+
+          controlGasLimitsEx2(gasUsed, GAS_TC_REPAY, (u, t) => {
+            expect(u).to.be.below(t);
           });
         });
       });
