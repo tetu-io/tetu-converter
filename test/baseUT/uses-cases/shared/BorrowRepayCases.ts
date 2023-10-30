@@ -145,7 +145,35 @@ export interface IHealthFactorsPair {
   minValue: string;
   targetValue: string;
 
+  /** It's enough to run the test with given params on single (first available) asset paris only */
   singleAssetPairOnly?: boolean;
+
+  /** Target health factor is too small (platform adapter doesn't allow to make borrow with such health factor) */
+  tooSmallTargetHealthFactorCase?: boolean;
+}
+
+/** Params for tests "Borrow/repay single action per block" */
+export interface IBorrowRepaySingleActionParams {
+  userBorrowAssetBalance: string;
+  userCollateralAssetBalance: string;
+  collateralAmount: string;
+  collateralAmountSecond: string;
+
+  userBorrowAssetBalanceTinyAmount: string;
+  userCollateralAssetBalanceTinyAmount: string;
+  collateralAmountTiny: string;
+
+  userBorrowAssetBalanceHugeAmount: string;
+}
+
+/** Params for tests "Borrow/repay multiple actions per block" */
+export interface IBorrowRepayMultipleActionParams {
+  userBorrowAssetBalance: string;
+  userCollateralAssetBalance: string;
+  userCollateralAssetBalanceSecond: string;
+  collateralAmount1: string;
+  collateralAmount2: string;
+  collateralAmountSecond: string;
 }
 
 export interface IAssetsPairConfig {
@@ -159,8 +187,13 @@ export interface IAssetsPairConfig {
    * In the case of very low target health factor (i.e. 1.03) it can be less than min allowed health factor
    * (i.e. on aave2: liquidationThreshold18/LTV = 1.0625)
    * So, in the tests that check result health factor we should use following value if it specified.
+   *
+   * "0" - disable tooSmallTargetHealthFactorCase
    */
   minTargetHealthFactor?: string;
+
+  singleParams?: IBorrowRepaySingleActionParams;
+  multipleParams?: IBorrowRepayMultipleActionParams;
 }
 
 
