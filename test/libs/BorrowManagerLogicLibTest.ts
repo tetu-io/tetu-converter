@@ -2334,6 +2334,89 @@ describe("BorrowManagerLogicLibTest", () => {
     });
   });
 
+  describe("_getApr18", () => {
+    interface IParams {
+      borrowCost?: string;
+      supplyIncomeInBorrowAsset?: string;
+      rewardsAmountInBorrowAsset?: string;
+      rewardsFactor?: string;
+      amountCollateralInBorrowAsset: string;
+    }
+
+    interface IResults {
+      apr: number;
+    }
+
+    async function getApr18(p: IParams): Promise<IResults> {
+      const apr = await facade._getApr18(
+        {
+          borrowCost36: parseUnits(p.borrowCost || "0", 36),
+          supplyIncomeInBorrowAsset36: parseUnits(p.supplyIncomeInBorrowAsset || "0", 36),
+          rewardsAmountInBorrowAsset36: parseUnits(p.rewardsAmountInBorrowAsset || "0", 36),
+          amountCollateralInBorrowAsset36: parseUnits(p.amountCollateralInBorrowAsset || "0", 36),
+
+          // following values are not used here
+
+          converter: Misc.ZERO_ADDRESS,
+          amountToBorrow: 0,
+          ltv18: 0,
+          collateralAmount: 0,
+          liquidationThreshold18: 0,
+          maxAmountToBorrow: 0,
+          maxAmountToSupply: 0
+        },
+        parseUnits(p.rewardsFactor || "0", 18)
+      );
+
+      return {apr: +formatUnits(apr, 18)};
+    }
+
+    it("should return expected value if rewards are zero", async () => {
+      const {apr} = await getApr18({
+        amountCollateralInBorrowAsset: "2",
+        borrowCost: "10",
+        supplyIncomeInBorrowAsset: "7",
+      });
+      expect(apr).eq((10 - 7) / 2);
+    });
+
+    it("should return expected value when rewards don't exceed limits", async () => {
+      const {apr} = await getApr18({
+        amountCollateralInBorrowAsset: "2",
+        borrowCost: "25.9",
+        supplyIncomeInBorrowAsset: "5",
+
+        rewardsFactor: "0.1", // limit is 20.9 * 0.1 = 2.09
+        rewardsAmountInBorrowAsset: "1.9"
+      });
+      expect(apr).eq((25.9 - 5 - 1.9) / 2);
+    });
+
+    it("should return expected value when rewards exceed limits", async () => {
+      const {apr} = await getApr18({
+        amountCollateralInBorrowAsset: "2",
+        borrowCost: "20",
+        supplyIncomeInBorrowAsset: "5",
+
+        rewardsFactor: "0.1", // limit is 20 * 0.1 = 2
+        rewardsAmountInBorrowAsset: "100"
+      });
+      expect(apr).eq((20 - 5 - 2) / 2);
+    });
+
+    it("should return negative value if borrow cost is zero", async () => {
+      const {apr} = await getApr18({
+        amountCollateralInBorrowAsset: "2",
+        borrowCost: "0",
+        supplyIncomeInBorrowAsset: "7",
+
+        rewardsFactor: "1",
+        rewardsAmountInBorrowAsset: "100"
+      });
+      expect(apr).eq(- 7 / 2);
+    });
+
+  });
 //endregion Unit tests
 
 });
