@@ -42,13 +42,14 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
 
   //region ----------------------------------------------------- Data types
   struct RepayLocal {
-    address[] poolAdapters;
     uint len;
     uint debtGap;
-    IPoolAdapter pa;
     uint totalDebtForPoolAdapter;
-    bool debtGapRequired;
+    uint collateralAmountReceived;
+    address[] poolAdapters;
+    IPoolAdapter pa;
     IConverterController controller;
+    bool debtGapRequired;
   }
 
   /// @notice Local vars for {findConversionStrategy}
@@ -344,17 +345,19 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
 
       // make repayment, the amount-to-repay can contain debt gap, so a part of the amount can be returned back
       // on the TetuConverter's balance or directly on the balance of the receiver
-      uint collateralAmountReceived;
-      (amountToRepay_, collateralAmountReceived) = TetuConverterLogicLib.repay(
-        amountToRepay_,
-        v.pa,
-        v.totalDebtForPoolAdapter,
-        receiver_,
-        v.len == i + 1,
-        borrowAsset_
-      );
-      collateralAmountOut += collateralAmountReceived;
+      TetuConverterLogicLib.RepayInputParams memory p = TetuConverterLogicLib.RepayInputParams({
+        totalAmountToRepay: amountToRepay_,
+        totalDebtForPoolAdapter: v.totalDebtForPoolAdapter,
+        poolAdapter: v.pa,
+        borrowAsset: borrowAsset_,
+        collateralAsset: collateralAsset_,
+        receiver: receiver_,
+        lastPoolAdapter: v.len == i + 1,
+        debtGap: v.debtGap
+      });
 
+      (amountToRepay_, v.collateralAmountReceived) = TetuConverterLogicLib.repay(p);
+      collateralAmountOut += v.collateralAmountReceived;
     }
 
     // if all debts were paid but we still have some amount of borrow asset
