@@ -69,7 +69,6 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   //region ----------------------------------------------------- Events
   event OnSwap(address signer, address converter, address sourceAsset, uint sourceAmount, address targetAsset, address receiver, uint targetAmountOut);
   event OnBorrow(address poolAdapter, uint collateralAmount, uint amountToBorrow, address receiver, uint borrowedAmountOut);
-  event OnRepayBorrow(address poolAdapter, uint amountToRepay, address receiver, bool closePosition);
 
   /// @notice A part of target amount cannot be repaid or swapped
   ///         so it was just returned back to receiver as is
@@ -342,16 +341,20 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
         // we assume here, that amountToRepay_ includes all required dept-gaps
         v.totalDebtForPoolAdapter = TetuConverterLogicLib.getAmountWithDebtGap(v.totalDebtForPoolAdapter, v.debtGap);
       }
-      uint amountToPayToPoolAdapter = amountToRepay_ >= v.totalDebtForPoolAdapter
-        ? v.totalDebtForPoolAdapter
-        : amountToRepay_;
 
-      // make repayment, assume infinity approve: IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
-      bool closePosition = amountToPayToPoolAdapter == v.totalDebtForPoolAdapter;
-      collateralAmountOut += v.pa.repay(amountToPayToPoolAdapter, receiver_, closePosition);
-      amountToRepay_ -= amountToPayToPoolAdapter;
+      // make repayment, the amount-to-repay can contain debt gap, so a part of the amount can be returned back
+      // on the TetuConverter's balance or directly on the balance of the receiver
+      uint collateralAmountReceived;
+      (amountToRepay_, collateralAmountReceived) = TetuConverterLogicLib.repay(
+        amountToRepay_,
+        v.pa,
+        v.totalDebtForPoolAdapter,
+        receiver_,
+        v.len == i + 1,
+        borrowAsset_
+      );
+      collateralAmountOut += collateralAmountReceived;
 
-      emit OnRepayBorrow(address(v.pa), amountToPayToPoolAdapter, receiver_, closePosition);
     }
 
     // if all debts were paid but we still have some amount of borrow asset

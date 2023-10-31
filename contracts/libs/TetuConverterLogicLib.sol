@@ -56,6 +56,7 @@ library TetuConverterLogicLib {
   event OnRequireRepayRebalancing(address poolAdapter, uint amount, bool isCollateral, uint statusAmountToPay, uint healthFactorAfterRepay18);
   event OnSafeLiquidate(address sourceToken, uint sourceAmount, address targetToken, address receiver, uint outputAmount);
   event OnRepayTheBorrow(address poolAdapter, uint collateralOut, uint repaidAmountOut);
+  event OnRepayBorrow(address poolAdapter, uint amountToRepay, address receiver, bool closePosition);
 //#endregion ------------------------------------------------- Events
 
 //#region ------------------------------------------------- IKeeperCallback
@@ -369,6 +370,51 @@ library TetuConverterLogicLib {
     emit OnSafeLiquidate(assetIn_, amountIn_, assetOut_, receiver_, amountOut);
   }
 //#endregion ------------------------------------------------- Safe liquidation
+
+//#region ------------------------------------------------- Repay
+  /// @notice Repay debts of the given pool adapter
+  /// @param totalAmountToRepay Amount of the total debt (all pool adapter) that should be paid
+  /// @param poolAdapter Pools adapter whose debts we are going to repay
+  /// @param totalDebtForPoolAdapter Total debt of the {poolAdapter} (with debt gap)
+  /// @param receiver Receiver of collateral and excess amount-to-repay
+  /// @param lastPoolAdapter True if the {poolAdapter} is last one (all remained debts belong to it)
+  /// @return remainTotalDebt Total amount of remain debt
+  /// @return collateralAmountOut Amount of collateral returned by the pool adapter after debt repaying
+  function repay(
+    uint totalAmountToRepay,
+    IPoolAdapter poolAdapter,
+    uint totalDebtForPoolAdapter,
+    address receiver,
+    bool lastPoolAdapter,
+    address borrowAsset_
+  ) internal returns (
+    uint remainTotalDebt,
+    uint collateralAmountOut
+  ) {
+    uint delta;
+    uint amountToPayToPoolAdapter = totalAmountToRepay >= totalDebtForPoolAdapter
+      ? totalDebtForPoolAdapter
+      : totalAmountToRepay;
+
+    // make repayment, assume infinity approve: IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
+    // the amount-to-repay can contain debt gap, so a part of the amount can be returned back
+    bool closePosition = amountToPayToPoolAdapter == totalDebtForPoolAdapter;
+    if (lastPoolAdapter) {
+      // last pool adapter is able to allow the receiver to receive excess amount-to-repay directly
+      collateralAmountOut = poolAdapter.repay(amountToPayToPoolAdapter, receiver, closePosition);
+    } else {
+      // not-last pool adapter should receive excess amount-to-repay back to TetuConverter balance
+      // and so it will be possible to reuse this amount to repay debts of the next pool adapters (scb-821)
+      uint balanceBefore = IERC20(borrowAsset_).balanceOf(address(this));
+      collateralAmountOut = poolAdapter.repay(amountToPayToPoolAdapter, receiver, closePosition);
+      delta = AppUtils.sub0(IERC20(borrowAsset_).balanceOf(address(this)), balanceBefore);
+    }
+    remainTotalDebt = totalDebtForPoolAdapter + delta - amountToPayToPoolAdapter;
+
+    emit OnRepayBorrow(address(poolAdapter), amountToPayToPoolAdapter, receiver, closePosition);
+  }
+
+//#endregion ------------------------------------------------- Repay
 
   //region ----------------------------------------------------- Utils
   /// @notice Add {debtGap} to the {amount}

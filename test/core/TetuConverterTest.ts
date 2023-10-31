@@ -2362,7 +2362,11 @@ describe("TetuConverterTest", () => {
             snapshotLocal0 = await TimeUtils.snapshot();
             init = await prepareTetuAppWithMultipleLendingPlatforms(core,
               3,
-              {tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral: false,}}
+              {
+                tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral: false,},
+                sourceDecimals: 6,
+                targetDecimals: 6
+              }
             );
           });
           after(async function () {
@@ -2446,21 +2450,70 @@ describe("TetuConverterTest", () => {
 
           /**
            * There are two lending platforms wth debt gaps = true
-           * Make small borrow - $15, collateral = 30
+           * Make small borrow - $10, collateral = 20
            * Make large borrow using different lending platform - $1000, collateral = 2000
-           * Now, the total amount of debt is $1015, total collateral 2030
-           * Because of debt gap Converter returns amount to repay = 1025.15
-           * Make repay 98% of the debt.
-           * So, amount to repay is 1025.15*98/100 = 1004.647
-           * The first debt $1000 is repaid with 1% debt gap
-           * So, $1004.647 will be used to cover the first debt $1000
-           * $1000 will be used to cover the debt,
-           * $4.647 1) either will be returned to the user 2) OR used to cover second debt
-           * This test ensures that option 2) is used
-           * We expect to receive collateral = 2030*1004.647/1025.15 = 1989.4
+           * Now, the total amount of debt is $1010, total collateral 2020
+           * Because of debt gap Converter returns amount to repay = 1010*101/100 = 1020.1
+           * Make repay 99% of the debt.
+           * So, amount to repay is 1020.1*99/100 = 1009.899
+           * The first debt $1000 is repaid with 1% debt gap, so 1009.899 is used to cover first debt only.
+           * $1000 will be covered, $9.899 will be left unused.
+           * TetuConverter is able to use this amount in two ways (depending on implementation):
+           * 1) Send this extra amount back to the user
+           * 2) Use this extra amount to cover second debt
+           * This test ensures that the second option is used
+           * because such behavior is observed in the case there are no debt gaps at all.
            */
           describe("SCB-821", function () {
-// todo
+            it("should return expected values when there are no debt gaps", async () => {
+              const collateralAmounts = [2000, 20, 2]; // third platform is added to be able to use exist init
+              const exactBorrowAmounts = [1000, 10, 1];
+
+              // increase collateral factors to be able to borrow 1000 usdt under 2000 usdc
+              for (const poolAdapter of init.poolAdapters) {
+                await PoolAdapterMock__factory.connect(poolAdapter, deployer).changeCollateralFactor(parseUnits("0.9", 18));
+              }
+
+              const r = await makeRepayTest(init,{
+                collateralAmounts,
+                exactBorrowAmounts,
+                amountToRepay: "1009.899"
+              });
+
+              expect(r.collateralAmountOut).approximately((2000 + 20) * 1009.899 / (1000 + 10), 1e-8);
+              expect(r.returnedBorrowAmountOut).eq(0);
+              expect(r.totalCollateralAmountOut).approximately(2000 + 20 + 2 - (2000 + 20) * 1009.899 / (1000 + 10), 1e-8);
+              expect(r.totalDebtAmountOut).approximately(1000 + 10 + 1 - 1009.899, 1e-8);
+
+              expect(r.countOpenedPositions).eq(2);
+              expect(r.swappedLeftoverCollateralOut).eq(0);
+              expect(r.swappedLeftoverBorrowOut).eq(0);
+            });
+            it("should return expected values with debt gaps", async () => {
+              const collateralAmounts = [2000, 20, 2]; // third platform is added to be able to use exist init
+              const exactBorrowAmounts = [1000, 10, 1];
+
+              // increase collateral factors to be able to borrow 1000 usdt under 2000 usdc
+              for (const poolAdapter of init.poolAdapters) {
+                await PoolAdapterMock__factory.connect(poolAdapter, deployer).changeCollateralFactor(parseUnits("0.9", 18));
+                await PoolAdapterMock__factory.connect(poolAdapter, deployer).setDebtGapRequired(true);
+              }
+
+              const r = await makeRepayTest(init,{
+                collateralAmounts,
+                exactBorrowAmounts,
+                amountToRepay: "1009.899"
+              });
+
+              expect(r.collateralAmountOut).approximately((2000 + 20) * 1009.899 / (1000 + 10), 1e-8);
+              expect(r.returnedBorrowAmountOut).eq(0);
+              expect(r.totalCollateralAmountOut).approximately(2000 + 20 + 2 - (2000 + 20) * 1009.899 / (1000 + 10), 1e-8);
+              expect(r.totalDebtAmountOut).approximately(1000 + 10 + 1 - 1009.899, 1e-8);
+
+              expect(r.countOpenedPositions).eq(2);
+              expect(r.swappedLeftoverCollateralOut).eq(0);
+              expect(r.swappedLeftoverBorrowOut).eq(0);
+            });
           });
         });
       });
