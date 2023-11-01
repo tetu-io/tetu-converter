@@ -16,7 +16,6 @@ import "../interfaces/IConverterController.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../integrations/tetu/ITetuLiquidator.sol";
-import "hardhat/console.sol";
 
 /// @notice TetuConverter-contract logic-related functions (The lib is necessary to reduce contract size)
 library TetuConverterLogicLib {
@@ -50,22 +49,6 @@ library TetuConverterLogicLib {
     uint amount;
   }
 
-  struct RepayInputParams {
-    /// @notice Amount of the total debt (all pool adapter) that should be paid
-    uint totalAmountToRepay;
-    /// @notice Total debt of the {poolAdapter} (with debt gap)
-    uint totalDebtForPoolAdapter;
-    /// @notice debt-gap percent [0..1), decimals DEBT_GAP_DENOMINATOR
-    uint debtGap;
-    /// @notice Pools adapter whose debts we are going to repay
-    IPoolAdapter poolAdapter;
-    address borrowAsset;
-    address collateralAsset;
-    /// @notice Receiver of collateral and excess amount-to-repay
-    address receiver;
-    /// @notice True if the {poolAdapter} is last one (all remained debts belong to it)
-    bool lastPoolAdapter;
-  }
 //#endregion ------------------------------------------------- Data types
 
 //#region ------------------------------------------------- Events
@@ -73,7 +56,6 @@ library TetuConverterLogicLib {
   event OnRequireRepayRebalancing(address poolAdapter, uint amount, bool isCollateral, uint statusAmountToPay, uint healthFactorAfterRepay18);
   event OnSafeLiquidate(address sourceToken, uint sourceAmount, address targetToken, address receiver, uint outputAmount);
   event OnRepayTheBorrow(address poolAdapter, uint collateralOut, uint repaidAmountOut);
-  event OnRepayBorrow(address poolAdapter, uint amountToRepay, address receiver, bool closePosition);
 //#endregion ------------------------------------------------- Events
 
 //#region ------------------------------------------------- IKeeperCallback
@@ -387,55 +369,6 @@ library TetuConverterLogicLib {
     emit OnSafeLiquidate(assetIn_, amountIn_, assetOut_, receiver_, amountOut);
   }
 //#endregion ------------------------------------------------- Safe liquidation
-
-//#region ------------------------------------------------- Repay
-  /// @notice Repay debts of the given pool adapter
-  /// @return remainTotalDebt Total amount of remain debt
-  /// @return collateralAmountOut Amount of collateral returned by the pool adapter after debt repaying
-  function repay(RepayInputParams memory p) internal returns (
-    uint remainTotalDebt,
-    uint collateralAmountOut
-  ) {
-    uint delta;
-    uint amountToPayToPoolAdapter = p.totalAmountToRepay >= p.totalDebtForPoolAdapter
-      ? p.totalDebtForPoolAdapter
-      : p.totalAmountToRepay;
-
-    // make repayment, assume infinity approve: IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
-    // the amount-to-repay can contain debt gap, so a part of the amount can be returned back
-    bool closePosition = amountToPayToPoolAdapter == p.totalDebtForPoolAdapter;
-
-    // is pool adapter able to send amounts directly to receiver?
-    bool directPay = p.lastPoolAdapter
-      || (amountToPayToPoolAdapter < p.totalDebtForPoolAdapter * DEBT_GAP_DENOMINATOR / (DEBT_GAP_DENOMINATOR + p.debtGap));
-
-    console.log("directPay", directPay);
-    console.log("amountToPayToPoolAdapter", amountToPayToPoolAdapter);
-    console.log("p.totalAmountToRepay", p.totalAmountToRepay);
-    console.log("p.totalDebtForPoolAdapter", p.totalDebtForPoolAdapter);
-    console.log("DEBT_GAP_DENOMINATOR", DEBT_GAP_DENOMINATOR);
-    console.log("p.debtGap", p.debtGap);
-    if (directPay) {
-      // pool adapter is able to allow the receiver to receive excess amount-to-repay directly
-      collateralAmountOut = p.poolAdapter.repay(amountToPayToPoolAdapter, p.receiver, closePosition);
-    } else {
-      // Pool adapter should send excess amount-to-repay back to TetuConverter balance.
-      // So it will be possible to reuse this amount to repay debts of the next pool adapters (scb-821).
-      uint balanceBefore = IERC20(p.borrowAsset).balanceOf(address(this));
-      collateralAmountOut = p.poolAdapter.repay(amountToPayToPoolAdapter, address(this), closePosition);
-      uint balanceAfter = IERC20(p.borrowAsset).balanceOf(address(this));
-      delta = AppUtils.sub0(balanceAfter, balanceBefore - amountToPayToPoolAdapter);
-
-      IERC20(p.collateralAsset).transfer(p.receiver, collateralAmountOut);
-    }
-    remainTotalDebt = p.totalAmountToRepay + delta - amountToPayToPoolAdapter;
-    console.log("remainTotalDebt", remainTotalDebt);
-    console.log("delta", delta);
-
-    emit OnRepayBorrow(address(p.poolAdapter), amountToPayToPoolAdapter, p.receiver, closePosition);
-  }
-
-//#endregion ------------------------------------------------- Repay
 
   //region ----------------------------------------------------- Utils
   /// @notice Add {debtGap} to the {amount}
