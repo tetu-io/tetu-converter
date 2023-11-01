@@ -353,7 +353,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
         collateralAsset: collateralAsset_,
         receiver: receiver_,
         lastPoolAdapter: v.len == i + 1,
-        debtGap: v.debtGap
+        debtGap: v.debtGapRequired ? v.debtGap : 0
       });
 
       (amountToRepay_, v.collateralAmountReceived) = TetuConverterLogicLib.repay(p);

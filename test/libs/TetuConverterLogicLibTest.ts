@@ -159,7 +159,7 @@ describe("TetuConverterLogicLibTest", function() {
 
         it("should return expected amounts", async () => {
           const ret = await loadFixture(repayTest);
-          expect(ret.remainTotalDebt).eq(400);
+          expect(ret.remainTotalDebt).eq(0);
           expect(ret.collateralAmountOut).eq(1200);
         });
         it("should set expected balance of receiver", async () => {
@@ -255,7 +255,7 @@ describe("TetuConverterLogicLibTest", function() {
 
         it("should return expected amounts", async () => {
           const ret = await loadFixture(repayTest);
-          expect(ret.remainTotalDebt).eq(1000 - 970);
+          expect(ret.remainTotalDebt).eq(0);
           expect(ret.collateralAmountOut).eq(1200);
         });
         it("should set expected balance of receiver", async () => {
@@ -270,7 +270,7 @@ describe("TetuConverterLogicLibTest", function() {
         });
         it("should set expected balance of facade", async () => {
           const ret = await loadFixture(repayTest);
-          expect(ret.balanceBorrowAssetFacade).eq(999 - 970 + 1);
+          expect(ret.balanceBorrowAssetFacade).eq(999 - 970);
         });
       });
       describe("Partial repay, direct pay is not allowed", () => {
@@ -290,9 +290,9 @@ describe("TetuConverterLogicLibTest", function() {
             totalDebtForPoolAdapter: "1000",
             initialBalanceCollateralAssetPoolAdapter: "2000",
             initialBalanceBorrowAssetFacade: "999",
-            totalAmountToRepay: "990",
+            totalAmountToRepay: "991",
             repay: {
-              amountToRepay: "990",
+              amountToRepay: "991",
               collateralAmountSendToReceiver: "1200",
               borrowAmountSendToReceiver: "7",
               closePosition: false
@@ -302,7 +302,7 @@ describe("TetuConverterLogicLibTest", function() {
 
         it("should return expected amounts", async () => {
           const ret = await loadFixture(repayTest);
-          expect(ret.remainTotalDebt).eq(1000 - 990 + 7);
+          expect(ret.remainTotalDebt).eq(0);
           expect(ret.collateralAmountOut).eq(1200);
         });
         it("should set expected balance of receiver", async () => {
@@ -312,12 +312,12 @@ describe("TetuConverterLogicLibTest", function() {
         });
         it("should set expected balance of pool adapter", async () => {
           const ret = await loadFixture(repayTest);
-          expect(ret.balanceBorrowAssetPoolAdapter).eq(990 - 7);
+          expect(ret.balanceBorrowAssetPoolAdapter).eq(991 - 7);
           expect(ret.balanceCollateralAssetPoolAdapter).eq(2000 - 1200);
         });
         it("should set expected balance of facade", async () => {
           const ret = await loadFixture(repayTest);
-          expect(ret.balanceBorrowAssetFacade).eq(999 - 990 + 7);
+          expect(ret.balanceBorrowAssetFacade).eq(999 - 991 + 7);
         });
       });
       describe("Full repay", () => {

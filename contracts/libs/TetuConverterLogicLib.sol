@@ -396,7 +396,8 @@ library TetuConverterLogicLib {
     uint remainTotalDebt,
     uint collateralAmountOut
   ) {
-    uint delta;
+    uint delta; // excess paid amount that the pool adapter returns on the balance of TetuConverter
+
     uint amountToPayToPoolAdapter = p.totalAmountToRepay >= p.totalDebtForPoolAdapter
       ? p.totalDebtForPoolAdapter
       : p.totalAmountToRepay;
@@ -407,6 +408,7 @@ library TetuConverterLogicLib {
 
     // is pool adapter able to send amounts directly to receiver?
     bool directPay = p.lastPoolAdapter
+      || p.debtGap == 0
       || (amountToPayToPoolAdapter < p.totalDebtForPoolAdapter * DEBT_GAP_DENOMINATOR / (DEBT_GAP_DENOMINATOR + p.debtGap));
 
     console.log("directPay", directPay);
@@ -416,11 +418,11 @@ library TetuConverterLogicLib {
     console.log("DEBT_GAP_DENOMINATOR", DEBT_GAP_DENOMINATOR);
     console.log("p.debtGap", p.debtGap);
     if (directPay) {
-      // pool adapter is able to allow the receiver to receive excess amount-to-repay directly
+      // pool adapter is able to send excess amount-to-repay directly to the receiver
       collateralAmountOut = p.poolAdapter.repay(amountToPayToPoolAdapter, p.receiver, closePosition);
     } else {
-      // Pool adapter should send excess amount-to-repay back to TetuConverter balance.
-      // So it will be possible to reuse this amount to repay debts of the next pool adapters (scb-821).
+      // Pool adapter sends excess amount-to-repay (delta) back to TetuConverter balance.
+      // It will be possible to reuse this amount to repay debts of the next pool adapters (scb-821).
       uint balanceBefore = IERC20(p.borrowAsset).balanceOf(address(this));
       collateralAmountOut = p.poolAdapter.repay(amountToPayToPoolAdapter, address(this), closePosition);
       uint balanceAfter = IERC20(p.borrowAsset).balanceOf(address(this));
