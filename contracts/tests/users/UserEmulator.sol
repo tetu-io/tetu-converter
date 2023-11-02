@@ -234,6 +234,7 @@ contract UserEmulator { // todo is ITetuConverterCallback {
     }
     console.log("_repayExact.repayPart", repayPart);
     console.log("_repayExact.amountIn", amountIn);
+    console.log("_repayExact.balance borrow asset, TC", IERC20(borrowedAsset_).balanceOf(address(_tc)));
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc), amountIn);
     (collateralAmountOut,
