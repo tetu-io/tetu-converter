@@ -18,7 +18,7 @@ import {TetuConverterApp} from "../../../baseUT/app/TetuConverterApp";
 import {MaticCore} from "../../../baseUT/chains/polygon/maticCore";
 import {ConverterController, IERC20Metadata__factory} from "../../../../typechain";
 
-describe("Aave3SingleBlockTest", () => {
+describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions in the single block", () => {
 //region Global vars for all tests
   let snapshot: string;
   let deployer: SignerWithAddress;

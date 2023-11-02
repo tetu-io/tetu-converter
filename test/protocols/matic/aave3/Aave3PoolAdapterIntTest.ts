@@ -92,7 +92,8 @@ describe("Aave3PoolAdapterIntTest", () => {
       }
     }
 
-    describe("Good paths", () => {
+    /** Replaced by BorrowRepayCaseTest */
+    describe.skip("Good paths", () => {
       describe("Borrow fixed small amount", () => {
         describe("DAI-18 : matic-18", () => {
           let snapshotLocal: string;
@@ -213,6 +214,7 @@ describe("Aave3PoolAdapterIntTest", () => {
           });
         });
       });
+
       describe("Borrow max available amount using all available collateral", () => {
         describe("DAI-18 : matic-18", () => {
           let snapshotLocal: string;
@@ -948,9 +950,11 @@ describe("Aave3PoolAdapterIntTest", () => {
         borrowAmount
       }
     }
-    describe("Good paths", () => {
+
+    /** Replaced by BorrowRepayCaseTest */
+    describe.skip("Good paths", () => {
       /** The test is replaced by BorrowRepayCaseTest */
-      describe.skip("Borrow and repay modest amount", () => {
+      describe("Borrow and repay modest amount", () => {
         describe("Partial repay of borrowed amount", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {

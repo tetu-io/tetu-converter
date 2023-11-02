@@ -27,7 +27,8 @@ import {AaveTwoPlatformFabric} from "../baseUT/logic/fabrics/AaveTwoPlatformFabr
 import {DForcePlatformFabric} from "../baseUT/logic/fabrics/DForcePlatformFabric";
 import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
 
-describe("BorrowRepayTest", () => {
+/** Replaced by BorrowRepayCaseTest */
+describe.skip("BorrowRepayTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
