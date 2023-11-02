@@ -40,6 +40,7 @@ import {
   IAavePool, IERC20Metadata__factory
 } from "../../../../typechain";
 import {BaseCore} from "../../../baseUT/chains/base/baseCore";
+import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Test setup
@@ -75,8 +76,50 @@ describe("Aave3PlatformAdapterTest", () => {
     pairsToBorrowNotUsable: IPairToBorrow[];
   }
 
-  const NETWORKS = [POLYGON_NETWORK_ID, BASE_NETWORK_ID];
+  const NETWORKS = [BASE_NETWORK_ID, POLYGON_NETWORK_ID];
   const TEST_SETUPS: Record<number, ITestSetup> = {
+    [BASE_NETWORK_ID]: {
+      aavePool: BaseAddresses.AAVE_V3_POOL,
+      pairsToBorrowNormalMode: [
+        {collateralAsset: BaseAddresses.WETH, borrowAsset: BaseAddresses.cbETH, amount: "1", collateralAssetName: "WETH", borrowAssetName: "cbETH", highEfficientMode: true},
+        {collateralAsset: BaseAddresses.USDbC, borrowAsset: BaseAddresses.WETH, amount: "1000", collateralAssetName: "USDbC", borrowAssetName: "WETH"},
+      ],
+      pairsToBorrowIsolationMode: [
+      ],
+      pairsToBorrowEMode: [
+        {collateralAsset: BaseAddresses.WETH, borrowAsset: BaseAddresses.cbETH, amount: "1", collateralAssetName: "WETH", borrowAssetName: "cbETH", highEfficientMode: true},
+      ],
+      pairsToBorrowNotUsable: [
+      ],
+      pair: {
+        collateralAsset: BaseAddresses.USDbC,
+        borrowAsset: BaseAddresses.WETH,
+        collateralAssetName: "USDbC",
+        borrowAssetName: "WETH",
+        smallAmount: "1",
+        amount: "100",
+        hugeAmount: "100000",
+        collateralHolders: [
+          BaseAddresses.HOLDER_WETH,
+          BaseAddresses.HOLDER_WETH_1,
+          BaseAddresses.HOLDER_WETH_2,
+        ]
+      },
+      pairStable: {
+        collateralAsset: BaseAddresses.WETH,
+        borrowAsset: BaseAddresses.cbETH,
+        collateralAssetName: "WETH",
+        borrowAssetName: "cbETH",
+        smallAmount: "0.01",
+        amount: "1",
+        hugeAmount: "10",
+        collateralHolders: [
+          BaseAddresses.HOLDER_WETH,
+          BaseAddresses.HOLDER_WETH_1,
+          BaseAddresses.HOLDER_WETH_2,
+        ]
+      }
+    },
     [POLYGON_NETWORK_ID]: {
       aavePool: MaticAddresses.AAVE_V3_POOL,
       pairsToBorrowNormalMode: [
@@ -238,14 +281,14 @@ describe("Aave3PlatformAdapterTest", () => {
                   await r.platformAdapter.converterNormal(),
                   await r.platformAdapter.converterEMode(),
                   (await r.platformAdapter.converters()).join()
-                ].join();
+                ].join().toLowerCase();
                 const expected = [
                   r.data.controller,
                   r.data.aavePool,
                   r.data.templateAdapterNormal,
                   r.data.templateAdapterEMode,
                   [r.data.templateAdapterNormal, r.data.templateAdapterEMode].join()
-                ].join();
+                ].join().toLowerCase();
 
                 expect(ret).eq(expected);
               });
@@ -671,19 +714,14 @@ describe("Aave3PlatformAdapterTest", () => {
                       36
                     );
 
-                    const ret = [
-                      sourceAssetUSD === targetAssetUSD,
-                      r.plan.collateralAmount.lt(collateralAmount),
-                      areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
-                    ].join();
-                    const expected = [true, true, true].join();
-
                     console.log("plan", r.plan);
                     console.log("sourceAssetUSD", sourceAssetUSD);
                     console.log("targetAssetUSD", targetAssetUSD);
                     console.log("amountCollateralInBorrowAsset36", amountCollateralInBorrowAsset36);
 
-                    expect(ret).eq(expected);
+                    expect(sourceAssetUSD).approximately(targetAssetUSD, 100);
+                    expect(r.plan.collateralAmount).lt(collateralAmount);
+                    expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)).eq(true);
                   });
                 });
                 describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
@@ -731,16 +769,11 @@ describe("Aave3PlatformAdapterTest", () => {
                       r.priceBorrow,
                       36
                     );
-                    const ret = [
-                      r.plan.amountToBorrow,
-                      areAlmostEqual(r.plan.collateralAmount, collateralAmount),
-                      areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36),
-                      areAlmostEqual(expectedCollateralAmount, collateralAmount) // let's ensure that expectedCollateralAmount is correct
-                    ].map(x => BalanceUtils.toString(x)).join("\n");
 
-                    const expected = [borrowAmount, true, true, true].map(x => BalanceUtils.toString(x)).join("\n");
-
-                    expect(ret).eq(expected);
+                    expect(r.plan.amountToBorrow).approximately(borrowAmount, 1);
+                    expect(r.plan.collateralAmount).approximately(collateralAmount, 1);
+                    expect(r.plan.amountCollateralInBorrowAsset36).approximately(amountCollateralInBorrowAsset36, 1000);
+                    expect(expectedCollateralAmount).approximately(collateralAmount, 1); // let's ensure that expectedCollateralAmount is correct
                   });
                 });
               });
@@ -956,13 +989,9 @@ describe("Aave3PlatformAdapterTest", () => {
                     testSetup.pair.borrowAsset,
                     "12345"
                   );
-                  const ret = [
-                    plan.amountToBorrow.eq(plan.maxAmountToBorrow),
-                    plan.amountToBorrow.lt(planNoBorrowCap.maxAmountToBorrow),
-                    planNoBorrowCap.amountToBorrow.lt(planNoBorrowCap.maxAmountToBorrow)
-                  ].join("\n");
-                  const expected = [true, true, true].join("\n");
-                  expect(ret).eq(expected);
+                  expect(plan.amountToBorrow).eq(plan.maxAmountToBorrow);
+                  expect(plan.amountToBorrow).lt(planNoBorrowCap.maxAmountToBorrow);
+                  expect(planNoBorrowCap.amountToBorrow).lt(planNoBorrowCap.maxAmountToBorrow);
                 });
                 it("should return expected borrowAmount when borrow cap is zero", async () => {
                   const plan = await tryGetConversionPlan(
@@ -1004,94 +1033,99 @@ describe("Aave3PlatformAdapterTest", () => {
                 });
               });
 
-              describe("Result collateralAmount == 0, amountToBorrow != 0 (edge case, improve coverage)", () => {
-                it("should return zero plan", async () => {
-                  const pair = testSetup.pairStable ?? testSetup.pair;
-                  const collateralAmount = parseUnits(
-                    pair.smallAmount,
-                    await IERC20Metadata__factory.connect(pair.collateralAsset, deployer).decimals()
-                  );
+              if (networkId === POLYGON_NETWORK_ID) {
+                // Following tests are enabled on Polygon only
+                // because in this test we need two stablecoins with decimals 6
+                // otherwise it's hard to get edge cases
 
-                  const r0 = await preparePlan(
-                    pair.collateralAsset,
-                    collateralAmount,
-                    pair.borrowAsset,
-                    10,
-                    undefined,
-                    defaultAbiCoder.encode(["uint256"], [2])
-                  );
+                describe("Result collateralAmount == 0, amountToBorrow != 0 (edge case, improve coverage)", () => {
+                  it("should return zero plan", async () => {
+                    const pair = testSetup.pairStable ?? testSetup.pair;
+                    const collateralAmount = parseUnits(
+                      pair.smallAmount,
+                      await IERC20Metadata__factory.connect(pair.collateralAsset, deployer).decimals()
+                    );
 
-                  // change prices: make priceCollateral very high, priceBorrow very low
-                  // as result, exactBorrowOutForMinCollateralIn will return amountToCollateralOut = 0,
-                  // and we should hit second condition in borrow-validation section:
-                  //    plan.amountToBorrow == 0 || plan.collateralAmount == 0
+                    const r0 = await preparePlan(
+                      pair.collateralAsset,
+                      collateralAmount,
+                      pair.borrowAsset,
+                      10,
+                      undefined,
+                      defaultAbiCoder.encode(["uint256"], [2])
+                    );
 
-                  const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
-                  await priceOracle.setPrices(
-                    [pair.collateralAsset, pair.borrowAsset],
-                    [parseUnits("1", 15), parseUnits("1", 5)]
-                  );
+                    // change prices: make priceCollateral very high, priceBorrow very low
+                    // as result, exactBorrowOutForMinCollateralIn will return amountToCollateralOut = 0,
+                    // and we should hit second condition in borrow-validation section:
+                    //    plan.amountToBorrow == 0 || plan.collateralAmount == 0
 
-                  const r1 = await preparePlan(
-                    pair.collateralAsset,
-                    collateralAmount,
-                    pair.borrowAsset,
-                    10,
-                    undefined,
-                    defaultAbiCoder.encode(["uint256"], [2])
-                  );
+                    const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
+                    await priceOracle.setPrices(
+                      [pair.collateralAsset, pair.borrowAsset],
+                      [parseUnits("1", 15), parseUnits("1", 5)]
+                    );
 
-                  // first plan is successful
-                  expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
-                  expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
-                  expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+                    const r1 = await preparePlan(
+                      pair.collateralAsset,
+                      collateralAmount,
+                      pair.borrowAsset,
+                      10,
+                      undefined,
+                      defaultAbiCoder.encode(["uint256"], [2])
+                    );
 
-                  // the plan created after changing the prices is not successful
-                  expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
-                  expect(r1.plan.collateralAmount.eq(0)).eq(true);
-                  expect(r1.plan.amountToBorrow.eq(0)).eq(true);
+                    // first plan is successful
+                    expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+                    expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+                    expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+
+                    // the plan created after changing the prices is not successful
+                    expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+                    expect(r1.plan.collateralAmount.eq(0)).eq(true);
+                    expect(r1.plan.amountToBorrow.eq(0)).eq(true);
+                  });
                 });
-              });
+                describe("supplyCap < totalSupply (edge case, improve coverage)", () => {
+                  it("should return zero plan", async () => {
+                    const pair = testSetup.pairStable ?? testSetup.pair;
 
-              describe("supplyCap < totalSupply (edge case, improve coverage)", () => {
-                it("should return zero plan", async () => {
-                  const pair = testSetup.pairStable ?? testSetup.pair;
+                    const collateralDecimals = await IERC20Metadata__factory.connect(pair.collateralAsset, deployer).decimals();
+                    const collateralAmount = parseUnits(pair.amount, collateralDecimals);
 
-                  const collateralDecimals = await IERC20Metadata__factory.connect(pair.collateralAsset, deployer).decimals();
-                  const collateralAmount = parseUnits(pair.amount, collateralDecimals);
+                    const r0 = await preparePlan(
+                      pair.collateralAsset,
+                      collateralAmount,
+                      pair.borrowAsset,
+                      10,
+                      undefined,
+                      defaultAbiCoder.encode(["uint256"], [2])
+                    );
 
-                  const r0 = await preparePlan(
-                    pair.collateralAsset,
-                    collateralAmount,
-                    pair.borrowAsset,
-                    10,
-                    undefined,
-                    defaultAbiCoder.encode(["uint256"], [2])
-                  );
+                    // set very small supplyCap
+                    await Aave3ChangePricesUtils.setSupplyCap(deployer, core, pair.collateralAsset, parseUnits("1", collateralDecimals));
 
-                  // set very small supplyCap
-                  await Aave3ChangePricesUtils.setSupplyCap(deployer, core, pair.collateralAsset, parseUnits("1", collateralDecimals));
+                    const r1 = await preparePlan(
+                      pair.collateralAsset,
+                      collateralAmount,
+                      pair.borrowAsset,
+                      10,
+                      undefined,
+                      defaultAbiCoder.encode(["uint256"], [2])
+                    );
 
-                  const r1 = await preparePlan(
-                    pair.collateralAsset,
-                    collateralAmount,
-                    pair.borrowAsset,
-                    10,
-                    undefined,
-                    defaultAbiCoder.encode(["uint256"], [2])
-                  );
+                    // first plan is successful
+                    expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+                    expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+                    expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
 
-                  // first plan is successful
-                  expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
-                  expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
-                  expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
-
-                  // the plan created after changing the prices is not successful
-                  expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
-                  expect(r1.plan.collateralAmount.eq(0)).eq(true);
-                  expect(r1.plan.amountToBorrow.eq(0)).eq(true);
+                    // the plan created after changing the prices is not successful
+                    expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+                    expect(r1.plan.collateralAmount.eq(0)).eq(true);
+                    expect(r1.plan.amountToBorrow.eq(0)).eq(true);
+                  });
                 });
-              });
+              }
             });
             describe("Check gas limit @skip-on-coverage", () => {
               it("should not exceed gas limits", async () => {

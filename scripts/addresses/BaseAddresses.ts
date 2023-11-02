@@ -25,9 +25,10 @@ export class BaseAddresses {
     public static AAVE_V3_PRICE_ORACLE = "0x2Cc0Fc26eD4563A5ce5e8bdcfe1A2878676Ae156".toLowerCase();
 
     /** Contract creator of ACL Manager: https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#events */
-    public static AAVE_V3_POOL_ADMIN = "0x5B540d168E2468270a3b5C66DD1A6E4ecE6BE593".toLowerCase();
-    public static AAVE_V3_POOL_OWNER = ""; // todo
-    public static AAVE_V3_EMERGENCY_ADMIN = ""; // todo
+    public static AAVE_V3_POOL_ADMIN = "0x5B540d168E2468270a3b5C66DD1A6E4ecE6BE593".toLowerCase(); // 0xA9F30e6ED4098e9439B2ac8aEA2d3fc26BcEbb45
+    public static AAVE_V3_POOL_OWNER = "0xA9F30e6ED4098e9439B2ac8aEA2d3fc26BcEbb45"; // todo
+    /** https://basescan.org/tx/0x65ada47b1e29db97b062d601cc2d3d4ba3b4ce8d35b24efd65fd03dd1ca130f0 */
+    public static AAVE_V3_EMERGENCY_ADMIN = "0x9e10C0A1Eb8FF6a0AaA53a62C7a338f35D7D9a2A";
 //endregion ----------------------------------------------------- AAVE3
 
 
