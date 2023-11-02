@@ -14,6 +14,7 @@ import {TetuConverterApp} from "../../app/TetuConverterApp";
 import {ILendingPlatformFabric} from "../../logic/fabrics/ILendingPlatformFabric";
 import {MocksHelper} from "../../app/MocksHelper";
 import {POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
+import {parseUnits} from "ethers/lib/utils";
 
 //region Make borrow
 /**
@@ -450,7 +451,7 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
 //region Expected APR
 /**
  * Repeat the algo of APR calculation
- * from BorrowManager.findConverter
+ * from BorrowManagerLogicLib._getApr18
  */
 export function getExpectedApr18(
   borrowCost: BigNumber,
@@ -459,16 +460,16 @@ export function getExpectedApr18(
   amountCollateralInBorrowAsset: BigNumber,
   rewardsFactor18: BigNumber
 ) : BigNumber {
-  // console.log("expected.borrowCost", borrowCost);
-  // console.log("expected.supplyIncomeInBorrowAsset", supplyIncomeInBorrowAsset);
-  // console.log("expected.rewardsAmountInBorrowAsset", rewardsAmountInBorrowAsset);
-  // console.log("expected.rewardsFactor", rewardsFactor18);
-  // console.log("expected.amountCollateralInBorrowAsset", amountCollateralInBorrowAsset);
+  const maxBorrowCostDelta = borrowCost.mul(rewardsFactor18).div(Misc.WEI);
+  const delta = rewardsAmountInBorrowAsset.gt(maxBorrowCostDelta)
+    ? maxBorrowCostDelta
+    : rewardsAmountInBorrowAsset;
+
   return amountCollateralInBorrowAsset.eq(0)
     ? BigNumber.from(0)
     : borrowCost
       .sub(supplyIncomeInBorrowAsset)
-      .sub(rewardsAmountInBorrowAsset.mul(rewardsFactor18).div(Misc.WEI))
+      .sub(delta)
       .mul(Misc.WEI)
       .div(amountCollateralInBorrowAsset);
 }

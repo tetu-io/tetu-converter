@@ -42,6 +42,6 @@ describe("TetuConverterLogicLibTest", function() {
 //endregion before, after
 
 //region Unit tests
-  
+
 //endregion Unit tests
 });
