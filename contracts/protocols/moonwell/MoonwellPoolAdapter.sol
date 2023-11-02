@@ -5,6 +5,8 @@ import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
+import "./MoonwellLib.sol";
+import "../compound/CompoundPoolAdapterLib.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../interfaces/IDebtMonitor.sol";
@@ -12,13 +14,7 @@ import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
-import "../../integrations/hundred-finance/IHfComptroller.sol";
-import "../../integrations/hundred-finance/IHfCToken.sol";
-import "../../integrations/hundred-finance/IHfPriceOracle.sol";
-import "../../integrations/hundred-finance/IHfHMatic.sol";
 import "../../integrations/IWmatic.sol";
-import "../compound/CompoundPoolAdapterLib.sol";
-import "./MoonwellLib.sol";
 import "../../integrations/moonwell/IMoonwellComptroller.sol";
 
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/

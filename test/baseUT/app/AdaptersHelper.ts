@@ -73,13 +73,11 @@ export class AdaptersHelper {
     comptroller: string,
     templateAdapterNormal: string,
     cTokensActive: string[],
-    borrowManager?: string,
   ) : Promise<HfPlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,
       "HfPlatformAdapter",
       controller,
-      borrowManager || await IConverterController__factory.connect(controller, signer).borrowManager(),
       comptroller,
       templateAdapterNormal,
       cTokensActive,

@@ -327,7 +327,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         data.comptroller,
         data.converter,
         [MaticAddresses.hDAI],
-        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }

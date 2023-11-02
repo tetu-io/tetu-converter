@@ -133,7 +133,6 @@ describe("BorrowRepayCaseTest", () => {
               MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
               (await AdaptersHelper.createHundredFinancePoolAdapter(signer0)).address,
               HundredFinanceUtils.getAllCTokens(),
-              borrowManagerAsGov0.address,
             ) as HfPlatformAdapter;
 
             // register the platform adapter in TetuConverter app
