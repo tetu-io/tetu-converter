@@ -389,7 +389,7 @@ export class Aave3TestUtils {
     } else {
       // make full repayment
       console.log("makeRepayComplete...");
-      const tx = await d.userContract.makeRepayComplete(d.collateralToken.address, d.borrowToken.address, d.userContract.address);
+      const tx = await d.userContract.makeRepayComplete(d.collateralToken, d.borrowToken, d.userContract.address);
       const gasUsed = (await tx.wait()).gasUsed;
       const repayResults = await d.userContract.repayResults();
       return {
@@ -454,25 +454,25 @@ export class Aave3TestUtils {
     const liquidator = await DeployerUtils.startImpersonate(liquidatorAddress);
     const liquidatorBorrowAmountToPay = d.amountToBorrow;
     const borrowerAddress = d.aavePoolAdapterAsTC.address;
-    await BalanceUtils.getAmountFromHolder(d.borrowToken.address, borrowHolder, liquidatorAddress, liquidatorBorrowAmountToPay);
-    await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, Misc.MAX_UINT);
+    await BalanceUtils.getAmountFromHolder(d.borrowToken, borrowHolder, liquidatorAddress, liquidatorBorrowAmountToPay);
+    await IERC20__factory.connect(d.borrowToken, liquidator).approve(d.aavePool.address, Misc.MAX_UINT);
 
     const aavePoolAsLiquidator = IAavePool__factory.connect(d.aavePool.address, liquidator);
     const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator, core.pool);
-    const userReserveData = await dataProvider.getUserReserveData(d.borrowToken.address, borrowerAddress);
+    const userReserveData = await dataProvider.getUserReserveData(d.borrowToken, borrowerAddress);
     const amountToLiquidate = userReserveData.currentVariableDebt.div(2);
 
     console.log("Before liquidation, user account", await d.aavePool.getUserAccountData(borrowerAddress));
     await aavePoolAsLiquidator.liquidationCall(
-      d.collateralToken.address,
-      d.borrowToken.address,
+      d.collateralToken,
+      d.borrowToken,
       borrowerAddress,
       amountToLiquidate,
       false // we need to receive underlying
     );
     console.log("After liquidation, user account", await d.aavePool.getUserAccountData(borrowerAddress));
 
-    const collateralAmountReceivedByLiquidator = await IERC20__factory.connect(d.collateralToken.address, deployer).balanceOf(liquidatorAddress);
+    const collateralAmountReceivedByLiquidator = await IERC20__factory.connect(d.collateralToken, deployer).balanceOf(liquidatorAddress);
 
     return {
       liquidatorAddress,
@@ -499,7 +499,7 @@ export class Aave3TestUtils {
       init.d.userContract.address
     );
   }
-  public static async putDoubleBorrowAmountOnUserBalance(init: IPrepareToBorrowResults, borrowHolder: string) {
+  public static async putDoubleBorrowAmountOnUserBalance(signer: SignerWithAddress, init: IPrepareToBorrowResults, borrowHolder: string) {
     await BalanceUtils.getRequiredAmountFromHolders(
       init.amountToBorrow.mul(2),
       await IERC20Metadata__factory.connect(init.borrowToken, signer),
