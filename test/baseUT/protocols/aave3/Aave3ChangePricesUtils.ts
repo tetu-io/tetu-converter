@@ -176,7 +176,8 @@ export class Aave3ChangePricesUtils {
     signer: SignerWithAddress,
     core: ICoreAave3,
     reserve: string,
-    borrowCapValue?: BigNumber
+    borrowCapValue?: BigNumber,
+    delta?: string
   ) {
     const aavePoolAdmin = await DeployerUtils.startImpersonate(core.poolOwner);
     const aavePool = await Aave3Helper.getAavePool(signer, core.pool);
@@ -192,11 +193,13 @@ export class Aave3ChangePricesUtils {
 
     const dp = await Aave3Helper.getAaveProtocolDataProvider(signer, core.pool);
     const r = await dp.getReserveData(reserve);
+    const decimals = await IERC20Metadata__factory.connect(reserve, signer).decimals();
     const capValue = borrowCapValue
       ? borrowCapValue
-      : r.totalVariableDebt.add(r.totalStableDebt).div(
-        parseUnits("1", await IERC20Metadata__factory.connect(reserve, signer).decimals())
-      );
+      : r.totalVariableDebt
+        .add(r.totalStableDebt)
+        .add(parseUnits(delta ?? "0", decimals))
+        .div(parseUnits("1", decimals))
 
     console.log("setBorrowCap", capValue);
     await poolConfiguratorAsAdmin.setBorrowCap(reserve, capValue);

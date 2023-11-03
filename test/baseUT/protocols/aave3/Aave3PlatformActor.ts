@@ -1,5 +1,4 @@
 import {Aave3Helper} from "../../../../scripts/integration/aave3/Aave3Helper";
-import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {BigNumber, BigNumberish} from "ethers";
 import {GAS_LIMIT} from "../../types/GasLimit";
 import {Aave3AprLibFacade, IAavePool, IAaveProtocolDataProvider, IERC20Metadata__factory} from "../../../../typechain";
@@ -23,7 +22,7 @@ export class Aave3PlatformActor implements IPlatformActor {
     borrowAsset: string,
     signer: SignerWithAddress
   ) {
-    this.h = new Aave3Helper(signer, MaticAddresses.AAVE_V3_POOL);
+    this.h = new Aave3Helper(signer, pool.address);
     this.dp = dataProvider;
     this.pool = pool;
     this.collateralAsset = collateralAsset;
@@ -66,6 +65,6 @@ export class Aave3PlatformActor implements IPlatformActor {
     if (! this.libFacade) {
       this.libFacade = await MocksHelper.getAave3AprLibFacade(this.signer);
     }
-    return this.libFacade.getBorrowRateAfterBorrow(MaticAddresses.AAVE_V3_POOL, borrowAsset, amountToBorrow);
+    return this.libFacade.getBorrowRateAfterBorrow(this.pool.address, borrowAsset, amountToBorrow);
   }
 }

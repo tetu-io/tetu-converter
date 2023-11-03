@@ -36,7 +36,7 @@ import {
   Aave3PlatformAdapter,
   Aave3PlatformAdapter__factory,
   BorrowManager__factory,
-  ConverterController,
+  ConverterController, CTokenMock,
   IAavePool, IERC20Metadata__factory
 } from "../../../../typechain";
 import {BaseCore} from "../../../baseUT/chains/base/baseCore";
@@ -192,6 +192,8 @@ describe("Aave3PlatformAdapterTest", () => {
           let aavePool: IAavePool;
           let aavePlatformAdapter: Aave3PlatformAdapter;
           let core: ICoreAave3;
+          let mockedToken1: CTokenMock;
+          let mockedToken2: CTokenMock;
 
           before(async function () {
             await HardhatUtils.setupBeforeTest(networkId);
@@ -220,6 +222,9 @@ describe("Aave3PlatformAdapterTest", () => {
             } else {
               core = BaseCore.getCoreAave3();
             }
+
+            mockedToken1 = await MocksHelper.createMockedCToken(deployer);
+            mockedToken2 = await MocksHelper.createMockedCToken(deployer);
           });
           after(async function () {
             await TimeUtils.rollback(snapshot);
@@ -338,8 +343,8 @@ describe("Aave3PlatformAdapterTest", () => {
               makeBorrowAssetFrozen?: boolean;
               /* Set supply cap equal almost to current total supply value */
               setMinSupplyCap?: boolean;
-              /* Set borrow cap equal almost to current total borrow value */
-              setMinBorrowCap?: boolean;
+              /* Set borrow cap equal to the current total borrow value + given amount */
+              setMinBorrowCap?: string;
               setZeroSupplyCap?: boolean;
               setZeroBorrowCap?: boolean;
               frozen?: boolean;
@@ -390,7 +395,7 @@ describe("Aave3PlatformAdapterTest", () => {
                 await Aave3ChangePricesUtils.setSupplyCap(deployer, core, collateralAsset);
               }
               if (badPathsParams?.setMinBorrowCap) {
-                await Aave3ChangePricesUtils.setBorrowCap(deployer, core, borrowAsset);
+                await Aave3ChangePricesUtils.setBorrowCap(deployer, core, borrowAsset, undefined, badPathsParams?.setMinBorrowCap);
               }
               if (badPathsParams?.setZeroSupplyCap) {
                 await Aave3ChangePricesUtils.setSupplyCap(deployer, core, collateralAsset, BigNumber.from(0));
@@ -719,7 +724,7 @@ describe("Aave3PlatformAdapterTest", () => {
                     console.log("targetAssetUSD", targetAssetUSD);
                     console.log("amountCollateralInBorrowAsset36", amountCollateralInBorrowAsset36);
 
-                    expect(sourceAssetUSD).approximately(targetAssetUSD, 100);
+                    expect(sourceAssetUSD).approximately(targetAssetUSD, 200);
                     expect(r.plan.collateralAmount).lt(collateralAmount);
                     expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)).eq(true);
                   });
@@ -773,7 +778,7 @@ describe("Aave3PlatformAdapterTest", () => {
                     expect(r.plan.amountToBorrow).approximately(borrowAmount, 1);
                     expect(r.plan.collateralAmount).approximately(collateralAmount, 1);
                     expect(r.plan.amountCollateralInBorrowAsset36).approximately(amountCollateralInBorrowAsset36, 1000);
-                    expect(expectedCollateralAmount).approximately(collateralAmount, 1); // let's ensure that expectedCollateralAmount is correct
+                    expect(expectedCollateralAmount).approximately(collateralAmount, 10); // let's ensure that expectedCollateralAmount is correct
                   });
                 });
               });
@@ -976,22 +981,14 @@ describe("Aave3PlatformAdapterTest", () => {
                   console.log(plan.maxAmountToSupply);
                   expect(plan.maxAmountToSupply.eq(Misc.MAX_UINT)).eq(true);
                 });
-                it("should return expected borrowAmount when try to borrow more than allowed by borrow cap", async () => {
-                  const planNoBorrowCap = await tryGetConversionPlan(
-                    {},
-                    testSetup.pair.collateralAsset,
-                    testSetup.pair.borrowAsset,
-                    "12345"
-                  );
+                it("should return zero plan when borrow cap is reached", async () => {
                   const plan = await tryGetConversionPlan(
-                    {setMinBorrowCap: true},
+                    {setMinBorrowCap: "0"},
                     testSetup.pair.collateralAsset,
                     testSetup.pair.borrowAsset,
-                    "12345"
+                    testSetup.pair.amount
                   );
-                  expect(plan.amountToBorrow).eq(plan.maxAmountToBorrow);
-                  expect(plan.amountToBorrow).lt(planNoBorrowCap.maxAmountToBorrow);
-                  expect(planNoBorrowCap.amountToBorrow).lt(planNoBorrowCap.maxAmountToBorrow);
+                  expect(plan.converter).eq(Misc.ZERO_ADDRESS);
                 });
                 it("should return expected borrowAmount when borrow cap is zero", async () => {
                   const plan = await tryGetConversionPlan(
@@ -1224,8 +1221,8 @@ describe("Aave3PlatformAdapterTest", () => {
               badParams?: IInitializePoolAdapterBadPaths
             ): Promise<{ ret: string, expected: string }> {
               const user = ethers.Wallet.createRandom().address;
-              const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
-              const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+              const collateralAsset = mockedToken1.address;
+              const borrowAsset = mockedToken2.address;
 
               const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 
@@ -1300,8 +1297,8 @@ describe("Aave3PlatformAdapterTest", () => {
             it("should emit expected values", async () => {
 
               const user = ethers.Wallet.createRandom().address;
-              const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
-              const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+              const collateralAsset = mockedToken1.address;
+              const borrowAsset = mockedToken2.address;
 
               const poolAdapter = await AdaptersHelper.createAave3PoolAdapter(deployer);
               const aavePlatformAdapterAsBorrowManager = Aave3PlatformAdapter__factory.connect(

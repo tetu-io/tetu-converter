@@ -132,9 +132,9 @@ export class MaticAddresses {
    *  See first event for of ACLManager
    *  https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract
    */
-  public static AAVE_V3_POOL_ADMIN = "0x4365f8e70cf38c6ca67de41448508f2da8825500";
-  public static AAVE_V3_POOL_OWNER = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
-  public static AAVE_V3_RISK_ADMIN = "0xAcDAB5377dAd9895FDad8FFCd4AC54a19DC8d6b7";
+  public static AAVE_V3_POOL_ADMIN = "0xdf7d0e6454db638881302729f5ba99936eaab233";
+  public static AAVE_V3_POOL_OWNER = "0xDf7d0e6454DB638881302729F5ba99936EaAB233";
+  public static AAVE_V3_RISK_ADMIN = "0xa7b40ed4dfac9255ea9dd218a3874f380d9fbbeb";
   /* see https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract */
   public static AAVE_V3_EMERGENCY_ADMIN = "0x1450F2898D6bA2710C98BE9CAF3041330eD5ae58";
   public static AAVE_V3_PRICE_ORACLE = "0xb023e699F5a33916Ea823A16485e259257cA8Bd1";

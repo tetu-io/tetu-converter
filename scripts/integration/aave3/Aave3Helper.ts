@@ -270,7 +270,7 @@ export class Aave3Helper {
 
 //region Read data
   public static async getEModeCategory(aavePool: IAavePool, category: number) : Promise<IAave3CategoryData> {
-    console.log("getEModeCategory", category);
+    console.log("getEModeCategory", category, aavePool.address);
     const data = await aavePool.getEModeCategoryData(category);
 
     return {
