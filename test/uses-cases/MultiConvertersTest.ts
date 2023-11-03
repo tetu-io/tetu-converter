@@ -2,17 +2,17 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
 import {IPlatformAdapter, IPlatformAdapter__factory, ITetuConverter} from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
-import {GAS_LIMIT} from "../baseUT/GasLimit";
+import {GAS_LIMIT} from "../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
+import {AaveTwoPlatformFabric} from "../baseUT/logic/fabrics/AaveTwoPlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/logic/fabrics/DForcePlatformFabric";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
 
 describe("MultiConvertersTest", () => {
 //region Global vars for all tests
@@ -44,13 +44,15 @@ describe("MultiConvertersTest", () => {
     // set up TetuConverter app with all known lending platforms
     const app = await TetuConverterApp.buildApp(
       deployer,
+      { networkId: POLYGON_NETWORK_ID,
+        priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address
+      },  // disable swap, enable price oracle
       [
         new Aave3PlatformFabric(),
         new AaveTwoPlatformFabric(),
         new DForcePlatformFabric(),
         // new HundredFinancePlatformFabric()
       ],
-      {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
     );
     platformAdapters = app.pools.map(x => IPlatformAdapter__factory.connect(x.platformAdapter, deployer));
     tetuConverter = app.tc;

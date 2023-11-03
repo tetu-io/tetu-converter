@@ -31,7 +31,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice We allow to borrow only 90% of max allowed amount, see the code below for explanation
   uint public constant MAX_BORROW_AMOUNT_FACTOR = 90;
   uint constant public MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR = 100;
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.3";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.4";
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
@@ -254,6 +254,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
               if (vars.healthFactor18 < uint(healthFactor2_)* 10**(18 - 2)) {
                 vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
+              } else {
+                // healthFactor = liquidationThreshold18 / ltv18 - is min allowed health factor
+                // but real health factor should be higher - we need some reserve
+                vars.healthFactor18 = vars.healthFactor18 * healthFactor2_ / vars.controller.minHealthFactor2();
               }
 
               //------------------------------- Calculate collateralAmount and amountToBorrow

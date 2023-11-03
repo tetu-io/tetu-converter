@@ -12,9 +12,10 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
-import {ConverterController} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {ConverterController} from "../../../typechain";
+import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 
 describe("Aave3CollateralBalanceTest", () => {
 //region Constants
@@ -42,7 +43,7 @@ describe("Aave3CollateralBalanceTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    controllerInstance = await TetuConverterApp.createController(deployer);
+    controllerInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
 
     init = await makeInitialBorrow();
   });
@@ -69,15 +70,16 @@ describe("Aave3CollateralBalanceTest", () => {
 
     const d = await Aave3TestUtils.prepareToBorrow(
       deployer,
+      MaticCore.getCoreAave3(),
       controllerInstance,
-      collateralToken,
+      collateralToken.address,
       [collateralHolder],
       collateralAmount,
-      borrowToken,
+      borrowToken.address,
       false
     );
     // make a borrow
-    await Aave3TestUtils.makeBorrow(deployer, d, undefined);
+    await Aave3TestUtils.makeBorrow(deployer, d);
 
     return {
       collateralToken,
@@ -95,7 +97,7 @@ describe("Aave3CollateralBalanceTest", () => {
       it("should return expected collateral balance", async () => {
 
         await Aave3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
-        await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
+        await Aave3TestUtils.makeBorrow(deployer, init.d);
         const stateAfterSecondBorrow = await Aave3TestUtils.getState(init.d);
 
         const ret = [
@@ -114,7 +116,7 @@ describe("Aave3CollateralBalanceTest", () => {
       });
       it("make full repay, should return zero collateral balance", async () => {
         await Aave3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
-        await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
+        await Aave3TestUtils.makeBorrow(deployer, init.d);
         await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await Aave3TestUtils.makeRepay(
           init.d,
@@ -162,7 +164,7 @@ describe("Aave3CollateralBalanceTest", () => {
       it("make full repay, should return zero collateral balance", async () => {
         console.log("Start borrowing");
         await Aave3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
-        await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
+        await Aave3TestUtils.makeBorrow(deployer, init.d);
 
         console.log("Start repaying");
         await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
@@ -344,9 +346,10 @@ describe("Aave3CollateralBalanceTest", () => {
        */
       it.skip("should return not-zero collateralAmountLiquidated", async () => {
         // reduce price of collateral to reduce health factor below 1
-        await Aave3ChangePricesUtils.changeAssetPrice(deployer, init.d.collateralToken.address, false, 10);
+        const core = MaticCore.getCoreAave3();
+        await Aave3ChangePricesUtils.changeAssetPrice(deployer, core, init.d.collateralToken.address, false, 10);
 
-        await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder);
         const stateAfterLiquidation = await Aave3TestUtils.getState(init.d);
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -367,7 +370,9 @@ describe("Aave3CollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it.skip("try to make full repay, aave reverts", async () => {
-        await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        const core = MaticCore.getCoreAave3();
+
+        await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder);
         const stateAfterLiquidation = await Aave3TestUtils.getState(init.d);
 
         await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);

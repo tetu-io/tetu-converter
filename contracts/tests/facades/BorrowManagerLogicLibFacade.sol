@@ -140,4 +140,8 @@ contract BorrowManagerLogicLibFacade {
     totalCount = BorrowManagerLogicLib._findNewCandidates(platformAdapters_, startDestIndex_, p_, addParams_, input);
     return (totalCount, input);
   }
+
+  function _getApr18(AppDataTypes.ConversionPlan memory plan_, uint rewardsFactor_) public pure returns (int) {
+    return BorrowManagerLogicLib._getApr18(plan_, rewardsFactor_);
+  }
 }

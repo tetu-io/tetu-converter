@@ -1,31 +1,23 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {
-  BorrowManager__factory, ConverterController,
-  HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory, IERC20Metadata__factory, IHfComptroller, IHfCToken,
-  IHfCToken__factory
-} from "../../../typechain";
 import {expect} from "chai";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {
   HundredFinanceHelper,
   IHundredFinanceMarketData
-} from "../../../scripts/integration/helpers/HundredFinanceHelper";
+} from "../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
+import {IPredictBrParams, IPredictBrResults, PredictBrUsesCase} from "../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
+import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
-import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {convertUnits} from "../../baseUT/protocols/shared/aprUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {
@@ -36,9 +28,21 @@ import {
 import {
   GAS_LIMIT,
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
-} from "../../baseUT/GasLimit";
-import {AppConstants} from "../../baseUT/AppConstants";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+} from "../../baseUT/types/GasLimit";
+import {AppConstants} from "../../baseUT/types/AppConstants";
+import {IConversionPlan} from "../../baseUT/types/AppDataTypes";
+import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {HfPlatformActor} from "../../baseUT/protocols/hundred-finance/HfPlatformActor";
+import {HundredFinanceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceUtils";
+import {
+  BorrowManager__factory,
+  ConverterController, HfAprLibFacade, HfPlatformAdapter,
+  HfPlatformAdapter__factory, IERC20Metadata__factory,
+  IHfComptroller,
+  IHfCToken,
+  IHfCToken__factory
+} from "../../../typechain";
 
 describe.skip("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
@@ -69,48 +73,6 @@ describe.skip("Hundred finance, platform adapter", () => {
     await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
-
-//region IPlatformActor impl
-  class HfPlatformActor implements IPlatformActor {
-    borrowCToken: IHfCToken;
-    collateralCToken: IHfCToken;
-    comptroller: IHfComptroller;
-    constructor(
-      borrowCToken: IHfCToken,
-      collateralCToken: IHfCToken,
-      comptroller: IHfComptroller
-    ) {
-      this.borrowCToken = borrowCToken;
-      this.collateralCToken = collateralCToken;
-      this.comptroller = comptroller;
-    }
-    async getAvailableLiquidity() : Promise<BigNumber> {
-      const cashBefore = await this.borrowCToken.getCash();
-      const borrowBefore = await this.borrowCToken.totalBorrows();
-      const reserveBefore = await this.borrowCToken.totalReserves();
-      console.log(`Reserve data before: cash=${cashBefore.toString()} borrow=${borrowBefore.toString()} reserve=${reserveBefore.toString()}`);
-      return cashBefore;
-    }
-    async getCurrentBR(): Promise<BigNumber> {
-      const br = await this.borrowCToken.borrowRatePerBlock();
-      console.log(`BR=${br}`);
-      return br;
-    }
-    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      const collateralAsset = await this.collateralCToken.underlying();
-      await IERC20Metadata__factory.connect(collateralAsset, deployer)
-        .approve(this.collateralCToken.address, collateralAmount);
-      console.log(`Supply collateral ${collateralAsset} amount ${collateralAmount}`);
-      await this.comptroller.enterMarkets([this.collateralCToken.address, this.borrowCToken.address]);
-      await this.collateralCToken.mint(collateralAmount);
-
-    }
-    async borrow(borrowAmount: BigNumber): Promise<void> {
-      await this.borrowCToken.borrow(borrowAmount);
-      console.log(`Borrow ${borrowAmount}`);
-    }
-  }
-//endregion IPlatformActor impl
 
 //region getConversionPlan tests impl
   interface IGetConversionPlanBadPaths {
@@ -215,7 +177,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
         countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
         entryData: entryData || "0x",
-        user: Misc.ZERO_ADDRESS
       },
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
       {gasLimit: GAS_LIMIT},
@@ -351,7 +312,7 @@ describe.skip("Hundred finance, platform adapter", () => {
     ) : Promise<{data: IContractsSet, platformAdapter: HfPlatformAdapter}> {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
@@ -366,7 +327,6 @@ describe.skip("Hundred finance, platform adapter", () => {
         data.comptroller,
         data.converter,
         [MaticAddresses.hDAI],
-        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }
@@ -419,7 +379,7 @@ describe.skip("Hundred finance, platform adapter", () => {
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -915,7 +875,6 @@ describe.skip("Hundred finance, platform adapter", () => {
             borrowAsset: MaticAddresses.USDC,
             countBlocks: 1000,
             entryData: "0x",
-            user: Misc.ZERO_ADDRESS
           },
           200,
           {gasLimit: GAS_LIMIT},
@@ -929,36 +888,18 @@ describe.skip("Hundred finance, platform adapter", () => {
 
   describe("getBorrowRateAfterBorrow", () => {
     describe("Good paths", () => {
-      async function makeTest(
-        collateralAsset: string,
-        collateralCToken: string,
-        borrowAsset: string,
-        borrowCToken: string,
-        collateralHolders: string[],
-        part10000: number
-      ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
-        const borrowToken = IHfCToken__factory.connect(borrowCToken, deployer);
-        const collateralToken = IHfCToken__factory.connect(collateralCToken, deployer);
+      async function makeTest(p: IPredictBrParams) : Promise<IPredictBrResults> {
+        const collateralToken = IHfCToken__factory.connect(HundredFinanceUtils.getCToken(p.collateralAsset), deployer);
+        const borrowToken = IHfCToken__factory.connect(HundredFinanceUtils.getCToken(p.borrowAsset), deployer);
         const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-
-        return PredictBrUsesCase.makeTest(
-          deployer,
-          new HfPlatformActor(borrowToken, collateralToken, comptroller),
-          "hundred-finance",
-          collateralAsset,
-          borrowAsset,
-          collateralHolders,
-          part10000
-        );
+        const actor = new HfPlatformActor(borrowToken, collateralToken, comptroller, deployer);
+        return PredictBrUsesCase.predictBrTest(deployer, actor, p);
       }
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const collateralAsset = MaticAddresses.DAI;
-          const collateralCToken = MaticAddresses.hDAI;
           const borrowAsset = MaticAddresses.USDC;
-          const borrowCToken = MaticAddresses.hUSDC;
-
           const collateralHolders = [
             MaticAddresses.HOLDER_DAI,
             MaticAddresses.HOLDER_DAI_2,
@@ -969,14 +910,12 @@ describe.skip("Hundred finance, platform adapter", () => {
           ];
           const part10000 = 1;
 
-          const r = await makeTest(
+          const r = await makeTest({
             collateralAsset,
-            collateralCToken,
             borrowAsset,
-            borrowCToken,
             collateralHolders,
             part10000
-          );
+          });
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 3);
           expect(ret).eq(true);
@@ -986,9 +925,7 @@ describe.skip("Hundred finance, platform adapter", () => {
       describe("Huge amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const collateralAsset = MaticAddresses.DAI;
-          const collateralCToken = MaticAddresses.hDAI;
           const borrowAsset = MaticAddresses.USDC;
-          const borrowCToken = MaticAddresses.hUSDC;
 
           const collateralHolders = [
             MaticAddresses.HOLDER_DAI,
@@ -1000,14 +937,12 @@ describe.skip("Hundred finance, platform adapter", () => {
           ];
           const part10000 = 500;
 
-          const r = await makeTest(
+          const r = await makeTest({
             collateralAsset,
-            collateralCToken,
             borrowAsset,
-            borrowCToken,
             collateralHolders,
             part10000
-          );
+          });
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 3);
           expect(ret).eq(true);
@@ -1022,7 +957,7 @@ describe.skip("Hundred finance, platform adapter", () => {
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -1112,7 +1047,7 @@ describe.skip("Hundred finance, platform adapter", () => {
   describe("registerCTokens", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        const controller = await TetuConverterApp.createController(deployer);
+        const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
         const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
           deployer,
           controller.address,
@@ -1144,7 +1079,7 @@ describe.skip("Hundred finance, platform adapter", () => {
     describe("Bad paths", () => {
       describe("Not governance", () => {
         it("should revert", async () => {
-          const controller = await TetuConverterApp.createController(deployer);
+          const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
           const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
             deployer,
             controller.address,
@@ -1163,7 +1098,7 @@ describe.skip("Hundred finance, platform adapter", () => {
       });
       describe("Try to add not CToken", () => {
         it("should revert", async () => {
-          const controller = await TetuConverterApp.createController(deployer);
+          const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
           const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
             deployer,
             controller.address,
@@ -1187,7 +1122,7 @@ describe.skip("Hundred finance, platform adapter", () => {
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
 
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
       const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
         deployer,
@@ -1227,7 +1162,7 @@ describe.skip("Hundred finance, platform adapter", () => {
   describe("getMarketsInfo", () => {
     let platformAdapter: HfPlatformAdapter;
     before(async function () {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
       platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
         deployer,
@@ -1266,7 +1201,7 @@ describe.skip("Hundred finance, platform adapter", () => {
   describe("setFrozen", () => {
     it("should assign expected value to frozen", async () => {
       const controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
 
       const comptroller = await HundredFinanceHelper.getComptroller(deployer);
@@ -1293,7 +1228,7 @@ describe.skip("Hundred finance, platform adapter", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
       const pa = await AdaptersHelper.createHundredFinancePlatformAdapter(
         deployer,

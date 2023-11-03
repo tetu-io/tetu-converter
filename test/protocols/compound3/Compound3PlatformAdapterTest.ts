@@ -2,38 +2,38 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {
-  BorrowManager__factory,
-  Compound3PlatformAdapter,
-  Compound3PlatformAdapter__factory,
-  ConverterController,
-  IComet,
-  IComet__factory, ICometRewards, ICometRewards__factory, IERC20__factory,
-  IERC20Metadata__factory, IPriceFeed__factory
-} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {Misc} from "../../../scripts/utils/Misc";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {expect} from "chai";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {BigNumber} from "ethers";
-import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
-import {ICompound3AssetInfo} from "../../../scripts/integration/helpers/Compound3Helper";
-import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {ICompound3AssetInfo} from "../../../scripts/integration/compound3/Compound3Helper";
+import {convertUnits} from "../../baseUT/protocols/shared/aprUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {addLiquidatorPath} from "../../baseUT/utils/TetuLiquidatorUtils";
-import {DeployUtils} from "../../../scripts/utils/DeployUtils";
+import {addLiquidatorPath} from "../../baseUT/protocols/tetu-liquidator/TetuLiquidatorUtils";
 import {defaultAbiCoder, formatUnits, getAddress, parseUnits} from "ethers/lib/utils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {Compound3ChangePriceUtils} from "../../baseUT/protocols/compound3/Compound3ChangePriceUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
-import {AppConstants} from "../../baseUT/AppConstants";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {PredictBrUsesCase} from "../../baseUT/uses-cases/shared/PredictBrUsesCase";
+import {AppConstants} from "../../baseUT/types/AppConstants";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {IConversionPlan} from "../../baseUT/types/AppDataTypes";
+import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
+import {MocksHelper} from "../../baseUT/app/MocksHelper";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {Compound3PlatformActor} from "../../baseUT/protocols/compound3/Compound3PlatformActor";
+import {
+  BorrowManager__factory, Compound3PlatformAdapter, Compound3PlatformAdapter__factory,
+  ConverterController, IComet,
+  IComet__factory, ICometRewards,
+  ICometRewards__factory,
+  IERC20__factory,
+  IERC20Metadata__factory,
+  IPriceFeed__factory
+} from "../../../typechain";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -66,43 +66,6 @@ describe("Compound3PlatformAdapterTest", () => {
   });
 //endregion before, after
 
-//region IPlatformActor impl
-  class Compound3PlatformActor implements IPlatformActor {
-    comet: IComet;
-    collateralAsset: string;
-
-    constructor(
-      comet: IComet,
-      collateralAsset: string
-    ) {
-      this.comet = comet;
-      this.collateralAsset = collateralAsset;
-    }
-
-    async getAvailableLiquidity() : Promise<BigNumber> {
-      return IERC20__factory.connect(await this.comet.baseToken(), deployer).balanceOf(this.comet.address)
-    }
-
-    async getCurrentBR(): Promise<BigNumber> {
-      const br = await this.comet.getBorrowRate(await this.comet.getUtilization())
-      console.log(`BR=${br}`);
-      return br;
-    }
-
-    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      await IERC20Metadata__factory.connect(this.collateralAsset, deployer)
-        .approve(this.comet.address, collateralAmount);
-      console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
-      await this.comet.supply(this.collateralAsset, collateralAmount)
-    }
-
-    async borrow(borrowAmount: BigNumber): Promise<void> {
-      await this.comet.withdraw(await this.comet.baseToken(), borrowAmount)
-      console.log(`Borrow ${borrowAmount}`);
-    }
-  }
-//endregion IPlatformActor impl
-
 //region Test predict-br impl
   async function makePredictBrTest(
     collateralAsset: string,
@@ -112,15 +75,13 @@ describe("Compound3PlatformAdapterTest", () => {
     part10000: number
   ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
     const comet = IComet__factory.connect(cometAddress, deployer)
-    return PredictBrUsesCase.makeTest(
-      deployer,
-      new Compound3PlatformActor(comet, collateralAsset),
-      "compound3",
+    const actor = new Compound3PlatformActor(deployer, comet, collateralAsset);
+    return PredictBrUsesCase.predictBrTest(deployer, actor,{
       collateralAsset,
-      await comet.baseToken(),
+      borrowAsset: await comet.baseToken(),
       collateralHolders,
       part10000
-    )
+    });
   }
 //endregion Test predict-br impl
 
@@ -345,7 +306,7 @@ describe("Compound3PlatformAdapterTest", () => {
     ): Promise<{ data: IContractsSet, platformAdapter: Compound3PlatformAdapter }> {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
@@ -406,7 +367,7 @@ describe("Compound3PlatformAdapterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       await addLiquidatorPath(
         MaticAddresses.TETU_LIQUIDATOR,
@@ -719,8 +680,8 @@ describe("Compound3PlatformAdapterTest", () => {
           // get normal (not empty) plan
           const r0 = await preparePlan(
             controller,
-            MaticAddresses.WMATIC,
-            parseUnits("1000"),
+            MaticAddresses.WETH,
+            parseUnits("1"),
             MaticAddresses.USDC,
             undefined,
             "0x"
@@ -730,17 +691,18 @@ describe("Compound3PlatformAdapterTest", () => {
           // let's supply big amount to reach supply cap
           const comet = IComet__factory.connect(MaticAddresses.COMPOUND3_COMET_USDC, deployer);
           const holders = [
-            MaticAddresses.HOLDER_WMATIC,
-            MaticAddresses.HOLDER_WMATIC_2,
-            MaticAddresses.HOLDER_WMATIC_3,
-            MaticAddresses.HOLDER_WMATIC_4,
-            MaticAddresses.HOLDER_WMATIC_5,
+            MaticAddresses.HOLDER_WETH,
+            MaticAddresses.HOLDER_WETH_2,
+            MaticAddresses.HOLDER_WETH_3,
+            MaticAddresses.HOLDER_WETH_4,
+            MaticAddresses.HOLDER_WETH_5,
+            MaticAddresses.HOLDER_WETH_6,
           ];
           for (const holder of holders) {
             const r = await preparePlan(
               controller,
-              MaticAddresses.WMATIC,
-              parseUnits("1000"),
+              MaticAddresses.WETH,
+              parseUnits("1"),
               MaticAddresses.USDC,
               undefined,
               "0x"
@@ -749,20 +711,24 @@ describe("Compound3PlatformAdapterTest", () => {
             if (r.plan.maxAmountToSupply.eq(0)) {
               break;
             }
-            const amount = await IERC20__factory.connect(MaticAddresses.WMATIC, deployer).balanceOf(holder);
+            // const amountToSupply = r.plan.maxAmountToSupply;
+            // await deal(MaticAddresses.WETH, deployer.address, amountToSupply);
+            // console.log("Balance of deployer", )
+
+            const amount = await IERC20__factory.connect(MaticAddresses.WETH, deployer).balanceOf(holder);
             const amountToSupply = r.plan.maxAmountToSupply.gt(amount)
               ? amount
               : r.plan.maxAmountToSupply;
-            await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, holder, deployer.address, amountToSupply);
-            await IERC20__factory.connect(MaticAddresses.WMATIC, deployer).approve(comet.address, amountToSupply);
+            await BalanceUtils.getAmountFromHolder(MaticAddresses.WETH, holder, deployer.address, amountToSupply);
+            await IERC20__factory.connect(MaticAddresses.WETH, deployer).approve(comet.address, amountToSupply);
             console.log("Supply");
-            await comet.supply(MaticAddresses.WMATIC, amountToSupply);
+            await comet.supply(MaticAddresses.WETH, amountToSupply);
           }
 
           // get empty plan now
           const r1 = await preparePlan(
             controller,
-            MaticAddresses.WMATIC,
+            MaticAddresses.WETH,
             parseUnits("1000"),
             MaticAddresses.USDC,
             undefined,
@@ -831,7 +797,7 @@ describe("Compound3PlatformAdapterTest", () => {
       it("incorrect asset", async () => {
         const controller = await TetuConverterApp.createController(
           deployer,
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
         const libFacade = await MocksHelper.getCompound3AprLibFacade(deployer);
 
@@ -847,7 +813,7 @@ describe("Compound3PlatformAdapterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -963,7 +929,7 @@ describe("Compound3PlatformAdapterTest", () => {
       it("should assign expected value to frozen", async () => {
         const controller = await TetuConverterApp.createController(
           deployer,
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
         const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
           deployer,
@@ -984,7 +950,7 @@ describe("Compound3PlatformAdapterTest", () => {
       it("should assign expected value to frozen", async () => {
         const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
           deployer,
-          (await TetuConverterApp.createController(deployer)).address,
+          (await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,})).address,
           ethers.Wallet.createRandom().address,
           [MaticAddresses.COMPOUND3_COMET_USDC],
           MaticAddresses.COMPOUND3_COMET_REWARDS
@@ -1001,7 +967,7 @@ describe("Compound3PlatformAdapterTest", () => {
     it("add, remove comets", async () => {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
@@ -1022,7 +988,7 @@ describe("Compound3PlatformAdapterTest", () => {
     it("should throw if the index is out of range", async () => {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
@@ -1036,7 +1002,7 @@ describe("Compound3PlatformAdapterTest", () => {
     it("should throw if not governance", async () => {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
@@ -1056,7 +1022,7 @@ describe("Compound3PlatformAdapterTest", () => {
     it("should throw if not governance", async () => {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
@@ -1074,7 +1040,7 @@ describe("Compound3PlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const pa = await AdaptersHelper.createCompound3PlatformAdapter(
         deployer,
         controller.address,

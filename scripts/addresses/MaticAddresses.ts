@@ -63,11 +63,13 @@ export class MaticAddresses {
   public static HOLDER_USDT_2 = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_USDT_3 = "0xfa0b641678f5115ad8a8de5752016bd1359681b9";
 
-  public static HOLDER_WMATIC_3 = "0x0aff6665bb45bf349489b20e225a6c5d78e2280f";
-  public static HOLDER_WMATIC_2 = "0x6e7a5fafcec6bb1e78bae2a1f0b612012bf14827";
-  public static HOLDER_WMATIC = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
-  public static HOLDER_WMATIC_4 = "0xa374094527e1673a86de625aa59517c5de346d32";
-  public static HOLDER_WMATIC_5 = "0x167384319b41f7094e62f7506409eb38079abff8";
+  public static HOLDER_WMATIC = "0x6e7a5FAFcec6BB1e78bAE2A1F0B612012BF14827";
+  public static HOLDER_WMATIC_2 = "0xadbF1854e5883eB8aa7BAf50705338739e558E5b";
+  public static HOLDER_WMATIC_3 = "0xACb4A8b1A53490de57d7d2e0F2375B112f791Edd";
+  public static HOLDER_WMATIC_4 = "0x2008b6c3D07B061A84F790C035c2f6dC11A0be70";
+  public static HOLDER_WMATIC_5 = "0x0AFF6665bB45bF349489B20E225A6c5D78E2280F";
+  public static HOLDER_WMATIC_6 = "0x21Cb017B40abE17B6DFb9Ba64A3Ab0f24A7e60EA";
+  public static HOLDER_WMATIC_7 = "0x6914FC70fAC4caB20a8922E900C4BA57fEECf8E1";
 
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
   public static HOLDER_EURS_2 = "0x1bee4f735062cd00841d6997964f187f5f5f5ac9";
@@ -90,10 +92,12 @@ export class MaticAddresses {
   public static HOLDER_WBTC_2 = "0x09040f20384b3420657e8cd0850c7facfd74ba70";
   public static HOLDER_WBTC_3 = "0x1680ed6a1fe73c673e778705355212235dec3242";
 
-  public static HOLDER_WETH_3 = "0xd9952dc091e7cf5ec199c431c69cec8573710333";
-  public static HOLDER_WETH_2 = "0x62ac55b745f9b08f1a81dcbbe630277095cf4be1";
-  public static HOLDER_WETH = "0xded8c5159ca3673f543d0f72043e4c655b35b96a";
-  public static HOLDER_WETH_4 = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
+  public static HOLDER_WETH = "0x1eED63EfBA5f81D95bfe37d82C8E736b974F477b";
+  public static HOLDER_WETH_2 = "0x62ac55b745F9B08F1a81DCbbE630277095Cf4Be1";
+  public static HOLDER_WETH_3 = "0x8832924854e3Cedb0a6Abf372e6CCFF9F7654332";
+  public static HOLDER_WETH_4 = "0xdeD8C5159CA3673f543D0F72043E4c655b35b96A";
+  public static HOLDER_WETH_5 = "0xD9952Dc091e7Cf5ec199c431c69cEC8573710333";
+  public static HOLDER_WETH_6 = "0xc94A3Ff0bac12eeB9ff0CC4e08511E1FFaD6ba94";
 
   public static HOLDER_CHAIN_LINK = "0x9bdb521a97e95177bf252c253e256a60c3e14447";
   public static HOLDER_DefiPulseToken = "0xd1468a5e1ff399d7a4465fbdff3e3ccb013d149f";
@@ -111,6 +115,14 @@ export class MaticAddresses {
   public static HOLDER_FRAX = "0x0000000002ce79aacd54227d2163ff3791338975";
   public static HOLDER_FRAX_2 = "0xe7ec500e14edbe3ca3358bcde7df145968b2aead";
   public static HOLDER_FRAX_3 = "0x65e09ae53d5f1a7d75e4442eb9d004191dd253fb";
+
+  public static HOLDER_MI_MATIC = "0x26c60b38fe7e55d699c8102c18cc5d7152e0762e";
+  public static HOLDER_ST_MATIC = "0x8e846313dfafd5ac3621966ed0cc69889105f802";
+  public static HOLDER_MATIC_X = "0x7eeaa8f220cb72767d40da0a1b5783a5f8bd8e5e";
+
+  public static HOLDER_WSTETH = "0x2b44d9764fbbd2B07fbc48212aee4Da331806062";
+  public static HOLDER_WSTETH_1 = "0xF7626459234e9249808A06aA08dc6b67c8e0A2fc";
+  public static HOLDER_WSTETH_2 = "0x708800fBf7a7e8E65B1D8BBF651c5c32019e7325";
 //endregion Asset biggest holders
 
 //region AAVE-v3
@@ -120,9 +132,9 @@ export class MaticAddresses {
    *  See first event for of ACLManager
    *  https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract
    */
-  public static AAVE_V3_POOL_ADMIN = "0x4365f8e70cf38c6ca67de41448508f2da8825500";
-  public static AAVE_V3_POOL_OWNER = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
-  public static AAVE_V3_RISK_ADMIN = "0xAcDAB5377dAd9895FDad8FFCd4AC54a19DC8d6b7";
+  public static AAVE_V3_POOL_ADMIN = "0xdf7d0e6454db638881302729f5ba99936eaab233";
+  public static AAVE_V3_POOL_OWNER = "0xDf7d0e6454DB638881302729F5ba99936EaAB233";
+  public static AAVE_V3_RISK_ADMIN = "0xa7b40ed4dfac9255ea9dd218a3874f380d9fbbeb";
   /* see https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract */
   public static AAVE_V3_EMERGENCY_ADMIN = "0x1450F2898D6bA2710C98BE9CAF3041330eD5ae58";
   public static AAVE_V3_PRICE_ORACLE = "0xb023e699F5a33916Ea823A16485e259257cA8Bd1";

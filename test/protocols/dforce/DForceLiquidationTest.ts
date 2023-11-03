@@ -6,6 +6,8 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {DForceTestUtils, IPrepareToLiquidationResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {ConverterController} from "../../../typechain";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -27,6 +29,7 @@ describe.skip("DForceLiquidationTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
+  let converterController: ConverterController;
   let init: IPrepareToLiquidationResults;
 //endregion Global vars for all tests
 
@@ -37,9 +40,11 @@ describe.skip("DForceLiquidationTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
+    converterController = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
 
     init = await DForceTestUtils.prepareToLiquidation(
       deployer,
+      converterController,
       collateralAsset,
       collateralHolder,
       collateralCTokenAddress,

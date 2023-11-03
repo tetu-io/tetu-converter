@@ -3,14 +3,10 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {
   BorrowRepayUsesCase,
   IQuoteRepayResults
-} from "../baseUT/uses-cases/BorrowRepayUsesCase";
-import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
-import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
+} from "../baseUT/uses-cases/app/BorrowRepayUsesCase";
 import {
   GAS_LIMIT_QUOTE_REPAY_AAVE3,
   GAS_LIMIT_QUOTE_REPAY_AAVE_TWO,
@@ -20,12 +16,16 @@ import {
   GAS_LIMIT_QUOTE_REPAY_DFORCE_WITH_SWAP,
   GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE_WITH_SWAP,
   GAS_LIMIT_QUOTE_REPAY_AAVE_TWO_WITH_SWAP
-} from "../baseUT/GasLimit";
+} from "../baseUT/types/GasLimit";
 import {controlGasLimitsEx2, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
+import {AaveTwoPlatformFabric} from "../baseUT/logic/fabrics/AaveTwoPlatformFabric";
+import {HundredFinancePlatformFabric} from "../baseUT/logic/fabrics/HundredFinancePlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/logic/fabrics/DForcePlatformFabric";
 
 describe("QuoteRepayTest", () => {
 //region Global vars for all tests
@@ -90,8 +90,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new Aave3PlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -142,8 +142,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new AaveTwoPlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -190,8 +190,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new DForcePlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -237,8 +237,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new HundredFinancePlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -297,8 +297,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new Aave3PlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -349,8 +349,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new AaveTwoPlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -397,8 +397,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new DForcePlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -444,8 +444,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new HundredFinancePlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -507,8 +507,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new Aave3PlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -546,8 +546,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new AaveTwoPlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -585,8 +585,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new DForcePlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -624,8 +624,8 @@ describe("QuoteRepayTest", () => {
               snapshotLocal = await TimeUtils.snapshot();
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
+                  {networkId: POLYGON_NETWORK_ID, priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address}, // disable swap, enable price oracle
                 [new HundredFinancePlatformFabric()],
-                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {

@@ -6,14 +6,12 @@ import {
   POLYGON_NETWORK_ID
 } from "../../scripts/utils/HardhatUtils";
 import {IPoolAdapterStatusNum} from "../baseUT/types/BorrowRepayDataTypes";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {
   BorrowManager, BorrowManager__factory,
   ConverterController, ConverterController__factory,
   IERC20Metadata__factory, IPoolAdapter__factory,
   ITetuConverter
 } from "../../typechain";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {Misc} from "../../scripts/utils/Misc";
@@ -21,8 +19,10 @@ import {BorrowRepayDataTypeUtils} from "../baseUT/utils/BorrowRepayDataTypeUtils
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
 
-describe("BorrowRepayTest", () => {
+describe("RebalanceExistDebts", () => {
 //region Global vars for all tests
   let snapshotRoot: string;
   let signer: SignerWithAddress;
@@ -45,8 +45,8 @@ describe("BorrowRepayTest", () => {
 
     const r = await TetuConverterApp.buildApp(
       signer,
+      {networkId: POLYGON_NETWORK_ID}, // disable swap
       [new Aave3PlatformFabric()],
-      {} // disable swap
     );
     const governance = await Misc.impersonate(await r.controller.governance());
     controllerAsGov = ConverterController__factory.connect(r.controller.address, governance);

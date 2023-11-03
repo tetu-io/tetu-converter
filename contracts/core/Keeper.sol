@@ -18,7 +18,7 @@ contract Keeper is IHealthKeeperCallback, IResolver, ControllableV3 {
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
-  string public constant KEEPER_VERSION = "1.0.1";
+  string public constant KEEPER_VERSION = "1.0.2";
 
   /// @notice Max count of opened positions to be checked in single request
   uint constant public MAX_COUNT_TO_CHECK = 80;
@@ -50,11 +50,8 @@ contract Keeper is IHealthKeeperCallback, IResolver, ControllableV3 {
   //endregion ----------------------------------------------------- Events
 
   //region ----------------------------------------------------- Initialization
-  function init(address controller_, address payable ops_, uint blocksPerDayAutoUpdatePeriodSec_) external initializer {
-    require(ops_ != address(0), AppErrors.ZERO_ADDRESS);
-
+  function init(address controller_, uint blocksPerDayAutoUpdatePeriodSec_) external initializer {
     __Controllable_init(controller_);
-    ops = ops_;
     // gelato = IOps(ops_).gelato(); // gelato is not used anymore
     blocksPerDayAutoUpdatePeriodSec = blocksPerDayAutoUpdatePeriodSec_;
   }

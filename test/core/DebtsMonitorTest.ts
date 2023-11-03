@@ -18,28 +18,30 @@ import {
   PoolAdapterStub, PoolAdapterStub__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {
-  BorrowManagerHelper,
-  IBorrowInputParams, IMockPoolParams, IPoolInstanceInfo
-} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {
   controlGasLimitsEx2,
   HARDHAT_NETWORK_ID,
   HardhatUtils
 } from "../../scripts/utils/HardhatUtils";
-import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
+import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/types/GasLimit";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
+import {
+  BorrowManagerHelper,
+  IBorrowInputParams,
+  IMockPoolParams,
+  IPoolInstanceInfo
+} from "../baseUT/app/BorrowManagerHelper";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -135,7 +137,7 @@ describe("DebtsMonitor", () => {
   }>{
     const periodInBlocks = 117;
 
-    const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+    const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,}));
     const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
       core,
       deployer,
@@ -640,6 +642,7 @@ describe("DebtsMonitor", () => {
     async function makeConstructorTest(p?: IMakeConstructorTestParams): Promise<{ret: string, expected: string}> {
       const controller = await TetuConverterApp.createController(
         deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           debtMonitorFabric: {
             deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
             init: async (c, instance) => {
@@ -1864,6 +1867,7 @@ describe("DebtsMonitor", () => {
     it("should emit expected events", async () => {
       const controller = await TetuConverterApp.createController(
         deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           borrowManagerFabric: {deploy: async () => (await MocksHelper.createBorrowManagerStub(deployer, true)).address},
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: {

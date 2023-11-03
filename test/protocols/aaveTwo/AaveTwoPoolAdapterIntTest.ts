@@ -1,20 +1,15 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {
-  ConverterController,
-  IERC20Metadata__factory,
-  IPoolAdapter__factory
-} from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
-import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
+import {IAaveTwoUserAccountDataResults} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
 import {
   AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults
@@ -26,9 +21,10 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {ConverterController, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 
 describe("AaveTwoPoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -45,7 +41,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    controllerInstance = await TetuConverterApp.createController(deployer);
+    controllerInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   });
 
   after(async function () {
@@ -146,82 +142,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             ));
           });
         });
-        describe("DAI-18 : USDC-6", () => {
-          let snapshotLocal: string;
-          before(async function () {
-            snapshotLocal = await TimeUtils.snapshot();
-          });
-          after(async function () {
-            await TimeUtils.rollback(snapshotLocal);
-          });
-          async function testMakeBorrowDaiUsdc() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.daiUsdc(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
-          }
-          it("should send borrowed amount to user", async () => {
-            const r = await loadFixture(testMakeBorrowDaiUsdc);
-            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
-          });
-          it("should send collateral to pool adapter", async () => {
-            const r = await loadFixture(testMakeBorrowDaiUsdc);
-            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
-            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
-          });
-          it("should set expected totalDebtBase value", async () => {
-            const r = await loadFixture(testMakeBorrowDaiUsdc);
-            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
-            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
-            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
-            expect(areAlmostEqual(
-              r.totalDebtBase,
-              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
-            )).eq(true);
-          });
-          it("should set expected totalCollateralBase", async () => {
-            const r = await loadFixture(testMakeBorrowDaiUsdc);
-            expect(areAlmostEqual(
-              r.totalCollateralBase,
-              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
-            ));
-          });
-        });
-        describe("USDC-6 : DAI-18", () => {
-          let snapshotLocal: string;
-          before(async function () {
-            snapshotLocal = await TimeUtils.snapshot();
-          });
-          after(async function () {
-            await TimeUtils.rollback(snapshotLocal);
-          });
-          async function testMakeBorrowUsdcDai() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.usdcDai(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
-          }
-          it("should send borrowed amount to user", async () => {
-            const r = await loadFixture(testMakeBorrowUsdcDai);
-            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
-          });
-          it("should send collateral to pool adapter", async () => {
-            const r = await loadFixture(testMakeBorrowUsdcDai);
-            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
-            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
-          });
-          it("should set expected totalDebtBase value", async () => {
-            const r = await loadFixture(testMakeBorrowUsdcDai);
-            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
-            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
-            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
-            expect(areAlmostEqual(
-              r.totalDebtBase,
-              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
-            )).eq(true);
-          });
-          it("should set expected totalCollateralBase", async () => {
-            const r = await loadFixture(testMakeBorrowUsdcDai);
-            expect(areAlmostEqual(
-              r.totalCollateralBase,
-              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
-            ));
-          });
-        });
         describe("WBTC-8 : Tether-6", () => {
           let snapshotLocal: string;
           before(async function () {
@@ -263,44 +183,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         });
       });
       describe("Borrow max available amount using all available collateral", () => {
-        describe("DAI-18 : USDC-6", () => {
-          let snapshotLocal: string;
-          before(async function () {
-            snapshotLocal = await TimeUtils.snapshot();
-          });
-          after(async function () {
-            await TimeUtils.rollback(snapshotLocal);
-          });
-          async function testMakeBorrowDaiUsdc() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.daiUsdc(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
-          }
-          it("should send borrowed amount to user", async () => {
-            const r = await loadFixture(testMakeBorrowDaiUsdc);
-            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
-          });
-          it("should send collateral to pool adapter", async () => {
-            const r = await loadFixture(testMakeBorrowDaiUsdc);
-            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
-            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
-          });
-          it("should set expected totalDebtBase value", async () => {
-            const r = await loadFixture(testMakeBorrowDaiUsdc);
-            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
-            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
-            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
-            expect(areAlmostEqual(
-              r.totalDebtBase,
-              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
-            )).eq(true);
-          });
-          it("should set expected totalCollateralBase", async () => {
-            const r = await loadFixture(testMakeBorrowDaiUsdc);
-            expect(areAlmostEqual(
-              r.totalCollateralBase,
-              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
-            ));
-          });
-        });
         describe("DAI-18 : matic-18", () => {
           let snapshotLocal: string;
           before(async function () {
@@ -333,44 +215,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           });
           it("should set expected totalCollateralBase", async () => {
             const r = await loadFixture(testMakeBorrowDaiWMatic);
-            expect(areAlmostEqual(
-              r.totalCollateralBase,
-              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
-            ));
-          });
-        });
-        describe("USDC-6 : DAI-18", () => {
-          let snapshotLocal: string;
-          before(async function () {
-            snapshotLocal = await TimeUtils.snapshot();
-          });
-          after(async function () {
-            await TimeUtils.rollback(snapshotLocal);
-          });
-          async function testMakeBorrowUsdcDai() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.usdcDai(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
-          }
-          it("should send borrowed amount to user", async () => {
-            const r = await loadFixture(testMakeBorrowUsdcDai);
-            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
-          });
-          it("should send collateral to pool adapter", async () => {
-            const r = await loadFixture(testMakeBorrowUsdcDai);
-            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
-            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
-          });
-          it("should set expected totalDebtBase value", async () => {
-            const r = await loadFixture(testMakeBorrowUsdcDai);
-            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
-            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
-            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
-            expect(areAlmostEqual(
-              r.totalDebtBase,
-              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
-            )).eq(true);
-          });
-          it("should set expected totalCollateralBase", async () => {
-            const r = await loadFixture(testMakeBorrowUsdcDai);
             expect(areAlmostEqual(
               r.totalCollateralBase,
               r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
@@ -418,130 +262,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
       });
     });
    });
-
-  describe("Borrow using small health factors", () => {
-    beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
-    });
-
-    afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
-    });
-    interface ITestSmallHealthFactorResults {
-      d: IPrepareToBorrowResults;
-      resultHealthFactor18: BigNumber;
-    }
-    async function makeTestSmallHealthFactor(
-      collateralAsset: string,
-      collateralHolder: string,
-      borrowAsset: string,
-      targetHealthFactor2: number,
-      minHealthFactor2: number
-    ) : Promise<ITestSmallHealthFactorResults> {
-
-      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-      const collateralAmount = parseUnits("20000", 6);
-
-      const d = await AaveTwoTestUtils.prepareToBorrow(
-        deployer,
-        controllerInstance,
-        collateralToken,
-        collateralHolder,
-        collateralAmount,
-        borrowToken,
-        {
-          targetHealthFactor2
-        }
-      );
-
-      await d.controller.setMinHealthFactor2(minHealthFactor2);
-      await d.controller.setTargetHealthFactor2(targetHealthFactor2);
-
-      await AaveTwoTestUtils.makeBorrow(deployer, d, undefined);
-      const r = await d.aavePoolAdapterAsTC.getStatus();
-      return {
-        d,
-        resultHealthFactor18: r.healthFactor18
-      }
-    }
-    describe("Good paths", () => {
-      describe("health factor is less than liquidationThreshold18/LTV", () => {
-        it("should borrow with health factor = liquidationThreshold18/LTV", async () => {
-          const targetHealthFactor2 = 103;
-          const minHealthFactor2 = 101;
-
-          const collateralAsset = MaticAddresses.USDC;
-          const collateralHolder = MaticAddresses.HOLDER_USDC;
-          const borrowAsset = MaticAddresses.DAI;
-
-          const r = await makeTestSmallHealthFactor(
-            collateralAsset,
-            collateralHolder,
-            borrowAsset,
-            targetHealthFactor2,
-            minHealthFactor2
-          );
-          console.log("Results", r);
-          const minHealthFactorAllowedByPlatform = +formatUnits(
-            r.d.collateralReserveInfo.data.liquidationThreshold
-              .mul(Misc.WEI)
-              .div(r.d.collateralReserveInfo.data.ltv),
-            18
-          );
-          const healthFactor = +formatUnits(r.resultHealthFactor18, 18);
-          console.log("healthFactor", healthFactor);
-          console.log("minHealthFactorAllowedByPlatform", minHealthFactorAllowedByPlatform);
-
-          const ret = [
-            targetHealthFactor2 < minHealthFactorAllowedByPlatform * 100,
-            healthFactor >= minHealthFactorAllowedByPlatform - 1,
-            healthFactor <= minHealthFactorAllowedByPlatform + 1
-          ].join();
-          const expected = [true, true, true].join();
-
-          expect(ret).eq(expected);
-        });
-      });
-      describe("health factor is greater than liquidationThreshold18/LTV", () => {
-        it("should borrow with specified health factor", async () => {
-          const targetHealthFactor2 = 108;
-          const minHealthFactor2 = 101;
-
-          const collateralAsset = MaticAddresses.USDC;
-          const collateralHolder = MaticAddresses.HOLDER_USDC;
-          const borrowAsset = MaticAddresses.DAI;
-
-          const r = await makeTestSmallHealthFactor(
-            collateralAsset,
-            collateralHolder,
-            borrowAsset,
-            targetHealthFactor2,
-            minHealthFactor2
-          );
-          console.log("Results", r);
-          const minHealthFactorAllowedByPlatform = +formatUnits(
-            r.d.collateralReserveInfo.data.liquidationThreshold
-              .mul(Misc.WEI)
-              .div(r.d.collateralReserveInfo.data.ltv),
-            18
-          );
-          const healthFactor = +formatUnits(r.resultHealthFactor18, 18);
-          console.log("healthFactor", healthFactor);
-          console.log("minHealthFactorAllowedByPlatform", minHealthFactorAllowedByPlatform);
-          const ret = [
-            targetHealthFactor2 > minHealthFactorAllowedByPlatform,
-            healthFactor >= targetHealthFactor2/100 - 1,
-            healthFactor <= targetHealthFactor2/100 + 1
-          ].join();
-          const expected = [true, true, true].join();
-
-          expect(ret).eq(expected);
-        });
-      });
-    });
-  });
 
   /**
    *                LTV                LiquidationThreshold

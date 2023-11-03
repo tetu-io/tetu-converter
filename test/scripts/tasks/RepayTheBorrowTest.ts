@@ -13,6 +13,7 @@ describe.skip("test repayTheBorrow script", () => {
     const tetuConverterAddress = "0x081735DEa3D1256881B7cb31cd37c4f7C3E95152";
     const strategyAddress = "0x807a528818113a6f65b7667a59a4CaaAc719fc12";
     const poolAdapterAddress = "0xa20F9638C027cD40549C918972062690f6D095bD";
+    const borrowManagerAddress = "todo";
 
     // const signer = localHardhatIsInUse
     //   ? await DeployerUtils.startImpersonate("TODO governance")
@@ -28,7 +29,8 @@ describe.skip("test repayTheBorrow script", () => {
       await DeployerUtils.startImpersonate(governance),
       tetuConverterAddress,
       strategyAddress,
-      poolAdapterAddress
+      poolAdapterAddress,
+      borrowManagerAddress
     );
   });
 });

@@ -24,8 +24,8 @@ async function main() {
   }
 
   const tetuConverterAddress = "0x081735DEa3D1256881B7cb31cd37c4f7C3E95152";
-  const strategyAddress = "0x807a528818113a6f65b7667a59a4CaaAc719fc12";
-  const poolAdapterAddress = "0xa20F9638C027cD40549C918972062690f6D095bD";
+  const strategyAddress = "0x792Bcc2f14FdCB9FAf7E12223a564e7459eA4201";
+  const poolAdapterAddress = "0x67874287b175eAe2e1bc51E1fEf505C6d2fFad84";
   const borrowManagerAddress = "0xB8D18aBEA83eaF336aEe55E58490f785d629baAE";
 
   // const signer = localHardhatIsInUse

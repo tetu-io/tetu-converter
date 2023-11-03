@@ -32,7 +32,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
   using EnumerableMap for EnumerableMap.UintToAddressMap;
 
   //region ----------------------------------------------------- Constants
-  string public constant BORROW_MANAGER_VERSION = "1.1.0";
+  string public constant BORROW_MANAGER_VERSION = "1.1.1";
 
   /// @notice the maximum percentage by which the collateral amount can be changed when rebalancing
   ///         Decimals are set by DENOMINATOR, so 50_000 means 0.5 or 50%
@@ -58,7 +58,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
 
   //region ----------------------------------------------------- Variables. Don't change names or ordering!
 
-  /// @notice Reward APR is taken into account with given factor
+  /// @notice Reward APR is taken into account with the given factor
   /// @dev decimals 18. The value is divided on {REWARDS_FACTOR_DENOMINATOR_18}
   uint public rewardsFactor;
 

@@ -5,7 +5,6 @@ import {
   SwapManager, SwapManager__factory,
   TetuConverter, TetuConverter__factory,
 } from "../../../typechain";
-import {CoreContractsHelper} from "../helpers/CoreContractsHelper";
 
 export class CoreContracts {
   readonly controller: ConverterController;

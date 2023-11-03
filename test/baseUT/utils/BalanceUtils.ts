@@ -3,6 +3,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {IERC20__factory, IERC20Metadata, IERC20Metadata__factory} from "../../../typechain";
+import {parseUnits} from "ethers/lib/utils";
 
 export interface IContractToInvestigate {
   name: string;
@@ -88,20 +89,15 @@ export class BalanceUtils {
     const decimals = await connection.decimals();
 
     const requiredTotalAmount = typeof(amount) === "number"
-      ? getBigNumberFrom(amount, decimals)
+      ? parseUnits(amount.toString(), decimals)
       : amount;
     const availableAmount = await connection.balanceOf(holder);
     const amountToClaim = requiredTotalAmount.gt(availableAmount)
       ? availableAmount
       : requiredTotalAmount;
-    console.log("holder", holder);
-    console.log("availableAmount", availableAmount);
-    console.log("requiredTotalAmount", requiredTotalAmount);
-    console.log("decimals", decimals);
-    console.log("amount", amount);
 
     if (amountToClaim.gt(0)) {
-      console.log(`Transfer ${amountToClaim.toString()} of ${await connection.name()} to ${recipient}`);
+      console.log(`getAmountFromHolder: transfer ${amountToClaim.toString()} of ${await connection.symbol()} to ${recipient} from holder ${holder}`);
       await connection.transfer(recipient, amountToClaim);
     }
 

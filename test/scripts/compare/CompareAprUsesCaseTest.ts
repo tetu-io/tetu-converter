@@ -6,23 +6,24 @@ import {
   IBorrowTask,
   IBorrowingTestResults,
   ISwapTestResults
-} from "../../baseUT/uses-cases/CompareAprUsesCase";
+} from "../../baseUT/uses-cases/app/CompareAprUsesCase";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {IAssetInfo} from "../../baseUT/apr/aprDataTypes";
+import {IAssetInfo} from "../../baseUT/protocols/shared/aprDataTypes";
 import {BigNumber} from "ethers";
 import {IERC20Metadata__factory, SwapManager__factory} from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {AprAave3} from "../../baseUT/apr/aprAave3";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
-import {AprDForce} from "../../baseUT/apr/aprDForce";
-import {appendBorrowingTestResultsToFile, appendSwapTestResultsToFile} from "../../baseUT/apr/aprUtils";
+import {AprAave3} from "../../baseUT/protocols/aave3/aprAave3";
+import {AprAaveTwo} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
+import {AprDForce} from "../../baseUT/protocols/dforce/aprDForce";
+import {appendBorrowingTestResultsToFile, appendSwapTestResultsToFile} from "../../baseUT/protocols/shared/aprUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {expect} from "chai";
 import {Misc} from "../../../scripts/utils/Misc";
-import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
+import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 
 /**
  * Script to generate
@@ -260,8 +261,8 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   async function makeTestSwap(countBlocks: number, tasks: IBorrowTask[]): Promise<ISwapTestResults[]> {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
+      {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR},
       undefined,
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
     );
 
     const swapManager = SwapManager__factory.connect(await controller.swapManager(), deployer);
@@ -274,8 +275,9 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   }
 
   async function makeTestAave3(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const templateAdapterStub = ethers.Wallet.createRandom().address;
+    const core = MaticCore.getCoreAave3();
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
       deployer,
@@ -294,12 +296,12 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
           amountToBorrow0,
           p,
           additionalPoints
-        ) => (await AprAave3.makeBorrowTest(deployer0, amountToBorrow0, p, additionalPoints)).results
+        ) => (await AprAave3.makeBorrowTest(deployer0, core, amountToBorrow0, p, additionalPoints)).results
     );
   }
 
   async function makeTestAaveTwo(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
@@ -323,7 +325,7 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   }
 
   async function makeTestDForce(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
@@ -365,7 +367,7 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
   }
 
   async function makeTestHundredFinance(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(

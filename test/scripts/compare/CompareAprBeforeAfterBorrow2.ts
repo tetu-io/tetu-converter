@@ -4,20 +4,20 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {
-  IERC20__factory, IERC20Metadata__factory
+  IERC20__factory, IERC20Metadata__factory, ITetuLiquidator__factory
 } from "../../../typechain";
 import {expect} from "chai";
-import {AprAave3} from "../../baseUT/apr/aprAave3";
-import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
-import {AprDForce} from "../../baseUT/apr/aprDForce";
+import {AprAave3} from "../../baseUT/protocols/aave3/aprAave3";
+import {AprAaveTwo} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
+import {AprDForce} from "../../baseUT/protocols/dforce/aprDForce";
 import {Misc} from "../../../scripts/utils/Misc";
-import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
-import {AprSwap} from "../../baseUT/apr/aprSwap";
+import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
+import {AprSwap} from "../../baseUT/protocols/shared/aprSwap";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
-import {ITetuLiquidator__factory} from "../../../typechain/factories/contracts/interfaces";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 
 /**
  * For any landing platform:
@@ -75,10 +75,12 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE3", () => {
       it("predicted APR should be equal to real APR", async () => {
+        const core = MaticCore.getCoreAave3();
         const ret = await AprAave3.makeBorrowTest(
-          deployer
-          , AMOUNT_TO_BORROW
-          , {
+          deployer,
+          core,
+          AMOUNT_TO_BORROW,
+          {
             collateral: {
               asset: ASSET_COLLATERAL,
               holder: HOLDER_COLLATERAL,
@@ -92,8 +94,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
             collateralAmount: AMOUNT_COLLATERAL,
             healthFactor2: HEALTH_FACTOR2,
             countBlocks: COUNT_BLOCKS
-          }
-          , [] // no additional points
+          },
+          [] // no additional points
         );
         console.log("ret", ret);
 

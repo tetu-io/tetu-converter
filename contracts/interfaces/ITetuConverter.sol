@@ -122,6 +122,7 @@ interface ITetuConverter is IConverterControllerProvider {
   /// @notice Full or partial repay of the borrow
   /// @dev A user should transfer {amountToRepay_} to TetuConverter before calling repay()
   /// @param amountToRepay_ Amount of borrowed asset to repay.
+  ///        A user should transfer {amountToRepay_} to TetuConverter before calling repay().
   ///        You can know exact total amount of debt using {getStatusCurrent}.
   ///        if the amount exceed total amount of the debt:
   ///           - the debt will be fully repaid

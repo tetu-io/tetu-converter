@@ -6,10 +6,8 @@ import {
   IDForcePriceOracle, IERC20__factory, IERC20Metadata__factory, IPoolAdapter__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
-import {DForceHelper, IDForceMarketData} from "../../../../scripts/integration/helpers/DForceHelper";
+import {DForceHelper, IDForceMarketData} from "../../../../scripts/integration/dforce/DForceHelper";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
-import {MocksHelper} from "../../helpers/MocksHelper";
-import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -18,14 +16,13 @@ import {BalanceUtils} from "../../utils/BalanceUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {ethers} from "hardhat";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {IDForceCalcAccountEquityResults} from "../../apr/aprDForce";
+import {IDForceCalcAccountEquityResults} from "./aprDForce";
 import {DForceChangePriceUtils} from "./DForceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
-import {TetuConverterApp} from "../../helpers/TetuConverterApp";
-import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
-import {GAS_LIMIT} from "../../GasLimit";
-import {AppDataTypes} from "../../../../typechain/contracts/protocols/dforce/DForcePlatformAdapter";
-import {IConversionPlan} from "../../apr/aprDataTypes";
+import {GAS_LIMIT} from "../../types/GasLimit";
+import {IConversionPlan} from "../../types/AppDataTypes";
+import {MocksHelper} from "../../app/MocksHelper";
+import {AdaptersHelper} from "../../app/AdaptersHelper";
 
 //region Data types
 export interface IPrepareToBorrowResults {

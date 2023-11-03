@@ -1,28 +1,15 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {
-  BorrowManager__factory,
-  ConverterController,
-  DebtMonitor__factory,
-  DForceControllerMock, DForceCTokenMock,
-  DForcePoolAdapter, IDForceRewardDistributor__factory, IERC20__factory,
-  DForcePoolAdapter__factory,
-  IERC20Metadata__factory,
-  IPoolAdapter__factory, ITetuConverter__factory,
-  ITokenAddressProvider,
-  TokenAddressProviderMock, IWmatic__factory,
-} from "../../../typechain";
-import { ValueReceivedEventObject } from '../../../typechain/contracts/protocols/dforce/DForcePoolAdapter';
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
 import {Misc} from "../../../scripts/utils/Misc";
-import {IDForceCalcAccountEquityResults} from "../../baseUT/apr/aprDForce";
+import {IDForceCalcAccountEquityResults} from "../../baseUT/protocols/dforce/aprDForce";
 import {areAlmostEqual, toStringWithRound} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {
@@ -38,13 +25,32 @@ import {
   IMakeBorrowOrRepayBadPathsParams,
   IPrepareToBorrowResults
 } from "../../baseUT/protocols/dforce/DForceTestUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {
+  DForcePoolAdapter,
+  ValueReceivedEventObject
+} from "../../../typechain/contracts/protocols/dforce/DForcePoolAdapter";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {MocksHelper} from "../../baseUT/app/MocksHelper";
+import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
+import {
+  BorrowManager__factory,
+  ConverterController,
+  DebtMonitor__factory,
+  DForceControllerMock, DForceCTokenMock,
+  DForcePoolAdapter__factory,
+  IDForceRewardDistributor__factory,
+  IERC20__factory,
+  IERC20Metadata__factory,
+  IPoolAdapter__factory,
+  ITetuConverter__factory,
+  ITokenAddressProvider,
+  IWmatic__factory,
+  TokenAddressProviderMock
+} from "../../../typechain";
 
 describe("DForcePoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -61,7 +67,7 @@ describe("DForcePoolAdapterUnitTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[1];
-    controllerInstance = await TetuConverterApp.createController(deployer);
+    controllerInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   });
 
   after(async function () {
@@ -140,7 +146,8 @@ describe("DForcePoolAdapterUnitTest", () => {
       collateralCToken,
       borrowCToken,
       mockedCollateralCToken.address,
-      mockedBorrowCToken.address
+      mockedBorrowCToken.address,
+      MaticAddresses.DFORCE_CONTROLLER
     );
 
     await mockedCollateralCToken.init(mockedComptroller.address, collateralAsset, collateralCToken);
@@ -267,7 +274,8 @@ describe("DForcePoolAdapterUnitTest", () => {
           expect(collateralBalanceATokens.gte(aaveTokensBalance)).eq(true);
         });
       });
-      describe("Supply and borrow not-matic (CRV, USDC)", () => {
+      /** Block 48937698: Token mint has been paused */
+      describe.skip("Supply and borrow not-matic (CRV, USDC)", () => {
         const collateralAsset = MaticAddresses.CRV;
         const collateralCToken = MaticAddresses.dForce_iCRV;
         const collateralHolder = MaticAddresses.HOLDER_CRV;
@@ -1718,7 +1726,7 @@ describe("DForcePoolAdapterUnitTest", () => {
 
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
 
       const poolAdapter = await AdaptersHelper.createDForcePoolAdapter(deployer);
