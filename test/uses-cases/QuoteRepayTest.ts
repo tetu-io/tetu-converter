@@ -26,7 +26,6 @@ import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
 import {AaveTwoPlatformFabric} from "../baseUT/logic/fabrics/AaveTwoPlatformFabric";
 import {HundredFinancePlatformFabric} from "../baseUT/logic/fabrics/HundredFinancePlatformFabric";
 import {DForcePlatformFabric} from "../baseUT/logic/fabrics/DForcePlatformFabric";
-import {AaveTwoHelper} from "../../scripts/integration/aaveTwo/AaveTwoHelper";
 
 describe("QuoteRepayTest", () => {
 //region Global vars for all tests

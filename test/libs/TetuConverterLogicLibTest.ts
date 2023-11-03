@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {MockERC20, TetuConverterLogicLibFacade} from "../../typechain";
+import {MockERC20} from "../../typechain";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {MocksHelper} from "../baseUT/app/MocksHelper";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";

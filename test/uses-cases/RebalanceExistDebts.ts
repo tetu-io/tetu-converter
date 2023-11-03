@@ -22,7 +22,7 @@ import {expect} from "chai";
 import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
 import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
 
-describe("BorrowRepayTest", () => {
+describe("RebalanceExistDebts", () => {
 //region Global vars for all tests
   let snapshotRoot: string;
   let signer: SignerWithAddress;
