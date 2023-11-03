@@ -58,10 +58,10 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
         deployer,
         MaticCore.getCoreAave3(),
         converterInstance,
-        collateralToken,
+        collateralToken.address,
         [collateralHolder],
         collateralAmountRequired,
-        borrowToken,
+        borrowToken.address,
         false
       );
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
@@ -157,10 +157,10 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
         deployer,
         MaticCore.getCoreAave3(),
         converterInstance,
-        collateralToken,
+        collateralToken.address,
         [collateralHolder],
         collateralAmountRequired,
-        borrowToken,
+        borrowToken.address,
         false
       );
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
@@ -256,10 +256,10 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
         deployer,
         MaticCore.getCoreAave3(),
         converterInstance,
-        collateralToken,
+        collateralToken.address,
         [collateralHolder],
         collateralAmountRequired,
-        borrowToken,
+        borrowToken.address,
         false
       );
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);

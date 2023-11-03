@@ -72,14 +72,14 @@ describe("Aave3CollateralBalanceTest", () => {
       deployer,
       MaticCore.getCoreAave3(),
       controllerInstance,
-      collateralToken,
+      collateralToken.address,
       [collateralHolder],
       collateralAmount,
-      borrowToken,
+      borrowToken.address,
       false
     );
     // make a borrow
-    await Aave3TestUtils.makeBorrow(deployer, d, undefined);
+    await Aave3TestUtils.makeBorrow(deployer, d);
 
     return {
       collateralToken,
@@ -97,7 +97,7 @@ describe("Aave3CollateralBalanceTest", () => {
       it("should return expected collateral balance", async () => {
 
         await Aave3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
-        await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
+        await Aave3TestUtils.makeBorrow(deployer, init.d);
         const stateAfterSecondBorrow = await Aave3TestUtils.getState(init.d);
 
         const ret = [
@@ -116,7 +116,7 @@ describe("Aave3CollateralBalanceTest", () => {
       });
       it("make full repay, should return zero collateral balance", async () => {
         await Aave3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
-        await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
+        await Aave3TestUtils.makeBorrow(deployer, init.d);
         await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await Aave3TestUtils.makeRepay(
           init.d,
@@ -164,7 +164,7 @@ describe("Aave3CollateralBalanceTest", () => {
       it("make full repay, should return zero collateral balance", async () => {
         console.log("Start borrowing");
         await Aave3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
-        await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
+        await Aave3TestUtils.makeBorrow(deployer, init.d);
 
         console.log("Start repaying");
         await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);

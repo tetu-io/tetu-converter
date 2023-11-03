@@ -66,13 +66,21 @@ describe("Aave3PoolAdapterIntTest", () => {
         deployer,
         MaticCore.getCoreAave3(),
         converter,
-        collateralToken,
+        collateralToken.address,
         [collateralHolder],
         collateralAmountRequired,
-        borrowToken,
+        borrowToken.address,
         false
       );
-      const ret = await Aave3TestUtils.makeBorrow(deployer, d, borrowAmountRequired);
+      const ret = await Aave3TestUtils.makeBorrow(
+          deployer,
+          d,
+          {
+            borrowAmountRequired: borrowAmountRequired === undefined
+              ? undefined
+              : formatUnits(borrowAmountRequired, await IERC20Metadata__factory.connect(borrowToken.address, deployer).decimals())
+          }
+      );
       return {
         borrowedAmount: ret.borrowedAmount,
         priceBorrow: d.priceBorrow,
@@ -372,7 +380,7 @@ describe("Aave3PoolAdapterIntTest", () => {
         deployer,
         MaticCore.getCoreAave3(),
         converterInstance,
-        collateralToken,
+        collateralToken.address,
         [collateralHolder],
         collateralAmount,
         borrowToken,
@@ -505,10 +513,10 @@ describe("Aave3PoolAdapterIntTest", () => {
         deployer,
         MaticCore.getCoreAave3(),
         converterInstance,
-        collateralToken,
+        collateralToken.address,
         collateralHolders,
         collateralAmountRequired,
-        borrowToken,
+        borrowToken.address,
         emode,
         {borrowHolders}
       );
@@ -834,10 +842,10 @@ describe("Aave3PoolAdapterIntTest", () => {
         deployer,
         MaticCore.getCoreAave3(), // todo
         converterInstance,
-        collateralToken,
+        collateralToken.address,
         [collateralHolder],
         collateralAmountRequired,
-        borrowToken,
+        borrowToken.address,
         false
       );
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);

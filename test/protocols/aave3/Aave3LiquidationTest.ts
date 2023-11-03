@@ -136,7 +136,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       );
 
       await expect(
-        Aave3TestUtils.makeBorrow(deployer, init.d, undefined)
+        Aave3TestUtils.makeBorrow(deployer, init.d)
       ).revertedWith("35");
     });
 
@@ -255,7 +255,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       );
 
       await expect(
-        Aave3TestUtils.makeBorrow(deployer, init.d, undefined)
+        Aave3TestUtils.makeBorrow(deployer, init.d)
       ).revertedWith("35"); // or 36...
     });
 
