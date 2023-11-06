@@ -54,6 +54,14 @@ export class BaseAddresses {
     public static UNISWAPV3_DAI_USDbC_100 = '0x22F9623817F152148B4E080E98Af66FBE9C5AdF8'.toLowerCase()
 //endregion ----------------------------------------------------- UniswapV3
 
+//region ----------------------------------------------------- AAVE3
+    public static AAVE3_USDbC_ATOKEN = '0x0a1d576f3eFeF75b330424287a95A366e8281D54'.toLowerCase()
+    public static AAVE3_USDbC_ATOKEN_HOLDER = '0x8cd7e29e4f9101bd516f91d4de89ddc7692198fd'.toLowerCase()
+    public static AAVE3_WETH_ATOKEN = '0xD4a0e0b9149BCee3C920d2E00b5dE09138fd8bb7'.toLowerCase()
+    public static AAVE3_WETH_ATOKEN_HOLDER = '0xb463c4d7c574bd0a05a1320186378dd6a7aeaa33'.toLowerCase()
+
+//endregion ----------------------------------------------------- AAVE3
+
 //region ----------------------------------------------------- Holders
     public static HOLDER_WETH = "0x4b581deda2f2c0650c3dfc506c86a8c140d9f699".toLowerCase();
     public static HOLDER_WETH_1 = "0x428ab2ba90eba0a4be7af34c9ac451ab061ac010".toLowerCase();

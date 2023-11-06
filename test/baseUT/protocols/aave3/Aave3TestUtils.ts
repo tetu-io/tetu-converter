@@ -1,7 +1,7 @@
 import {
   Aave3PoolAdapter, Aave3PoolAdapter__factory, Aave3PoolMock, Aave3PoolMock__factory,
   Borrower, BorrowManager__factory,
-  ConverterController,
+  ConverterController, DebtMonitor__factory,
   IAavePool, IAavePool__factory,
   IAavePriceOracle,
   IAaveProtocolDataProvider, IERC20__factory, IERC20Metadata__factory
@@ -101,6 +101,7 @@ export interface IBorrowResults {
   collateralData: IAave3ReserveInfo;
   accountDataAfterBorrow: IAave3UserAccountDataResults;
   borrowedAmount: BigNumber;
+  isPositionOpened: boolean;
 }
 
 export interface IPrepareToLiquidationResults {
@@ -304,12 +305,12 @@ export class Aave3TestUtils {
 
   public static async makeBorrow(deployer: SignerWithAddress, d: IPrepareToBorrowResults, p?: IMakeBorrowParams): Promise<IBorrowResults> {
     const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, d.collateralToken);
-    const borrowAmount = p?.borrowAmountRequired
+    const borrowedAmount = p?.borrowAmountRequired
       ? parseUnits(p.borrowAmountRequired, await IERC20Metadata__factory.connect(d.borrowToken, deployer).decimals())
       : d.amountToBorrow;
     console.log("borrowAmountRequired", p?.borrowAmountRequired);
     console.log("d.collateralAmount", d.collateralAmount);
-    console.log("borrowAmount", borrowAmount);
+    console.log("borrowAmount", borrowedAmount);
 
     await transferAndApprove(
       d.collateralToken,
@@ -332,12 +333,18 @@ export class Aave3TestUtils {
       }
     }
 
-    await borrower.borrow(d.collateralAmount, borrowAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
+    await borrower.borrow(d.collateralAmount, borrowedAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
+
+    const isPositionOpened = await DebtMonitor__factory.connect(
+      await d.controller.debtMonitor(),
+      await DeployerUtils.startImpersonate(d.aavePoolAdapterAsTC.address)
+    ).isPositionOpened();
 
     return {
       collateralData,
       accountDataAfterBorrow: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
-      borrowedAmount: borrowAmount
+      borrowedAmount,
+      isPositionOpened
     };
   }
 
@@ -353,6 +360,11 @@ export class Aave3TestUtils {
       const tetuConverter = await d.controller.tetuConverter();
       const poolAdapterAsCaller = d.aavePoolAdapterAsTC.connect(await DeployerUtils.startImpersonate(tetuConverter));
 
+      console.log("d.borrowToken", d.borrowToken);
+      console.log("d.userContract.address", d.userContract.address);
+      console.log("tetuConverter", tetuConverter);
+      console.log("amountToRepay", amountToRepay);
+      console.log("d.aavePoolAdapterAsTC.address", d.aavePoolAdapterAsTC.address);
       await transferAndApprove(
         d.borrowToken,
         d.userContract.address,
