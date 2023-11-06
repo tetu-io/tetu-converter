@@ -18,6 +18,7 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 import "../../libs/AppUtils.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -158,6 +159,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     uint newCollateralBalanceATokens = _supply(pool, collateralAsset, collateralAmount_) + collateralBalanceATokens;
     collateralBalanceATokens = newCollateralBalanceATokens;
+    console.log("newCollateralBalanceATokens", newCollateralBalanceATokens);
 
     // enter to E-mode if necessary
     prepareToBorrow();
@@ -264,6 +266,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   /// @param receiver_ Receiver of withdrawn collateral
   /// @return Amount of collateral asset sent to the {receiver_}
   function repay(uint amountToRepay_, address receiver_, bool closePosition_) external override returns (uint) {
+    console.log("AAVE3.repay.amountToRepay_", amountToRepay_);
     IConverterController c = controller;
     _onlyTetuConverter(c);
 
@@ -336,6 +339,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint localCollateralBalanceATokens = collateralBalanceATokens;
     localCollateralBalanceATokens = AppUtils.sub0(localCollateralBalanceATokens, aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
     collateralBalanceATokens = localCollateralBalanceATokens;
+    console.log("AAVE3.repay.aTokensBalanceBeforeRepay", aTokensBalanceBeforeRepay);
+    console.log("AAVE3.repay.aTokensBalanceAfterRepay", aTokensBalanceAfterRepay);
+    console.log("AAVE3.repay.localCollateralBalanceATokens", localCollateralBalanceATokens);
+    console.log("AAVE3.repay.collateralBalanceATokens", collateralBalanceATokens);
 
     emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactorAfter, localCollateralBalanceATokens);
     return amountCollateralToWithdraw;
@@ -566,6 +573,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint reduction = healthFactorBefore > healthFactorAfter
       ? healthFactorBefore - healthFactorAfter
       : 0;
+    console.log("_validateHealthFactor.threshold", threshold);
+    console.log("_validateHealthFactor.reduction", reduction);
+    console.log("_validateHealthFactor.healthFactorBefore", healthFactorBefore);
+    console.log("_validateHealthFactor.healthFactorAfter", healthFactorAfter);
     require(
       healthFactorAfter >= threshold
       || (healthFactorBefore != 0 && reduction < MAX_ALLOWED_HEALTH_FACTOR_REDUCTION),
