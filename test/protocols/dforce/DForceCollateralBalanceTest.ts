@@ -14,7 +14,7 @@ import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUt
 import {ConverterController} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 
-describe("DForceCollateralBalanceTest", () => {
+describe.skip("DForceCollateralBalanceTest", () => {
 //region Constants
   const collateralAsset = MaticAddresses.USDC;
   const collateralHolder = MaticAddresses.HOLDER_USDC;

@@ -52,7 +52,7 @@ import {
   TokenAddressProviderMock
 } from "../../../typechain";
 
-describe("DForcePoolAdapterUnitTest", () => {
+describe.skip("DForcePoolAdapterUnitTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

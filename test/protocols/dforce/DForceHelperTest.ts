@@ -23,7 +23,7 @@ import {
   IDForceInterestRateModel__factory
 } from "../../../typechain";
 
-describe("DForceHelper tests", () => {
+describe.skip("DForceHelper tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

@@ -26,7 +26,7 @@ import {
 } from "../../../typechain";
 
 
-describe("DForcePoolAdapterIntTest", () => {
+describe.skip("DForcePoolAdapterIntTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

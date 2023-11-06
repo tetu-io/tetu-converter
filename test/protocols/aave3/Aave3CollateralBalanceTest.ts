@@ -202,8 +202,8 @@ describe("Aave3CollateralBalanceTest", () => {
 
         await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
           init.d.aavePoolAdapterAsTC.address,
-          init.d.collateralToken.address,
-          init.d.borrowToken.address,
+          init.d.collateralToken,
+          init.d.borrowToken,
           {
             useCollateral: true,
             amountBorrowAsset: BigNumber.from(0),
@@ -239,8 +239,8 @@ describe("Aave3CollateralBalanceTest", () => {
 
         await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
           init.d.aavePoolAdapterAsTC.address,
-          init.d.collateralToken.address,
-          init.d.borrowToken.address,
+          init.d.collateralToken,
+          init.d.borrowToken,
           {
             useCollateral: true,
             amountBorrowAsset: BigNumber.from(0),
@@ -282,8 +282,8 @@ describe("Aave3CollateralBalanceTest", () => {
 
         await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
           init.d.aavePoolAdapterAsTC.address,
-          init.d.collateralToken.address,
-          init.d.borrowToken.address,
+          init.d.collateralToken,
+          init.d.borrowToken,
           {
             useCollateral: false,
             amountBorrowAsset: amountToRepay,
@@ -314,8 +314,8 @@ describe("Aave3CollateralBalanceTest", () => {
 
         await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
           init.d.aavePoolAdapterAsTC.address,
-          init.d.collateralToken.address,
-          init.d.borrowToken.address,
+          init.d.collateralToken,
+          init.d.borrowToken,
           {
             useCollateral: false,
             amountBorrowAsset: amountToRepay,
@@ -347,7 +347,7 @@ describe("Aave3CollateralBalanceTest", () => {
       it.skip("should return not-zero collateralAmountLiquidated", async () => {
         // reduce price of collateral to reduce health factor below 1
         const core = MaticCore.getCoreAave3();
-        await Aave3ChangePricesUtils.changeAssetPrice(deployer, core, init.d.collateralToken.address, false, 10);
+        await Aave3ChangePricesUtils.changeAssetPrice(deployer, core, init.d.collateralToken, false, 10);
 
         await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder);
         const stateAfterLiquidation = await Aave3TestUtils.getState(init.d);

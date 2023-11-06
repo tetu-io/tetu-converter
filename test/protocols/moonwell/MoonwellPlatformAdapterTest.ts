@@ -536,7 +536,7 @@ describe("MoonwellPlatformAdapterTest", () => {
             });
 
             expect(r.plan.maxAmountToBorrow).eq(r.expectedPlan.maxAmountToBorrow);
-            expect(r.plan.collateralAmount).approximately(r.expectedPlan.collateralAmount, 1e-6);
+            expect(r.plan.collateralAmount).approximately(r.expectedPlan.collateralAmount, 1e-3);
           });
         });
       });

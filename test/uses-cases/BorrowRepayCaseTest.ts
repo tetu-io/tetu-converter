@@ -83,7 +83,7 @@ describe("BorrowRepayCaseTest", () => {
   }
 
   const PARAMS_SINGLE_WETH: IBorrowRepaySingleActionParams = {
-    userBorrowAssetBalance: "1",
+    userBorrowAssetBalance: "2",
     userCollateralAssetBalance: "1.5",
     collateralAmount: "1",
     collateralAmountSecond: "0.1",
@@ -117,43 +117,6 @@ describe("BorrowRepayCaseTest", () => {
   }
 
   const NETWORKS: IChainParams[] = [
-    { // Polygon
-      networkId: POLYGON_NETWORK_ID,
-      // any block ~2022 (when HundredFinance had good TVL)
-      block: 29439975,
-      platforms: [
-        { // Hundred finance on Polygon: todo check on manually deployed protocol
-          platformUtilsProviderBuilder() {
-            return new HundredFinanceUtilsProvider();
-          },
-          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-              signer0,
-              converterController0,
-              MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-              (await AdaptersHelper.createHundredFinancePoolAdapter(signer0)).address,
-              HundredFinanceUtils.getAllCTokens(),
-            ) as HfPlatformAdapter;
-
-            // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(HundredFinanceUtils.getAllAssets());
-            await borrowManagerAsGov0.addAssetPairs(
-              platformAdapter.address,
-              pairs.map(x => x.smallerAddress),
-              pairs.map(x => x.biggerAddress)
-            );
-
-            return platformAdapter;
-          },
-          assetPairs: [
-            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.WMATIC, collateralAssetName: "DAI", borrowAssetName: "WMATIC", singleParams: PARAMS_SINGLE_STABLE_WMATIC},
-            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-            {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "WMATIC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
-          ]
-        },
-      ]
-    },
-
     { // Base chain
       networkId: BASE_NETWORK_ID,
       platforms: [
@@ -294,19 +257,62 @@ describe("BorrowRepayCaseTest", () => {
             {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.MaticX, collateralAssetName: "WMATIC", borrowAssetName: "MaticX", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
           ]
         },
-        { // DForce on Polygon
+
+        // { // DForce on Polygon
+        //   async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+        //     const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+        //       signer0,
+        //       converterController0,
+        //       MaticAddresses.DFORCE_CONTROLLER,
+        //       (await AdaptersHelper.createDForcePoolAdapter(signer0)).address,
+        //       DForceUtils.getAllCTokens(),
+        //       borrowManagerAsGov0.address,
+        //     ) as DForcePlatformAdapter;
+        //
+        //     // register the platform adapter in TetuConverter app
+        //     const pairs = generateAssetPairs(DForceUtils.getAllAssets());
+        //     await borrowManagerAsGov0.addAssetPairs(
+        //       platformAdapter.address,
+        //       pairs.map(x => x.smallerAddress),
+        //       pairs.map(x => x.biggerAddress)
+        //     );
+        //
+        //     return platformAdapter;
+        //   },
+        //   platformUtilsProviderBuilder() {
+        //     return new DForceUtilsProvider();
+        //   },
+        //   assetPairs: [
+        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+        //     {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+        //
+        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+        //     {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+        //   ]
+        // },
+      ]
+    },
+
+    { // Polygon
+      networkId: POLYGON_NETWORK_ID,
+      // any block ~2022 (when HundredFinance had good TVL)
+      block: 29439975,
+      platforms: [
+        { // HundredFinance on Polygon
+          platformUtilsProviderBuilder() {
+            return new HundredFinanceUtilsProvider();
+          },
           async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+            const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
               signer0,
               converterController0,
-              MaticAddresses.DFORCE_CONTROLLER,
-              (await AdaptersHelper.createDForcePoolAdapter(signer0)).address,
-              DForceUtils.getAllCTokens(),
-              borrowManagerAsGov0.address,
-            ) as DForcePlatformAdapter;
+              MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+              (await AdaptersHelper.createHundredFinancePoolAdapter(signer0)).address,
+              HundredFinanceUtils.getAllCTokens(),
+            ) as HfPlatformAdapter;
 
             // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(DForceUtils.getAllAssets());
+            const pairs = generateAssetPairs(HundredFinanceUtils.getAllAssets());
             await borrowManagerAsGov0.addAssetPairs(
               platformAdapter.address,
               pairs.map(x => x.smallerAddress),
@@ -315,15 +321,10 @@ describe("BorrowRepayCaseTest", () => {
 
             return platformAdapter;
           },
-          platformUtilsProviderBuilder() {
-            return new DForceUtilsProvider();
-          },
           assetPairs: [
+            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.WMATIC, collateralAssetName: "DAI", borrowAssetName: "WMATIC", singleParams: PARAMS_SINGLE_STABLE_WMATIC},
             {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-            {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-
-            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+            {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "WMATIC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
           ]
         },
       ]

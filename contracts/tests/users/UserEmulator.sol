@@ -161,6 +161,8 @@ contract UserEmulator { // todo is ITetuConverterCallback {
     ) = _tc.findBorrowStrategies(entryData, collateralAsset_, amountIn, borrowAsset_, _periodInBlocks);
     require(converters.length > 0, AppErrors.POOL_ADAPTER_NOT_FOUND);
 
+    console.log("_borrowByPlan.amountIn", amountIn);
+    console.log("_borrowByPlan.balance", IERC20(collateralAsset_).balanceOf(address(this)));
     require(IERC20(collateralAsset_).balanceOf(address(this)) >= amountIn, "UserEmulator has insufficient balance of collateral");
 
     console.log("_borrowByPlan.converter", converters[0]);

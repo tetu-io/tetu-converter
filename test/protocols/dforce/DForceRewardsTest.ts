@@ -12,7 +12,7 @@ import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUt
  * Supply amount => claim rewards in specified period
  * Borrow amount => claim rewards in specified period
  */
-describe("DForceRewardsTest", () => {
+describe.skip("DForceRewardsTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

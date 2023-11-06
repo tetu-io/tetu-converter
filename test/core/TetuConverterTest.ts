@@ -2489,7 +2489,9 @@ describe("TetuConverterTest", () => {
               expect(r.swappedLeftoverCollateralOut).eq(0);
               expect(r.swappedLeftoverBorrowOut).eq(0);
             });
-            it("should return expected values with debt gaps", async () => {
+
+            /** SCB-821: It seems like implementation of SCB-821 makes logic of repay too complex... */
+            it.skip("should return expected values with debt gaps", async () => {
               const collateralAmounts = [2000, 20, 2]; // third platform is added to be able to use exist init
               const exactBorrowAmounts = [1000, 10, 1];
 

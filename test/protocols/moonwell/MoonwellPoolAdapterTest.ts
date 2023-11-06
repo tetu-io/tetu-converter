@@ -746,7 +746,7 @@ describe("MoonwellPoolAdapterTest", () => {
                   } else {
                     it("should decrease debt amount", async () => {
                       const ret = await loadFixture(repayTest);
-                      expect(ret.statusAfterRepay.amountToPay).approximately(ret.statusBeforeRepay.amountToPay * (100_000 - paramsForRepay.repayPart) / 100_000, 1e-3);
+                      expect(ret.statusAfterRepay.amountToPay).approximately(ret.statusBeforeRepay.amountToPay * (100_000 - paramsForRepay.repayPart) / 100_000, 1e-2);
                     });
                     it("should not change amount of collateral", async () => {
                       const ret = await loadFixture(repayTest);

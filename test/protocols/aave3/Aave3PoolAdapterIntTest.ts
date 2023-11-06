@@ -383,7 +383,7 @@ describe("Aave3PoolAdapterIntTest", () => {
         collateralToken.address,
         [collateralHolder],
         collateralAmount,
-        borrowToken,
+        borrowToken.address,
         false,
         {targetHealthFactor2}
       );

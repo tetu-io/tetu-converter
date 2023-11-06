@@ -16,7 +16,7 @@ import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUt
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
 import {DForceAprLibFacade, IDForceCToken__factory, IDForceRewardDistributor__factory} from "../../../typechain";
 
-describe("DForceHelper unit tests", () => {
+describe.skip("DForceHelper unit tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

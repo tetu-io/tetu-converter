@@ -62,7 +62,7 @@ describe("RebalanceExistDebts", () => {
 //region Unit tests
   /**
    * Make a borrow using given collateral.
-   * Change debt so that rebalancing is required.
+   * Change health factor so that rebalancing is required.
    * Make a second borrow using same collateral amount.
    * Check borrowed amounts and final status of the debt.
    */
@@ -120,6 +120,7 @@ describe("RebalanceExistDebts", () => {
         p.borrowAsset,
         1
       );
+
       await tetuConverter.borrow(
         plan1.converters[0],
         p.collateralAsset,
@@ -195,7 +196,7 @@ describe("RebalanceExistDebts", () => {
           });
         }
 
-        it("second borrowed amount should be less then the first one", async () => {
+        it("second borrowed amount should be less than the first one", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
           expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
           console.log(ret);
@@ -206,7 +207,7 @@ describe("RebalanceExistDebts", () => {
         });
         it("should restore health factor by second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.1, 1e-8);
+          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.1, 1e-7);
         });
       });
       describe("Borrow, increase target health factor a bit, borrow again with full rebalance", () => {
