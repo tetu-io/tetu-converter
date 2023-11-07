@@ -11,7 +11,7 @@ import "../proxy/ControllableV3.sol";
 contract ConverterController is IConverterController, ControllableV3 {
 
   //region ------------------------------------- Constants
-  string public constant CONVERTER_CONTROLLER_VERSION = "1.0.1";
+  string public constant CONVERTER_CONTROLLER_VERSION = "1.0.2";
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
   /// @notice Denominator for {debtGap}
   uint constant DEBT_GAP_DENOMINATOR = 100_000;
@@ -81,6 +81,9 @@ contract ConverterController is IConverterController, ControllableV3 {
 
   /// @inheritdoc IConverterController
   bool public override rebalanceOnBorrowEnabled;
+
+  /// @notice Address of accountant
+  address public override accountant;
   //endregion ------------------------------------- Variables
 
   //region ------------------------------------- Events
@@ -93,6 +96,7 @@ contract ConverterController is IConverterController, ControllableV3 {
   event OnAcceptGovernance(address pendingGovernance);
   event OnSetDebtGap(uint debtGap);
   event OnSetPriceOracle(address priceOracle);
+  event OnSetAccountant(address accountant);
   //endregion ------------------------------------- Events
 
   //region ------------------------------------- Initialization
@@ -149,6 +153,7 @@ contract ConverterController is IConverterController, ControllableV3 {
     // you can always change this limit using setMaxHealthFactor
     maxHealthFactor2 = 5000;
 
+    // accountant is initialized using setAccountant
   }
 
   function _onlyGovernance() internal view {
@@ -304,5 +309,12 @@ contract ConverterController is IConverterController, ControllableV3 {
   }
   //endregion ------------------------------------- Rebalance on borrowing
 
+  //region ------------------------------------- Accountant
+  function setAccountant(address accountant_) external {
+    _onlyGovernance();
+    accountant = accountant_;
+    emit OnSetAccountant(accountant_);
+  }
+  //endregion ------------------------------------- Accountant
 
 }

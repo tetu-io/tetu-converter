@@ -79,6 +79,7 @@ interface IConverterController {
   function tetuLiquidator() external view returns (address);
   function swapManager() external view returns (address);
   function priceOracle() external view returns (address);
+  function accountant() external view returns (address);
   //#endregion ----------------------------------------------------- Core application contracts
 
   //#region ----------------------------------------------------- External contracts

@@ -18,6 +18,7 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 import "../../libs/AppUtils.sol";
+import "../../interfaces/IAccountant.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -527,7 +528,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     return (
     // Total amount of provided collateral in [collateral asset]
-      totalCollateralBase * (10 ** __pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,
+      totalCollateralBase * (10 ** rc.configuration.getDecimals()) / collateralPrice,
 
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       totalDebtBase == 0
