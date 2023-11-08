@@ -1,13 +1,14 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    BorrowManager__factory,
-    ConverterController, ConverterController__factory,
-    DebtMonitor__factory,
-    Keeper__factory,
-    PriceOracle, PriceOracleMoonwell,
-    SwapManager__factory,
-    TetuConverter__factory,
+  Accountant__factory,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  BorrowManager__factory,
+  ConverterController, ConverterController__factory,
+  DebtMonitor__factory,
+  Keeper__factory,
+  PriceOracle, PriceOracleMoonwell,
+  SwapManager__factory,
+  TetuConverter__factory,
 } from "../../../typechain";
 import {BigNumber, ContractTransaction} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
@@ -104,6 +105,10 @@ export class CoreContractsHelper {
   public static async deployKeeper(signer: SignerWithAddress): Promise<string> {
     return (Keeper__factory.connect(await DeployUtils.deployProxy(signer,"Keeper"), signer)).address;
   }
+
+  public static async deployAccountant(signer: SignerWithAddress): Promise<string> {
+    return (Accountant__factory.connect(await DeployUtils.deployProxy(signer, "Accountant"), signer)).address;
+  }
 //endregion Deploy core contracts (no init calls)
 
 //region Initialize core contracts
@@ -123,6 +128,10 @@ export class CoreContractsHelper {
 
   public static async initializeDebtMonitor(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
     return DebtMonitor__factory.connect(instance, signer).init(controller);
+  }
+
+  public static async initializeAccountant(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
+    return Accountant__factory.connect(instance, signer).init(controller);
   }
 
   public static async initializeKeeper(

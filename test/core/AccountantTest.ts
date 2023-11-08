@@ -2,21 +2,27 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {Accountant} from "../../typechain";
+import {Accountant, MockERC20, PoolAdapterMock2} from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {Misc} from "../../scripts/utils/Misc";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
+import {CoreContracts} from "../baseUT/types/CoreContracts";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
 
 describe("AccountantTest", () => {
 //region Global vars for all tests
   let snapshot: string;
-  let snapshotForEach: string;
   let signer: SignerWithAddress;
   let accountant: Accountant;
-  let decimalsCollateral: number;
-  let decimalsBorrow: number;
   let user: SignerWithAddress;
+  let usdc: MockERC20;
+  let usdt: MockERC20;
+  let dai: MockERC20;
+  let matic: MockERC20;
+  let poolAdapter: PoolAdapterMock2;
+  let core: CoreContracts;
 //endregion Global vars for all tests
 
 //region before, after
@@ -29,9 +35,15 @@ describe("AccountantTest", () => {
     signer = signers[0];
 
     accountant = (await DeployUtils.deployContract(signer, "Accountant")) as Accountant;
-    decimalsCollateral = 18;
-    decimalsBorrow = 6;
+    usdc = await DeployUtils.deployContract(signer, 'MockERC20', 'USDC', 'USDC', 6) as MockERC20;
+    usdt = await DeployUtils.deployContract(signer, 'MockERC20', 'USDT', 'USDT', 6) as MockERC20;
+    dai = await DeployUtils.deployContract(signer, 'MockERC20', 'Dai', 'DAI', 18) as MockERC20;
+    matic = await DeployUtils.deployContract(signer, 'MockERC20', 'Matic', 'MATIC', 18) as MockERC20;
+
     user = await Misc.impersonate(ethers.Wallet.createRandom().address);
+    poolAdapter = await MocksHelper.createPoolAdapterMock2(signer);
+
+    core = await CoreContracts.build(await TetuConverterApp.createController(signer, {networkId: HARDHAT_NETWORK_ID,}));
   });
 
   after(async function () {
@@ -41,16 +53,19 @@ describe("AccountantTest", () => {
 
 //region Unit tests
   describe("sequence of borrow/repay", () => {
-    interface IAction {
-      /** true - borrow, false - repay */
+    interface IParams {
       isBorrow: boolean;
+
       amountC: string;
       amountB: string;
+
       totalCollateral: string;
       totalDebt: string;
-    }
-    interface IParams {
-      actions: IAction[];
+
+      collateralAsset?: MockERC20; // usdc by default
+      borrowAsset?: MockERC20; // usdt by default
+      underlying?: MockERC20; // collateralAsset by default
+      prices?: string[]; // "1" by default
     }
 
     interface IResults {
@@ -58,50 +73,40 @@ describe("AccountantTest", () => {
       borrowedAmount: number;
       lastTotalCollateral: number;
       lastTotalDebt: number;
-
-      gains: number[];
-      losses: number[];
+      totalGain: number;
+      totalLosses: number;
     }
 
     async function makeTest(p: IParams): Promise<IResults> {
-      const gains: number[] = [];
-      const losses: number[] = [];
+      const collateralAsset = p.collateralAsset ?? usdc;
+      const borrowAsset = p.borrowAsset ?? usdt;
+      const underlying = p.underlying ?? collateralAsset;
 
-      for (const action of p.actions) {
-        if (action.isBorrow) {
-          await accountant.connect(user).onBorrow(
-            parseUnits(action.amountC, decimalsCollateral),
-            parseUnits(action.amountB, decimalsBorrow),
-            parseUnits(action.totalCollateral, decimalsCollateral),
-            parseUnits(action.totalDebt, decimalsBorrow)
-          );
-        } else {
-          const ret = await accountant.connect(user).callStatic.onRepay(
-            parseUnits(action.amountC, decimalsCollateral),
-            parseUnits(action.amountB, decimalsBorrow),
-            parseUnits(action.totalCollateral, decimalsCollateral),
-            parseUnits(action.totalDebt, decimalsBorrow)
-          );
-          await accountant.connect(user).onRepay(
-            parseUnits(action.amountC, decimalsCollateral),
-            parseUnits(action.amountB, decimalsBorrow),
-            parseUnits(action.totalCollateral, decimalsCollateral),
-            parseUnits(action.totalDebt, decimalsBorrow)
-          );
-          gains.push(+formatUnits(ret.gain, decimalsCollateral));
-          losses.push(+formatUnits(ret.losses, decimalsBorrow));
-        }
+      const decimalsCollateral = await collateralAsset.decimals();
+      const decimalsBorrow = await borrowAsset.decimals();
+      const decimalsUnderlying = await underlying.decimals();
+
+
+      if (p.isBorrow) {
+        await accountant.connect(user).onBorrow(
+          parseUnits(p.amountC, decimalsCollateral),
+          parseUnits(p.amountB, decimalsBorrow),
+        );
+      } else {
+        await accountant.connect(user).onRepay(
+          parseUnits(p.amountC, decimalsCollateral),
+          parseUnits(p.amountB, decimalsBorrow),
+        );
       }
 
-      const userState = await accountant.getUserState(user.address);
+      const state = await accountant.getPoolAdapterState(user.address);
       return {
-        gains,
-        losses,
-
-        borrowedAmount: +formatUnits(userState.borrowedAmount, decimalsBorrow),
-        suppliedAmount: +formatUnits(userState.suppliedAmount, decimalsCollateral),
-        lastTotalCollateral: +formatUnits(userState.lastTotalCollateral, decimalsCollateral),
-        lastTotalDebt: +formatUnits(userState.lastTotalDebt, decimalsBorrow)
+        borrowedAmount: +formatUnits(state.borrowedAmount, decimalsBorrow),
+        suppliedAmount: +formatUnits(state.suppliedAmount, decimalsCollateral),
+        lastTotalCollateral: +formatUnits(state.lastTotalCollateral, decimalsCollateral),
+        lastTotalDebt: +formatUnits(state.lastTotalDebt, decimalsBorrow),
+        totalGain:  +formatUnits(state.totalGain, decimalsUnderlying),
+        totalLosses:  +formatUnits(state.totalLosses, decimalsUnderlying),
       }
     }
 
@@ -110,7 +115,13 @@ describe("AccountantTest", () => {
       let retBorrow1: IResults;
       before(async function () {
         snapshotLocal0 = await TimeUtils.snapshot();
-        retBorrow1 = await makeTest({actions: [{amountC: "10", amountB: "20", totalCollateral: "10", totalDebt: "20", isBorrow: true}]});
+        retBorrow1 = await makeTest({
+          amountC: "10",
+          amountB: "20",
+          totalCollateral: "10",
+          totalDebt: "20",
+          isBorrow: true,
+        });
       });
       after(async function () {
         await TimeUtils.rollback(snapshotLocal0);
@@ -131,13 +142,11 @@ describe("AccountantTest", () => {
           snapshotLocal1 = await TimeUtils.snapshot();
           // let's assume, that long time is passed since first borrow. Gain = 36 - 5 - 10 = 21, Losses = 55 - 20 - 10 = 25
           retBorrow2 = await makeTest({
-            actions: [{
               amountC: "5",
               amountB: "10",
               totalCollateral: "36",
               totalDebt: "55",
               isBorrow: true
-            }]
           });
         });
         after(async function () {
@@ -158,13 +167,11 @@ describe("AccountantTest", () => {
             snapshotLocal2 = await TimeUtils.snapshot();
             // let's assume, that we have totalDebt: "37", totalCollateral: "60" before repay, so total gain is 21 + 1 = 22, total losses = 25 + 5 = 30
             retRepay1 = await makeTest({
-              actions: [{
-                amountC: "12",
-                amountB: "16",
-                totalCollateral: "25",
-                totalDebt: "44",
-                isBorrow: false
-              }]
+              amountC: "12",
+              amountB: "16",
+              totalCollateral: "25",
+              totalDebt: "44",
+              isBorrow: false
             });
           });
           after(async function () {
@@ -182,10 +189,10 @@ describe("AccountantTest", () => {
             expect([retRepay1.lastTotalCollateral, retRepay1.lastTotalDebt].join()).eq([25, 44].join());
           });
           it("should return expected gain", async () => {
-            expect(retRepay1.gains[0]).approximately(12 - 12 / 37 * 15, 1e-5);
+            expect(retRepay1.totalGain).approximately(12 - 12 / 37 * 15, 1e-5);
           });
           it("should return expected losses", async () => {
-            expect(retRepay1.losses[0]).approximately(16 - 16 / 60 * 30, 1e-5);
+            expect(retRepay1.totalLosses).approximately(16 - 16 / 60 * 30, 1e-5);
           });
         });
         describe("full repay", () => {
@@ -195,13 +202,11 @@ describe("AccountantTest", () => {
             snapshotLocal2 = await TimeUtils.snapshot();
             // let's assume, that we have totalDebt: "37", totalCollateral: "60" before repay, so total gain is 21 + 1 = 22, total losses = 25 + 5 = 30
             retRepay1 = await makeTest({
-              actions: [{
-                amountC: "37",
-                amountB: "60",
-                totalCollateral: "0",
-                totalDebt: "0",
-                isBorrow: false
-              }]
+              amountC: "37",
+              amountB: "60",
+              totalCollateral: "0",
+              totalDebt: "0",
+              isBorrow: false
             });
           });
           after(async function () {
@@ -218,10 +223,10 @@ describe("AccountantTest", () => {
             expect([retRepay1.lastTotalCollateral, retRepay1.lastTotalDebt].join()).eq([0, 0].join());
           });
           it("should return expected gain", async () => {
-            expect(retRepay1.gains[0]).eq(22);
+            expect(retRepay1.totalGain).eq(22);
           });
           it("should return expected losses", async () => {
-            expect(retRepay1.losses[0]).eq(30);
+            expect(retRepay1.totalLosses).eq(30);
           });
         });
 

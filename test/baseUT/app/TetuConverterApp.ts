@@ -25,6 +25,7 @@ export interface ICoreContractFabrics {
   swapManagerFabric: IDeployInitFabricsSet;
   priceOracleFabric: () => Promise<string>;
   tetuLiquidatorFabric: () => Promise<string>;
+  accountantFabric: IDeployInitFabricsSet;
 }
 
 export interface ICreateControllerParams {
@@ -36,6 +37,7 @@ export interface ICreateControllerParams {
   debtMonitorFabric?: IDeployInitFabricsSet;
   keeperFabric?: IDeployInitFabricsSet;
   swapManagerFabric?: IDeployInitFabricsSet;
+  accountantFabric?: IDeployInitFabricsSet;
   priceOracleFabric?: () => Promise<string>;
 
   minHealthFactor2?: number;
@@ -91,6 +93,12 @@ export class TetuConverterApp {
         init: async (controller, instance) => {await CoreContractsHelper.initializeSwapManager(deployer, controller, instance)}
       };
 
+    const accountantFabric = p?.accountantFabric
+      || {
+        deploy: async () => CoreContractsHelper.deployAccountant(deployer),
+        init: async (controller, instance) => {await CoreContractsHelper.initializeAccountant(deployer, controller, instance)}
+      };
+
     const tetuLiquidatorFabric = async () => p?.tetuLiquidatorAddress
         || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address;
     const priceOracleFabric = p?.priceOracleFabric
@@ -107,7 +115,8 @@ export class TetuConverterApp {
         keeperFabric,
         tetuLiquidatorFabric,
         swapManagerFabric,
-        priceOracleFabric
+        priceOracleFabric,
+        accountantFabric
       },
       p?.minHealthFactor2 || 101,
       p?.targetHealthFactor2 || 200,

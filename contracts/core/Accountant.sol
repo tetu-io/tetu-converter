@@ -5,12 +5,14 @@ import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../openzeppelin/Math.sol";
+import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/IAccountant.sol";
 import "../libs/AppUtils.sol";
 import "hardhat/console.sol";
 import "../proxy/ControllableV3.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IBorrowManager.sol";
+import "../interfaces/IPriceOracle.sol";
 
 /// @notice Calculate amounts of losses and gains for debts/supply for all pool adapters
 contract Accountant is IAccountant, ControllableV3 {
@@ -37,9 +39,9 @@ contract Accountant is IAccountant, ControllableV3 {
 
   struct GainLossInfo {
     /// @notice Gain (received for supplied amount) registered in the current period, in terms of underlying
-    int gain;
+    int gainInUnderlying;
     /// @notice Losses (paid for the borrowed amount) registered in the current period, in terms of underlying
-    int losses;
+    int lossInUnderlying;
   }
 
   struct OnRepayLocal {
@@ -53,6 +55,8 @@ contract Accountant is IAccountant, ControllableV3 {
     uint collateralRatio;
     uint debt;
     uint collateral;
+    address collateralAsset;
+    address borrowAsset;
   }
   //endregion ----------------------------------------------------- Data types
 
@@ -81,16 +85,17 @@ contract Accountant is IAccountant, ControllableV3 {
     address poolAdapter,
     uint withdrawnCollateral,
     uint paidAmount,
-    uint gain,
-    uint losses,
-    uint gainInUnderlying,
-    uint lossesInUnderlying
+    int gain,
+    int losses,
+    int gainInUnderlying,
+    int lossesInUnderlying
   );
   //endregion ----------------------------------------------------- Events
 
   //region ----------------------------------------------------- Initialization
-  function init(address controller_) external initializer {
+  function init(address controller_, address underlying_) external initializer {
     __Controllable_init(controller_);
+    underlying = underlying_;
   }
   //endregion ----------------------------------------------------- Initialization
 
@@ -103,10 +108,10 @@ contract Accountant is IAccountant, ControllableV3 {
     IBorrowManager borrowManager = IBorrowManager(_controller.borrowManager());
     require(borrowManager.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_NOT_FOUND);
 
-    IPoolAdapter pa = IPoolAdapter(msg.sender);
-    (, address user, , ) = pa.getConfig();
+    IPoolAdapter poolAdapter = IPoolAdapter(msg.sender);
+    (, address user, , ) = poolAdapter.getConfig();
 
-    (uint totalCollateral, uint totalDebt,,,,) = pa.getStatus();
+    (uint totalCollateral, uint totalDebt,,,,) = poolAdapter.getStatus();
 
     console.log("onBorrow");
 
@@ -129,6 +134,7 @@ contract Accountant is IAccountant, ControllableV3 {
     console.log("onBorrow.2.state.lastTotalDebt", _states[msg.sender].lastTotalDebt);
 
     _poolAdaptersPerUser[user].add(msg.sender);
+    emit OnBorrow(address(poolAdapter), collateralAmount, borrowedAmount);
   }
 
   /// @notice Register loan payment
@@ -148,7 +154,7 @@ contract Accountant is IAccountant, ControllableV3 {
 
     if (v.borrowManager.isPoolAdapter(msg.sender)) {
       v.poolAdapter = IPoolAdapter(msg.sender);
-      (, v.user, , ) = v.poolAdapter.getConfig();
+      (, v.user, v.collateralAsset, v.borrowAsset) = v.poolAdapter.getConfig();
       (v.totalCollateral, v.totalDebt,,,,) = v.poolAdapter.getStatus();
 
       PoolAdapterState memory state = _states[msg.sender];
@@ -177,19 +183,28 @@ contract Accountant is IAccountant, ControllableV3 {
       });
 
       int gain = int(withdrawnCollateral) - int(v.collateral);
-      int losses = int(paidAmount) - int(v.debt);
+      int loss = int(paidAmount) - int(v.debt);
 
-      int gainInUnderlying = gain; // todo
-      int lossesInUnderlying = losses; // todo
+      address _underlying = underlying;
+      IPriceOracle priceOracle = IPriceOracle(v.controller.priceOracle());
+      uint priceUnderlying = priceOracle.getAssetPrice(_underlying);
+      int gainInUnderlying = _underlying == v.collateralAsset
+        ? gain
+        : gain * int(priceOracle.getAssetPrice(v.collateralAsset) * 10 ** IERC20Metadata(_underlying).decimals())
+        / int(priceUnderlying * 10 ** IERC20Metadata(v.collateralAsset).decimals());
+      int lossInUnderlying = _underlying == v.borrowAsset
+        ? loss
+        : loss * int(priceOracle.getAssetPrice(v.borrowAsset) * 10 ** IERC20Metadata(_underlying).decimals())
+        / int(priceUnderlying * 10 ** IERC20Metadata(v.borrowAsset).decimals());
 
       GainLossInfo memory prev = _losses[v.user];
       _losses[v.user] = GainLossInfo({
-        losses: prev.losses + losses,
-        gain: prev.gain + gain
+        lossInUnderlying: prev.lossInUnderlying + lossInUnderlying,
+        gainInUnderlying: prev.gainInUnderlying + gainInUnderlying
       });
 
       console.log("onRepay.gain");console.logInt(gain);
-      console.log("onRepay.losses");console.logInt(losses);
+      console.log("onRepay.losses");console.logInt(loss);
 
       console.log("onRepay.2.state.suppliedAmount", _states[msg.sender].suppliedAmount);
       console.log("onRepay.2.state.borrowedAmount", _states[msg.sender].borrowedAmount);
@@ -197,6 +212,7 @@ contract Accountant is IAccountant, ControllableV3 {
       console.log("onRepay.2.state.lastTotalDebt", _states[msg.sender].lastTotalDebt);
 
       _poolAdaptersPerUser[v.user].add(msg.sender);
+      emit OnRepay(address(v.poolAdapter), withdrawnCollateral, paidAmount, gain, loss, gainInUnderlying, lossInUnderlying);
     }
   }
   //endregion ----------------------------------------------------- OnBorrow, OnRepay
@@ -216,8 +232,8 @@ contract Accountant is IAccountant, ControllableV3 {
     for (uint i = countPoolAdapters; i > 0; i--) {
       address poolAdapter = _poolAdaptersPerUser[user].at(i - 1);
       GainLossInfo memory lossInfo = _losses[poolAdapter];
-      totalGain += lossInfo.gain;
-      totalLosses += lossInfo.losses;
+      totalGain += lossInfo.gainInUnderlying;
+      totalLosses += lossInfo.lossInUnderlying;
       (,,, bool opened, ,) = IPoolAdapter(poolAdapter).getStatus();
       if (! opened) {
         delete _losses[poolAdapter];
@@ -249,8 +265,8 @@ contract Accountant is IAccountant, ControllableV3 {
     GainLossInfo memory lossInfo = _losses[poolAdapter];
 
     return (
-      lossInfo.gain,
-      lossInfo.losses,
+      lossInfo.gainInUnderlying,
+      lossInfo.lossInUnderlying,
       state.suppliedAmount,
       state.borrowedAmount,
       state.lastTotalCollateral,
@@ -273,8 +289,8 @@ contract Accountant is IAccountant, ControllableV3 {
     for (uint i; i < countPoolAdapters; ++i) {
       address poolAdapter = _poolAdaptersPerUser[user].at(i);
       GainLossInfo memory lossInfo = _losses[poolAdapter];
-      totalGain += lossInfo.gain;
-      totalLosses += lossInfo.losses;
+      totalGain += lossInfo.gainInUnderlying;
+      totalLosses += lossInfo.lossInUnderlying;
     }
     return (countPoolAdapters, totalGain, totalLosses);
   }
