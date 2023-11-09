@@ -43,10 +43,10 @@ library AccountantLib {
     /// @notice Amount of debt registered on the lending platform after the action
     uint totalDebt;
     /// @notice Gain (received for supplied amount) received at the current action, in terms of collateral asset
-    int gain;
+    uint gain;
     /// @notice Losses (paid for the borrowed amount) paid in the current action, in terms of borrow asset
     ///         Pool adapter has debt. Debt is increased in time. The amount by which a debt increases is a loss
-    int loss;
+    uint loss;
     /// @notice [price of collateral, price of borrow asset] for the moment of the action, decimals 18 (USD/Token)
     uint[2] prices;
   }
@@ -107,60 +107,39 @@ library AccountantLib {
     address poolAdapter,
     uint withdrawnCollateral,
     uint paidAmount,
-    int gain,
-    int losses,
-    int gainInUnderlying,
-    int lossesInUnderlying
+    uint gain,
+    uint losses,
+    uint gainInUnderlying,
+    uint lossesInUnderlying
   );
   //endregion ----------------------------------------------------- Events
 
   //region ----------------------------------------------------- Checkpoint logic
+
   /// @notice Save checkpoint for the given {poolAdapter_} for the current moment
+  /// @dev Deltas can be calculated only if there were no repay/borrow actions since previous checkpoint
   function checkpoint(IPoolAdapter poolAdapter_, BaseState storage state_) internal returns (
-    int deltaGain,
-    int deltaLoss
+    uint deltaGain,
+    uint deltaLoss
   ) {
     CheckpointLocal memory v;
     (v.totalCollateral, v.totalDebt, , , , ) = poolAdapter_.getStatus();
     PoolAdapterCheckpoint memory c = state_.checkpoints[address(poolAdapter_)];
     Actions[] storage actions = state_.actions[address(poolAdapter_)];
 
-    v.actionIndexFrom = c.countActions;
     v.countActions = actions.length;
 
-    // (total debt - borrowed amount) gives us current value of increase to debt = X
-    // we should calculate X in each point:
-    //   checkpoint0, action1, action2... actionN, checkpoint1
-    //       x0         x1       x2         xN        xLast
-    // we can calculate losses on each interval as following:
-    //          x1-x0-d0,  x2-x1-d1, ... ,    xLast - xN - dLast
-    // where d_i is paid loss on the given interval (i.e. amount of covered loss on the interval, not 0 for repays only)
-    // the same calculations are applied to gains
-    if (v.actionIndexFrom == v.countActions) {
-      // there are no new actions between checkpoints
-      deltaGain = int(v.totalCollateral) - int(c.totalCollateral);
-      deltaLoss = int(v.totalDebt) - int(c.totalDebt);
-      if (v.countActions != 0) {
-        Actions memory action = actions[v.countActions - 1];
-        v.borrowedAmount = action.borrowedAmount;
-        v.suppliedAmount = action.suppliedAmount;
-      }
-    } else {
-      Actions memory action = actions[v.actionIndexFrom];
-      int xLossPrev = int(action.totalDebt) - int(action.borrowedAmount);
-      int xGainPrev = int(action.totalCollateral) - int(action.suppliedAmount);
-      for (uint i = v.actionIndexFrom + 1; v.actionIndexFrom < v.countActions; ++i) {
-        action = actions[i];
-        int xGain = int(action.totalCollateral) - int(action.suppliedAmount);
-        int xLoss = int(action.totalDebt) - int(action.borrowedAmount);
-        deltaGain += xGain - xGainPrev + int(action.gain);
-        deltaLoss += xLoss - xLossPrev + int(action.loss);
-        (xLossPrev, xGainPrev) = (xLoss, xGain);
-      }
-      int xLossLast = int(v.totalCollateral) - int(action.totalCollateral);
-      int xGainLast = int(v.totalDebt) - int(action.totalDebt);
-      deltaGain += xLossLast - xLossPrev;
-      deltaLoss += xGainLast - xGainPrev;
+    // we can calculate deltas only if
+    // - there was no liquidation
+    // - there were no repay/borrow actions since previous checkpoint
+    // otherwise it's safer to assume that the deltas are zero
+    if (v.totalDebt >= c.totalDebt && c.countActions == v.countActions ) {
+      deltaGain = v.totalCollateral - c.totalCollateral;
+      deltaLoss = v.totalDebt - c.totalDebt;
+    }
+
+    if (v.countActions != 0) {
+      Actions memory action = actions[v.countActions - 1];
       v.borrowedAmount = action.borrowedAmount;
       v.suppliedAmount = action.suppliedAmount;
     }
@@ -174,6 +153,38 @@ library AccountantLib {
     });
 
     return (deltaGain, deltaLoss);
+  }
+
+  /// @notice Make new checkpoint in all pool adapters of the {user_}, calculate total gains and losses for all assets
+  /// @param user_ User (strategy)
+  /// @param tokens_ List of all possible collateral and borrow assets.
+  /// @return deltaGains Collateral gains for {tokens_}. Gain is a profit that appears because of supply rates.
+  /// @return deltaLosses Increases in debts for {tokens_}. Such losses appears because of borrow rates.
+  function checkpointForUser(
+    address user_,
+    BaseState storage state_,
+    address[] memory tokens_
+  ) internal returns (
+    uint[] memory deltaGains,
+    uint[] memory deltaLosses
+  ) {
+    uint lenTokens = tokens_.length;
+    deltaGains = new uint[](lenTokens);
+    deltaLosses = new uint[](lenTokens);
+
+    EnumerableSet.AddressSet storage set = state_.poolAdaptersPerUser[user_];
+    uint len = set.length();
+    for (uint i; i < len; ++i) {
+      IPoolAdapter poolAdapter = IPoolAdapter(set.at(i));
+      (,, address collateralAsset, address borrowAsset) = poolAdapter.getConfig();
+      uint indexCollateral = AppUtils.getAssetIndex(tokens_, collateralAsset, lenTokens);
+      uint indexBorrow = AppUtils.getAssetIndex(tokens_, borrowAsset, lenTokens);
+      require(indexCollateral != type(uint).max && indexBorrow != type(uint).max, AppErrors.ASSET_NOT_FOUND);
+
+      (uint gain, uint loss) = checkpoint(poolAdapter, state_);
+      deltaGains[indexCollateral] += gain;
+      deltaLosses[indexBorrow] += loss;
+    }
   }
   //endregion ----------------------------------------------------- Checkpoint logic
 

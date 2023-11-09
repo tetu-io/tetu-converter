@@ -129,4 +129,6 @@ library AppErrors {
   string public constant GELATO_ETH_TRANSFER_FAILED = "TC-61: _transfer: ETH transfer failed";
 
   string public constant DEPRECATED_LEGACY_CODE = "TC-62: legacy";
+
+  string public constant ASSET_NOT_FOUND = "TC-63: asset not found";
 }

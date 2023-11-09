@@ -24,7 +24,7 @@ contract AccountantLibFacade {
   }
 
 
-  function checkpoint(IPoolAdapter poolAdapter_) external returns (int deltaGain, int deltaLoss) {
+  function checkpoint(IPoolAdapter poolAdapter_) external returns (uint deltaGain, uint deltaLoss) {
     return AccountantLib.checkpoint(poolAdapter_, _state);
   }
 

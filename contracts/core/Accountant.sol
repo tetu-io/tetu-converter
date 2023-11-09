@@ -72,7 +72,7 @@ contract Accountant is IAccountant, ControllableV3 {
   //region ----------------------------------------------------- Checkpoints
 
   /// @notice Save checkpoint for the given {poolAdapter_} for the current moment
-  function _checkpoint(IPoolAdapter poolAdapter_) internal returns (int deltaGain, int deltaLoss) {
+  function _checkpoint(IPoolAdapter poolAdapter_) internal returns (uint deltaGain, uint deltaLoss) {
     return AccountantLib.checkpoint(poolAdapter_, _state);
   }
 

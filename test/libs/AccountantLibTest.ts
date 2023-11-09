@@ -114,6 +114,10 @@ describe("AccountantLibTest", () => {
         p.actions.map(x => {
           const prices = (x.prices ?? ["1", "1"]).map(price => parseUnits(price, 18));
           return {
+            suppliedAmount: parseUnits(x.suppliedAmount, decimalsCollateral),
+            borrowedAmount: parseUnits(x.borrowedAmount, decimalsBorrow),
+            totalCollateral: parseUnits(x.totalCollateral, decimalsCollateral),
+            totalDebt: parseUnits(x.totalDebt, decimalsBorrow),
             gain: parseUnits(x.gain || "0", decimalsCollateral),
             loss: parseUnits(x.loss || "0", decimalsBorrow),
             prices: [prices[0], prices[1]]
@@ -132,7 +136,7 @@ describe("AccountantLibTest", () => {
 
         suppliedAmount: +formatUnits(after.suppliedAmount, decimalsCollateral),
         borrowedAmount: +formatUnits(after.borrowedAmount, decimalsBorrow),
-        countActions: after.countFixedValues.toNumber(),
+        countActions: after.countActions.toNumber(),
         totalCollateral: +formatUnits(after.totalCollateral, decimalsCollateral),
         totalDebt: +formatUnits(after.totalDebt, decimalsBorrow)
       }
@@ -158,7 +162,7 @@ describe("AccountantLibTest", () => {
         expect(ret.deltaLoss).eq(50);
       })
     });
-    describe("checkpoint => borrow => checkpoint", () => {
+    describe("checkpoint => action => checkpoint", () => {
       let snapshotLocal0: string;
       before(async function () {
         snapshotLocal0 = await TimeUtils.snapshot();
@@ -174,28 +178,8 @@ describe("AccountantLibTest", () => {
           poolAdapter: {totalCollateral: "1512", totalDebt: "780"},
         });
 
-        expect(ret.deltaGain).eq(1512 - 1500);
-        expect(ret.deltaLoss).eq(780 - 750);
-      })
-    });
-    describe("checkpoint => repay => checkpoint", () => {
-      let snapshotLocal0: string;
-      before(async function () {
-        snapshotLocal0 = await TimeUtils.snapshot();
-      });
-      after(async function () {
-        await TimeUtils.rollback(snapshotLocal0);
-      });
-
-      it("should return expected deltas", async () => {
-        const ret = await checkout({
-          checkpoint: {suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500"},
-          actions: [{suppliedAmount: "500", borrowedAmount: "250", totalCollateral: "502", totalDebt: "270", loss: "21", gain: "1"}],
-          poolAdapter: {totalCollateral: "505", totalDebt: "274"},
-        });
-
-        expect(ret.deltaGain).eq(2 + 3);
-        expect(ret.deltaLoss).eq();
+        expect(ret.deltaGain).eq(0);
+        expect(ret.deltaLoss).eq(0);
       })
     });
   });
