@@ -22,14 +22,8 @@ library AccountantLib {
 
   //region ----------------------------------------------------- Data types
   struct BaseState {
-    /// @notice Counter of the periods
-    uint period;
-
-    /// @notice pool adapter => current state
-    mapping(address => AccountantLib.PoolAdapterState) states;
-
-    /// @notice pool adapter => gains and losses info
-    mapping(address => AccountantLib.FixedValues[]) fixedValues;
+    /// @notice pool adapter => info about borrow/repay actions during current period
+    mapping(address => AccountantLib.Actions[]) actions;
 
     /// @notice User of the pool adapter => list of pool adapters with not zero debts in the current period
     mapping(address => EnumerableSet.AddressSet) poolAdaptersPerUser;
@@ -38,26 +32,22 @@ library AccountantLib {
     mapping(address => AccountantLib.PoolAdapterCheckpoint) checkpoints;
   }
 
-  /// @notice State of the pool adapter. The state is updated after each borrow/repay
-  struct PoolAdapterState {
-    /// @notice Current total amount supplied by the user as a collateral
+  /// @notice Borrow or repay action
+  struct Actions {
+    /// @notice Total amount supplied by the user as a collateral after the action
     uint suppliedAmount;
-    /// @notice Current total borrowed amount
+    /// @notice Total borrowed amount after the action
     uint borrowedAmount;
-
-    /// @notice Current total amount of collateral registered on the lending platform
-    uint lastTotalCollateral; // todo remove?
-    /// @notice Current total debt registered on the lending platform
-    uint lastTotalDebt; // todo remove?
-  }
-
-  /// @notice Fixed loss/gain received on repay
-  struct FixedValues {
-    /// @notice Gain (received for supplied amount) registered in the current period, in terms of collateral asset
+    /// @notice Amount of collateral registered on the lending platform after the action
+    uint totalCollateral;
+    /// @notice Amount of debt registered on the lending platform after the action
+    uint totalDebt;
+    /// @notice Gain (received for supplied amount) received at the current action, in terms of collateral asset
     int gain;
-    /// @notice Losses (paid for the borrowed amount) registered in the current period, in terms of borrow asset
+    /// @notice Losses (paid for the borrowed amount) paid in the current action, in terms of borrow asset
+    ///         Pool adapter has debt. Debt is increased in time. The amount by which a debt increases is a loss
     int loss;
-    /// @notice [price of collateral, price of borrow asset], decimals 18 (USD/Token)
+    /// @notice [price of collateral, price of borrow asset] for the moment of the action, decimals 18 (USD/Token)
     uint[2] prices;
   }
 
@@ -77,13 +67,8 @@ library AccountantLib {
     /// @notice Amount of debt registered on the lending platform
     uint totalDebt;
 
-    /// @notice Amount of already received gain during current period, in terms of collateral asset
-    int fixedCollateralGain;
-    /// @notice Amount of already paid debt-losses during current period, in terms of borrow asset
-    int fixedDebtLoss;
-
-    /// @notice Count fixed values at the moment of checkpoint creation
-    uint countFixedValues;
+    /// @notice Count actions performed at the moment of checkpoint creation
+    uint countActions;
   }
 
   struct OnRepayLocal {
@@ -99,6 +84,15 @@ library AccountantLib {
     uint collateral;
     address collateralAsset;
     address borrowAsset;
+  }
+
+  struct CheckpointLocal {
+    uint totalCollateral;
+    uint totalDebt;
+    uint actionIndexFrom;
+    uint countActions;
+    uint borrowedAmount;
+    uint suppliedAmount;
   }
   //endregion ----------------------------------------------------- Data types
 
@@ -126,22 +120,57 @@ library AccountantLib {
     int deltaGain,
     int deltaLoss
   ) {
-    (uint totalCollateral, uint totalDebt, , , , ) = poolAdapter_.getStatus();
-    PoolAdapterState memory state = state_.states[address(poolAdapter_)];
+    CheckpointLocal memory v;
+    (v.totalCollateral, v.totalDebt, , , , ) = poolAdapter_.getStatus();
     PoolAdapterCheckpoint memory c = state_.checkpoints[address(poolAdapter_)];
-    FixedValues[] memory ff = state_.fixedValues[address(poolAdapter_)];
+    Actions[] storage actions = state_.actions[address(poolAdapter_)];
 
-    deltaGain = int(totalCollateral) - int(c.totalCollateral);
-    deltaLoss = int(totalDebt) - int(c.totalDebt);
+    v.actionIndexFrom = c.countActions;
+    v.countActions = actions.length;
+
+    // (total debt - borrowed amount) gives us current value of increase to debt = X
+    // we should calculate X in each point:
+    //   checkpoint0, action1, action2... actionN, checkpoint1
+    //       x0         x1       x2         xN        xLast
+    // we can calculate losses on each interval as following:
+    //          x1-x0-d0,  x2-x1-d1, ... ,    xLast - xN - dLast
+    // where d_i is paid loss on the given interval (i.e. amount of covered loss on the interval, not 0 for repays only)
+    // the same calculations are applied to gains
+    if (v.actionIndexFrom == v.countActions) {
+      // there are no new actions between checkpoints
+      deltaGain = int(v.totalCollateral) - int(c.totalCollateral);
+      deltaLoss = int(v.totalDebt) - int(c.totalDebt);
+      if (v.countActions != 0) {
+        Actions memory action = actions[v.countActions - 1];
+        v.borrowedAmount = action.borrowedAmount;
+        v.suppliedAmount = action.suppliedAmount;
+      }
+    } else {
+      Actions memory action = actions[v.actionIndexFrom];
+      int xLossPrev = int(action.totalDebt) - int(action.borrowedAmount);
+      int xGainPrev = int(action.totalCollateral) - int(action.suppliedAmount);
+      for (uint i = v.actionIndexFrom + 1; v.actionIndexFrom < v.countActions; ++i) {
+        action = actions[i];
+        int xGain = int(action.totalCollateral) - int(action.suppliedAmount);
+        int xLoss = int(action.totalDebt) - int(action.borrowedAmount);
+        deltaGain += xGain - xGainPrev + int(action.gain);
+        deltaLoss += xLoss - xLossPrev + int(action.loss);
+        (xLossPrev, xGainPrev) = (xLoss, xGain);
+      }
+      int xLossLast = int(v.totalCollateral) - int(action.totalCollateral);
+      int xGainLast = int(v.totalDebt) - int(action.totalDebt);
+      deltaGain += xLossLast - xLossPrev;
+      deltaLoss += xGainLast - xGainPrev;
+      v.borrowedAmount = action.borrowedAmount;
+      v.suppliedAmount = action.suppliedAmount;
+    }
 
     state_.checkpoints[address(poolAdapter_)] = PoolAdapterCheckpoint({
       totalDebt: c.totalDebt,
       totalCollateral: c.totalCollateral,
-      borrowedAmount: state.borrowedAmount,
-      suppliedAmount: state.suppliedAmount,
-      countFixedValues: ff.length,
-      fixedDebtLoss: 0, // todo
-      fixedCollateralGain: 0 // todo
+      borrowedAmount: v.borrowedAmount,
+      suppliedAmount: v.suppliedAmount,
+      countActions: v.countActions
     });
 
     return (deltaGain, deltaLoss);
@@ -159,21 +188,19 @@ library AccountantLib {
     uint collateralAmount,
     uint borrowedAmount
   ) internal {
-    (, address user, , ) = poolAdapter_.getConfig();
-
-    (uint totalCollateral, uint totalDebt,,,,) = poolAdapter_.getStatus();
-
-    PoolAdapterState memory state = state_.states[msg.sender];
-
-    state_.states[msg.sender] = PoolAdapterState({
-      suppliedAmount: state.suppliedAmount + collateralAmount,
-      borrowedAmount: state.borrowedAmount + borrowedAmount,
-      lastTotalCollateral: totalCollateral,
-      lastTotalDebt: totalDebt
-    });
-
-    state_.poolAdaptersPerUser[user].add(msg.sender);
-    emit OnBorrow(address(poolAdapter_), collateralAmount, borrowedAmount);
+//    (, address user, , ) = poolAdapter_.getConfig();
+//
+//    (uint totalCollateral, uint totalDebt,,,,) = poolAdapter_.getStatus();
+//
+//    PoolAdapterState memory state = state_.states[msg.sender];
+//
+//    state_.states[msg.sender] = PoolAdapterState({
+//      suppliedAmount: state.suppliedAmount + collateralAmount,
+//      borrowedAmount: state.borrowedAmount + borrowedAmount
+//    });
+//
+//    state_.poolAdaptersPerUser[user].add(msg.sender);
+//    emit OnBorrow(address(poolAdapter_), collateralAmount, borrowedAmount);
   }
 
   /// @notice Register loan payment

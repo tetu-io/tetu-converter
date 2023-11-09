@@ -42,9 +42,13 @@ describe("AccountantLibTest", () => {
 
 //region Unit tests
   describe("checkout", () => {
-    interface IFixedValues {
-      gain: string;
-      loss: string;
+    interface IAction {
+      suppliedAmount: string;
+      borrowedAmount: string;
+      totalCollateral: string;
+      totalDebt: string;
+      gain?: string;
+      loss?: string;
       prices?: string[]; // "1" by default
     }
     interface IParams {
@@ -56,24 +60,15 @@ describe("AccountantLibTest", () => {
         totalDebt: string;
       }
 
-      state: {
-        suppliedAmount: string;
-        borrowedAmount: string;
-        lastTotalCollateral: string;
-        lastTotalDebt: string;
-      }
-
       checkpoint: {
         suppliedAmount: string;
         borrowedAmount: string;
         totalCollateral: string;
         totalDebt: string;
-        fixedCollateralGain?: string; // 0 by default
-        fixedDebtLoss?: string; // 0 by default
-        countFixedValues?: number; // 0 by default
+        countActions?: number; // 0 by default
       }
 
-      fixedValues: IFixedValues[];
+      actions: IAction[];
     }
     interface IResults {
       deltaGain: number;
@@ -84,9 +79,7 @@ describe("AccountantLibTest", () => {
       borrowedAmount: number;
       totalCollateral: number;
       totalDebt: number;
-      fixedCollateralGain: number;
-      fixedDebtLoss: number;
-      countFixedValues: number;
+      countActions: number;
     }
 
     async function checkout(p: IParams): Promise<IResults> {
@@ -106,31 +99,23 @@ describe("AccountantLibTest", () => {
         false
       );
 
-      // set up base state of the Accounter
-      await facade.setPoolAdapterState(poolAdapter.address, {
-        suppliedAmount: parseUnits(p.state.suppliedAmount, decimalsCollateral),
-        borrowedAmount: parseUnits(p.state.borrowedAmount, decimalsBorrow),
-        lastTotalCollateral: parseUnits(p.state.lastTotalCollateral, decimalsCollateral),
-        lastTotalDebt: parseUnits(p.state.lastTotalDebt, decimalsBorrow)
-      });
+      // set up base state of the Accountant
 
       await facade.setPoolAdapterCheckpoint(poolAdapter.address, {
         suppliedAmount: parseUnits(p.checkpoint.suppliedAmount, decimalsCollateral),
         borrowedAmount: parseUnits(p.checkpoint.borrowedAmount, decimalsBorrow),
         totalCollateral: parseUnits(p.checkpoint.totalCollateral, decimalsCollateral),
         totalDebt: parseUnits(p.checkpoint.totalDebt, decimalsBorrow),
-        countFixedValues: p.checkpoint.countFixedValues ?? 0,
-        fixedCollateralGain: parseUnits(p.checkpoint.fixedCollateralGain ?? "0", decimalsCollateral),
-        fixedDebtLoss: parseUnits(p.checkpoint.fixedDebtLoss ?? "0", decimalsBorrow)
+        countActions: p.checkpoint.countActions ?? 0,
       });
 
-      await facade.setFixedValues(
+      await facade.setActions(
         poolAdapter.address,
-        p.fixedValues.map(x => {
+        p.actions.map(x => {
           const prices = (x.prices ?? ["1", "1"]).map(price => parseUnits(price, 18));
           return {
-            gain: parseUnits(x.gain, decimalsCollateral),
-            loss: parseUnits(x.loss, decimalsBorrow),
+            gain: parseUnits(x.gain || "0", decimalsCollateral),
+            loss: parseUnits(x.loss || "0", decimalsBorrow),
             prices: [prices[0], prices[1]]
           }
         })
@@ -147,9 +132,7 @@ describe("AccountantLibTest", () => {
 
         suppliedAmount: +formatUnits(after.suppliedAmount, decimalsCollateral),
         borrowedAmount: +formatUnits(after.borrowedAmount, decimalsBorrow),
-        countFixedValues: after.countFixedValues.toNumber(),
-        fixedCollateralGain: +formatUnits(after.fixedCollateralGain, decimalsCollateral),
-        fixedDebtLoss: +formatUnits(after.fixedDebtLoss, decimalsBorrow),
+        countActions: after.countFixedValues.toNumber(),
         totalCollateral: +formatUnits(after.totalCollateral, decimalsCollateral),
         totalDebt: +formatUnits(after.totalDebt, decimalsBorrow)
       }
@@ -166,10 +149,9 @@ describe("AccountantLibTest", () => {
 
       it("should return expected deltas", async () => {
         const ret = await checkout({
+          actions: [{suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500"}],
+          checkpoint: {suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500", countActions: 1},
           poolAdapter: {totalCollateral: "1010", totalDebt: "550"},
-          state: {suppliedAmount: "1000", borrowedAmount: "500", lastTotalDebt: "1000", lastTotalCollateral: "500"},
-          checkpoint: {suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500"},
-          fixedValues: []
         });
 
         expect(ret.deltaGain).eq(10);
@@ -187,15 +169,33 @@ describe("AccountantLibTest", () => {
 
       it("should return expected deltas", async () => {
         const ret = await checkout({
-          poolAdapter: {totalCollateral: "1010", totalDebt: "550"},
-          // second borrow: 500:250; deltas were incremented at the borrow point on 5,25
-          state: {suppliedAmount: "1500", borrowedAmount: "750", lastTotalDebt: "1505", lastTotalCollateral: "775"},
           checkpoint: {suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500"},
-          fixedValues: []
+          actions: [{suppliedAmount: "1500", borrowedAmount: "750", totalCollateral: "1505", totalDebt: "775"}],
+          poolAdapter: {totalCollateral: "1512", totalDebt: "780"},
         });
 
-        expect(ret.deltaGain).eq(10);
-        expect(ret.deltaLoss).eq(50);
+        expect(ret.deltaGain).eq(1512 - 1500);
+        expect(ret.deltaLoss).eq(780 - 750);
+      })
+    });
+    describe("checkpoint => repay => checkpoint", () => {
+      let snapshotLocal0: string;
+      before(async function () {
+        snapshotLocal0 = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshotLocal0);
+      });
+
+      it("should return expected deltas", async () => {
+        const ret = await checkout({
+          checkpoint: {suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500"},
+          actions: [{suppliedAmount: "500", borrowedAmount: "250", totalCollateral: "502", totalDebt: "270", loss: "21", gain: "1"}],
+          poolAdapter: {totalCollateral: "505", totalDebt: "274"},
+        });
+
+        expect(ret.deltaGain).eq(2 + 3);
+        expect(ret.deltaLoss).eq();
       })
     });
   });

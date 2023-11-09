@@ -82,8 +82,7 @@ contract Accountant is IAccountant, ControllableV3 {
     uint borrowedAmount,
     uint totalCollateral,
     uint totalDebt,
-    int fixedCollateralGain,
-    int fixedDebtLoss
+    uint countActions
   ) {
     AccountantLib.PoolAdapterCheckpoint memory c = _state.checkpoints[poolAdapter_];
     return (
@@ -91,8 +90,7 @@ contract Accountant is IAccountant, ControllableV3 {
       c.borrowedAmount,
       c.totalCollateral,
       c.totalDebt,
-      c.fixedCollateralGain,
-      c.fixedDebtLoss
+      c.countActions
     );
   }
   //endregion ----------------------------------------------------- Checkpoints
