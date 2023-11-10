@@ -22,7 +22,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   using SafeERC20 for IERC20;
 
   //region ----------------------------------------------------- Constants and variables
-  string public constant POOL_ADAPTER_VERSION = "2.0.0";
+  string public constant POOL_ADAPTER_VERSION = "2.0.1";
 
   CompoundPoolAdapterLib.State internal _state;
   //endregion ----------------------------------------------------- Constants and variables

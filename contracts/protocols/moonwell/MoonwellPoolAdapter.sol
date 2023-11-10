@@ -23,7 +23,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   using SafeERC20 for IERC20;
 
   //region ----------------------------------------------------- Constants and variables
-  string public constant POOL_ADAPTER_VERSION = "1.0.0";
+  string public constant POOL_ADAPTER_VERSION = "1.0.1";
   address public constant WELL_TOKEN = 0xFF8adeC2221f9f4D8dfbAFa6B9a297d17603493D;
 
   CompoundPoolAdapterLib.State internal _state;

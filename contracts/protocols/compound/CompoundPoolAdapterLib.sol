@@ -8,18 +8,19 @@ import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
 import "../../openzeppelin/Strings.sol";
 import "../../interfaces/IConverterController.sol";
+import "../../interfaces/IController.sol";
+import "../../interfaces/IAccountant.sol";
+import "../../interfaces/ITokenAddressProvider.sol";
+import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/compound/ICompoundComptrollerBase.sol";
 import "../../integrations/compound/ICTokenBase.sol";
-import "../../interfaces/IController.sol";
 import "../../integrations/compound/INativeToken.sol";
 import "../../integrations/compound/ICTokenNative.sol";
 import "../../integrations/compound/ICompoundPriceOracle.sol";
-import "../../libs/AppDataTypes.sol";
-import "../../libs/AppErrors.sol";
-import "../../interfaces/ITokenAddressProvider.sol";
-import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/compound/ICompoundComptrollerBaseV2.sol";
 import "../../integrations/compound/ICompoundComptrollerBaseV1.sol";
+import "../../libs/AppDataTypes.sol";
+import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 
 library CompoundPoolAdapterLib {
@@ -254,6 +255,7 @@ library CompoundPoolAdapterLib {
     );
     state.collateralTokensBalance += AppUtils.sub0(tokenBalanceAfterBorrow, tokenBalanceBeforeBorrow);
 
+    _registerInAccountant(v.controller, true, collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
     emit OnBorrow(collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore, receiver_, healthFactor);
     return balanceBorrowAssetAfter - balanceBorrowAssetBefore;
   }
@@ -371,6 +373,7 @@ library CompoundPoolAdapterLib {
     );
     state.collateralTokensBalance = v.collateralTokensBalance - (v.tokenBalanceBefore - data.collateralTokenBalance);
 
+    _registerInAccountant(controller, false, collateralAmountToReturn, amountToRepay_);
     emit OnRepay(amountToRepay_, receiver_, closePosition_, v.healthFactor18);
     return collateralAmountToReturn;
   }
@@ -415,6 +418,7 @@ library CompoundPoolAdapterLib {
       address assetCollateral = state.collateralAsset;
       IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amountIn_);
       tokenBalanceBefore = _supply(f_, cTokenCollateral, amountIn_);
+      _registerInAccountant(controller, true, amountIn_, 0);
     } else {
       address assetBorrow = state.borrowAsset;
 
@@ -436,6 +440,7 @@ library CompoundPoolAdapterLib {
         uint error = ICTokenBase(cTokenBorrow).repayBorrow(amountIn_);
         require(error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(error))));
       }
+      _registerInAccountant(controller, false, 0, amountIn_);
     }
 
     // validate result status
@@ -737,5 +742,18 @@ library CompoundPoolAdapterLib {
     }
   }
 
+  /// @notice Register borrow/repay operations in Accountant
+  function _registerInAccountant(
+    IConverterController controller_,
+    bool isBorrow,
+    uint amountCollateral,
+    uint amountBorrow
+  ) internal {
+    if (isBorrow) {
+      IAccountant(controller_.accountant()).onBorrow(amountCollateral, amountBorrow);
+    } else {
+      IAccountant(controller_.accountant()).onRepay(amountCollateral, amountBorrow);
+    }
+  }
   //endregion ----------------------------------------------------- Protocol features logic
 }

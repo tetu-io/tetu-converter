@@ -5,20 +5,20 @@ import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
-import "../../libs/AppErrors.sol";
-import "../aaveShared/AaveSharedLib.sol";
 import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
+import "../../interfaces/IAccountant.sol";
 import "../../integrations/aave3/IAavePool.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
+import "../aaveShared/AaveSharedLib.sol";
 import "../../libs/AppUtils.sol";
-import "../../interfaces/IAccountant.sol";
+import "../../libs/AppErrors.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -31,7 +31,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   /// @notice We allow to receive less atokens then provided collateral on following value
   /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
   uint constant public ATOKEN_MAX_DELTA = 10;
-  string public constant POOL_ADAPTER_VERSION = "1.0.3";
+  string public constant POOL_ADAPTER_VERSION = "1.0.4";
 
   /// @notice 1 - stable, 2 - variable
   uint constant public RATE_MODE = 2;
@@ -70,6 +70,20 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   event OnSalvage(address receiver, address token, uint amount);
 
   //endregion ----------------------------------------------------- Events
+
+  //region ----------------------------------------------------- Data types
+  struct RepayLocal {
+    address assetBorrow;
+    address assetCollateral;
+    IAavePool pool;
+    uint aTokensBeforeRepay;
+    uint aTokensAfterRepay;
+    uint amountCollateralToWithdraw;
+    uint healthFactorBefore;
+    uint healthFactorAfter;
+    uint collateralBalanceATokens;
+  }
+  //endregion ----------------------------------------------------- Data types
 
   //region ----------------------------------------------------- Initialization and customization
 
@@ -182,6 +196,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(c, healthFactor, 0);
 
+    _registerInAccountant(c, true, collateralAmount_, borrowAmount_);
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor, newCollateralBalanceATokens);
     return borrowAmount_;
   }
@@ -248,6 +263,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, resultHealthFactor18) = pool.getUserAccountData(address(this));
     _validateHealthFactor(c, resultHealthFactor18, 0);
 
+    _registerInAccountant(c, true, 0, borrowAmount_);
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
@@ -265,64 +281,65 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   /// @param receiver_ Receiver of withdrawn collateral
   /// @return Amount of collateral asset sent to the {receiver_}
   function repay(uint amountToRepay_, address receiver_, bool closePosition_) external override returns (uint) {
+    RepayLocal memory v;
+
     IConverterController c = controller;
     _onlyTetuConverter(c);
 
-    address assetBorrow = borrowAsset;
-    address assetCollateral = collateralAsset;
-    IAavePool pool = _pool;
-    IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
+    v.assetBorrow = borrowAsset;
+    v.assetCollateral = collateralAsset;
+    v.pool = _pool;
+    IERC20(v.assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
-    Aave3DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
-    uint aTokensBalanceBeforeRepay = IERC20(rc.aTokenAddress).balanceOf(address(this));
+    Aave3DataTypes.ReserveData memory rc = v.pool.getReserveData(v.assetCollateral);
+    v.aTokensBeforeRepay = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
     // how much collateral we are going to return
-    (uint amountCollateralToWithdraw, uint healthFactorBefore) = _getCollateralAmountToReturn(
-      pool,
+    (v.amountCollateralToWithdraw, v.healthFactorBefore) = _getCollateralAmountToReturn(
+      v.pool,
       amountToRepay_,
-      assetCollateral,
-      assetBorrow,
+      v.assetCollateral,
+      v.assetBorrow,
       closePosition_,
       rc.configuration.getDecimals(),
-      IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle())
+      IAavePriceOracle(IAaveAddressesProvider(IAavePool(v.pool).ADDRESSES_PROVIDER()).getPriceOracle())
     );
 
     // transfer borrow amount back to the pool, infinity approve is assumed
-    pool.repay(assetBorrow, (closePosition_ ? type(uint).max : amountToRepay_), RATE_MODE, address(this));
+    v.pool.repay(v.assetBorrow, (closePosition_ ? type(uint).max : amountToRepay_), RATE_MODE, address(this));
 
     // withdraw the collateral; if the borrow was liquidated the collateral is zero and we should have revert here
     // because it's not worth to make repayment in this case
     {
       // in the case of full repay {amountCollateralToWithdraw} contains type(uint).max
       // so, we need to calculate actual amount of returned collateral through balance difference
-      uint balanceUserCollateralBefore = IERC20(assetCollateral).balanceOf(receiver_);
-      pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_); // amountCollateralToWithdraw can be equal to type(uint).max
-      uint balanceUserCollateralAfter = IERC20(assetCollateral).balanceOf(receiver_);
-      amountCollateralToWithdraw = AppUtils.sub0(balanceUserCollateralAfter, balanceUserCollateralBefore);
+      uint balanceUserCollateralBefore = IERC20(v.assetCollateral).balanceOf(receiver_);
+      v.pool.withdraw(v.assetCollateral, v.amountCollateralToWithdraw, receiver_); // amountCollateralToWithdraw can be equal to type(uint).max
+      uint balanceUserCollateralAfter = IERC20(v.assetCollateral).balanceOf(receiver_);
+      v.amountCollateralToWithdraw = AppUtils.sub0(balanceUserCollateralAfter, balanceUserCollateralBefore);
     }
 
     // close position in debt monitor / validate result health factor
-    uint healthFactorAfter;
     {
       uint totalCollateralBase;
       uint totalDebtBase;
-      (totalCollateralBase, totalDebtBase,,,, healthFactorAfter) = pool.getUserAccountData(address(this));
+      (totalCollateralBase, totalDebtBase,,,, v.healthFactorAfter) = v.pool.getUserAccountData(address(this));
 
       if (totalCollateralBase == 0 && totalDebtBase == 0) {
         IDebtMonitor(c.debtMonitor()).onClosePosition();
       } else {
         require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
-        _validateHealthFactor(c, healthFactorAfter, healthFactorBefore);
+        _validateHealthFactor(c, v.healthFactorAfter, v.healthFactorBefore);
       }
     }
 
     {
       // user has transferred a little bigger amount than actually need to close position
       // because of the dust-tokens problem. Let's return remain amount back to the user
-      uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
+      uint borrowBalance = IERC20(v.assetBorrow).balanceOf(address(this));
       if (borrowBalance != 0) {
         // we assume here that the pool adapter has balance of 0 in normal case, any leftover should be send to
-        IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
+        IERC20(v.assetBorrow).safeTransfer(receiver_, borrowBalance);
         // adjust amountToRepay_ to returned amount to send correct amount to OnRepay event
         if (amountToRepay_ > borrowBalance) {
           amountToRepay_ -= borrowBalance;
@@ -331,15 +348,16 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     }
 
     // update value of internal collateralBalanceATokens
-    uint aTokensBalanceAfterRepay = IERC20(rc.aTokenAddress).balanceOf(address(this));
-    require(aTokensBalanceBeforeRepay >= aTokensBalanceAfterRepay, AppErrors.WEIRD_OVERFLOW);
+    v.aTokensAfterRepay = IERC20(rc.aTokenAddress).balanceOf(address(this));
+    require(v.aTokensBeforeRepay >= v.aTokensAfterRepay, AppErrors.WEIRD_OVERFLOW);
 
-    uint localCollateralBalanceATokens = collateralBalanceATokens;
-    localCollateralBalanceATokens = AppUtils.sub0(localCollateralBalanceATokens, aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
-    collateralBalanceATokens = localCollateralBalanceATokens;
+    v.collateralBalanceATokens = AppUtils.sub0(collateralBalanceATokens, v.aTokensBeforeRepay - v.aTokensAfterRepay);
+    collateralBalanceATokens = v.collateralBalanceATokens;
 
-    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactorAfter, localCollateralBalanceATokens);
-    return amountCollateralToWithdraw;
+    emit OnRepay(amountToRepay_, receiver_, closePosition_, v.healthFactorAfter, v.collateralBalanceATokens);
+
+    _registerInAccountant(c, false, v.amountCollateralToWithdraw, amountToRepay_);
+    return v.amountCollateralToWithdraw;
   }
 
   /// @notice Get a part of collateral safe to return after repaying {amountToRepay_}
@@ -415,7 +433,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   function repayToRebalance(uint amount_, bool isCollateral_) external override returns (
     uint resultHealthFactor18
   ) {
-    _onlyTetuConverter(controller);
+    IConverterController c = controller;
+    _onlyTetuConverter(c);
+
     IAavePool pool = _pool;
     IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle());
 
@@ -424,6 +444,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     if (isCollateral_) {
       newCollateralBalanceATokens = _supply(pool, collateralAsset, amount_) + newCollateralBalanceATokens;
       collateralBalanceATokens = newCollateralBalanceATokens;
+      _registerInAccountant(c, true, amount_, 0);
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
@@ -439,6 +460,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       // replaced by infinity approve: IERC20(assetBorrow).approve(address(pool), amount_);
 
       pool.repay(assetBorrow, amount_, RATE_MODE, address(this));
+      _registerInAccountant(c, false, 0, amount_);
     }
 
     // validate result health factor
@@ -572,6 +594,20 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       || (healthFactorBefore != 0 && reduction < MAX_ALLOWED_HEALTH_FACTOR_REDUCTION),
       AppErrors.WRONG_HEALTH_FACTOR
     );
+  }
+
+  /// @notice Register borrow/repay operations in Accountant
+  function _registerInAccountant(
+    IConverterController controller_,
+    bool isBorrow,
+    uint amountCollateral,
+    uint amountBorrow
+  ) internal {
+    if (isBorrow) {
+      IAccountant(controller_.accountant()).onBorrow(amountCollateral, amountBorrow);
+    } else {
+      IAccountant(controller_.accountant()).onRepay(amountCollateral, amountBorrow);
+    }
   }
   //endregion ----------------------------------------------------- Utils
 
