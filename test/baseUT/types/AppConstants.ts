@@ -24,4 +24,7 @@ export class AppConstants {
   public static readonly BORROW_REVERSE_1 = 1;
   public static readonly REPAY_DIRECT_2 = 2;
   public static readonly REPAY_REVERSE_3 = 3;
+
+  public static readonly ACTION_KIND_BORROW_0 = 0;
+  public static readonly ACTION_KIND_REPAY_1 = 1;
 }

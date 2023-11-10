@@ -38,6 +38,7 @@ export class CoreContractsHelper {
     const swapManager = await fabrics.swapManagerFabric.deploy();
     const debtMonitor = await fabrics.debtMonitorFabric.deploy();
     const tetuConverter = await fabrics.tetuConverterFabric.deploy();
+    const accountant = await fabrics.accountantFabric.deploy();
 
     await ConverterController__factory.connect(controller, deployer).init(
       proxyUpdater,
@@ -68,6 +69,10 @@ export class CoreContractsHelper {
     if (fabrics.tetuConverterFabric.init) {
       await fabrics.tetuConverterFabric.init(controller, tetuConverter);
     }
+    if (fabrics.accountantFabric.init) {
+      await fabrics.accountantFabric.init(controller, accountant);
+    }
+    await ConverterController__factory.connect(controller, deployer).setAccountant(accountant);
 
     // change default values of controller to the required values
     const controllerAsGov = await ConverterController__factory.connect(controller, deployer);

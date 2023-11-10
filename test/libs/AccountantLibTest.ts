@@ -7,6 +7,7 @@ import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {MocksHelper} from "../baseUT/app/MocksHelper";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
+import {AppConstants} from "../baseUT/types/AppConstants";
 
 describe("AccountantLibTest", () => {
 //region Global vars for all tests
@@ -98,6 +99,12 @@ describe("AccountantLibTest", () => {
         0,
         false
       );
+      await poolAdapter.setConfig(
+        ethers.Wallet.createRandom().address,
+        signer.address,
+        collateralAsset.address,
+        borrowAsset.address
+      );
 
       // set up base state of the Accountant
 
@@ -118,9 +125,7 @@ describe("AccountantLibTest", () => {
             borrowedAmount: parseUnits(x.borrowedAmount, decimalsBorrow),
             totalCollateral: parseUnits(x.totalCollateral, decimalsCollateral),
             totalDebt: parseUnits(x.totalDebt, decimalsBorrow),
-            gain: parseUnits(x.gain || "0", decimalsCollateral),
-            loss: parseUnits(x.loss || "0", decimalsBorrow),
-            prices: [prices[0], prices[1]]
+            actionKind: AppConstants.ACTION_KIND_BORROW_0
           }
         })
       );

@@ -2,7 +2,13 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {Accountant, MockERC20, PoolAdapterMock2} from "../../typechain";
+import {
+  Accountant,
+  IPriceOracle__factory,
+  MockERC20,
+  PoolAdapterMock2,
+  PriceOracleMock__factory
+} from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
@@ -34,7 +40,6 @@ describe("AccountantTest", () => {
     const signers = await ethers.getSigners();
     signer = signers[0];
 
-    accountant = (await DeployUtils.deployContract(signer, "Accountant")) as Accountant;
     usdc = await DeployUtils.deployContract(signer, 'MockERC20', 'USDC', 'USDC', 6) as MockERC20;
     usdt = await DeployUtils.deployContract(signer, 'MockERC20', 'USDT', 'USDT', 6) as MockERC20;
     dai = await DeployUtils.deployContract(signer, 'MockERC20', 'Dai', 'DAI', 18) as MockERC20;
@@ -43,7 +48,23 @@ describe("AccountantTest", () => {
     user = await Misc.impersonate(ethers.Wallet.createRandom().address);
     poolAdapter = await MocksHelper.createPoolAdapterMock2(signer);
 
-    core = await CoreContracts.build(await TetuConverterApp.createController(signer, {networkId: HARDHAT_NETWORK_ID,}));
+    const assetsAll = [usdt, dai, matic, usdc];
+    core = await CoreContracts.build(await TetuConverterApp.createController(
+      signer, {
+        networkId: HARDHAT_NETWORK_ID,
+        borrowManagerFabric: {deploy: async () => (
+          await MocksHelper.createBorrowManagerStub(signer, true)).address
+        },
+        priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(
+            signer,
+            assetsAll.map(x => x.address),
+            assetsAll.map(x => parseUnits("1", 18))
+          )
+        ).address
+      }
+    ));
+
+    accountant = core.accountant;
   });
 
   after(async function () {
@@ -69,12 +90,15 @@ describe("AccountantTest", () => {
     }
 
     interface IResults {
+      countActions: number;
+      // last registered action data
       suppliedAmount: number;
       borrowedAmount: number;
-      lastTotalCollateral: number;
-      lastTotalDebt: number;
-      totalGain: number;
-      totalLosses: number;
+      totalCollateral: number;
+      totalDebt: number;
+      gain: number;
+      losses: number;
+      prices: number[];
     }
 
     async function makeTest(p: IParams): Promise<IResults> {
@@ -86,27 +110,53 @@ describe("AccountantTest", () => {
       const decimalsBorrow = await borrowAsset.decimals();
       const decimalsUnderlying = await underlying.decimals();
 
+      await PriceOracleMock__factory.connect(await core.controller.priceOracle(), signer).changePrices(
+        [collateralAsset.address, borrowAsset.address],
+        (p.prices ?? ["1", "1"]).map(x => parseUnits(x, 18))
+      );
+
+      await poolAdapter.setStatus(
+        parseUnits(p.totalCollateral, decimalsCollateral),
+        parseUnits(p.totalDebt, decimalsBorrow),
+        2,
+        true,
+        0,
+        false
+      );
+      await poolAdapter.setConfig(
+        ethers.Wallet.createRandom().address,
+        user.address,
+        collateralAsset.address,
+        borrowAsset.address
+      );
 
       if (p.isBorrow) {
-        await accountant.connect(user).onBorrow(
+        await accountant.connect(await Misc.impersonate(poolAdapter.address)).onBorrow(
           parseUnits(p.amountC, decimalsCollateral),
           parseUnits(p.amountB, decimalsBorrow),
         );
       } else {
-        await accountant.connect(user).onRepay(
+        await accountant.connect(await Misc.impersonate(poolAdapter.address)).onRepay(
           parseUnits(p.amountC, decimalsCollateral),
           parseUnits(p.amountB, decimalsBorrow),
         );
       }
 
-      const state = await accountant.getPoolAdapterState(user.address);
+      const countActions = (await accountant.actionsLength(poolAdapter.address)).toNumber();
+      const lastAction = await accountant.actionsAt(poolAdapter.address, countActions - 1);
+      const repayInfo = await accountant.repayInfoAt(poolAdapter.address, countActions - 1);
+
       return {
-        borrowedAmount: +formatUnits(state.borrowedAmount, decimalsBorrow),
-        suppliedAmount: +formatUnits(state.suppliedAmount, decimalsCollateral),
-        lastTotalCollateral: +formatUnits(state.lastTotalCollateral, decimalsCollateral),
-        lastTotalDebt: +formatUnits(state.lastTotalDebt, decimalsBorrow),
-        totalGain:  +formatUnits(state.totalGain, decimalsUnderlying),
-        totalLosses:  +formatUnits(state.totalLosses, decimalsUnderlying),
+        countActions,
+
+        borrowedAmount: +formatUnits(lastAction.borrowedAmount, decimalsBorrow),
+        suppliedAmount: +formatUnits(lastAction.suppliedAmount, decimalsCollateral),
+        totalCollateral: +formatUnits(lastAction.totalCollateral, decimalsCollateral),
+        totalDebt: +formatUnits(lastAction.totalDebt, decimalsBorrow),
+
+        gain: +formatUnits(repayInfo.gain, decimalsUnderlying),
+        losses:  +formatUnits(repayInfo.loss, decimalsUnderlying),
+        prices: repayInfo.prices.map(x => +formatUnits(x, 18))
       }
     }
 
@@ -129,7 +179,7 @@ describe("AccountantTest", () => {
 
       it("should return expected state", async () => {
         expect(
-          [retBorrow1.suppliedAmount, retBorrow1.borrowedAmount, retBorrow1.lastTotalCollateral, retBorrow1.lastTotalDebt].join()
+          [retBorrow1.suppliedAmount, retBorrow1.borrowedAmount, retBorrow1.totalCollateral, retBorrow1.totalDebt].join()
         ).eq(
           [10, 20, 10, 20].join()
         )
@@ -144,7 +194,7 @@ describe("AccountantTest", () => {
           retBorrow2 = await makeTest({
               amountC: "5",
               amountB: "10",
-              totalCollateral: "36",
+              totalCollateral: "17",
               totalDebt: "55",
               isBorrow: true
           });
@@ -154,9 +204,9 @@ describe("AccountantTest", () => {
         });
         it("should return expected state", async () => {
           expect(
-            [retBorrow2.suppliedAmount, retBorrow2.borrowedAmount, retBorrow2.lastTotalCollateral, retBorrow2.lastTotalDebt].join()
+            [retBorrow2.suppliedAmount, retBorrow2.borrowedAmount, retBorrow2.totalCollateral, retBorrow2.totalDebt].join()
           ).eq(
-            [15, 30, 36, 55].join()
+            [15, 30, 17, 55].join()
           )
         });
 
@@ -169,9 +219,10 @@ describe("AccountantTest", () => {
             retRepay1 = await makeTest({
               amountC: "12",
               amountB: "16",
-              totalCollateral: "25",
+              totalCollateral: "24",
               totalDebt: "44",
-              isBorrow: false
+              isBorrow: false,
+              prices: ["3", "4"]
             });
           });
           after(async function () {
@@ -179,20 +230,27 @@ describe("AccountantTest", () => {
           });
 
           it("should return expected suppliedAmount", async () => {
-            expect(retRepay1.suppliedAmount).eq(10 + 5 - 12 / 37 * 15);
+            const collateralRatio = (10 + 5) / (24 + 12);
+            expect(retRepay1.suppliedAmount).eq(10 + 5 - 12 * collateralRatio);
           });
           it("should return expected borrowedAmount", async () => {
-            expect(retRepay1.borrowedAmount).approximately(20 + 10 - 16 / 60 * 30, 1e-5);
+            const debtRatio = (20 + 10) / (44 + 16);
+            expect(retRepay1.borrowedAmount).approximately(20 + 10 - 16 * debtRatio, 1e-5);
           });
 
           it("should return expected total amounts", async () => {
-            expect([retRepay1.lastTotalCollateral, retRepay1.lastTotalDebt].join()).eq([25, 44].join());
+            expect([retRepay1.totalCollateral, retRepay1.totalDebt].join()).eq([24, 44].join());
           });
           it("should return expected gain", async () => {
-            expect(retRepay1.totalGain).approximately(12 - 12 / 37 * 15, 1e-5);
+            const collateralRatio = (10 + 5) / (24 + 12);
+            expect(retRepay1.gain).approximately(12 - 12 * collateralRatio, 1e-5);
           });
           it("should return expected losses", async () => {
-            expect(retRepay1.totalLosses).approximately(16 - 16 / 60 * 30, 1e-5);
+            const debtRatio = (20 + 10) / (44 + 16);
+            expect(retRepay1.losses).approximately(16 - 16 * debtRatio, 1e-5);
+          });
+          it("should return expected prices", async () => {
+            expect(retRepay1.prices.join()).eq([3, 4].join());
           });
         });
         describe("full repay", () => {
@@ -202,11 +260,12 @@ describe("AccountantTest", () => {
             snapshotLocal2 = await TimeUtils.snapshot();
             // let's assume, that we have totalDebt: "37", totalCollateral: "60" before repay, so total gain is 21 + 1 = 22, total losses = 25 + 5 = 30
             retRepay1 = await makeTest({
-              amountC: "37",
-              amountB: "60",
+              amountC: "25",
+              amountB: "40",
               totalCollateral: "0",
               totalDebt: "0",
-              isBorrow: false
+              isBorrow: false,
+              prices: ["2", "0.5"]
             });
           });
           after(async function () {
@@ -220,13 +279,18 @@ describe("AccountantTest", () => {
           });
 
           it("should return expected total amounts", async () => {
-            expect([retRepay1.lastTotalCollateral, retRepay1.lastTotalDebt].join()).eq([0, 0].join());
+            expect([retRepay1.totalCollateral, retRepay1.totalDebt].join()).eq([0, 0].join());
           });
           it("should return expected gain", async () => {
-            expect(retRepay1.totalGain).eq(22);
+            const collateralRatio = (10 + 5) / (25);
+            expect(retRepay1.gain).approximately(25 - 25 * collateralRatio, 1e-5);
           });
           it("should return expected losses", async () => {
-            expect(retRepay1.totalLosses).eq(30);
+            const debtRatio = (20 + 10) / (40);
+            expect(retRepay1.losses).approximately(40 - 40 * debtRatio, 1e-5);
+          });
+          it("should return expected prices", async () => {
+            expect(retRepay1.prices.join()).eq([2, 0.5].join());
           });
         });
 

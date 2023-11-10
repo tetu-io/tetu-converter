@@ -1,15 +1,8 @@
-import {
-  DeploySolutionUtils
-} from "./DeploySolutionUtils";
 import {ethers, network} from "hardhat";
-import {DeployerUtils} from "../utils/DeployerUtils";
 import {DeployUtils} from "../utils/DeployUtils";
 import {writeFileSyncRestoreFolder} from "../../test/baseUT/utils/FileUtils";
 import {MaticAddresses} from "../addresses/MaticAddresses";
 import {
-  Aave3PlatformAdapter,
-  Aave3PoolAdapter,
-  Aave3PoolAdapterEMode,
   AaveTwoPlatformAdapter,
   AaveTwoPoolAdapter
 } from "../../typechain";

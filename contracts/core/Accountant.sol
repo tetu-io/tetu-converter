@@ -8,14 +8,24 @@ import "../openzeppelin/Math.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/IAccountant.sol";
 import "../libs/AppUtils.sol";
-import "hardhat/console.sol";
 import "../proxy/ControllableV3.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../libs/AccountantLib.sol";
 
+import "hardhat/console.sol";
+
 /// @notice Calculate amounts of losses and gains for debts/supply for all pool adapters
+/// @dev Each repay/borrow operation is registered, balances of currently supplied and borrowed amounts are stored.
+///      User is able to make two checkpoints and calculate what
+///      increase to debt/collateral happened in the period between the checkpoints.
+///      Theses increases are named "gain" (for collateral) and "debt-loss" (for borrow asset).
+///      (typically first checkpoint is made at the end of previous operation and new checkpoint is made at the
+///      beginning of new operation: result amounts are used by fix-change-price procedure).
+///      Another case: user should be able to calculate total amount of received gains and paid debt-lost.
+///      Periodically user will reset data to start calculation of that total amounts from zero
+///      (typically reset will happen at hardworking point).
 contract Accountant is IAccountant, ControllableV3 {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
@@ -47,7 +57,7 @@ contract Accountant is IAccountant, ControllableV3 {
     IBorrowManager borrowManager = IBorrowManager(_controller.borrowManager());
     require(borrowManager.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_NOT_FOUND);
 
-    AccountantLib.onBorrow(_state, _controller, IPoolAdapter(msg.sender), collateralAmount, borrowedAmount);
+    AccountantLib.onBorrow(_state, IPoolAdapter(msg.sender), collateralAmount, borrowedAmount);
   }
 
   /// @notice Register loan payment
@@ -64,7 +74,7 @@ contract Accountant is IAccountant, ControllableV3 {
     // so, no revert, silent ignore
 
     if (borrowManager.isPoolAdapter(msg.sender)) {
-      AccountantLib.onRepay(_state, IPoolAdapter(msg.sender), withdrawnCollateral, paidAmount);
+      AccountantLib.onRepay(_state, _controller, IPoolAdapter(msg.sender), withdrawnCollateral, paidAmount);
     }
   }
   //endregion ----------------------------------------------------- OnBorrow, OnRepay
@@ -96,91 +106,50 @@ contract Accountant is IAccountant, ControllableV3 {
   //endregion ----------------------------------------------------- Checkpoints
 
   //region ----------------------------------------------------- Logic for period
-  /// @notice Start new period of collecting of gains and losses.
-  ///         Set current total gains and total losses for each pool adapter to zero.
-  ///         Remove pool adapters with zero debts from the user.
-  /// @return totalGain Total amount of collateral earned by the pool adapters in the previous period,
-  ///                   in terms of underlying
-  /// @return totalLosses Total loan repayment losses in terms of borrowed amount in the previous period,
-  ///                     in terms of underlying
-  function startNewPeriod(address user) external returns (int totalGain, int totalLosses) {
-//    period += 1;
 
-//    uint countPoolAdapters = _state.poolAdaptersPerUser[user].length();
-//    for (uint i = countPoolAdapters; i > 0; i--) {
-//      address poolAdapter = _state.poolAdaptersPerUser[user].at(i - 1);
-//      AccountantLib.FixedValues memory lossInfo = _state.fixedValues[poolAdapter];
-//      totalGain += lossInfo.gainInUnderlying;
-//      totalLosses += lossInfo.lossInUnderlying;
-//      (,,, bool opened, ,) = IPoolAdapter(poolAdapter).getStatus();
-//      if (! opened) {
-//        delete _state.fixedValues[poolAdapter];
-//        delete _state.states[poolAdapter];
-//        _state.poolAdaptersPerUser[user].remove(poolAdapter);
-//      }
-//    }
-    return (totalGain, totalLosses);
-  }
-
-  /// @notice Get current state of the given pool adapter
-  /// @return totalGain Total amount of collateral earned by the loan in the current period, in terms of underlying.
-  ///                   Positive means profit.
-  /// @return totalLosses Total loan repayment losses in the current period, in terms of underlying.
-  ///                     Positive means losses.
-  /// @return suppliedAmount Current total amount supplied by the user as a collateral
-  /// @return borrowedAmount Current total borrowed amount
-  /// @return lastTotalCollateral Current total amount of collateral registered on the lending platform
-  /// @return lastTotalDebt Current total debt registered on the lending platform
-  function getPoolAdapterState(address poolAdapter) external view returns (
-    int totalGain,
-    int totalLosses,
-    uint suppliedAmount,
-    uint borrowedAmount,
-    uint lastTotalCollateral,
-    uint lastTotalDebt
-  ) {
-//    AccountantLib.PoolAdapterState memory state = _state.states[poolAdapter];
-//    AccountantLib.FixedValues memory lossInfo = _state.fixedValues[poolAdapter];
-//
-//    return (
-//      lossInfo.gainInUnderlying,
-//      lossInfo.lossInUnderlying,
-//      state.suppliedAmount,
-//      state.borrowedAmount,
-//      state.lastTotalCollateral,
-//      state.lastTotalDebt
-//    );
-  }
-
-  /// @notice Get current state of the given user (== strategy, the user of pool adapters)
-  /// @return countPoolAdapters Current count of pool adapters
-  /// @return totalGain Total amount of collateral earned by the pool adapters in the current period,
-  ///                   in terms of underlying
-  /// @return totalLosses Total loan repayment losses in terms of borrowed amount in the current period,
-  ///                     in terms of underlying
-  function getStateForPeriod(address user) external view returns (
-    uint countPoolAdapters,
-    int totalGain,
-    int totalLosses
-  ) {
-//    countPoolAdapters = _poolAdaptersPerUser[user].length();
-//    for (uint i; i < countPoolAdapters; ++i) {
-//      address poolAdapter = _poolAdaptersPerUser[user].at(i);
-//      FixedValues memory lossInfo = _fixedValues[poolAdapter];
-//      totalGain += lossInfo.gainInUnderlying;
-//      totalLosses += lossInfo.lossInUnderlying;
-//    }
-    return (countPoolAdapters, totalGain, totalLosses);
-  }
   //endregion ----------------------------------------------------- Logic for period
 
-  //region ----------------------------------------------------- Utils
+  //region ----------------------------------------------------- View mapping data
   function poolAdaptersPerUserLength(address user) external view returns (uint) {
     return _state.poolAdaptersPerUser[user].length();
   }
   function poolAdaptersPerUserAt(address user, uint index) external view returns (address) {
     return _state.poolAdaptersPerUser[user].at(index);
   }
-  //endregion ----------------------------------------------------- View
+
+  function actionsLength(address poolAdapter) external view returns (uint) {
+    return _state.actions[poolAdapter].length;
+  }
+  function actionsAt(address poolAdapter, uint index) external view returns (
+    uint suppliedAmount,
+    uint borrowedAmount,
+    uint totalCollateral,
+    uint totalDebt,
+    uint actionKind
+  ) {
+    AccountantLib.Action memory action = _state.actions[poolAdapter][index];
+    return (
+      action.suppliedAmount,
+      action.borrowedAmount,
+      action.totalCollateral,
+      action.totalDebt,
+      uint(action.actionKind)
+    );
+  }
+
+  function repayInfoAt(address poolAdapter, uint index) external view returns (
+    uint gain,
+    uint loss,
+    uint[2] memory prices
+  ) {
+    AccountantLib.RepayInfo memory repayInfo = _state.repayInfo[poolAdapter][index];
+    return (
+      repayInfo.gain,
+      repayInfo.loss,
+      repayInfo.prices
+    );
+  }
+
+  //endregion ----------------------------------------------------- View mapping data
 
 }

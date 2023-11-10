@@ -96,7 +96,9 @@ export class TetuConverterApp {
     const accountantFabric = p?.accountantFabric
       || {
         deploy: async () => CoreContractsHelper.deployAccountant(deployer),
-        init: async (controller, instance) => {await CoreContractsHelper.initializeAccountant(deployer, controller, instance)}
+        init: async (controller, instance) => {
+          await CoreContractsHelper.initializeAccountant(deployer, controller, instance)
+        }
       };
 
     const tetuLiquidatorFabric = async () => p?.tetuLiquidatorAddress

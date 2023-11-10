@@ -2,6 +2,7 @@ import {ethers} from "hardhat";
 import {DownloadAave3Pools} from "../../integration/aave3/DownloadAave3Pools";
 import {BaseAddresses} from "../../addresses/BaseAddresses";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
+import {HardhatUtils} from "../../utils/HardhatUtils";
 
 /**
  * Download detailed info for all available AAVE pools
@@ -9,6 +10,7 @@ import {MaticAddresses} from "../../addresses/MaticAddresses";
  *     npx hardhat run --network localhost scripts/tasks/download-pools-info/DownloadAave3Pools.ts
  */
 async function main() {
+  await HardhatUtils.switchToMostCurrentBlock();
   const aavePoolAddress = MaticAddresses.AAVE_V3_POOL;
   // const aavePoolAddress = BaseAddresses.AAVE_V3_POOL;
   const chainTitle = (await ethers.provider.getNetwork()).name;
