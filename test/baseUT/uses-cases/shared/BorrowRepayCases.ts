@@ -1,25 +1,21 @@
 import {IPoolAdapterStatusNum} from "../../types/BorrowRepayDataTypes";
 import {
-  BorrowManager__factory, ConverterController,
-  ConverterController__factory, IERC20__factory,
-  IERC20Metadata__factory, IMoonwellComptroller, IPoolAdapter__factory,
-  ITetuConverter, ITetuConverter__factory, MoonwellPlatformAdapter,
+  Accountant, Accountant__factory,
+  BorrowManager__factory,
+  ConverterController__factory,
+  IERC20__factory,
+  IERC20Metadata__factory,
+  IPoolAdapter__factory,
+  ITetuConverter,
   UserEmulator
 } from "../../../../typechain";
 import {BigNumber, BytesLike} from "ethers";
 import {IConversionPlanNum} from "../../types/AppDataTypes";
 import {AppConstants} from "../../types/AppConstants";
-import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ethers} from "hardhat";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {BorrowRepayDataTypeUtils} from "../../utils/BorrowRepayDataTypeUtils";
-import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
-import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {expect} from "chai";
-import {IPlatformUtilsProvider} from "../../types/IPlatformUtilsProvider";
-import {Misc} from "../../../../scripts/utils/Misc";
 
 export interface IBorrowRepaySetup {
   tetuConverter: ITetuConverter;
@@ -99,6 +95,35 @@ export interface IBorrowRepayPairResults {
   tetuConverterBorrowAssetBalance: number;
 
   status: IPoolAdapterStatusNum;
+}
+
+export interface IAction {
+  suppliedAmount: number;
+  borrowedAmount: number;
+  totalCollateral: number;
+  totalDebt: number;
+  actionKind: number;
+  repayInfo: {
+    gain: number;
+    loss: number;
+    prices: number[];
+  }
+}
+
+export interface ICheckpoint {
+  suppliedAmount: number;
+  borrowedAmount: number;
+  totalCollateral: number;
+  totalDebt: number;
+  countActions: number;
+}
+
+export interface IAccountantStatus {
+  results: IBorrowRepayPairResults;
+
+  actions: IAction[];
+  poolAdaptersForUser: string[];
+  checkpoint: ICheckpoint;
 }
 
 
@@ -323,6 +348,67 @@ export class BorrowRepayCases {
       // but real health factor should be higher - we need some reserve
       // so, we add such reserve - see implementation of AAVE platform adapters
       : minAllowed * Number(healthFactorsPair.targetValue) / Number(healthFactorsPair.minValue);
+  }
+
+  /** Make sequence of [borrow], [repay] actions in a single block, return detailed status of Accauntant */
+  static async borrowRepayPairsSingleBlockAccountant(
+    signer: SignerWithAddress,
+    p: IBorrowRepaySetup,
+    pairs: IBorrowRepayPairParams[],
+  ): Promise<IAccountantStatus> {
+    const ret = await this.borrowRepayPairsSingleBlock(signer, p, pairs);
+
+    const converterController = ConverterController__factory.connect(await p.tetuConverter.controller(), signer);
+    const accountant = Accountant__factory.connect(await converterController.accountant(), signer);
+    const borrowManager = BorrowManager__factory.connect(await converterController.borrowManager(), signer);
+    const poolAdapter = IPoolAdapter__factory.connect(await borrowManager.listPoolAdapters(0), signer);
+
+    const collateralAsset = await IERC20Metadata__factory.connect(p.collateralAsset, signer);
+    const borrowAsset = await IERC20Metadata__factory.connect(p.borrowAsset, signer);
+    const decimalsCollateral = await collateralAsset.decimals();
+    const decimalsBorrow = await borrowAsset.decimals();
+
+    const actions: IAction[] = [];
+    const countActions = (await accountant.actionsLength(poolAdapter.address)).toNumber();
+    for (let i = 0; i < countActions; ++i) {
+      const a = await accountant.actionsAt(poolAdapter.address, i);
+      const ri = await accountant.repayInfoAt(poolAdapter.address, i);
+      actions.push({
+        actionKind: a.actionKind.toNumber(),
+        suppliedAmount: +formatUnits(a.suppliedAmount, decimalsCollateral),
+        borrowedAmount: +formatUnits(a.borrowedAmount, decimalsBorrow),
+        totalCollateral: +formatUnits(a.totalCollateral, decimalsCollateral),
+        totalDebt: +formatUnits(a.totalDebt, decimalsBorrow),
+        repayInfo: {
+          gain: +formatUnits(ri.gain, decimalsCollateral),
+          loss: +formatUnits(ri.loss, decimalsBorrow),
+          prices: ri.prices.map(x => +formatUnits(x, 18))
+        }
+      });
+    }
+
+    const config = await poolAdapter.getConfig();
+
+    const poolAdaptersForUser: string[] = [];
+    const countPoolAdapters = (await accountant.poolAdaptersPerUserLength(config.user)).toNumber();
+    for (let i = 0; i < countPoolAdapters; ++i) {
+      poolAdaptersForUser.push(await accountant.poolAdaptersPerUserAt(config.user, i));
+    }
+
+    const checkpoint = await accountant.getLastCheckpoint(poolAdapter.address);
+
+    return {
+      results: ret,
+      actions,
+      poolAdaptersForUser,
+      checkpoint: {
+        suppliedAmount: +formatUnits(checkpoint.suppliedAmount, decimalsCollateral),
+        borrowedAmount: +formatUnits(checkpoint.borrowedAmount, decimalsBorrow),
+        totalCollateral: +formatUnits(checkpoint.totalCollateral, decimalsCollateral),
+        totalDebt: +formatUnits(checkpoint.totalDebt, decimalsBorrow),
+        countActions: checkpoint.countActions.toNumber()
+      }
+    }
   }
 }
 

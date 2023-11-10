@@ -108,6 +108,14 @@ library AccountantLib {
     uint borrowedAmount;
     uint suppliedAmount;
   }
+
+  struct CheckpointForUserLocal {
+    uint lenTokens;
+    uint indexCollateral;
+    uint indexBorrow;
+    uint gain;
+    uint loss;
+  }
   //endregion ----------------------------------------------------- Data types
 
   //region ----------------------------------------------------- Events
@@ -131,9 +139,34 @@ library AccountantLib {
 
   //region ----------------------------------------------------- Checkpoint logic
 
+  /// @notice Calculate gain and debt-loss for period between current moment and stored checkpoint
+  /// @dev Deltas can be calculated only if there were no repay/borrow actions since previous checkpoint
+  function previewCheckpointForPoolAdapter(BaseState storage state_, IPoolAdapter poolAdapter_) internal view returns (
+    uint deltaGain,
+    uint deltaLoss
+  ) {
+    CheckpointLocal memory v;
+    (v.totalCollateral, v.totalDebt, , , , ) = poolAdapter_.getStatus();
+    PoolAdapterCheckpoint memory c = state_.checkpoints[address(poolAdapter_)];
+    Action[] storage actions = state_.actions[address(poolAdapter_)];
+
+    v.countActions = actions.length;
+
+    // we can calculate deltas only if
+    // - there was no liquidation
+    // - there were no repay/borrow actions since previous checkpoint
+    // otherwise it's safer to assume that the deltas are zero
+    if (v.totalDebt >= c.totalDebt && c.countActions == v.countActions ) {
+      deltaGain = v.totalCollateral - c.totalCollateral;
+      deltaLoss = v.totalDebt - c.totalDebt;
+    }
+
+    return (deltaGain, deltaLoss);
+  }
+
   /// @notice Save checkpoint for the given {poolAdapter_} for the current moment
   /// @dev Deltas can be calculated only if there were no repay/borrow actions since previous checkpoint
-  function checkpoint(IPoolAdapter poolAdapter_, BaseState storage state_) internal returns (
+  function checkpointForPoolAdapter(BaseState storage state_, IPoolAdapter poolAdapter_) internal returns (
     uint deltaGain,
     uint deltaLoss
   ) {
@@ -176,29 +209,66 @@ library AccountantLib {
   /// @return deltaGains Collateral gains for {tokens_}. Gain is a profit that appears because of supply rates.
   /// @return deltaLosses Increases in debts for {tokens_}. Such losses appears because of borrow rates.
   function checkpointForUser(
-    address user_,
     BaseState storage state_,
+    address user_,
     address[] memory tokens_
   ) internal returns (
     uint[] memory deltaGains,
     uint[] memory deltaLosses
   ) {
-    uint lenTokens = tokens_.length;
-    deltaGains = new uint[](lenTokens);
-    deltaLosses = new uint[](lenTokens);
+    CheckpointForUserLocal memory v;
+
+    v.lenTokens = tokens_.length;
+    deltaGains = new uint[](v.lenTokens);
+    deltaLosses = new uint[](v.lenTokens);
 
     EnumerableSet.AddressSet storage set = state_.poolAdaptersPerUser[user_];
     uint len = set.length();
     for (uint i; i < len; ++i) {
       IPoolAdapter poolAdapter = IPoolAdapter(set.at(i));
       (,, address collateralAsset, address borrowAsset) = poolAdapter.getConfig();
-      uint indexCollateral = AppUtils.getAssetIndex(tokens_, collateralAsset, lenTokens);
-      uint indexBorrow = AppUtils.getAssetIndex(tokens_, borrowAsset, lenTokens);
-      require(indexCollateral != type(uint).max && indexBorrow != type(uint).max, AppErrors.ASSET_NOT_FOUND);
+      v.indexCollateral = AppUtils.getAssetIndex(tokens_, collateralAsset, v.lenTokens);
+      v.indexBorrow = AppUtils.getAssetIndex(tokens_, borrowAsset, v.lenTokens);
+      require(v.indexCollateral != type(uint).max && v.indexBorrow != type(uint).max, AppErrors.ASSET_NOT_FOUND);
 
-      (uint gain, uint loss) = checkpoint(poolAdapter, state_);
-      deltaGains[indexCollateral] += gain;
-      deltaLosses[indexBorrow] += loss;
+      (v.gain, v.loss) = checkpointForPoolAdapter(state_, poolAdapter);
+      deltaGains[v.indexCollateral] += v.gain;
+      deltaLosses[v.indexBorrow] += v.loss;
+    }
+  }
+
+  /// @notice Calculate gain and debt-loss for all user's pool adapter
+  ///         for period between current moment and stored checkpoint
+  /// @param user_ User (strategy)
+  /// @param tokens_ List of all possible collateral and borrow assets.
+  /// @return deltaGains Collateral gains for {tokens_}. Gain is a profit that appears because of supply rates.
+  /// @return deltaLosses Increases in debts for {tokens_}. Such losses appears because of borrow rates.
+  function previewCheckpointForUser(
+    BaseState storage state_,
+    address user_,
+    address[] memory tokens_
+  ) internal view returns (
+    uint[] memory deltaGains,
+    uint[] memory deltaLosses
+  ) {
+    CheckpointForUserLocal memory v;
+
+    v.lenTokens = tokens_.length;
+    deltaGains = new uint[](v.lenTokens);
+    deltaLosses = new uint[](v.lenTokens);
+
+    EnumerableSet.AddressSet storage set = state_.poolAdaptersPerUser[user_];
+    uint len = set.length();
+    for (uint i; i < len; ++i) {
+      IPoolAdapter poolAdapter = IPoolAdapter(set.at(i));
+      (,, address collateralAsset, address borrowAsset) = poolAdapter.getConfig();
+      v.indexCollateral = AppUtils.getAssetIndex(tokens_, collateralAsset, v.lenTokens);
+      v.indexBorrow = AppUtils.getAssetIndex(tokens_, borrowAsset, v.lenTokens);
+      require(v.indexCollateral != type(uint).max && v.indexBorrow != type(uint).max, AppErrors.ASSET_NOT_FOUND);
+
+      (v.gain, v.loss) = previewCheckpointForPoolAdapter(state_, poolAdapter);
+      deltaGains[v.indexCollateral] += v.gain;
+      deltaLosses[v.indexBorrow] += v.loss;
     }
   }
   //endregion ----------------------------------------------------- Checkpoint logic

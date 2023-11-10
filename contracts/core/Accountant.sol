@@ -80,10 +80,30 @@ contract Accountant is IAccountant, ControllableV3 {
   //endregion ----------------------------------------------------- OnBorrow, OnRepay
 
   //region ----------------------------------------------------- Checkpoints
+  /// @notice Save checkpoint for all pool adapters of the given {user_}
+  /// @return deltaGains Total amount of gains for the {tokens_} by all pool adapter
+  /// @return deltaLosses Total amount of losses for the {tokens_} by all pool adapter
+  function checkpoint(address[] memory tokens_) external returns (
+    uint[] memory deltaGains,
+    uint[] memory deltaLosses
+  ) {
+    // no restrictions: any user is allowed
+    // to receive any values the user should have empty state_.poolAdaptersPerUser
 
-  /// @notice Save checkpoint for the given {poolAdapter_} for the current moment
-  function _checkpoint(IPoolAdapter poolAdapter_) internal returns (uint deltaGain, uint deltaLoss) {
-    return AccountantLib.checkpoint(poolAdapter_, _state);
+    return AccountantLib.checkpointForUser(_state, msg.sender, tokens_);
+  }
+
+  /// @notice Save checkpoint for all pool adapters of the given {user_}
+  /// @return deltaGains Total amount of gains for the {tokens_} by all pool adapter
+  /// @return deltaLosses Total amount of losses for the {tokens_} by all pool adapter
+  function previewCheckpoint(address user, address[] memory tokens_) external view returns (
+    uint[] memory deltaGains,
+    uint[] memory deltaLosses
+  ) {
+    // no restrictions: any user is allowed
+    // to receive any values the user should have empty state_.poolAdaptersPerUser
+
+    return AccountantLib.previewCheckpointForUser(_state, user, tokens_);
   }
 
   /// @notice Get last saved checkpoint for the given {user}
