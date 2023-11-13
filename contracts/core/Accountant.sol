@@ -93,7 +93,7 @@ contract Accountant is IAccountant, ControllableV3 {
     return AccountantLib.checkpointForUser(_state, msg.sender, tokens_);
   }
 
-  /// @notice Save checkpoint for all pool adapters of the given {user_}
+  /// @notice Calculate deltas that user would receive if he creates a checkpoint at the moment
   /// @return deltaGains Total amount of gains for the {tokens_} by all pool adapter
   /// @return deltaLosses Total amount of losses for the {tokens_} by all pool adapter
   function previewCheckpoint(address user, address[] memory tokens_) external view returns (
