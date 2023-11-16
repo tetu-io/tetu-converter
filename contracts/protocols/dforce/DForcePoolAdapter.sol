@@ -205,7 +205,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     require(tokenBalanceAfter >= tokenBalanceBefore, AppErrors.WEIRD_OVERFLOW); // overflow below is not possible
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
 
-    _registerInBookkeeper(c, true, collateralAmount_, borrowAmount_);
+    _registerInBookkeeperBorrow(c, collateralAmount_, borrowAmount_);
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
 
     return borrowAmount_;
@@ -299,7 +299,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     // ensure that current health factor is greater than min allowed
     (resultHealthFactor18,) = _validateHealthStatusAfterBorrow(c, collateralCToken, cTokenBorrow);
 
-    _registerInBookkeeper(c, true, 0, borrowAmount_);
+    _registerInBookkeeperBorrow(c, 0, borrowAmount_);
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
@@ -397,7 +397,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       collateralTokensBalance -= tokenBalanceBefore - tokenBalanceAfter;
     }
 
-    _registerInBookkeeper(controller, false, collateralAmountToReturn, amountToRepay_);
+    _registerInBookkeeperRepay(controller, collateralAmountToReturn, amountToRepay_);
     emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor18);
     return collateralAmountToReturn;
   }
@@ -453,7 +453,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       address assetCollateral = collateralAsset;
       IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amount_);
       tokenBalanceBefore = _supply(cTokenCollateral, collateralAsset, amount_);
-      _registerInBookkeeper(controller, true, amount_, 0);
+      _registerInBookkeeperBorrow(controller, amount_, 0);
     } else {
       uint borrowBalance;
       address assetBorrow = borrowAsset;
@@ -473,7 +473,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
         // replaced by infinity approve in constructor: IERC20(assetBorrow).safeApprove(cTokenBorrow, amount_);
         IDForceCToken(cTokenBorrow).repayBorrow(amount_);
       }
-      _registerInBookkeeper(controller, true, 0, amount_);
+      _registerInBookkeeperRepay(controller, 0, amount_);
     }
     // validate result status
     (uint tokenBalanceAfter,,
@@ -666,18 +666,22 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     require(hf18 > uint(controller_.minHealthFactor2()) * 10 ** (18 - 2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
-  /// @notice Register borrow/repay operations in Bookkeeper
-  function _registerInBookkeeper(
+  /// @notice Register borrow operation in Bookkeeper
+  function _registerInBookkeeperBorrow(
     IConverterController controller_,
-    bool isBorrow,
     uint amountCollateral,
     uint amountBorrow
   ) internal {
-    if (isBorrow) {
-      IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
-    } else {
-      IBookkeeper(controller_.bookkeeper()).onRepay(amountCollateral, amountBorrow);
-    }
+    IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
+  }
+
+  /// @notice Register repay operation in Bookkeeper
+  function _registerInBookkeeperRepay(
+    IConverterController controller_,
+    uint withdrawnCollateral,
+    uint paidAmount
+  ) internal {
+    IBookkeeper(controller_.bookkeeper()).onRepay(withdrawnCollateral, paidAmount);
   }
   //endregion ----------------------------------------------------- Utils
 

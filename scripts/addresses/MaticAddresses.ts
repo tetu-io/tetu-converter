@@ -47,12 +47,12 @@ export class MaticAddresses {
 //endregion Assets
 
 //region Asset biggest holders
-  public static HOLDER_DAI = "0x075e72a5edf65f0a5f44699c7654c1a76941ddc8";
-  public static HOLDER_DAI_2 = "0xf04adbf75cdfc5ed26eea4bbbb991db002036bdd";
-  public static HOLDER_DAI_3 = "0x65b1b96bd01926d3d60dd3c8bc452f22819443a9";
-  public static HOLDER_DAI_4 = "0xdfd74e3752c187c4ba899756238c76cbeefa954b";
-  public static HOLDER_DAI_5 = "0x9bdb521a97e95177bf252c253e256a60c3e14447";
-  public static HOLDER_DAI_6 = "0x56cf0ff00fd6cfb23ce964c6338b228b0fa76640";
+  public static HOLDER_DAI = "0x18dA62bA13Ae20007fd42961Fd52f3128B54E678";
+  public static HOLDER_DAI_2 = "0xbF2fb1685b03Ec5dBB92381882CBb8CA74a8C559";
+  public static HOLDER_DAI_3 = "0x6833df4E1edB361A04491349833c83A4868ABCdA";
+  public static HOLDER_DAI_4 = "0x80D5441632D2A68eF0Ba98dfDD4b57f0B66A8e5C";
+  public static HOLDER_DAI_5 = "0x79990a901281bEe059BB3F4D7Db477F7495e2049";
+  public static HOLDER_DAI_6 = "0xfeEfA6594A1B8d929964dC538A917c5A9973e0bF";
 
   public static HOLDER_USDC = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_USDC_2 = "0x166716c2838e182d64886135a96f1aabca9a9756";
@@ -167,10 +167,10 @@ export class MaticAddresses {
 //region AAVE-v3
   // https://docs.aave.com/developers/v/2.0/deployed-contracts/matic-polygon-market
   public static AAVE_TWO_POOL = "0x8dFf5E27EA6b7AC08EbFdf9eB090F32ee9a30fcf";
-  public static AAVE_TWO_POOL_ADMIN = "0x4365f8e70cf38c6ca67de41448508f2da8825500";
-  public static AAVE_TWO_POOL_OWNER = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
+  public static AAVE_TWO_POOL_ADMIN = "0xDf7d0e6454DB638881302729F5ba99936EaAB233";
+  public static AAVE_TWO_POOL_OWNER = "0xDf7d0e6454DB638881302729F5ba99936EaAB233";
   // https://polygonscan.com/address/0xd05e3e715d945b59290df0ae8ef85c1bdb684744#readContract
-  public static AAVE_TWO_LENDING_POOL_CONFIGURATOR_POOL_ADMIN = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
+  public static AAVE_TWO_LENDING_POOL_CONFIGURATOR_POOL_ADMIN = "0xDf7d0e6454DB638881302729F5ba99936EaAB233";
 
   public static AAVE_TWO_ATOKEN_USDC = "0x1a13F4Ca1d028320A707D99520AbFefca3998b7F";
   public static AAVE_TWO_ATOKEN_USDC_HOLDER = "0xe52f5349153b8eb3b89675af45ac7502c4997e6a";

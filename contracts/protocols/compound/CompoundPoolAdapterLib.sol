@@ -255,7 +255,7 @@ library CompoundPoolAdapterLib {
     );
     state.collateralTokensBalance += AppUtils.sub0(tokenBalanceAfterBorrow, tokenBalanceBeforeBorrow);
 
-    _registerInBookkeeper(v.controller, true, collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
+    _registerInBookkeeperBorrow(v.controller, collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
     emit OnBorrow(collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore, receiver_, healthFactor);
     return balanceBorrowAssetAfter - balanceBorrowAssetBefore;
   }
@@ -373,7 +373,7 @@ library CompoundPoolAdapterLib {
     );
     state.collateralTokensBalance = v.collateralTokensBalance - (v.tokenBalanceBefore - data.collateralTokenBalance);
 
-    _registerInBookkeeper(controller, false, collateralAmountToReturn, amountToRepay_);
+    _registerInBookkeeperRepay(controller, collateralAmountToReturn, amountToRepay_);
     emit OnRepay(amountToRepay_, receiver_, closePosition_, v.healthFactor18);
     return collateralAmountToReturn;
   }
@@ -418,7 +418,7 @@ library CompoundPoolAdapterLib {
       address assetCollateral = state.collateralAsset;
       IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amountIn_);
       tokenBalanceBefore = _supply(f_, cTokenCollateral, amountIn_);
-      _registerInBookkeeper(controller, true, amountIn_, 0);
+      _registerInBookkeeperBorrow(controller, amountIn_, 0);
     } else {
       address assetBorrow = state.borrowAsset;
 
@@ -440,7 +440,7 @@ library CompoundPoolAdapterLib {
         uint error = ICTokenBase(cTokenBorrow).repayBorrow(amountIn_);
         require(error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(error))));
       }
-      _registerInBookkeeper(controller, false, 0, amountIn_);
+      _registerInBookkeeperRepay(controller, 0, amountIn_);
     }
 
     // validate result status
@@ -742,18 +742,22 @@ library CompoundPoolAdapterLib {
     }
   }
 
-  /// @notice Register borrow/repay operations in Bookkeeper
-  function _registerInBookkeeper(
+  /// @notice Register borrow operation in Bookkeeper
+  function _registerInBookkeeperBorrow(
     IConverterController controller_,
-    bool isBorrow,
     uint amountCollateral,
     uint amountBorrow
   ) internal {
-    if (isBorrow) {
-      IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
-    } else {
-      IBookkeeper(controller_.bookkeeper()).onRepay(amountCollateral, amountBorrow);
-    }
+    IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
+  }
+
+  /// @notice Register repay operation in Bookkeeper
+  function _registerInBookkeeperRepay(
+    IConverterController controller_,
+    uint withdrawnCollateral,
+    uint paidAmount
+  ) internal {
+    IBookkeeper(controller_.bookkeeper()).onRepay(withdrawnCollateral, paidAmount);
   }
   //endregion ----------------------------------------------------- Protocol features logic
 }

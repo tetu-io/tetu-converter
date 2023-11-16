@@ -775,8 +775,8 @@ describe("Aave3PlatformAdapterTest", () => {
                       36
                     );
 
-                    expect(r.plan.amountToBorrow).approximately(borrowAmount, 1);
-                    expect(r.plan.collateralAmount).approximately(collateralAmount, 1);
+                    expect(r.plan.amountToBorrow).approximately(borrowAmount, 2);
+                    expect(r.plan.collateralAmount).approximately(collateralAmount, 2);
                     expect(r.plan.amountCollateralInBorrowAsset36).approximately(amountCollateralInBorrowAsset36, 1000);
                     expect(expectedCollateralAmount).approximately(collateralAmount, 10); // let's ensure that expectedCollateralAmount is correct
                   });

@@ -201,7 +201,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(c, healthFactor, 0);
 
-    _registerInBookkeeper(c, true, collateralAmount_, borrowAmount_);
+    _registerInBookkeeperBorrow(c, collateralAmount_, borrowAmount_);
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor, newCollateralBalanceATokens);
     return borrowAmount_;
   }
@@ -285,7 +285,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     (,,,,, resultHealthFactor18) = pool.getUserAccountData(address(this));
     _validateHealthFactor(c, resultHealthFactor18, 0);
 
-    _registerInBookkeeper(c, true, 0, borrowAmount_);
+    _registerInBookkeeperBorrow(c, 0, borrowAmount_);
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
@@ -373,7 +373,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     v.collateralBalanceATokens = AppUtils.sub0(collateralBalanceATokens, v.aTokensBeforeSupply - v.aTokensAfterSupply);
     collateralBalanceATokens = v.collateralBalanceATokens;
 
-    _registerInBookkeeper(c, false, v.amountCollateralToWithdraw, amountToRepay_);
+    _registerInBookkeeperRepay(c, v.amountCollateralToWithdraw, amountToRepay_);
     emit OnRepay(amountToRepay_, receiver_, closePosition_, v.healthFactorAfter, v.collateralBalanceATokens);
     return v.amountCollateralToWithdraw;
   }
@@ -501,7 +501,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     if (isCollateral_) {
       newCollateralBalanceATokens = _supply(pool, collateralAsset, amount_) + newCollateralBalanceATokens;
       collateralBalanceATokens = newCollateralBalanceATokens;
-      _registerInBookkeeper(c, true, amount_, 0);
+      _registerInBookkeeperBorrow(c, amount_, 0);
     } else {
       // ensure, that amount to repay is less then the total debt
       uint priceBorrowAsset = priceOracle.getAssetPrice(assetBorrow);
@@ -516,7 +516,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       // replaced by infinity approve: IERC20(assetBorrow).safeApprove(address(pool), amount_);
 
       pool.repay(assetBorrow, amount_, RATE_MODE, address(this));
-      _registerInBookkeeper(c, false, 0, amount_);
+      _registerInBookkeeperRepay(c, 0, amount_);
     }
 
     // validate result status
@@ -633,18 +633,22 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     );
   }
 
-  /// @notice Register borrow/repay operations in Bookkeeper
-  function _registerInBookkeeper(
+  /// @notice Register borrow operation in Bookkeeper
+  function _registerInBookkeeperBorrow(
     IConverterController controller_,
-    bool isBorrow,
     uint amountCollateral,
     uint amountBorrow
   ) internal {
-    if (isBorrow) {
-      IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
-    } else {
-      IBookkeeper(controller_.bookkeeper()).onRepay(amountCollateral, amountBorrow);
-    }
+    IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
+  }
+
+  /// @notice Register repay operation in Bookkeeper
+  function _registerInBookkeeperRepay(
+    IConverterController controller_,
+    uint withdrawnCollateral,
+    uint paidAmount
+  ) internal {
+    IBookkeeper(controller_.bookkeeper()).onRepay(withdrawnCollateral, paidAmount);
   }
 
   //endregion ----------------------------------------------------- Utils

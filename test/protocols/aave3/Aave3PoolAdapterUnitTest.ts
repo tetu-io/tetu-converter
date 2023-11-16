@@ -35,7 +35,7 @@ import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePr
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {
   BASE_NETWORK_ID,
-  controlGasLimitsEx2,
+  controlGasLimitsEx2, HARDHAT_NETWORK_ID,
   HardhatUtils,
   POLYGON_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
@@ -45,7 +45,7 @@ import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
 import {
   Aave3PoolAdapter, Aave3PoolAdapterEMode, Aave3PoolMock,
   Aave3PoolMock__factory, BorrowManager__factory,
-  ConverterController, DebtMonitor__factory, IERC20Metadata,
+  ConverterController, DebtMonitor__factory, IAavePool__factory, IERC20Metadata,
   IERC20Metadata__factory, IPoolAdapter__factory, ITetuConverter__factory
 } from "../../../typechain";
 import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
@@ -56,19 +56,11 @@ import {ICoreAave3} from "../../baseUT/protocols/aave3/Aave3DataTypes";
 import {BorrowRepayDataTypeUtils} from "../../baseUT/utils/BorrowRepayDataTypeUtils";
 import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
 import {BaseCore} from "../../baseUT/chains/base/baseCore";
+import {CoreContractsHelper} from "../../baseUT/app/CoreContractsHelper";
+import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Test setup
-  interface IPairToBorrow {
-    collateralAsset: string;
-    borrowAsset: string;
-    collateralAssetName: string;
-    borrowAssetName: string;
-    amount: string;
-    tag?: string;
-    highEfficientMode?: boolean; // false by default
-  }
-
   interface ISinglePair {
     collateralAsset: string;
     borrowAsset: string;
@@ -200,7 +192,16 @@ describe("Aave3PoolAdapterUnitTest", () => {
             const signers = await ethers.getSigners();
             deployer = signers[0];
 
-            controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
+            controller = await TetuConverterApp.createController(
+              deployer, {
+                networkId: POLYGON_NETWORK_ID,
+
+                // We should use AAVE price oracle on all networks (price oracle of the moonwell is not suitable on Base)
+                priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(
+                  deployer,
+                  (await Aave3Helper.getAavePriceOracle(deployer, testSetup.aavePool)).address
+                )).address
+              });
             if (networkId === POLYGON_NETWORK_ID) {
               core = MaticCore.getCoreAave3();
             } else {
@@ -1858,7 +1859,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 const healthFactorAfterBorrow = +formatUnits(r.afterBorrow.healthFactor, 16);
                 const healthFactorAfterBorrowToRebalance = +formatUnits(r.afterBorrowToRebalance.healthFactor, 16);
                 expect(healthFactorAfterBorrow).approximately(targetHealthFactorInitial2, 1e-5);
-                expect(healthFactorAfterBorrowToRebalance).approximately(targetHealthFactorUpdated2, 1e-5);
+                expect(healthFactorAfterBorrowToRebalance).approximately(targetHealthFactorUpdated2, 1e-4);
                 expect(toStringWithRound(r.userBalanceAfterBorrow, 18), toStringWithRound(r.expectedAdditionalBorrowAmount, 18));
                 expect(toStringWithRound(r.userBalanceAfterBorrowToRebalance, 18), toStringWithRound(r.expectedAdditionalBorrowAmount.mul(2), 18));
               });

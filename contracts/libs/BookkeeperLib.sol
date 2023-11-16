@@ -303,7 +303,13 @@ library BookkeeperLib {
   /// @notice Register loan payment
   /// @param withdrawnCollateral Amount of collateral received by the user during the repaying.
   /// @param paidAmount Amount paid by the user during the repaying.
-  function onRepay(BaseState storage state, IConverterController controller, IPoolAdapter poolAdapter, uint withdrawnCollateral, uint paidAmount) internal {
+  function onRepay(
+    BaseState storage state,
+    IConverterController controller,
+    IPoolAdapter poolAdapter,
+    uint withdrawnCollateral,
+    uint paidAmount
+  ) internal {
     OnRepayLocal memory v;
     (, v.user, v.collateralAsset, v.borrowAsset) = poolAdapter.getConfig();
     (v.totalCollateral, v.totalDebt,,,,) = poolAdapter.getStatus();

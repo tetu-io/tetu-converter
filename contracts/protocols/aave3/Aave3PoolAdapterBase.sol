@@ -169,9 +169,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     _onlyTetuConverter(c);
 
     IAavePool pool = _pool;
-    address assetBorrow = borrowAsset;
+    address _borrowAsset = borrowAsset;
+    address _collateralAsset = collateralAsset;
 
-    uint newCollateralBalanceATokens = _supply(pool, collateralAsset, collateralAmount_) + collateralBalanceATokens;
+    uint newCollateralBalanceATokens = _supply(pool, _collateralAsset, collateralAmount_) + collateralBalanceATokens;
     collateralBalanceATokens = newCollateralBalanceATokens;
 
     // enter to E-mode if necessary
@@ -179,15 +180,15 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
-    uint balanceBorrowAsset0 = IERC20(assetBorrow).balanceOf(address(this));
-    pool.borrow(assetBorrow, borrowAmount_, RATE_MODE, 0, address(this));
+    uint balanceBorrowAsset0 = IERC20(_borrowAsset).balanceOf(address(this));
+    pool.borrow(_borrowAsset, borrowAmount_, RATE_MODE, 0, address(this));
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
-      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(_borrowAsset).balanceOf(address(this)),
       AppErrors.WRONG_BORROWED_BALANCE
     );
-    IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
+    IERC20(_borrowAsset).safeTransfer(receiver_, borrowAmount_);
 
     // register the borrow in DebtMonitor
     IDebtMonitor(c.debtMonitor()).onOpenPosition();
@@ -196,7 +197,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(c, healthFactor, 0);
 
-    _registerInBookkeeper(c, true, collateralAmount_, borrowAmount_);
+    _registerInBookkeeperBorrow(c, collateralAmount_, borrowAmount_);
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor, newCollateralBalanceATokens);
     return borrowAmount_;
   }
@@ -263,7 +264,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, resultHealthFactor18) = pool.getUserAccountData(address(this));
     _validateHealthFactor(c, resultHealthFactor18, 0);
 
-    _registerInBookkeeper(c, true, 0, borrowAmount_);
+    _registerInBookkeeperBorrow(c, 0, borrowAmount_);
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
@@ -356,7 +357,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     emit OnRepay(amountToRepay_, receiver_, closePosition_, v.healthFactorAfter, v.collateralBalanceATokens);
 
-    _registerInBookkeeper(c, false, v.amountCollateralToWithdraw, amountToRepay_);
+    _registerInBookkeeperRepay(c, v.amountCollateralToWithdraw, amountToRepay_);
     return v.amountCollateralToWithdraw;
   }
 
@@ -444,7 +445,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     if (isCollateral_) {
       newCollateralBalanceATokens = _supply(pool, collateralAsset, amount_) + newCollateralBalanceATokens;
       collateralBalanceATokens = newCollateralBalanceATokens;
-      _registerInBookkeeper(c, true, amount_, 0);
+      _registerInBookkeeperBorrow(c, amount_, 0);
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
@@ -460,7 +461,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       // replaced by infinity approve: IERC20(assetBorrow).approve(address(pool), amount_);
 
       pool.repay(assetBorrow, amount_, RATE_MODE, address(this));
-      _registerInBookkeeper(c, false, 0, amount_);
+      _registerInBookkeeperRepay(c, 0, amount_);
     }
 
     // validate result health factor
@@ -596,18 +597,22 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     );
   }
 
-  /// @notice Register borrow/repay operations in Bookkeeper
-  function _registerInBookkeeper(
+  /// @notice Register borrow operation in Bookkeeper
+  function _registerInBookkeeperBorrow(
     IConverterController controller_,
-    bool isBorrow,
     uint amountCollateral,
     uint amountBorrow
   ) internal {
-    if (isBorrow) {
-      IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
-    } else {
-      IBookkeeper(controller_.bookkeeper()).onRepay(amountCollateral, amountBorrow);
-    }
+    IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
+  }
+
+  /// @notice Register repay operation in Bookkeeper
+  function _registerInBookkeeperRepay(
+    IConverterController controller_,
+    uint withdrawnCollateral,
+    uint paidAmount
+  ) internal {
+    IBookkeeper(controller_.bookkeeper()).onRepay(withdrawnCollateral, paidAmount);
   }
   //endregion ----------------------------------------------------- Utils
 
