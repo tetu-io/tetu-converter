@@ -89,6 +89,8 @@ describe("RebalanceExistDebts", () => {
       statusAfterBorrow1: IPoolAdapterStatusNum;
       statusBeforeBorrow2: IPoolAdapterStatusNum;
       statusAfterBorrow2: IPoolAdapterStatusNum;
+      /** Block 49968469 on polygon: AAVE3 has a negative APR in following tests */
+      isAprNegative: boolean;
     }
 
     async function makeBorrowWithRebalance(p: IBorrowWithRebalanceParams): Promise<IBorrowWithRebalanceResults> {
@@ -120,6 +122,7 @@ describe("RebalanceExistDebts", () => {
         p.borrowAsset,
         1
       );
+      const isAprNegative = plan1.aprs18[0].lt(0);
 
       await tetuConverter.borrow(
         plan1.converters[0],
@@ -153,6 +156,7 @@ describe("RebalanceExistDebts", () => {
         p.borrowAsset,
         1
       );
+      console.log("plan2", plan2);
 
       const statusBeforeBorrow2 = await poolAdapter.getStatus();
       await tetuConverter.borrow(
@@ -172,6 +176,7 @@ describe("RebalanceExistDebts", () => {
         statusAfterBorrow1: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusAfterBorrow1, decimalsCollateral, decimalsBorrow),
         statusBeforeBorrow2: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusBeforeBorrow2, decimalsCollateral, decimalsBorrow),
         statusAfterBorrow2: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusAfterBorrow2, decimalsCollateral, decimalsBorrow),
+        isAprNegative
       }
     }
 
@@ -192,18 +197,27 @@ describe("RebalanceExistDebts", () => {
             borrowAsset: MaticAddresses.USDT,
             collateralAmount: "1000",
             countBlocksBetweenBorrows: 1000,
-            targetHealthFactor1: "2.1"
+            targetHealthFactor1: "2.1",
+            rebalanceOnBorrowEnabled: true
           });
         }
 
         it("second borrowed amount should be less than the first one", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
+          if (ret.isAprNegative) {
+            expect(ret.borrowedAmount2).gt(ret.borrowedAmount1);
+          } else {
+            expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
+          }
           console.log(ret);
         });
         it("should change health factor of the pool adapter before second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+          if (ret.isAprNegative) {
+            expect(ret.statusBeforeBorrow2.healthFactor).gt(ret.statusAfterBorrow1.healthFactor);
+          } else {
+            expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+          }
         });
         it("should restore health factor by second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
@@ -356,7 +370,8 @@ describe("RebalanceExistDebts", () => {
             borrowAsset: MaticAddresses.USDT,
             collateralAmount: "1000",
             countBlocksBetweenBorrows: 1000,
-            targetHealthFactor1: "2.1"
+            targetHealthFactor1: "2.1",
+            rebalanceOnBorrowEnabled: false
           });
         }
 
@@ -367,11 +382,19 @@ describe("RebalanceExistDebts", () => {
         });
         it("should change health factor of the pool adapter before second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+          if (ret.isAprNegative) {
+            expect(ret.statusBeforeBorrow2.healthFactor).gt(ret.statusAfterBorrow1.healthFactor);
+          } else {
+            expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+          }
         });
         it("should not restore health factor by second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusAfterBorrow2.healthFactor).lt(2.1);
+          if (ret.isAprNegative) {
+            expect(ret.statusAfterBorrow2.healthFactor).gt(2.1);
+          } else {
+            expect(ret.statusAfterBorrow2.healthFactor).lt(2.1);
+          }
         });
       });
     });

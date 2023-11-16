@@ -1483,7 +1483,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 amountsToRepay.useCollateral
                   ? amountsToRepay.amountCollateralAsset
                   : amountsToRepay.amountBorrowAsset,
-                amountsToRepay.useCollateral
+                amountsToRepay.useCollateral,
+                {gasLimit: GAS_LIMIT}
               );
 
               const afterBorrowToRebalance: IAave3UserAccountDataResults = await d.aavePool.getUserAccountData(

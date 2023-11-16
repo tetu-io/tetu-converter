@@ -54,7 +54,7 @@ export class MaticAddresses {
   public static HOLDER_DAI_5 = "0x79990a901281bEe059BB3F4D7Db477F7495e2049";
   public static HOLDER_DAI_6 = "0xfeEfA6594A1B8d929964dC538A917c5A9973e0bF";
 
-  public static HOLDER_USDC = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
+  public static HOLDER_USDC = "0x9c2bd617b77961ee2c5e3038dFb0c822cb75d82a";
   public static HOLDER_USDC_2 = "0x166716c2838e182d64886135a96f1aabca9a9756";
   public static HOLDER_USDC_3 = "0x72a53cdbbcc1b9efa39c834a540550e23463aacb";
 

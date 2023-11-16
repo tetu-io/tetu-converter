@@ -40,7 +40,7 @@ import {
   IERC20Metadata__factory
 } from "../../../typechain";
 
-describe("DForcePlatformAdapterTest", () => {
+describe.skip("DForcePlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

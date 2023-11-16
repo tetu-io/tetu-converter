@@ -159,7 +159,7 @@ contract UserEmulator { // todo is ITetuConverterCallback {
       uint[] memory collateralAmountsOut,
       uint[] memory amountToBorrowsOut,
     ) = _tc.findBorrowStrategies(entryData, collateralAsset_, amountIn, borrowAsset_, _periodInBlocks);
-    require(converters.length > 0, AppErrors.POOL_ADAPTER_NOT_FOUND);
+    require(converters.length > 0, "UserEmulator._borrowByPlan: Pool adapter not found");
 
     console.log("_borrowByPlan.amountIn", amountIn);
     console.log("_borrowByPlan.balance", IERC20(collateralAsset_).balanceOf(address(this)));
@@ -187,7 +187,7 @@ contract UserEmulator { // todo is ITetuConverterCallback {
   ) {
     IERC20(collateralAsset_).approve(address(_tc), amountIn);
     (address[] memory converters,,,) = _tc.findBorrowStrategies(entryData, collateralAsset_, amountIn, borrowAsset_, _periodInBlocks);
-    require(converters.length > 0, AppErrors.POOL_ADAPTER_NOT_FOUND);
+    require(converters.length > 0, "UserEmulator._borrowExact: Pool adapter not found");
 
     require(IERC20(collateralAsset_).balanceOf(address(this)) >= amountIn, "UserEmulator has insufficient balance of collateral");
 

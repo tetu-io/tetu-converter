@@ -73,8 +73,9 @@ describe("CompoundPoolAdapterLibTest", () => {
       networkId: POLYGON_NETWORK_ID,
       debtMonitorFabric: {
         deploy: async () => debtMonitor.address,
-        init: async (controller, instance) => {
-        }
+      },
+      borrowManagerFabric: {
+        deploy: async () => (await MocksHelper.createBorrowManagerStub(signer, true)).address
       },
       priceOracleFabric: async () => priceOracle.address
     });
@@ -1609,6 +1610,8 @@ describe("CompoundPoolAdapterLibTest", () => {
         // set up price oracle
         await priceOracle.setUnderlyingPrice(p.cTokenCollateral.address, parseUnits(p?.priceCollateral ?? "1", 36 - decimalsCollateralAsset));
         await priceOracle.setUnderlyingPrice(p.cTokenBorrow.address, parseUnits(p?.priceBorrow ?? "1", 36 - decimalsBorrowAsset));
+        await priceOracle.setAssetPrice(collateralAsset.address, parseUnits(p?.priceCollateral ?? "1", 18));
+        await priceOracle.setAssetPrice(borrowAsset.address, parseUnits(p?.priceBorrow ?? "1", 18));
 
         // set up cTokens
         await p.cTokenCollateral.setGetAccountSnapshotValues(

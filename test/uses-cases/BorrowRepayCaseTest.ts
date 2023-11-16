@@ -3,7 +3,7 @@ import {
   Aave3PlatformAdapter, AaveTwoPlatformAdapter,
   BorrowManager,
   BorrowManager__factory,
-  ConverterController, DForcePlatformAdapter, HfPlatformAdapter,
+  ConverterController, HfPlatformAdapter,
   IPlatformAdapter, ITetuConverter__factory, MoonwellPlatformAdapter,
   UserEmulator
 } from "../../typechain";
@@ -39,8 +39,6 @@ import {HundredFinanceUtilsProvider} from "../baseUT/protocols/hundred-finance/H
 import {HundredFinanceUtils} from "../baseUT/protocols/hundred-finance/HundredFinanceUtils";
 import {AaveTwoUtils} from "../baseUT/protocols/aaveTwo/AaveTwoUtils";
 import {AaveTwoUtilsProvider} from "../baseUT/protocols/aaveTwo/AaveTwoUtilsProvider";
-import {DForceUtils} from "../baseUT/protocols/dforce/DForceUtils";
-import {DForceUtilsProvider} from "../baseUT/protocols/dforce/DForceUtilsProvider";
 
 describe("BorrowRepayCaseTest", () => {
 //region Data types
@@ -293,43 +291,43 @@ describe("BorrowRepayCaseTest", () => {
       ]
     },
 
-    { // Polygon
-      networkId: POLYGON_NETWORK_ID,
-      // any block ~2022 (when HundredFinance had good TVL)
-      block: 29439975,
-      platforms: [
-        { // HundredFinance on Polygon
-          platformUtilsProviderBuilder() {
-            return new HundredFinanceUtilsProvider();
-          },
-          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-              signer0,
-              converterController0,
-              MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-              (await AdaptersHelper.createHundredFinancePoolAdapter(signer0)).address,
-              HundredFinanceUtils.getAllCTokens(),
-            ) as HfPlatformAdapter;
-
-            // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(HundredFinanceUtils.getAllAssets());
-            await borrowManagerAsGov0.addAssetPairs(
-              platformAdapter.address,
-              pairs.map(x => x.smallerAddress),
-              pairs.map(x => x.biggerAddress)
-            );
-
-            return platformAdapter;
-          },
-          assetPairs: [
-            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.WMATIC, collateralAssetName: "DAI", borrowAssetName: "WMATIC", singleParams: PARAMS_SINGLE_STABLE_WMATIC},
-            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-            {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "WMATIC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
-          ]
-        },
-      ]
-    },
-
+    // TODO: Current holders are not valid for block 29439975, use hardhat-deal instead holders addresses
+    // { // Polygon
+    //   networkId: POLYGON_NETWORK_ID,
+    //   // any block ~2022 (when HundredFinance had good TVL)
+    //   block: 29439975,
+    //   platforms: [
+    //     { // HundredFinance on Polygon
+    //       platformUtilsProviderBuilder() {
+    //         return new HundredFinanceUtilsProvider();
+    //       },
+    //       async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+    //         const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+    //           signer0,
+    //           converterController0,
+    //           MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+    //           (await AdaptersHelper.createHundredFinancePoolAdapter(signer0)).address,
+    //           HundredFinanceUtils.getAllCTokens(),
+    //         ) as HfPlatformAdapter;
+    //
+    //         // register the platform adapter in TetuConverter app
+    //         const pairs = generateAssetPairs(HundredFinanceUtils.getAllAssets());
+    //         await borrowManagerAsGov0.addAssetPairs(
+    //           platformAdapter.address,
+    //           pairs.map(x => x.smallerAddress),
+    //           pairs.map(x => x.biggerAddress)
+    //         );
+    //
+    //         return platformAdapter;
+    //       },
+    //       assetPairs: [
+    //         {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.WMATIC, collateralAssetName: "DAI", borrowAssetName: "WMATIC", singleParams: PARAMS_SINGLE_STABLE_WMATIC},
+    //         {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+    //         {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "WMATIC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
+    //       ]
+    //     },
+    //   ]
+    // },
   ]
 //endregion Constants
 

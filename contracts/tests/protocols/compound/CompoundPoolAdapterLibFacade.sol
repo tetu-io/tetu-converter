@@ -150,6 +150,16 @@ contract CompoundPoolAdapterLibFacade {
     return CompoundPoolAdapterLib.getStatus(_state, _f);
   }
 
+  /// @dev This function is required in Bookkeeper-related tests: onRepay and onBorrow can call getConfig on the caller
+  function getConfig() external view returns (
+    address origin,
+    address outUser,
+    address outCollateralAsset,
+    address outBorrowAsset
+  ) {
+    return (_state.originConverter, _state.user, _state.collateralAsset, _state.borrowAsset);
+  }
+
   function _getHealthFactor(uint collateralFactor, uint collateralAmountBase_, uint borrowAmountBase_) external pure returns (
     uint collateralAmountBaseSafeToUse,
     uint healthFactor18
