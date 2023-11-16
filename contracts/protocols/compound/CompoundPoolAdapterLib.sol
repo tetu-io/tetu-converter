@@ -9,7 +9,7 @@ import "../../openzeppelin/IERC20Metadata.sol";
 import "../../openzeppelin/Strings.sol";
 import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IController.sol";
-import "../../interfaces/IAccountant.sol";
+import "../../interfaces/IBookkeeper.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/compound/ICompoundComptrollerBase.sol";
@@ -255,7 +255,7 @@ library CompoundPoolAdapterLib {
     );
     state.collateralTokensBalance += AppUtils.sub0(tokenBalanceAfterBorrow, tokenBalanceBeforeBorrow);
 
-    _registerInAccountant(v.controller, true, collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
+    _registerInBookkeeper(v.controller, true, collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
     emit OnBorrow(collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore, receiver_, healthFactor);
     return balanceBorrowAssetAfter - balanceBorrowAssetBefore;
   }
@@ -373,7 +373,7 @@ library CompoundPoolAdapterLib {
     );
     state.collateralTokensBalance = v.collateralTokensBalance - (v.tokenBalanceBefore - data.collateralTokenBalance);
 
-    _registerInAccountant(controller, false, collateralAmountToReturn, amountToRepay_);
+    _registerInBookkeeper(controller, false, collateralAmountToReturn, amountToRepay_);
     emit OnRepay(amountToRepay_, receiver_, closePosition_, v.healthFactor18);
     return collateralAmountToReturn;
   }
@@ -418,7 +418,7 @@ library CompoundPoolAdapterLib {
       address assetCollateral = state.collateralAsset;
       IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amountIn_);
       tokenBalanceBefore = _supply(f_, cTokenCollateral, amountIn_);
-      _registerInAccountant(controller, true, amountIn_, 0);
+      _registerInBookkeeper(controller, true, amountIn_, 0);
     } else {
       address assetBorrow = state.borrowAsset;
 
@@ -440,7 +440,7 @@ library CompoundPoolAdapterLib {
         uint error = ICTokenBase(cTokenBorrow).repayBorrow(amountIn_);
         require(error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(error))));
       }
-      _registerInAccountant(controller, false, 0, amountIn_);
+      _registerInBookkeeper(controller, false, 0, amountIn_);
     }
 
     // validate result status
@@ -742,17 +742,17 @@ library CompoundPoolAdapterLib {
     }
   }
 
-  /// @notice Register borrow/repay operations in Accountant
-  function _registerInAccountant(
+  /// @notice Register borrow/repay operations in Bookkeeper
+  function _registerInBookkeeper(
     IConverterController controller_,
     bool isBorrow,
     uint amountCollateral,
     uint amountBorrow
   ) internal {
     if (isBorrow) {
-      IAccountant(controller_.accountant()).onBorrow(amountCollateral, amountBorrow);
+      IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
     } else {
-      IAccountant(controller_.accountant()).onRepay(amountCollateral, amountBorrow);
+      IBookkeeper(controller_.bookkeeper()).onRepay(amountCollateral, amountBorrow);
     }
   }
   //endregion ----------------------------------------------------- Protocol features logic

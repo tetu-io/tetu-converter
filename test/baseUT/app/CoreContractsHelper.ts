@@ -1,6 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  Accountant__factory,
+  Bookkeeper__factory,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   BorrowManager__factory,
   ConverterController, ConverterController__factory,
@@ -38,7 +38,7 @@ export class CoreContractsHelper {
     const swapManager = await fabrics.swapManagerFabric.deploy();
     const debtMonitor = await fabrics.debtMonitorFabric.deploy();
     const tetuConverter = await fabrics.tetuConverterFabric.deploy();
-    const accountant = await fabrics.accountantFabric.deploy();
+    const bookkeeper = await fabrics.bookkeeperFabric.deploy();
 
     await ConverterController__factory.connect(controller, deployer).init(
       proxyUpdater,
@@ -69,10 +69,10 @@ export class CoreContractsHelper {
     if (fabrics.tetuConverterFabric.init) {
       await fabrics.tetuConverterFabric.init(controller, tetuConverter);
     }
-    if (fabrics.accountantFabric.init) {
-      await fabrics.accountantFabric.init(controller, accountant);
+    if (fabrics.bookkeeperFabric.init) {
+      await fabrics.bookkeeperFabric.init(controller, bookkeeper);
     }
-    await ConverterController__factory.connect(controller, deployer).setAccountant(accountant);
+    await ConverterController__factory.connect(controller, deployer).setBookkeeper(bookkeeper);
 
     // change default values of controller to the required values
     const controllerAsGov = await ConverterController__factory.connect(controller, deployer);
@@ -111,8 +111,8 @@ export class CoreContractsHelper {
     return (Keeper__factory.connect(await DeployUtils.deployProxy(signer,"Keeper"), signer)).address;
   }
 
-  public static async deployAccountant(signer: SignerWithAddress): Promise<string> {
-    return (Accountant__factory.connect(await DeployUtils.deployProxy(signer, "Accountant"), signer)).address;
+  public static async deployBookkeeper(signer: SignerWithAddress): Promise<string> {
+    return (Bookkeeper__factory.connect(await DeployUtils.deployProxy(signer, "Bookkeeper"), signer)).address;
   }
 //endregion Deploy core contracts (no init calls)
 
@@ -135,8 +135,8 @@ export class CoreContractsHelper {
     return DebtMonitor__factory.connect(instance, signer).init(controller);
   }
 
-  public static async initializeAccountant(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
-    return Accountant__factory.connect(instance, signer).init(controller);
+  public static async initializeBookkeeper(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
+    return Bookkeeper__factory.connect(instance, signer).init(controller);
   }
 
   public static async initializeKeeper(

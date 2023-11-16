@@ -16,7 +16,7 @@ describe("TetuConverterLogicLibTest", function() {
 //region Global vars for all tests
   let snapshotRoot: string;
   let signer: SignerWithAddress;
-  let facade: TetuConverterLogicLibFacade;
+  // let facade: TetuConverterLogicLibFacade;
   let usdc: MockERC20;
   let usdt: MockERC20;
   let dai: MockERC20;
@@ -29,7 +29,7 @@ describe("TetuConverterLogicLibTest", function() {
     snapshotRoot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     signer = signers[0];
-    facade = await DeployUtils.deployContract(signer, "TetuConverterLogicLibFacade") as TetuConverterLogicLibFacade;
+    // facade = await DeployUtils.deployContract(signer, "TetuConverterLogicLibFacade") as TetuConverterLogicLibFacade;
 
     usdc = await MocksHelper.createMockedToken(signer, "usdc", 6);
     usdt = await MocksHelper.createMockedToken(signer, "usdt", 6);

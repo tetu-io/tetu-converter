@@ -1,6 +1,6 @@
 import {IPoolAdapterStatusNum} from "../../types/BorrowRepayDataTypes";
 import {
-  Accountant, Accountant__factory,
+  Bookkeeper, Bookkeeper__factory,
   BorrowManager__factory,
   ConverterController__factory,
   IERC20__factory,
@@ -118,7 +118,7 @@ export interface ICheckpoint {
   countActions: number;
 }
 
-export interface IAccountantStatus {
+export interface IBookkeeperStatus {
   results: IBorrowRepayPairResults;
 
   actions: IAction[];
@@ -351,15 +351,15 @@ export class BorrowRepayCases {
   }
 
   /** Make sequence of [borrow], [repay] actions in a single block, return detailed status of Accauntant */
-  static async borrowRepayPairsSingleBlockAccountant(
+  static async borrowRepayPairsSingleBlockBookkeeper(
     signer: SignerWithAddress,
     p: IBorrowRepaySetup,
     pairs: IBorrowRepayPairParams[],
-  ): Promise<IAccountantStatus> {
+  ): Promise<IBookkeeperStatus> {
     const ret = await this.borrowRepayPairsSingleBlock(signer, p, pairs);
 
     const converterController = ConverterController__factory.connect(await p.tetuConverter.controller(), signer);
-    const accountant = Accountant__factory.connect(await converterController.accountant(), signer);
+    const bookkeeper = Bookkeeper__factory.connect(await converterController.bookkeeper(), signer);
     const borrowManager = BorrowManager__factory.connect(await converterController.borrowManager(), signer);
     const poolAdapter = IPoolAdapter__factory.connect(await borrowManager.listPoolAdapters(0), signer);
 
@@ -369,10 +369,10 @@ export class BorrowRepayCases {
     const decimalsBorrow = await borrowAsset.decimals();
 
     const actions: IAction[] = [];
-    const countActions = (await accountant.actionsLength(poolAdapter.address)).toNumber();
+    const countActions = (await bookkeeper.actionsLength(poolAdapter.address)).toNumber();
     for (let i = 0; i < countActions; ++i) {
-      const a = await accountant.actionsAt(poolAdapter.address, i);
-      const ri = await accountant.repayInfoAt(poolAdapter.address, i);
+      const a = await bookkeeper.actionsAt(poolAdapter.address, i);
+      const ri = await bookkeeper.repayInfoAt(poolAdapter.address, i);
       actions.push({
         actionKind: a.actionKind.toNumber(),
         suppliedAmount: +formatUnits(a.suppliedAmount, decimalsCollateral),
@@ -390,12 +390,12 @@ export class BorrowRepayCases {
     const config = await poolAdapter.getConfig();
 
     const poolAdaptersForUser: string[] = [];
-    const countPoolAdapters = (await accountant.poolAdaptersPerUserLength(config.user)).toNumber();
+    const countPoolAdapters = (await bookkeeper.poolAdaptersPerUserLength(config.user)).toNumber();
     for (let i = 0; i < countPoolAdapters; ++i) {
-      poolAdaptersForUser.push(await accountant.poolAdaptersPerUserAt(config.user, i));
+      poolAdaptersForUser.push(await bookkeeper.poolAdaptersPerUserAt(config.user, i));
     }
 
-    const checkpoint = await accountant.getLastCheckpoint(poolAdapter.address);
+    const checkpoint = await bookkeeper.getLastCheckpoint(poolAdapter.address);
 
     return {
       results: ret,

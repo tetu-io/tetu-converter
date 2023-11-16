@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-interface IAccountant {
+interface IBookkeeper {
   /// @notice Register a new loan
   /// @dev This function can be called by a pool adapter only
   /// @param collateralAmount Amount of supplied collateral for the new loan

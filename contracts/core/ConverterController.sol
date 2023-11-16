@@ -82,8 +82,8 @@ contract ConverterController is IConverterController, ControllableV3 {
   /// @inheritdoc IConverterController
   bool public override rebalanceOnBorrowEnabled;
 
-  /// @notice Address of accountant
-  address public override accountant;
+  /// @notice Address of bookkeeper
+  address public override bookkeeper;
   //endregion ------------------------------------- Variables
 
   //region ------------------------------------- Events
@@ -96,7 +96,7 @@ contract ConverterController is IConverterController, ControllableV3 {
   event OnAcceptGovernance(address pendingGovernance);
   event OnSetDebtGap(uint debtGap);
   event OnSetPriceOracle(address priceOracle);
-  event OnSetAccountant(address accountant);
+  event OnSetBookkeeper(address bookkeeper);
   //endregion ------------------------------------- Events
 
   //region ------------------------------------- Initialization
@@ -153,7 +153,7 @@ contract ConverterController is IConverterController, ControllableV3 {
     // you can always change this limit using setMaxHealthFactor
     maxHealthFactor2 = 5000;
 
-    // accountant is initialized using setAccountant
+    // bookkeeper is initialized using setBookkeeper
   }
 
   function _onlyGovernance() internal view {
@@ -309,12 +309,12 @@ contract ConverterController is IConverterController, ControllableV3 {
   }
   //endregion ------------------------------------- Rebalance on borrowing
 
-  //region ------------------------------------- Accountant
-  function setAccountant(address accountant_) external {
+  //region ------------------------------------- Bookkeeper
+  function setBookkeeper(address bookkeeper_) external {
     _onlyGovernance();
-    accountant = accountant_;
-    emit OnSetAccountant(accountant_);
+    bookkeeper = bookkeeper_;
+    emit OnSetBookkeeper(bookkeeper_);
   }
-  //endregion ------------------------------------- Accountant
+  //endregion ------------------------------------- Bookkeeper
 
 }

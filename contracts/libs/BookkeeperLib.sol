@@ -7,16 +7,16 @@ import "../openzeppelin/EnumerableSet.sol";
 import "../openzeppelin/Math.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../proxy/ControllableV3.sol";
-import "../interfaces/IAccountant.sol";
+import "../interfaces/IBookkeeper.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../libs/AppUtils.sol";
-import "../libs/AccountantLib.sol";
+import "../libs/BookkeeperLib.sol";
 
 import "hardhat/console.sol";
 
-library AccountantLib {
+library BookkeeperLib {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -29,13 +29,13 @@ library AccountantLib {
 
   struct BaseState {
     /// @notice pool adapter => info about borrow/repay actions during current period
-    mapping(address => AccountantLib.Action[]) actions;
+    mapping(address => BookkeeperLib.Action[]) actions;
 
     /// @notice User of the pool adapter => list of pool adapters with not zero debts in the current period
     mapping(address => EnumerableSet.AddressSet) poolAdaptersPerUser;
 
     /// @notice pool adapter => checkpoint
-    mapping(address => AccountantLib.PoolAdapterCheckpoint) checkpoints;
+    mapping(address => BookkeeperLib.PoolAdapterCheckpoint) checkpoints;
 
     /// @notice pool adapter => index of the repay-action in actions => RepayInfo
     mapping(address => mapping(uint => RepayInfo)) repayInfo;

@@ -9,7 +9,7 @@ import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializerWithRewards.sol";
 import "../../interfaces/IDebtMonitor.sol";
-import "../../interfaces/IAccountant.sol";
+import "../../interfaces/IBookkeeper.sol";
 import "../../integrations/compound3/IComet.sol";
 import "../../integrations/compound3/ICometRewards.sol";
 import "./Compound3AprLib.sol";
@@ -201,7 +201,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     require(tokenBalanceAfter >= tokenBalanceBefore, AppErrors.WEIRD_OVERFLOW); // overflow below is not possible
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
 
-    _registerInAccountant(c, true, collateralAmount_, borrowAmount_);
+    _registerInBookkeeper(c, true, collateralAmount_, borrowAmount_);
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
 
     return borrowAmount_;
@@ -231,7 +231,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     // ensure that current health factor is greater than min allowed
     (resultHealthFactor18,) = _validateHealthStatusAfterBorrow(c);
 
-    _registerInAccountant(c, true, 0, borrowAmount_);
+    _registerInBookkeeper(c, true, 0, borrowAmount_);
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
@@ -283,7 +283,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     require(collateralBalanceBefore >= v.collateralBalance && collateralTokensBalance >= collateralBalanceBefore - v.collateralBalance, AppErrors.WEIRD_OVERFLOW);
     collateralTokensBalance -= collateralBalanceBefore - v.collateralBalance;
 
-    _registerInAccountant(v.c, false, collateralAmountOut, amountToRepay_);
+    _registerInBookkeeper(v.c, false, collateralAmountOut, amountToRepay_);
     emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor18);
   }
 
@@ -302,7 +302,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
       address assetCollateral = collateralAsset;
       IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amount_);
       collateralBalanceBefore = _supply(assetCollateral, amount_);
-      _registerInAccountant(c, true, amount_, 0);
+      _registerInBookkeeper(c, true, amount_, 0);
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
@@ -313,7 +313,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
 
       comet.supply(assetBorrow, amount_);
-      _registerInAccountant(c, false, 0, amount_);
+      _registerInBookkeeper(c, false, 0, amount_);
     }
 
     (
@@ -447,17 +447,17 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     return (collateralBalance * amountToRepay_ / borrowBalance, collateralBalance);
   }
 
-  /// @notice Register borrow/repay operations in Accountant
-  function _registerInAccountant(
+  /// @notice Register borrow/repay operations in Bookkeeper
+  function _registerInBookkeeper(
     IConverterController controller_,
     bool isBorrow,
     uint amountCollateral,
     uint amountBorrow
   ) internal {
     if (isBorrow) {
-      IAccountant(controller_.accountant()).onBorrow(amountCollateral, amountBorrow);
+      IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
     } else {
-      IAccountant(controller_.accountant()).onRepay(amountCollateral, amountBorrow);
+      IBookkeeper(controller_.bookkeeper()).onRepay(amountCollateral, amountBorrow);
     }
   }
   //endregion ----------------------------------------------------- Internal logic

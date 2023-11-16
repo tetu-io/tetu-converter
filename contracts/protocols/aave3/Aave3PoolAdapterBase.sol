@@ -9,7 +9,7 @@ import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
-import "../../interfaces/IAccountant.sol";
+import "../../interfaces/IBookkeeper.sol";
 import "../../integrations/aave3/IAavePool.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "../../integrations/aave3/IAaveAddressesProvider.sol";
@@ -196,7 +196,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(c, healthFactor, 0);
 
-    _registerInAccountant(c, true, collateralAmount_, borrowAmount_);
+    _registerInBookkeeper(c, true, collateralAmount_, borrowAmount_);
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor, newCollateralBalanceATokens);
     return borrowAmount_;
   }
@@ -263,7 +263,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, resultHealthFactor18) = pool.getUserAccountData(address(this));
     _validateHealthFactor(c, resultHealthFactor18, 0);
 
-    _registerInAccountant(c, true, 0, borrowAmount_);
+    _registerInBookkeeper(c, true, 0, borrowAmount_);
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
@@ -356,7 +356,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     emit OnRepay(amountToRepay_, receiver_, closePosition_, v.healthFactorAfter, v.collateralBalanceATokens);
 
-    _registerInAccountant(c, false, v.amountCollateralToWithdraw, amountToRepay_);
+    _registerInBookkeeper(c, false, v.amountCollateralToWithdraw, amountToRepay_);
     return v.amountCollateralToWithdraw;
   }
 
@@ -444,7 +444,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     if (isCollateral_) {
       newCollateralBalanceATokens = _supply(pool, collateralAsset, amount_) + newCollateralBalanceATokens;
       collateralBalanceATokens = newCollateralBalanceATokens;
-      _registerInAccountant(c, true, amount_, 0);
+      _registerInBookkeeper(c, true, amount_, 0);
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
@@ -460,7 +460,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       // replaced by infinity approve: IERC20(assetBorrow).approve(address(pool), amount_);
 
       pool.repay(assetBorrow, amount_, RATE_MODE, address(this));
-      _registerInAccountant(c, false, 0, amount_);
+      _registerInBookkeeper(c, false, 0, amount_);
     }
 
     // validate result health factor
@@ -596,17 +596,17 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     );
   }
 
-  /// @notice Register borrow/repay operations in Accountant
-  function _registerInAccountant(
+  /// @notice Register borrow/repay operations in Bookkeeper
+  function _registerInBookkeeper(
     IConverterController controller_,
     bool isBorrow,
     uint amountCollateral,
     uint amountBorrow
   ) internal {
     if (isBorrow) {
-      IAccountant(controller_.accountant()).onBorrow(amountCollateral, amountBorrow);
+      IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
     } else {
-      IAccountant(controller_.accountant()).onRepay(amountCollateral, amountBorrow);
+      IBookkeeper(controller_.bookkeeper()).onRepay(amountCollateral, amountBorrow);
     }
   }
   //endregion ----------------------------------------------------- Utils

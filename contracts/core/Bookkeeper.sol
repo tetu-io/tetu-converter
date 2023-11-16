@@ -6,13 +6,13 @@ import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../openzeppelin/Math.sol";
 import "../openzeppelin/IERC20Metadata.sol";
-import "../interfaces/IAccountant.sol";
+import "../interfaces/IBookkeeper.sol";
 import "../libs/AppUtils.sol";
 import "../proxy/ControllableV3.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
-import "../libs/AccountantLib.sol";
+import "../libs/BookkeeperLib.sol";
 
 import "hardhat/console.sol";
 
@@ -26,20 +26,20 @@ import "hardhat/console.sol";
 ///      Another case: user should be able to calculate total amount of received gains and paid debt-lost.
 ///      Periodically user will reset data to start calculation of that total amounts from zero
 ///      (typically reset will happen at hardworking point).
-contract Accountant is IAccountant, ControllableV3 {
+contract Bookkeeper is IBookkeeper, ControllableV3 {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
   using EnumerableSet for EnumerableSet.AddressSet;
 
   //region ----------------------------------------------------- Constants
-  string public constant ACCOUNTANT_VERSION = "1.0.0";
+  string public constant BOOKKEEPER_VERSION = "1.0.0";
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
   //endregion ----------------------------------------------------- Data types
 
   //region ----------------------------------------------------- Variables
-  AccountantLib.BaseState internal _state;
+  BookkeeperLib.BaseState internal _state;
   //endregion ----------------------------------------------------- Variables
 
   //region ----------------------------------------------------- Initialization
@@ -57,7 +57,7 @@ contract Accountant is IAccountant, ControllableV3 {
     IBorrowManager borrowManager = IBorrowManager(_controller.borrowManager());
     require(borrowManager.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_NOT_FOUND);
 
-    AccountantLib.onBorrow(_state, IPoolAdapter(msg.sender), collateralAmount, borrowedAmount);
+    BookkeeperLib.onBorrow(_state, IPoolAdapter(msg.sender), collateralAmount, borrowedAmount);
   }
 
   /// @notice Register loan payment
@@ -74,7 +74,7 @@ contract Accountant is IAccountant, ControllableV3 {
     // so, no revert, silent ignore
 
     if (borrowManager.isPoolAdapter(msg.sender)) {
-      AccountantLib.onRepay(_state, _controller, IPoolAdapter(msg.sender), withdrawnCollateral, paidAmount);
+      BookkeeperLib.onRepay(_state, _controller, IPoolAdapter(msg.sender), withdrawnCollateral, paidAmount);
     }
   }
   //endregion ----------------------------------------------------- OnBorrow, OnRepay
@@ -90,7 +90,7 @@ contract Accountant is IAccountant, ControllableV3 {
     // no restrictions: any user is allowed
     // to receive any values the user should have empty state_.poolAdaptersPerUser
 
-    return AccountantLib.checkpointForUser(_state, msg.sender, tokens_);
+    return BookkeeperLib.checkpointForUser(_state, msg.sender, tokens_);
   }
 
   /// @notice Calculate deltas that user would receive if he creates a checkpoint at the moment
@@ -103,7 +103,7 @@ contract Accountant is IAccountant, ControllableV3 {
     // no restrictions: any user is allowed
     // to receive any values the user should have empty state_.poolAdaptersPerUser
 
-    return AccountantLib.previewCheckpointForUser(_state, user, tokens_);
+    return BookkeeperLib.previewCheckpointForUser(_state, user, tokens_);
   }
 
   /// @notice Get last saved checkpoint for the given {user}
@@ -114,7 +114,7 @@ contract Accountant is IAccountant, ControllableV3 {
     uint totalDebt,
     uint countActions
   ) {
-    AccountantLib.PoolAdapterCheckpoint memory c = _state.checkpoints[poolAdapter_];
+    BookkeeperLib.PoolAdapterCheckpoint memory c = _state.checkpoints[poolAdapter_];
     return (
       c.suppliedAmount,
       c.borrowedAmount,
@@ -147,7 +147,7 @@ contract Accountant is IAccountant, ControllableV3 {
     uint totalDebt,
     uint actionKind
   ) {
-    AccountantLib.Action memory action = _state.actions[poolAdapter][index];
+    BookkeeperLib.Action memory action = _state.actions[poolAdapter][index];
     return (
       action.suppliedAmount,
       action.borrowedAmount,
@@ -162,7 +162,7 @@ contract Accountant is IAccountant, ControllableV3 {
     uint loss,
     uint[2] memory prices
   ) {
-    AccountantLib.RepayInfo memory repayInfo = _state.repayInfo[poolAdapter][index];
+    BookkeeperLib.RepayInfo memory repayInfo = _state.repayInfo[poolAdapter][index];
     return (
       repayInfo.gain,
       repayInfo.loss,
