@@ -43,8 +43,7 @@ library BookkeeperLib {
 
   /// @notice Borrow or repay action
   struct Action {
-    // todo Do we need store block number?
-
+    uint blockNumber;
     /// @notice Total amount supplied by the user as a collateral after the action
     uint suppliedAmount;
     /// @notice Total borrowed amount after the action
@@ -289,6 +288,7 @@ library BookkeeperLib {
     (uint totalSuppliedAmount, uint totalBorrowedAmount) = _getLastStoredAmounts(state, address(poolAdapter));
 
     state.actions[address(poolAdapter)].push(Action({
+      blockNumber: block.number,
       suppliedAmount: totalSuppliedAmount + collateralAmount,
       borrowedAmount: totalBorrowedAmount + borrowedAmount,
       totalCollateral: totalCollateral,
@@ -326,6 +326,7 @@ library BookkeeperLib {
 
     // register new repay-action
     state.actions[address(poolAdapter)].push(Action({
+      blockNumber: block.number,
       suppliedAmount: totalSuppliedAmount * (1e18 - v.collateralRatio) / 1e18,
       borrowedAmount: totalBorrowedAmount * (1e18 - v.debtRatio) / 1e18,
       totalCollateral: v.totalCollateral,

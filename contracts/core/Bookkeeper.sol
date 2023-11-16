@@ -141,6 +141,7 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
     return _state.actions[poolAdapter].length;
   }
   function actionsAt(address poolAdapter, uint index) external view returns (
+    uint blockNumber,
     uint suppliedAmount,
     uint borrowedAmount,
     uint totalCollateral,
@@ -149,6 +150,7 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
   ) {
     BookkeeperLib.Action memory action = _state.actions[poolAdapter][index];
     return (
+      action.blockNumber,
       action.suppliedAmount,
       action.borrowedAmount,
       action.totalCollateral,
