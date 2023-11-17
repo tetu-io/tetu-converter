@@ -126,6 +126,16 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
   //endregion ----------------------------------------------------- Checkpoints
 
   //region ----------------------------------------------------- Logic for period
+  function reset(
+    uint indexAsset,
+    address[] memory tokens_,
+    uint[] memory thresholds
+  ) external view returns (
+    uint[] memory gains,
+    uint[] memory looses
+  ){
+    return BookkeeperLib.reset(_state, msg.sender, indexAsset, tokens_, thresholds);
+  }
 
   //endregion ----------------------------------------------------- Logic for period
 

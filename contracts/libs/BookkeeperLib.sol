@@ -366,5 +366,24 @@ library BookkeeperLib {
   }
   //endregion ----------------------------------------------------- OnBorrow, OnRepay logic
 
+  //region ----------------------------------------------------- Logic for period
+  function reset(
+    BaseState storage state_,
+    address user,
+    uint indexAsset,
+    address[] memory tokens,
+    uint[] memory thresholds
+  ) internal returns (
+    uint[] memory gains,
+    uint[] memory looses
+  ) {
+    // calculate total amount of gains and looses in underlying by all pool adapters of the user
+
+    // remove pool adapters without any debts from the set
+
+    return (gains, looses);
+  }
+  //endregion ----------------------------------------------------- Logic for period
+
 }
 
