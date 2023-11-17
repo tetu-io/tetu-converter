@@ -15,6 +15,7 @@ import "../libs/AppUtils.sol";
 import "../libs/BookkeeperLib.sol";
 
 import "hardhat/console.sol";
+import "../interfaces/IDebtMonitor.sol";
 
 library BookkeeperLib {
   using SafeERC20 for IERC20;
@@ -23,12 +24,18 @@ library BookkeeperLib {
 
   //region ----------------------------------------------------- Data types
   enum ActionKind {
-     BORROW_0,
-     REPAY_1
+    /// @notice Pool adapter has made a new borrow
+    BORROW_0,
+    /// @notice Pool adapter has made a partial or full repayment
+    REPAY_1,
+    /// @notice Hardwork is made, new "period" is started, current value of debts > 0
+    START_PERIOD_2,
+    /// @notice Hardwork is made, debts < threshold, pool adapter is excluded from poolAdaptersPerUser up to next borrow
+    END_PERIOD_3
   }
 
   struct BaseState {
-    /// @notice pool adapter => info about borrow/repay actions during current period
+    /// @notice pool adapter => info about borrow/repay actions
     mapping(address => BookkeeperLib.Action[]) actions;
 
     /// @notice User of the pool adapter => list of pool adapters with not zero debts in the current period
@@ -39,21 +46,21 @@ library BookkeeperLib {
 
     /// @notice pool adapter => index of the repay-action in actions => RepayInfo
     mapping(address => mapping(uint => RepayInfo)) repayInfo;
+
+    /// @notice pool adapter => length of actions array at the moment of start of the period
+    mapping(address => uint[]) periods;
   }
 
   /// @notice Borrow or repay action
   struct Action {
+    /// @notice Action kind. There is additional info for repays in {repayInfo}
+    ActionKind actionKind;
+    /// @notice Block number - when the action was made
     uint blockNumber;
     /// @notice Total amount supplied by the user as a collateral after the action
     uint suppliedAmount;
     /// @notice Total borrowed amount after the action
     uint borrowedAmount;
-    /// @notice Amount of collateral registered on the lending platform after the action
-    uint totalCollateral; // todo remove?
-    /// @notice Amount of debt registered on the lending platform after the action
-    uint totalDebt; // todo remove?
-    /// @notice Action kind. There is additional info for repays in {repayInfo}
-    ActionKind actionKind;
   }
 
   /// @notice Received gain and paid debt-loss amounts for the given repay-action together with current prices
@@ -114,6 +121,16 @@ library BookkeeperLib {
     uint indexBorrow;
     uint gain;
     uint loss;
+  }
+
+  struct StartPeriodLocal {
+    uint[] decs;
+    uint len;
+    address collateralAsset;
+    address borrowAsset;
+    uint gain;
+    uint loss;
+    uint countActions;
   }
   //endregion ----------------------------------------------------- Data types
 
@@ -285,15 +302,12 @@ library BookkeeperLib {
   ) internal {
     (, address user, , ) = poolAdapter.getConfig();
 
-    (uint totalCollateral, uint totalDebt,,,,) = poolAdapter.getStatus();
     (uint totalSuppliedAmount, uint totalBorrowedAmount) = _getLastStoredAmounts(state, address(poolAdapter));
 
     state.actions[address(poolAdapter)].push(Action({
       blockNumber: block.number,
       suppliedAmount: totalSuppliedAmount + collateralAmount,
       borrowedAmount: totalBorrowedAmount + borrowedAmount,
-      totalCollateral: totalCollateral,
-      totalDebt: totalDebt,
       actionKind: ActionKind.BORROW_0
     }));
 
@@ -330,8 +344,6 @@ library BookkeeperLib {
       blockNumber: block.number,
       suppliedAmount: totalSuppliedAmount * (1e18 - v.collateralRatio) / 1e18,
       borrowedAmount: totalBorrowedAmount * (1e18 - v.debtRatio) / 1e18,
-      totalCollateral: v.totalCollateral,
-      totalDebt: v.totalDebt,
       actionKind: ActionKind.REPAY_1
     }));
 
@@ -367,21 +379,83 @@ library BookkeeperLib {
   //endregion ----------------------------------------------------- OnBorrow, OnRepay logic
 
   //region ----------------------------------------------------- Logic for period
-  function reset(
+  function startPeriod(
     BaseState storage state_,
-    address user,
-    uint indexAsset,
-    address[] memory tokens,
-    uint[] memory thresholds
+    IDebtMonitor debtMonitor,
+    address user_,
+    address underlying_
   ) internal returns (
-    uint[] memory gains,
-    uint[] memory looses
+    uint gains,
+    uint losses
   ) {
+    StartPeriodLocal memory v;
     // calculate total amount of gains and looses in underlying by all pool adapters of the user
+    v.decs = new uint[](2);
 
-    // remove pool adapters without any debts from the set
+    EnumerableSet.AddressSet storage set = state_.poolAdaptersPerUser[user_];
+    v.len = set.length();
+    for (uint i; i < v.len; ++i) {
+      IPoolAdapter poolAdapter = IPoolAdapter(set.at(i));
+      (,, v.collateralAsset, v.borrowAsset) = poolAdapter.getConfig();
+      v.decs[0] = 10 ** IERC20Metadata(v.collateralAsset).decimals();
+      v.decs[1] = 10 ** IERC20Metadata(v.borrowAsset).decimals();
 
-    return (gains, looses);
+      (v.gain, v.loss, v.countActions) = onHardwork(state_, poolAdapter, underlying_ == v.collateralAsset, v.decs);
+      gains += v.gain;
+      losses += v.loss;
+
+      state_.periods[address(poolAdapter)].push(v.countActions);
+
+      // remove pool adapters without any debts from the set
+      if (! debtMonitor.isPositionOpenedEx(address(poolAdapter))) {
+        set.remove(address(poolAdapter));
+      }
+    }
+
+
+    return (gains, losses);
+  }
+
+  /// @param decs 10**decimals for [collateral, borrow asset]
+  function onHardwork(
+    BaseState storage state_,
+    IPoolAdapter poolAdapter_,
+    bool isCollateralUnderlying_,
+    uint[] memory decs
+  ) internal view returns (
+    uint gains,
+    uint loss,
+    uint countActions
+  ) {
+    BookkeeperLib.Action[] storage actions = state_.actions[address(poolAdapter_)];
+    countActions = actions.length;
+
+    uint[] storage periods = state_.periods[address(poolAdapter_)];
+    uint countPeriods = periods.length;
+    if (countPeriods != 0) {
+      // count of the actions at the moment of the beginning of the period
+      uint countActionsStart = periods[countPeriods - 1];
+      for (uint i = countActions; i > countActionsStart; i--) {
+        ActionKind actionKind = actions[i - 1].actionKind;
+        if (actionKind == ActionKind.BORROW_0) continue;
+        if (actionKind == ActionKind.REPAY_1) {
+          // let's calculate received gains and losses in terms of given asset
+          RepayInfo memory repayInfo = state_.repayInfo[address(poolAdapter_)][i - 1];
+          if (isCollateralUnderlying_) {
+            gains += repayInfo.gain;
+            loss += repayInfo.loss * repayInfo.prices[1] * decs[0] / repayInfo.prices[0] / decs[1];
+          } else {
+            loss += repayInfo.loss;
+            gains += repayInfo.gain * repayInfo.prices[0] * decs[1] / repayInfo.prices[1] / decs[0];
+          }
+        } else {
+          // we have reached moment of starting of the current period
+          break;
+        }
+      }
+    }
+
+    return (gains, loss, countActions);
   }
   //endregion ----------------------------------------------------- Logic for period
 

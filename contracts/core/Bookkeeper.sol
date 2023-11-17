@@ -127,14 +127,13 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
 
   //region ----------------------------------------------------- Logic for period
   function reset(
-    uint indexAsset,
-    address[] memory tokens_,
-    uint[] memory thresholds
-  ) external view returns (
-    uint[] memory gains,
-    uint[] memory looses
+    IDebtMonitor debtMonitor,
+    address underlying_
+  ) external returns (
+    uint gains,
+    uint losses
   ){
-    return BookkeeperLib.reset(_state, msg.sender, indexAsset, tokens_, thresholds);
+    return BookkeeperLib.startPeriod(_state, debtMonitor, msg.sender, underlying_);
   }
 
   //endregion ----------------------------------------------------- Logic for period
@@ -154,8 +153,6 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
     uint blockNumber,
     uint suppliedAmount,
     uint borrowedAmount,
-    uint totalCollateral,
-    uint totalDebt,
     uint actionKind
   ) {
     BookkeeperLib.Action memory action = _state.actions[poolAdapter][index];
@@ -163,8 +160,6 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
       action.blockNumber,
       action.suppliedAmount,
       action.borrowedAmount,
-      action.totalCollateral,
-      action.totalDebt,
       uint(action.actionKind)
     );
   }

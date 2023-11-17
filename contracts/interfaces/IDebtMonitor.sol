@@ -38,6 +38,9 @@ interface IDebtMonitor {
   /// @notice Check if the pool-adapter-caller has an opened position
   function isPositionOpened() external view returns (bool);
 
+  /// @notice Check if the pool-adapter-caller has an opened position
+  function isPositionOpenedEx(address poolAdapter) external view returns (bool);
+
   /// @notice Pool adapter has opened borrow, but full liquidation happens and we've lost all collateral
   ///         Close position without paying the debt and never use the pool adapter again.
   function closeLiquidatedPosition(address poolAdapter_) external;
