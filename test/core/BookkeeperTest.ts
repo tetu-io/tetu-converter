@@ -303,5 +303,6 @@ describe("BookkeeperTest", () => {
       });
     });
   });
+
 //endregion Unit tests
 });

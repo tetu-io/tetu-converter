@@ -122,6 +122,7 @@ describe("BookkeeperLibTest", () => {
         poolAdapter.address,
         p.actions.map(x => {
           return {
+            blockNumber: 1,
             suppliedAmount: parseUnits(x.suppliedAmount, decimalsCollateral),
             borrowedAmount: parseUnits(x.borrowedAmount, decimalsBorrow),
             totalCollateral: parseUnits(x.totalCollateral, decimalsCollateral),
@@ -148,45 +149,83 @@ describe("BookkeeperLibTest", () => {
       }
     }
 
-    describe("checkpoint => checkpoint", () => {
+    describe("() => checkpoint", () => {
       let snapshotLocal0: string;
+      let ret: IResults;
       before(async function () {
         snapshotLocal0 = await TimeUtils.snapshot();
+        ret = await checkout({
+          actions: [{suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500"}],
+          checkpoint: {suppliedAmount: "0", borrowedAmount: "0", totalCollateral: "0", totalDebt: "0", countActions: 0},
+          poolAdapter: {totalCollateral: "1010", totalDebt: "550"},
+        });
       });
       after(async function () {
         await TimeUtils.rollback(snapshotLocal0);
       });
 
       it("should return expected deltas", async () => {
-        const ret = await checkout({
+        expect(ret.deltaGain).eq(0);
+        expect(ret.deltaLoss).eq(0);
+      });
+      it("should setup expected checkpoint values", async () => {
+        expect(ret.totalDebt).eq(550);
+        expect(ret.totalCollateral).eq(1010);
+        expect(ret.borrowedAmount).eq(500);
+        expect(ret.suppliedAmount).eq(1000);
+      });
+    });
+    describe("checkpoint => checkpoint", () => {
+      let snapshotLocal0: string;
+      let ret: IResults;
+      before(async function () {
+        snapshotLocal0 = await TimeUtils.snapshot();
+        ret = await checkout({
           actions: [{suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500"}],
           checkpoint: {suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500", countActions: 1},
           poolAdapter: {totalCollateral: "1010", totalDebt: "550"},
         });
-
-        expect(ret.deltaGain).eq(10);
-        expect(ret.deltaLoss).eq(50);
-      })
-    });
-    describe("checkpoint => action => checkpoint", () => {
-      let snapshotLocal0: string;
-      before(async function () {
-        snapshotLocal0 = await TimeUtils.snapshot();
       });
       after(async function () {
         await TimeUtils.rollback(snapshotLocal0);
       });
 
       it("should return expected deltas", async () => {
-        const ret = await checkout({
+        expect(ret.deltaGain).eq(10);
+        expect(ret.deltaLoss).eq(50);
+      });
+      it("should setup expected checkpoint values", async () => {
+        expect(ret.totalDebt).eq(550);
+        expect(ret.totalCollateral).eq(1010);
+        expect(ret.borrowedAmount).eq(500);
+        expect(ret.suppliedAmount).eq(1000);
+      });
+    });
+    describe("checkpoint => action => checkpoint", () => {
+      let snapshotLocal0: string;
+      let ret: IResults;
+      before(async function () {
+        snapshotLocal0 = await TimeUtils.snapshot();
+        ret = await checkout({
           checkpoint: {suppliedAmount: "1000", borrowedAmount: "500", totalCollateral: "1000", totalDebt: "500"},
           actions: [{suppliedAmount: "1500", borrowedAmount: "750", totalCollateral: "1505", totalDebt: "775"}],
           poolAdapter: {totalCollateral: "1512", totalDebt: "780"},
         });
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshotLocal0);
+      });
 
+      it("should return expected deltas", async () => {
         expect(ret.deltaGain).eq(0);
         expect(ret.deltaLoss).eq(0);
-      })
+      });
+      it("should setup expected checkpoint values", async () => {
+        expect(ret.totalDebt).eq(780);
+        expect(ret.totalCollateral).eq(1512);
+        expect(ret.borrowedAmount).eq(750);
+        expect(ret.suppliedAmount).eq(1500);
+      });
     });
   });
 
@@ -278,6 +317,7 @@ describe("BookkeeperLibTest", () => {
           poolAdapter.address,
           pai.actions.map(x => {
             return {
+              blockNumber: 1,
               suppliedAmount: parseUnits(x.suppliedAmount, decimalsCollateral),
               borrowedAmount: parseUnits(x.borrowedAmount, decimalsBorrow),
               totalCollateral: parseUnits(x.totalCollateral, decimalsCollateral),

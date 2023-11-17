@@ -179,8 +179,9 @@ library BookkeeperLib {
     // we can calculate deltas only if
     // - there was no liquidation
     // - there were no repay/borrow actions since previous checkpoint
+    // - this is not a first checkpoint
     // otherwise it's safer to assume that the deltas are zero
-    if (v.totalDebt >= c.totalDebt && c.countActions == v.countActions ) {
+    if (v.totalDebt >= c.totalDebt && c.countActions == v.countActions && c.totalDebt != 0) {
       deltaGain = v.totalCollateral - c.totalCollateral;
       deltaLoss = v.totalDebt - c.totalDebt;
     }
@@ -192,8 +193,8 @@ library BookkeeperLib {
     }
 
     state_.checkpoints[address(poolAdapter_)] = PoolAdapterCheckpoint({
-      totalDebt: c.totalDebt,
-      totalCollateral: c.totalCollateral,
+      totalDebt: v.totalDebt,
+      totalCollateral: v.totalCollateral,
       borrowedAmount: v.borrowedAmount,
       suppliedAmount: v.suppliedAmount,
       countActions: v.countActions
