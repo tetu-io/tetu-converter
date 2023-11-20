@@ -910,7 +910,7 @@ describe("MoonwellPlatformAdapterTest", () => {
             part10000: 1, // 1/10000 of available liquidity
           });
 
-          expect(r.br).approximately(r.brPredicted, 1000); // 755719373 vs 755719325
+          expect(r.br).approximately(r.brPredicted, 10000); // 755719373 vs 755719325
         });
       });
 

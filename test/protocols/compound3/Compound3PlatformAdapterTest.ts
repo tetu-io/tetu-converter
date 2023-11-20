@@ -34,6 +34,8 @@ import {
   IERC20Metadata__factory,
   IPriceFeed__factory
 } from "../../../typechain";
+import {deal} from "hardhat-deal";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -664,7 +666,7 @@ describe("Compound3PlatformAdapterTest", () => {
         it("should return zero plan", async () => {
           const r = await preparePlan(
             controller,
-            MaticAddresses.WMATIC,
+            MaticAddresses.WETH,
             parseUnits("1000"),
             MaticAddresses.USDC,
             {frozen: true},
@@ -690,40 +692,10 @@ describe("Compound3PlatformAdapterTest", () => {
           // supply cap is constant in Compound 3
           // let's supply big amount to reach supply cap
           const comet = IComet__factory.connect(MaticAddresses.COMPOUND3_COMET_USDC, deployer);
-          const holders = [
-            MaticAddresses.HOLDER_WETH,
-            MaticAddresses.HOLDER_WETH_2,
-            MaticAddresses.HOLDER_WETH_3,
-            MaticAddresses.HOLDER_WETH_4,
-            MaticAddresses.HOLDER_WETH_5,
-            MaticAddresses.HOLDER_WETH_6,
-          ];
-          for (const holder of holders) {
-            const r = await preparePlan(
-              controller,
-              MaticAddresses.WETH,
-              parseUnits("1"),
-              MaticAddresses.USDC,
-              undefined,
-              "0x"
-            );
-            console.log("r0", r.plan);
-            if (r.plan.maxAmountToSupply.eq(0)) {
-              break;
-            }
-            // const amountToSupply = r.plan.maxAmountToSupply;
-            // await deal(MaticAddresses.WETH, deployer.address, amountToSupply);
-            // console.log("Balance of deployer", )
-
-            const amount = await IERC20__factory.connect(MaticAddresses.WETH, deployer).balanceOf(holder);
-            const amountToSupply = r.plan.maxAmountToSupply.gt(amount)
-              ? amount
-              : r.plan.maxAmountToSupply;
-            await BalanceUtils.getAmountFromHolder(MaticAddresses.WETH, holder, deployer.address, amountToSupply);
-            await IERC20__factory.connect(MaticAddresses.WETH, deployer).approve(comet.address, amountToSupply);
-            console.log("Supply");
-            await comet.supply(MaticAddresses.WETH, amountToSupply);
-          }
+          const amountToSupply = r0.plan.maxAmountToSupply;
+          await TokenUtils.getToken(MaticAddresses.WETH, deployer.address, amountToSupply);
+          await IERC20__factory.connect(MaticAddresses.WETH, deployer).approve(comet.address, amountToSupply);
+          await comet.supply(MaticAddresses.WETH, amountToSupply);
 
           // get empty plan now
           const r1 = await preparePlan(
