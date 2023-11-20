@@ -3,7 +3,7 @@ import {
   Aave3PlatformAdapter, AaveTwoPlatformAdapter, Bookkeeper, Bookkeeper__factory,
   BorrowManager,
   BorrowManager__factory,
-  ConverterController, IPlatformAdapter, ITetuConverter__factory, MoonwellPlatformAdapter,
+  ConverterController, IERC20Metadata__factory, IPlatformAdapter, ITetuConverter__factory, MoonwellPlatformAdapter,
   UserEmulator
 } from "../../typechain";
 import {BASE_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
@@ -15,7 +15,7 @@ import {AdaptersHelper} from "../baseUT/app/AdaptersHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
 import {
-  BorrowRepayCases, IBookkeeperStatus,
+  BorrowRepayCases, IBookkeeperStatusWithResults,
   IAssetsPairConfig, IBorrowRepaySingleActionParams,
 } from "../baseUT/uses-cases/shared/BorrowRepayCases";
 import {IPlatformUtilsProvider} from "../baseUT/types/IPlatformUtilsProvider";
@@ -32,6 +32,7 @@ import {MoonwellHelper} from "../../scripts/integration/moonwell/MoonwellHelper"
 import {MoonwellUtilsProvider} from "../baseUT/protocols/moonwell/MoonwellUtilsProvider";
 import {AaveTwoUtils} from "../baseUT/protocols/aaveTwo/AaveTwoUtils";
 import {AaveTwoUtilsProvider} from "../baseUT/protocols/aaveTwo/AaveTwoUtilsProvider";
+import {NumberUtils} from "../baseUT/utils/NumberUtils";
 
 /** Ensure that all repay/borrow operations are correctly registered in the Bookkeeper */
 describe("BookkeeperCaseTest", () => {
@@ -243,7 +244,7 @@ describe("BookkeeperCaseTest", () => {
 
                 describe("first borrow", function () {
                   let snapshotLevel1: string;
-                  let ret1: IBookkeeperStatus;
+                  let ret1: IBookkeeperStatusWithResults;
                   before(async function () {
                     snapshotLevel1 = await TimeUtils.snapshot();
                     ret1 = await loadFixture(makeBorrowTest);
@@ -253,7 +254,7 @@ describe("BookkeeperCaseTest", () => {
                     await TimeUtils.rollback(snapshotLevel1);
                   });
 
-                  async function makeBorrowTest(): Promise<IBookkeeperStatus> {
+                  async function makeBorrowTest(): Promise<IBookkeeperStatusWithResults> {
                     return BorrowRepayCases.borrowRepayPairsSingleBlockBookkeeper(
                       signer,
                       {
@@ -289,7 +290,7 @@ describe("BookkeeperCaseTest", () => {
                     REPAY_PARTS.forEach(repayPart => {
                       describe(`repay part ${repayPart / 100_000}`, function () {
                         let snapshotLevel2: string;
-                        let ret2: IBookkeeperStatus;
+                        let ret2: IBookkeeperStatusWithResults;
                         before(async function () {
                           snapshotLevel2 = await TimeUtils.snapshot();
                           ret2 = await BorrowRepayCases.borrowRepayPairsSingleBlockBookkeeper(
@@ -346,7 +347,7 @@ describe("BookkeeperCaseTest", () => {
                   });
                   describe("full repay", function () {
                     let snasnapshotLevel2: string;
-                    let ret2: IBookkeeperStatus;
+                    let ret2: IBookkeeperStatusWithResults;
                     before(async function () {
                       snasnapshotLevel2 = await TimeUtils.snapshot();
                       ret2 = await BorrowRepayCases.borrowRepayPairsSingleBlockBookkeeper(
@@ -387,7 +388,7 @@ describe("BookkeeperCaseTest", () => {
                   });
                   describe("second borrow", function () {
                     let snasnapshotLevel2: string;
-                    let ret2: IBookkeeperStatus;
+                    let ret2: IBookkeeperStatusWithResults;
                     before(async function () {
                       snasnapshotLevel2 = await TimeUtils.snapshot();
                       ret2 = await loadFixture(makeSecondBorrowTest);
@@ -396,7 +397,7 @@ describe("BookkeeperCaseTest", () => {
                       await TimeUtils.rollback(snasnapshotLevel2);
                     });
 
-                    async function makeSecondBorrowTest(): Promise<IBookkeeperStatus> {
+                    async function makeSecondBorrowTest(): Promise<IBookkeeperStatusWithResults> {
                       return BorrowRepayCases.borrowRepayPairsSingleBlockBookkeeper(
                         signer,
                         {
@@ -431,8 +432,108 @@ describe("BookkeeperCaseTest", () => {
                       expect(ret1.poolAdaptersForUser.length).eq(1);
                     });
                   });
-                  describe("repay to rebalance", () => {
-                    // TODO
+                  describe("repay to rebalance using collateral asset", () => {
+                    let snasnapshotLevel2: string;
+                    let ret2: IBookkeeperStatusWithResults;
+                    before(async function () {
+                      snasnapshotLevel2 = await TimeUtils.snapshot();
+                      ret2 = await loadFixture(repayToRebalanceTest);
+                    });
+                    after(async function () {
+                      await TimeUtils.rollback(snasnapshotLevel2);
+                    });
+
+                    async function repayToRebalanceTest(): Promise<IBookkeeperStatusWithResults> {
+                      return BorrowRepayCases.borrowRepayToRebalanceBookkeeper(
+                        signer,
+                        {
+                          tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                          user: userEmulator,
+                          borrowAsset: assetPair.borrowAsset,
+                          collateralAsset: assetPair.collateralAsset,
+                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                          receiver: RECEIVER,
+                        },
+                        {
+                          isCollateral: true,
+                          amount: (ret1.results.status.collateralAmount / 2).toString(),
+                          userCollateralAssetBalance: (ret1.results.status.collateralAmount / 2).toString(),
+                          targetHealthFactor: Math.round(Number(TARGET_HEALTH_FACTOR) * 2).toString(),
+                        },
+                        []
+                      );
+                    }
+
+                    it("should add second borrow action to Bookkeeper", async () => {
+                      expect(ret2.actions.length).eq(2);
+                      expect(ret2.actions[0].actionKind).eq(AppConstants.ACTION_KIND_BORROW_0);
+                      expect(ret2.actions[1].actionKind).eq(AppConstants.ACTION_KIND_BORROW_0);
+                    });
+                    it("should not change amounts in the first borrow action", async () => {
+                      expect(ret2.actions[0].suppliedAmount).eq(ret1.actions[0].suppliedAmount);
+                      expect(ret2.actions[0].borrowedAmount).eq(ret1.actions[0].borrowedAmount);
+                    });
+                    it("should assign expected amounts to the second borrow action (assume that increases to debt/collateral are neglect)", async () => {
+                      expect(ret2.actions[1].suppliedAmount).approximately(ret2.actions[0].suppliedAmount * 1.5, 1e-5);
+                      expect(ret2.actions[1].borrowedAmount).eq(ret2.actions[0].borrowedAmount);
+                    });
+                    it("should not unregister the pool adapter for the user", async () => {
+                      expect(ret1.poolAdaptersForUser.length).eq(1);
+                    });
+                  });
+                  describe("repay to rebalance using borrow asset", function () {
+                    let snapshotLevel2: string;
+                    let ret2: IBookkeeperStatusWithResults;
+                    before(async function () {
+                      snapshotLevel2 = await TimeUtils.snapshot();
+                      const amountIn = (NumberUtils.trimDecimals(
+                        (ret1.results.status.amountToPay / 2).toString(),
+                        await IERC20Metadata__factory.connect(assetPair.borrowAsset, signer).decimals()
+                      )).toString();
+                      ret2 = await BorrowRepayCases.borrowRepayToRebalanceBookkeeper(
+                        signer,
+                        {
+                          tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                          user: userEmulator,
+                          borrowAsset: assetPair.borrowAsset,
+                          collateralAsset: assetPair.collateralAsset,
+                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                          userBorrowAssetBalance: "0",
+                          userCollateralAssetBalance: "0",
+                          receiver: RECEIVER
+                        },
+                        {
+                          isCollateral: false,
+                          amount: amountIn,
+                          userBorrowAssetBalance: amountIn,
+                          targetHealthFactor: Math.round(Number(TARGET_HEALTH_FACTOR) * 2).toString(),
+                        },
+                        []
+                      );
+                    });
+                    after(async function () {
+                      await TimeUtils.rollback(snapshotLevel2);
+                    });
+
+                    it("should add repay action to Bookkeeper", async () => {
+                      expect(ret2.actions.length).eq(2);
+                      expect(ret2.actions[0].actionKind).eq(AppConstants.ACTION_KIND_BORROW_0);
+                      expect(ret2.actions[1].actionKind).eq(AppConstants.ACTION_KIND_REPAY_1);
+                    });
+                    it("should not change amounts in the borrow action", async () => {
+                      expect(ret2.actions[0].suppliedAmount).eq(ret1.actions[0].suppliedAmount);
+                      expect(ret2.actions[0].borrowedAmount).eq(ret1.actions[0].borrowedAmount);
+                    });
+                    it("should assign expected amounts to the repay action (assume that increases to debt/collateral are neglect)", async () => {
+                      console.log("ret2", ret2);
+                      expect(ret2.actions[1].suppliedAmount).approximately(ret1.actions[0].suppliedAmount,1e-5);
+                      expect(ret2.actions[1].borrowedAmount).approximately((ret2.actions[0].borrowedAmount) / 2,1e-5);
+                    });
+                    it("should not unregister the pool adapter for the user", async () => {
+                      expect(ret1.poolAdaptersForUser.length).eq(1);
+                    });
                   });
                 });
               });

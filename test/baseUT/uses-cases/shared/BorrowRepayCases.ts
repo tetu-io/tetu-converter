@@ -16,6 +16,8 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {BorrowRepayDataTypeUtils} from "../../utils/BorrowRepayDataTypeUtils";
+import {Misc} from "../../../../scripts/utils/Misc";
+import {TokenUtils} from "../../../../scripts/utils/TokenUtils";
 
 export interface IBorrowRepaySetup {
   tetuConverter: ITetuConverter;
@@ -100,8 +102,6 @@ export interface IBorrowRepayPairResults {
 export interface IAction {
   suppliedAmount: number;
   borrowedAmount: number;
-  totalCollateral: number;
-  totalDebt: number;
   actionKind: number;
   repayInfo: {
     gain: number;
@@ -119,11 +119,13 @@ export interface ICheckpoint {
 }
 
 export interface IBookkeeperStatus {
-  results: IBorrowRepayPairResults;
-
   actions: IAction[];
   poolAdaptersForUser: string[];
   checkpoint: ICheckpoint;
+}
+
+export interface IBookkeeperStatusWithResults extends IBookkeeperStatus{
+  results: IBorrowRepayPairResults;
 }
 
 
@@ -219,6 +221,14 @@ export interface IAssetsPairConfig {
 
   singleParams?: IBorrowRepaySingleActionParams;
   multipleParams?: IBorrowRepayMultipleActionParams;
+}
+
+interface IRepayToRebalanceParams {
+  amount: string;
+  isCollateral: boolean;
+  userBorrowAssetBalance?: string;
+  userCollateralAssetBalance?: string;
+  targetHealthFactor: string;
 }
 
 
@@ -350,14 +360,7 @@ export class BorrowRepayCases {
       : minAllowed * Number(healthFactorsPair.targetValue) / Number(healthFactorsPair.minValue);
   }
 
-  /** Make sequence of [borrow], [repay] actions in a single block, return detailed status of Accauntant */
-  static async borrowRepayPairsSingleBlockBookkeeper(
-    signer: SignerWithAddress,
-    p: IBorrowRepaySetup,
-    pairs: IBorrowRepayPairParams[],
-  ): Promise<IBookkeeperStatus> {
-    const ret = await this.borrowRepayPairsSingleBlock(signer, p, pairs);
-
+  static async getBookkeeperStatus(signer: SignerWithAddress, p: IBorrowRepaySetup,): Promise<IBookkeeperStatus> {
     const converterController = ConverterController__factory.connect(await p.tetuConverter.controller(), signer);
     const bookkeeper = Bookkeeper__factory.connect(await converterController.bookkeeper(), signer);
     const borrowManager = BorrowManager__factory.connect(await converterController.borrowManager(), signer);
@@ -377,8 +380,6 @@ export class BorrowRepayCases {
         actionKind: a.actionKind.toNumber(),
         suppliedAmount: +formatUnits(a.suppliedAmount, decimalsCollateral),
         borrowedAmount: +formatUnits(a.borrowedAmount, decimalsBorrow),
-        totalCollateral: +formatUnits(a.totalCollateral, decimalsCollateral),
-        totalDebt: +formatUnits(a.totalDebt, decimalsBorrow),
         repayInfo: {
           gain: +formatUnits(ri.gain, decimalsCollateral),
           loss: +formatUnits(ri.loss, decimalsBorrow),
@@ -396,9 +397,7 @@ export class BorrowRepayCases {
     }
 
     const checkpoint = await bookkeeper.getLastCheckpoint(poolAdapter.address);
-
     return {
-      results: ret,
       actions,
       poolAdaptersForUser,
       checkpoint: {
@@ -409,6 +408,62 @@ export class BorrowRepayCases {
         countActions: checkpoint.countActions.toNumber()
       }
     }
+  }
+
+  /** Make sequence of [borrow], [repay] actions in a single block, return detailed status of Bookkeeper */
+  static async borrowRepayPairsSingleBlockBookkeeper(
+    signer: SignerWithAddress,
+    p: IBorrowRepaySetup,
+    pairs: IBorrowRepayPairParams[],
+  ): Promise<IBookkeeperStatusWithResults> {
+    const ret = await this.borrowRepayPairsSingleBlock(signer, p, pairs);
+    const bs = await this.getBookkeeperStatus(signer, p);
+
+    return {results: ret, ... bs}
+  }
+
+  /** Make sequence of [borrow], [repay] actions in a single block, return detailed status of Bookkeeper */
+  static async borrowRepayToRebalanceBookkeeper(
+    signer: SignerWithAddress,
+    p: IBorrowRepaySetup,
+    rrp: IRepayToRebalanceParams,
+    pairs: IBorrowRepayPairParams[],
+  ): Promise<IBookkeeperStatusWithResults> {
+    const ret = await this.borrowRepayPairsSingleBlock(signer, p, pairs);
+    console.log("ret", ret);
+    console.log("rrp", rrp);
+
+    const collateralAsset = await IERC20Metadata__factory.connect(p.collateralAsset, signer);
+    const decimalsCollateral = await collateralAsset.decimals();
+    const borrowAsset = await IERC20Metadata__factory.connect(p.borrowAsset, signer);
+    const decimalsBorrow = await borrowAsset.decimals();
+
+    const converterController = ConverterController__factory.connect(await p.tetuConverter.controller(), signer);
+    const borrowManager = BorrowManager__factory.connect(await converterController.borrowManager(), signer);
+    const poolAdapter = IPoolAdapter__factory.connect(await borrowManager.listPoolAdapters(0), signer);
+
+    await converterController.setTargetHealthFactor2(parseUnits(rrp.targetHealthFactor, 2));
+
+    const tetuConverterUser = await Misc.impersonate(p.tetuConverter.address);
+    if (rrp.userCollateralAssetBalance) {
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterUser.address, parseUnits(rrp.userCollateralAssetBalance, decimalsCollateral));
+    }
+    if (rrp.userBorrowAssetBalance) {
+      await TokenUtils.getToken(p.borrowAsset, tetuConverterUser.address, parseUnits(rrp.userBorrowAssetBalance, decimalsBorrow));
+    }
+
+    if (rrp.isCollateral) {
+      const amountIn = parseUnits(rrp.amount, decimalsCollateral);
+      await collateralAsset.connect(tetuConverterUser).approve(poolAdapter.address, amountIn);
+      await poolAdapter.connect(tetuConverterUser).repayToRebalance(amountIn, true);
+    } else {
+      const amountIn = parseUnits(rrp.amount, decimalsBorrow);
+      await borrowAsset.connect(tetuConverterUser).approve(poolAdapter.address, amountIn);
+      await poolAdapter.connect(tetuConverterUser).repayToRebalance(amountIn, false);
+    }
+
+    const bs = await this.getBookkeeperStatus(signer, p);
+    return {results: ret, ... bs}
   }
 }
 
