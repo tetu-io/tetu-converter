@@ -2,13 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {
-  Bookkeeper,
-  IPriceOracle__factory,
-  MockERC20,
-  PoolAdapterMock2,
-  PriceOracleMock__factory
-} from "../../typechain";
+import {Bookkeeper, MockERC20, PoolAdapterMock2, PriceOracleMock__factory} from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
@@ -94,8 +88,6 @@ describe("BookkeeperTest", () => {
       // last registered action data
       suppliedAmount: number;
       borrowedAmount: number;
-      totalCollateral: number;
-      totalDebt: number;
       gain: number;
       losses: number;
       prices: number[];
@@ -151,8 +143,6 @@ describe("BookkeeperTest", () => {
 
         borrowedAmount: +formatUnits(lastAction.borrowedAmount, decimalsBorrow),
         suppliedAmount: +formatUnits(lastAction.suppliedAmount, decimalsCollateral),
-        totalCollateral: +formatUnits(lastAction.totalCollateral, decimalsCollateral),
-        totalDebt: +formatUnits(lastAction.totalDebt, decimalsBorrow),
 
         gain: +formatUnits(repayInfo.gain, decimalsUnderlying),
         losses:  +formatUnits(repayInfo.loss, decimalsUnderlying),
@@ -179,9 +169,9 @@ describe("BookkeeperTest", () => {
 
       it("should return expected state", async () => {
         expect(
-          [retBorrow1.suppliedAmount, retBorrow1.borrowedAmount, retBorrow1.totalCollateral, retBorrow1.totalDebt].join()
+          [retBorrow1.suppliedAmount, retBorrow1.borrowedAmount].join()
         ).eq(
-          [10, 20, 10, 20].join()
+          [10, 20,].join()
         )
       });
 
@@ -204,9 +194,9 @@ describe("BookkeeperTest", () => {
         });
         it("should return expected state", async () => {
           expect(
-            [retBorrow2.suppliedAmount, retBorrow2.borrowedAmount, retBorrow2.totalCollateral, retBorrow2.totalDebt].join()
+            [retBorrow2.suppliedAmount, retBorrow2.borrowedAmount].join()
           ).eq(
-            [15, 30, 17, 55].join()
+            [15, 30,].join()
           )
         });
 
@@ -238,9 +228,6 @@ describe("BookkeeperTest", () => {
             expect(retRepay1.borrowedAmount).approximately(20 + 10 - 16 * debtRatio, 1e-5);
           });
 
-          it("should return expected total amounts", async () => {
-            expect([retRepay1.totalCollateral, retRepay1.totalDebt].join()).eq([24, 44].join());
-          });
           it("should return expected gain", async () => {
             const collateralRatio = (10 + 5) / (24 + 12);
             expect(retRepay1.gain).approximately(12 - 12 * collateralRatio, 1e-5);
@@ -278,9 +265,6 @@ describe("BookkeeperTest", () => {
             expect(retRepay1.borrowedAmount).eq(0);
           });
 
-          it("should return expected total amounts", async () => {
-            expect([retRepay1.totalCollateral, retRepay1.totalDebt].join()).eq([0, 0].join());
-          });
           it("should return expected gain", async () => {
             const collateralRatio = (10 + 5) / (25);
             expect(retRepay1.gain).approximately(25 - 25 * collateralRatio, 1e-5);

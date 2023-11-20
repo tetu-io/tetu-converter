@@ -13,9 +13,9 @@ import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../libs/AppUtils.sol";
 import "../libs/BookkeeperLib.sol";
+import "../interfaces/IDebtMonitor.sol";
 
 import "hardhat/console.sol";
-import "../interfaces/IDebtMonitor.sol";
 
 library BookkeeperLib {
   using SafeERC20 for IERC20;
@@ -27,11 +27,7 @@ library BookkeeperLib {
     /// @notice Pool adapter has made a new borrow
     BORROW_0,
     /// @notice Pool adapter has made a partial or full repayment
-    REPAY_1,
-    /// @notice Hardwork is made, new "period" is started, current value of debts > 0
-    START_PERIOD_2,
-    /// @notice Hardwork is made, debts < threshold, pool adapter is excluded from poolAdaptersPerUser up to next borrow
-    END_PERIOD_3
+    REPAY_1
   }
 
   struct BaseState {
@@ -379,6 +375,11 @@ library BookkeeperLib {
   //endregion ----------------------------------------------------- OnBorrow, OnRepay logic
 
   //region ----------------------------------------------------- Logic for period
+  /// @notice Calculate total amount of gains and looses in underlying by all pool adapters of the user
+  ///         for the current period, start new period.
+  /// @param underlying_ Asset in which we calculate gains and loss. Assume that it's either collateral or borrow asset.
+  /// @return gains Total amount of gains (supply-profit) of the {user_} by all user's pool adapters
+  /// @return losses Total amount of losses (paid increases to debt) of the {user_} by all user's pool adapters
   function startPeriod(
     BaseState storage state_,
     IDebtMonitor debtMonitor,
@@ -389,13 +390,12 @@ library BookkeeperLib {
     uint losses
   ) {
     StartPeriodLocal memory v;
-    // calculate total amount of gains and looses in underlying by all pool adapters of the user
-    v.decs = new uint[](2);
 
     EnumerableSet.AddressSet storage set = state_.poolAdaptersPerUser[user_];
     v.len = set.length();
-    for (uint i; i < v.len; ++i) {
-      IPoolAdapter poolAdapter = IPoolAdapter(set.at(i));
+    v.decs = new uint[](2);
+    for (uint i = v.len; i > 0; i--) {
+      IPoolAdapter poolAdapter = IPoolAdapter(set.at(i - 1));
       (,, v.collateralAsset, v.borrowAsset) = poolAdapter.getConfig();
       v.decs[0] = 10 ** IERC20Metadata(v.collateralAsset).decimals();
       v.decs[1] = 10 ** IERC20Metadata(v.borrowAsset).decimals();
@@ -412,11 +412,15 @@ library BookkeeperLib {
       }
     }
 
-
     return (gains, losses);
   }
 
+  /// @notice Calculate gains and losses of the {poolAdapter_} for the current period
+  /// @param isCollateralUnderlying_ True if collateral is underlying (assume that otherwise borrow asset is underlying)
   /// @param decs 10**decimals for [collateral, borrow asset]
+  /// @return gains Total amount of gains (supply-profit) for all repay-actions made in the current period
+  /// @return loss Total amount of losses (paid increases to debt) for all repay-actions made in the current period
+  /// @return countActions Current count of actions
   function onHardwork(
     BaseState storage state_,
     IPoolAdapter poolAdapter_,
@@ -432,26 +436,26 @@ library BookkeeperLib {
 
     uint[] storage periods = state_.periods[address(poolAdapter_)];
     uint countPeriods = periods.length;
-    if (countPeriods != 0) {
-      // count of the actions at the moment of the beginning of the period
-      uint countActionsStart = periods[countPeriods - 1];
-      for (uint i = countActions; i > countActionsStart; i--) {
-        ActionKind actionKind = actions[i - 1].actionKind;
-        if (actionKind == ActionKind.BORROW_0) continue;
-        if (actionKind == ActionKind.REPAY_1) {
-          // let's calculate received gains and losses in terms of given asset
-          RepayInfo memory repayInfo = state_.repayInfo[address(poolAdapter_)][i - 1];
-          if (isCollateralUnderlying_) {
-            gains += repayInfo.gain;
-            loss += repayInfo.loss * repayInfo.prices[1] * decs[0] / repayInfo.prices[0] / decs[1];
-          } else {
-            loss += repayInfo.loss;
-            gains += repayInfo.gain * repayInfo.prices[0] * decs[1] / repayInfo.prices[1] / decs[0];
-          }
+    // count of the actions at the moment of the beginning of the period
+    uint countActionsStart = countPeriods == 0
+      ? 0
+      : periods[countPeriods - 1];
+    for (uint i = countActions; i > countActionsStart; i--) {
+      ActionKind actionKind = actions[i - 1].actionKind;
+      if (actionKind == ActionKind.BORROW_0) continue;
+      if (actionKind == ActionKind.REPAY_1) {
+        // let's calculate received gains and losses in terms of given asset
+        RepayInfo memory repayInfo = state_.repayInfo[address(poolAdapter_)][i - 1];
+        if (isCollateralUnderlying_) {
+          gains += repayInfo.gain;
+          loss += repayInfo.loss * repayInfo.prices[1] * decs[0] / repayInfo.prices[0] / decs[1];
         } else {
-          // we have reached moment of starting of the current period
-          break;
+          loss += repayInfo.loss;
+          gains += repayInfo.gain * repayInfo.prices[0] * decs[1] / repayInfo.prices[1] / decs[0];
         }
+      } else {
+        // we have reached moment of starting of the current period
+        break;
       }
     }
 

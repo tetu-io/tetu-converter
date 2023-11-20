@@ -32,6 +32,9 @@ contract DebtMonitorMock {
   function onOpenPosition() external {
     _openedPositions[msg.sender] = true;
   }
+  function setOpenPosition(address user, bool opened) external {
+    _openedPositions[user] = opened;
+  }
 
   function _isClosedPosition(address user) external view returns (bool) {
     return _closedPositions[user];
@@ -42,5 +45,8 @@ contract DebtMonitorMock {
 
   function isPositionOpened() external view returns (bool) {
     return _openedPositions[msg.sender];
+  }
+  function isPositionOpenedEx(address user) external view returns (bool) {
+    return _openedPositions[user];
   }
 }

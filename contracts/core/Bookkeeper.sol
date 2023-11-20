@@ -126,16 +126,10 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
   //endregion ----------------------------------------------------- Checkpoints
 
   //region ----------------------------------------------------- Logic for period
-  function reset(
-    IDebtMonitor debtMonitor,
-    address underlying_
-  ) external returns (
-    uint gains,
-    uint losses
-  ){
+  function startPeriod(address underlying_) external override returns (uint gains, uint losses){
+    IDebtMonitor debtMonitor = IDebtMonitor(IConverterController(controller()).debtMonitor());
     return BookkeeperLib.startPeriod(_state, debtMonitor, msg.sender, underlying_);
   }
-
   //endregion ----------------------------------------------------- Logic for period
 
   //region ----------------------------------------------------- View mapping data
@@ -144,6 +138,9 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
   }
   function poolAdaptersPerUserAt(address user, uint index) external view returns (address) {
     return _state.poolAdaptersPerUser[user].at(index);
+  }
+  function poolAdaptersPerUserContains(address user, address poolAdapter) external view returns (bool) {
+    return _state.poolAdaptersPerUser[user].contains(poolAdapter);
   }
 
   function actionsLength(address poolAdapter) external view returns (uint) {
@@ -175,6 +172,14 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
       repayInfo.loss,
       repayInfo.prices
     );
+  }
+
+  function periodsLength(address poolAdapter) external view returns (uint) {
+    return _state.periods[poolAdapter].length;
+  }
+
+  function periodsAt(address poolAdapter, uint index) external view returns (uint) {
+    return _state.periods[poolAdapter][index];
   }
 
   //endregion ----------------------------------------------------- View mapping data
