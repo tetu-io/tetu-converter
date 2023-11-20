@@ -126,9 +126,14 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
   //endregion ----------------------------------------------------- Checkpoints
 
   //region ----------------------------------------------------- Logic for period
-  function startPeriod(address underlying_) external override returns (uint gains, uint losses){
+  function startPeriod(address underlying_) external override returns (uint gains, uint losses) {
+    // anybody can call this function, it starts new period for the signer
     IDebtMonitor debtMonitor = IDebtMonitor(IConverterController(controller()).debtMonitor());
     return BookkeeperLib.startPeriod(_state, debtMonitor, msg.sender, underlying_);
+  }
+
+  function previewPeriod(address underlying_, address user_) external view override returns (uint gains, uint losses) {
+    return BookkeeperLib.previewPeriod(_state, user_, underlying_);
   }
   //endregion ----------------------------------------------------- Logic for period
 
@@ -147,14 +152,12 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
     return _state.actions[poolAdapter].length;
   }
   function actionsAt(address poolAdapter, uint index) external view returns (
-    uint blockNumber,
     uint suppliedAmount,
     uint borrowedAmount,
     uint actionKind
   ) {
     BookkeeperLib.Action memory action = _state.actions[poolAdapter][index];
     return (
-      action.blockNumber,
       action.suppliedAmount,
       action.borrowedAmount,
       uint(action.actionKind)

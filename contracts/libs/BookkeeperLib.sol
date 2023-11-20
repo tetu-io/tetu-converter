@@ -51,8 +51,6 @@ library BookkeeperLib {
   struct Action {
     /// @notice Action kind. There is additional info for repays in {repayInfo}
     ActionKind actionKind;
-    /// @notice Block number - when the action was made
-    uint blockNumber;
     /// @notice Total amount supplied by the user as a collateral after the action
     uint suppliedAmount;
     /// @notice Total borrowed amount after the action
@@ -301,7 +299,6 @@ library BookkeeperLib {
     (uint totalSuppliedAmount, uint totalBorrowedAmount) = _getLastStoredAmounts(state, address(poolAdapter));
 
     state.actions[address(poolAdapter)].push(Action({
-      blockNumber: block.number,
       suppliedAmount: totalSuppliedAmount + collateralAmount,
       borrowedAmount: totalBorrowedAmount + borrowedAmount,
       actionKind: ActionKind.BORROW_0
@@ -337,7 +334,6 @@ library BookkeeperLib {
 
     // register new repay-action
     state.actions[address(poolAdapter)].push(Action({
-      blockNumber: block.number,
       suppliedAmount: totalSuppliedAmount * (1e18 - v.collateralRatio) / 1e18,
       borrowedAmount: totalBorrowedAmount * (1e18 - v.debtRatio) / 1e18,
       actionKind: ActionKind.REPAY_1
@@ -410,6 +406,34 @@ library BookkeeperLib {
       if (! debtMonitor.isPositionOpenedEx(address(poolAdapter))) {
         set.remove(address(poolAdapter));
       }
+    }
+
+    return (gains, losses);
+  }
+
+  /// @notice Calculate total amount of gains and looses in underlying by all pool adapters of the user
+  ///         for the current period, DON'T start new period.
+  /// @param underlying_ Asset in which we calculate gains and loss. Assume that it's either collateral or borrow asset.
+  /// @return gains Total amount of gains (supply-profit) of the {user_} by all user's pool adapters
+  /// @return losses Total amount of losses (paid increases to debt) of the {user_} by all user's pool adapters
+  function previewPeriod(BaseState storage state_, address user_, address underlying_) internal view returns (
+    uint gains,
+    uint losses
+  ) {
+    StartPeriodLocal memory v;
+
+    EnumerableSet.AddressSet storage set = state_.poolAdaptersPerUser[user_];
+    v.len = set.length();
+    v.decs = new uint[](2);
+    for (uint i = v.len; i > 0; i--) {
+      IPoolAdapter poolAdapter = IPoolAdapter(set.at(i - 1));
+      (,, v.collateralAsset, v.borrowAsset) = poolAdapter.getConfig();
+      v.decs[0] = 10 ** IERC20Metadata(v.collateralAsset).decimals();
+      v.decs[1] = 10 ** IERC20Metadata(v.borrowAsset).decimals();
+
+      (v.gain, v.loss, v.countActions) = onHardwork(state_, poolAdapter, underlying_ == v.collateralAsset, v.decs);
+      gains += v.gain;
+      losses += v.loss;
     }
 
     return (gains, losses);

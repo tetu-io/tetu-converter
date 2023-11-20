@@ -126,7 +126,6 @@ describe("BookkeeperLibTest", () => {
         poolAdapter.address,
         p.actions.map(x => {
           return {
-            blockNumber: 1,
             suppliedAmount: parseUnits(x.suppliedAmount, decimalsCollateral),
             borrowedAmount: parseUnits(x.borrowedAmount, decimalsBorrow),
             actionKind: x.actionKind ?? AppConstants.ACTION_KIND_BORROW_0
@@ -312,7 +311,6 @@ describe("BookkeeperLibTest", () => {
           poolAdapter.address,
           pai.actions.map(x => {
             return {
-              blockNumber: 1,
               suppliedAmount: parseUnits(x.suppliedAmount, decimalsCollateral),
               borrowedAmount: parseUnits(x.borrowedAmount, decimalsBorrow),
               actionKind: x.actionKind ?? AppConstants.ACTION_KIND_BORROW_0
@@ -430,7 +428,6 @@ describe("BookkeeperLibTest", () => {
         poolAdapter.address,
         p.actions.map(x => {
           return {
-            blockNumber: 1,
             suppliedAmount: parseUnits(x.suppliedAmount, decimalsCollateral),
             borrowedAmount: parseUnits(x.borrowedAmount, decimalsBorrow),
             actionKind: x.actionKind ?? AppConstants.ACTION_KIND_BORROW_0
@@ -696,7 +693,7 @@ describe("BookkeeperLibTest", () => {
     });
   });
 
-  describe("startPeriod", () => {
+  describe("startPeriod, previewPeriod", () => {
     interface IPoolAdapterData {
       collateralAsset?: MockERC20; // DAI by default
       borrowAsset?: MockERC20; // USDT by default
@@ -715,6 +712,8 @@ describe("BookkeeperLibTest", () => {
       losses: number;
       inSet: boolean[];
       lastPeriodValues: number[];
+      previewGains: number;
+      previewLosses: number;
     }
 
     async function startPeriod(p: IParams): Promise<IResults> {
@@ -741,7 +740,6 @@ describe("BookkeeperLibTest", () => {
           poolAdapter.address,
           data.actions.map(x => {
             return {
-              blockNumber: 1,
               suppliedAmount: parseUnits(x.suppliedAmount, decimalsCollateral),
               borrowedAmount: parseUnits(x.borrowedAmount, decimalsBorrow),
               actionKind: x.actionKind ?? AppConstants.ACTION_KIND_BORROW_0
@@ -771,6 +769,8 @@ describe("BookkeeperLibTest", () => {
       }
       await facade.setPoolAdaptersPerUser(user, poolAdapters.map(x => x.address));
 
+      const preview = await facade.previewPeriod(user, underlying.address);
+
       const ret = await facade.callStatic.startPeriod(debtMonitor.address, user, underlying.address);
       await facade.startPeriod(debtMonitor.address, user, underlying.address);
 
@@ -783,6 +783,8 @@ describe("BookkeeperLibTest", () => {
         lastPeriodValues: await Promise.all(poolAdapters.map(
           async x => (await facade.lastPeriodValue(x.address)).toNumber()
         )),
+        previewGains: +formatUnits(preview.gains, decimalsUnderlying),
+        previewLosses: +formatUnits(preview.losses, decimalsUnderlying),
       }
     }
 
@@ -821,6 +823,9 @@ describe("BookkeeperLibTest", () => {
       it("should add expected value to periods array", async () => {
         expect(ret.lastPeriodValues.join()).eq([3].join());
       });
+      it("should return values same to preview values", async () => {
+        expect([ret.gains, ret.losses].join()).eq([ret.previewGains, ret.previewLosses].join());
+      });
     });
     describe("Reverse debt, close position", () => {
       let snapshotLocal: string;
@@ -856,6 +861,9 @@ describe("BookkeeperLibTest", () => {
       });
       it("should add expected value to periods array", async () => {
         expect(ret.lastPeriodValues.join()).eq([3].join());
+      });
+      it("should return values same to preview values", async () => {
+        expect([ret.gains, ret.losses].join()).eq([ret.previewGains, ret.previewLosses].join());
       });
     });
     describe("Direct and reverse debts, remove all", () => {
@@ -905,6 +913,9 @@ describe("BookkeeperLibTest", () => {
       });
       it("should add expected value to periods array", async () => {
         expect(ret.lastPeriodValues.join()).eq([5, 3].join());
+      });
+      it("should return values same to preview values", async () => {
+        expect([ret.gains, ret.losses].join()).eq([ret.previewGains, ret.previewLosses].join());
       });
     });
     describe("Direct and reverse debts, remove one", () => {
@@ -984,6 +995,9 @@ describe("BookkeeperLibTest", () => {
       });
       it("should add expected value to periods array", async () => {
         expect(ret.lastPeriodValues.join()).eq([5, 8, 6, 3].join());
+      });
+      it("should return values same to preview values", async () => {
+        expect([ret.gains, ret.losses].join()).eq([ret.previewGains, ret.previewLosses].join());
       });
     });
 

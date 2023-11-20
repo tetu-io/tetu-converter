@@ -68,13 +68,18 @@ contract BookkeeperLibFacade {
     return BookkeeperLib.previewCheckpointForUser(_state, msg.sender, tokens);
   }
 
-  /// @notice calculate total amount of gains and looses in underlying by all pool adapters of the user
-  ///         for the current period, start new period.
   function startPeriod(IDebtMonitor debtMonitor, address user_, address underlying_) external returns (
     uint gains,
     uint losses
   ) {
     return BookkeeperLib.startPeriod(_state, debtMonitor, user_, underlying_);
+  }
+
+  function previewPeriod(address user_, address underlying_) external view returns (
+    uint gains,
+    uint losses
+  ) {
+    return BookkeeperLib.previewPeriod(_state, user_, underlying_);
   }
 
   function onHardwork(IPoolAdapter poolAdapter_, bool isCollateralUnderlying_, uint[] memory decs) external view returns (

@@ -31,7 +31,7 @@ interface IBookkeeper {
     uint[] memory deltaLosses
   );
 
-  /// @notice Calculate total amount of gains and looses in underlying by all pool adapters of the user
+  /// @notice Calculate total amount of gains and looses in underlying by all pool adapters of the signer
   ///         for the current period, start new period.
   /// @param underlying_ Asset in which we calculate gains and loss. Assume that it's either collateral or borrow asset.
   /// @return gains Total amount of gains (supply-profit) of the {user_} by all user's pool adapters
@@ -40,4 +40,11 @@ interface IBookkeeper {
     uint gains,
     uint losses
   );
+
+  /// @notice Calculate total amount of gains and looses in underlying by all pool adapters of the {user_}
+  ///         for the current period, DON'T start new period.
+  /// @param underlying_ Asset in which we calculate gains and loss. Assume that it's either collateral or borrow asset.
+  /// @return gains Total amount of gains (supply-profit) of the {user_} by all user's pool adapters
+  /// @return losses Total amount of losses (paid increases to debt) of the {user_} by all user's pool adapters
+  function previewPeriod(address underlying_, address user_) external view returns (uint gains, uint losses);
 }
