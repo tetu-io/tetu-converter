@@ -442,7 +442,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         collateral: await collateralToken.token.balanceOf(d.userContract.address),
         borrow: await borrowToken.token.balanceOf(d.userContract.address)
       };
-      console.log(afterBorrow);
 
       await TimeUtils.advanceNBlocks(1000);
 
@@ -554,7 +553,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         describe("Full repay of borrowed amount", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              const initialBorrowAmountOnUserBalance = 20_000;
+              const initialBorrowAmountOnUserBalance = 50_000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
@@ -567,7 +566,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           });
           describe("WMATIC => DAI", () => {
             it("should return expected balances", async () => {
-              const initialBorrowAmountOnUserBalance = 20_000;
+              const initialBorrowAmountOnUserBalance = 50_000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
