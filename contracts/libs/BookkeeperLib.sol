@@ -15,8 +15,6 @@ import "../libs/AppUtils.sol";
 import "../libs/BookkeeperLib.sol";
 import "../interfaces/IDebtMonitor.sol";
 
-import "hardhat/console.sol";
-
 library BookkeeperLib {
   using SafeERC20 for IERC20;
   using AppUtils for uint;

@@ -14,8 +14,6 @@ import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../libs/BookkeeperLib.sol";
 
-import "hardhat/console.sol";
-
 /// @notice Calculate amounts of losses and gains for debts/supply for all pool adapters
 /// @dev Each repay/borrow operation is registered, balances of currently supplied and borrowed amounts are stored.
 ///      User is able to make two checkpoints and calculate what
