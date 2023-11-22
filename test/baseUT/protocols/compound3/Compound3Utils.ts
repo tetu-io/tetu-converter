@@ -8,4 +8,13 @@ export class Compound3Utils {
     }
     throw new Error(`Cannot find Compound3 comet token for asset ${asset}`);
   }
+
+  static getAllAssets(): string[] {
+    return [
+      MaticAddresses.USDC,
+      MaticAddresses.WMATIC,
+      MaticAddresses.WETH,
+      MaticAddresses.WBTC,
+    ];
+  }
 }

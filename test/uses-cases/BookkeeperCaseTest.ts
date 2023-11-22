@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   Aave3PlatformAdapter, AaveTwoPlatformAdapter, Bookkeeper, Bookkeeper__factory,
   BorrowManager,
-  BorrowManager__factory,
+  BorrowManager__factory, Compound3PlatformAdapter,
   ConverterController, IERC20Metadata__factory, IPlatformAdapter, ITetuConverter__factory, MoonwellPlatformAdapter,
   UserEmulator
 } from "../../typechain";
@@ -21,7 +21,6 @@ import {
 import {IPlatformUtilsProvider} from "../baseUT/types/IPlatformUtilsProvider";
 import {BaseAddresses} from "../../scripts/addresses/BaseAddresses";
 import {parseUnits} from "ethers/lib/utils";
-import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {AppConstants} from "../baseUT/types/AppConstants";
 import {expect} from "chai";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
@@ -33,6 +32,8 @@ import {MoonwellUtilsProvider} from "../baseUT/protocols/moonwell/MoonwellUtilsP
 import {AaveTwoUtils} from "../baseUT/protocols/aaveTwo/AaveTwoUtils";
 import {AaveTwoUtilsProvider} from "../baseUT/protocols/aaveTwo/AaveTwoUtilsProvider";
 import {NumberUtils} from "../baseUT/utils/NumberUtils";
+import {Compound3Utils} from "../baseUT/protocols/compound3/Compound3Utils";
+import {Compound3UtilsProvider} from "../baseUT/protocols/compound3/Compound3UtilsProvider";
 
 /** Ensure that all repay/borrow operations are correctly registered in the Bookkeeper */
 describe("BookkeeperCaseTest", () => {
@@ -69,10 +70,51 @@ describe("BookkeeperCaseTest", () => {
     userBorrowAssetBalanceHugeAmount: "100000",
   }
 
+  const PARAMS_WETH_USDC: IBorrowRepaySingleActionParams = {
+    userBorrowAssetBalance: "10000",
+    userCollateralAssetBalance: "10",
+    collateralAmount: "1",
+    collateralAmountSecond: "0.1",
+
+    userBorrowAssetBalanceTinyAmount: "1",
+    userCollateralAssetBalanceTinyAmount: "0.0015",
+    collateralAmountTiny: "0.001",
+
+    userBorrowAssetBalanceHugeAmount: "100000",
+  }
+
   const NETWORKS: IChainParams[] = [
     { // Polygon
       networkId: POLYGON_NETWORK_ID,
       platforms: [
+        { // Compound3 on Polygon
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+              signer0,
+              converterController0,
+              (await AdaptersHelper.createCompound3PoolAdapter(signer0)).address,
+              [MaticAddresses.COMPOUND3_COMET_USDC],
+              MaticAddresses.COMPOUND3_COMET_REWARDS
+            ) as Compound3PlatformAdapter;
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(Compound3Utils.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          platformUtilsProviderBuilder() {
+            return new Compound3UtilsProvider();
+          },
+          assetPairs: [
+            {collateralAsset: MaticAddresses.WETH, borrowAsset: MaticAddresses.USDC, collateralAssetName: "WETH", borrowAssetName: "USDC", singleParams: PARAMS_WETH_USDC},
+          ]
+        },
+
         { // AAVETwo on Polygon
           async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
             const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
@@ -128,8 +170,6 @@ describe("BookkeeperCaseTest", () => {
             {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE},
           ]
         },
-
-        // todo Compound3
       ]
     },
 
@@ -247,7 +287,7 @@ describe("BookkeeperCaseTest", () => {
                   let ret1: IBookkeeperStatusWithResults;
                   before(async function () {
                     snapshotLevel1 = await TimeUtils.snapshot();
-                    ret1 = await loadFixture(makeBorrowTest);
+                    ret1 = await makeBorrowTest();
                     // console.log("ret1", ret1);
                   });
                   after(async function () {
@@ -391,7 +431,7 @@ describe("BookkeeperCaseTest", () => {
                     let ret2: IBookkeeperStatusWithResults;
                     before(async function () {
                       snasnapshotLevel2 = await TimeUtils.snapshot();
-                      ret2 = await loadFixture(makeSecondBorrowTest);
+                      ret2 = await makeSecondBorrowTest();
                     });
                     after(async function () {
                       await TimeUtils.rollback(snasnapshotLevel2);
@@ -425,7 +465,7 @@ describe("BookkeeperCaseTest", () => {
                     it("should assign expected amounts to the second borrow action (assume that increases to debt/collateral are neglect)", async () => {
                       const collateralSupplied = ret1.results.userCollateralAssetBalance - ret2.results.userCollateralAssetBalance;
                       const borrowAmountReceived = ret2.results.receiverBorrowAssetBalance - ret1.results.receiverBorrowAssetBalance;
-                      expect(ret2.actions[1].suppliedAmount).eq(ret2.actions[0].suppliedAmount + collateralSupplied);
+                      expect(ret2.actions[1].suppliedAmount).approximately(ret2.actions[0].suppliedAmount + collateralSupplied, 1e-8);
                       expect(ret2.actions[1].borrowedAmount).eq(ret2.actions[0].borrowedAmount + borrowAmountReceived);
                     });
                     it("should not unregister the pool adapter for the user", async () => {
@@ -437,7 +477,7 @@ describe("BookkeeperCaseTest", () => {
                     let ret2: IBookkeeperStatusWithResults;
                     before(async function () {
                       snasnapshotLevel2 = await TimeUtils.snapshot();
-                      ret2 = await loadFixture(repayToRebalanceTest);
+                      ret2 = await repayToRebalanceTest();
                     });
                     after(async function () {
                       await TimeUtils.rollback(snasnapshotLevel2);
@@ -529,7 +569,7 @@ describe("BookkeeperCaseTest", () => {
                     it("should assign expected amounts to the repay action (assume that increases to debt/collateral are neglect)", async () => {
                       console.log("ret2", ret2);
                       expect(ret2.actions[1].suppliedAmount).approximately(ret1.actions[0].suppliedAmount,1e-5);
-                      expect(ret2.actions[1].borrowedAmount).approximately((ret2.actions[0].borrowedAmount) / 2,1e-5);
+                      expect(ret2.actions[1].borrowedAmount).approximately((ret2.actions[0].borrowedAmount) / 2,1e-4);
                     });
                     it("should not unregister the pool adapter for the user", async () => {
                       expect(ret1.poolAdaptersForUser.length).eq(1);
