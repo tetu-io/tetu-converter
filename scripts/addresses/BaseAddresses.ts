@@ -67,8 +67,8 @@ export class BaseAddresses {
     public static HOLDER_WETH_1 = "0x428ab2ba90eba0a4be7af34c9ac451ab061ac010".toLowerCase();
     public static HOLDER_WETH_2 = "0x4bb6b2efe7036020ba6f02a05602546c9f25bf28".toLowerCase();
 
-    public static HOLDER_CBETH = "0xd746a2a6048c5d3aff5766a8c4a0c8cfd2311745".toLowerCase();
-    public static HOLDER_CBETH_1 = "0x20fe51a9229eef2cf8ad9e89d91cab9312cf3b7a".toLowerCase();
+    public static HOLDER_CBETH = "0x234dfbd48838323c133a1b857f5ec2309e3845f6".toLowerCase();
+    public static HOLDER_CBETH_1 = "0x9d446ca4dce507f9a30e5f697016c32c0ad4df40".toLowerCase();
     public static HOLDER_CBETH_2 = "0x48be343c86e5d2233e874b23dbf123b0c2f80857".toLowerCase();
 
     public static HOLDER_USDC = "0x20fe51a9229eef2cf8ad9e89d91cab9312cf3b7a".toLowerCase();

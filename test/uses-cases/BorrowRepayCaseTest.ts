@@ -755,7 +755,6 @@ describe("BorrowRepayCaseTest", () => {
                               before(async function () {
                                 snapshotLevel3 = await TimeUtils.snapshot();
                                 borrowResults = await loadFixture(makeBorrowTest);
-                                console.log("borrowResults", borrowResults);
                               });
                               after(async function () {
                                 await TimeUtils.rollback(snapshotLevel3);
@@ -786,6 +785,7 @@ describe("BorrowRepayCaseTest", () => {
                                 expect(borrowResults.borrow[0].borrowedAmount).gt(0);
                               });
                               it("should put borrowed amount on user's balance", async () => {
+                                console.log("borrowResults", borrowResults);
                                 expect(borrowResults.userBorrowAssetBalance).approximately(
                                   borrowResults.borrow[0].borrowedAmount + Number(assetPair.singleParams?.userBorrowAssetBalanceHugeAmount),
                                   0.1

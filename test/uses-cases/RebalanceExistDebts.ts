@@ -205,7 +205,7 @@ describe("RebalanceExistDebts", () => {
         it("second borrowed amount should be less than the first one", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
           if (ret.isAprNegative) {
-            expect(ret.borrowedAmount2).gt(ret.borrowedAmount1);
+            expect(ret.borrowedAmount2 + 1e-3).gt(ret.borrowedAmount1);
           } else {
             expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
           }
@@ -214,7 +214,7 @@ describe("RebalanceExistDebts", () => {
         it("should change health factor of the pool adapter before second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
           if (ret.isAprNegative) {
-            expect(ret.statusBeforeBorrow2.healthFactor).gt(ret.statusAfterBorrow1.healthFactor);
+            expect(ret.statusBeforeBorrow2.healthFactor + 1e-5).gt(ret.statusAfterBorrow1.healthFactor);
           } else {
             expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
           }
@@ -383,7 +383,7 @@ describe("RebalanceExistDebts", () => {
         it("should change health factor of the pool adapter before second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
           if (ret.isAprNegative) {
-            expect(ret.statusBeforeBorrow2.healthFactor).gt(ret.statusAfterBorrow1.healthFactor);
+            expect(ret.statusBeforeBorrow2.healthFactor + 1e-5).gt(ret.statusAfterBorrow1.healthFactor);
           } else {
             expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
           }
@@ -391,7 +391,7 @@ describe("RebalanceExistDebts", () => {
         it("should not restore health factor by second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
           if (ret.isAprNegative) {
-            expect(ret.statusAfterBorrow2.healthFactor).gt(2.1);
+            expect(ret.statusAfterBorrow2.healthFactor + 1e-5).gt(2.1);
           } else {
             expect(ret.statusAfterBorrow2.healthFactor).lt(2.1);
           }

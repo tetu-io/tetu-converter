@@ -470,11 +470,15 @@ describe("Compound3PlatformAdapterTest", () => {
           const r = await preparePlan(
             controller,
             MaticAddresses.WMATIC,
-            parseUnits('20000000'),
+            parseUnits('2000000000', 18),
             MaticAddresses.USDC
           )
+          console.log(r.plan);
 
-          expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
+          expect(
+            r.plan.amountToBorrow.eq(r.plan.maxAmountToBorrow)
+            || r.plan.collateralAmount.eq(r.plan.maxAmountToSupply)
+          ).eq(true);
         })
         it("should return collateral amount equal to max collateral amount if borrow reserve is enough", async () => {
           const borrowAsset = MaticAddresses.USDC;

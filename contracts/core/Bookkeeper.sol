@@ -33,9 +33,6 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
   string public constant BOOKKEEPER_VERSION = "1.0.0";
   //endregion ----------------------------------------------------- Constants
 
-  //region ----------------------------------------------------- Data types
-  //endregion ----------------------------------------------------- Data types
-
   //region ----------------------------------------------------- Variables
   BookkeeperLib.BaseState internal _state;
   //endregion ----------------------------------------------------- Variables
@@ -86,7 +83,7 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
     uint[] memory deltaLosses
   ) {
     // no restrictions: any user is allowed
-    // to receive any values the user should have empty state_.poolAdaptersPerUser
+    // to receive any values the user should have not-empty state_.poolAdaptersPerUser
 
     return BookkeeperLib.checkpointForUser(_state, msg.sender, tokens_);
   }
@@ -98,9 +95,6 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
     uint[] memory deltaGains,
     uint[] memory deltaLosses
   ) {
-    // no restrictions: any user is allowed
-    // to receive any values the user should have empty state_.poolAdaptersPerUser
-
     return BookkeeperLib.previewCheckpointForUser(_state, user, tokens_);
   }
 
@@ -124,12 +118,15 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
   //endregion ----------------------------------------------------- Checkpoints
 
   //region ----------------------------------------------------- Logic for period
+  /// @notice Calculate total amount of gains and looses in underlying by all pool adapters of the signer
+  ///         for the current period, start new period.
   function startPeriod(address underlying_) external override returns (uint gains, uint losses) {
     // anybody can call this function, it starts new period for the signer
     IDebtMonitor debtMonitor = IDebtMonitor(IConverterController(controller()).debtMonitor());
     return BookkeeperLib.startPeriod(_state, debtMonitor, msg.sender, underlying_);
   }
 
+  /// @notice Read-only version of {startPeriod}
   function previewPeriod(address underlying_, address user_) external view override returns (uint gains, uint losses) {
     return BookkeeperLib.previewPeriod(_state, user_, underlying_);
   }

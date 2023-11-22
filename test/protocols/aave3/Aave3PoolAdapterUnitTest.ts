@@ -90,6 +90,43 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
   const NETWORKS = [BASE_NETWORK_ID, POLYGON_NETWORK_ID];
   const TEST_SETUPS: Record<number, ITestSetup> = {
+    [BASE_NETWORK_ID]: {
+      aavePool: BaseAddresses.AAVE_V3_POOL,
+      pair: {
+        collateralAsset: BaseAddresses.USDbC,
+        borrowAsset: BaseAddresses.WETH,
+        collateralAssetName: "USDbC",
+        borrowAssetName: "WETH",
+        smallAmount: "1",
+        amount: "100",
+        hugeAmount: "100000",
+        collateralHolders: [
+          BaseAddresses.HOLDER_USDBC,
+        ],
+        borrowHolder: BaseAddresses.HOLDER_WETH
+      },
+      pairStable: {
+        collateralAsset: BaseAddresses.WETH,
+        borrowAsset: BaseAddresses.cbETH,
+        collateralAssetName: "WETH",
+        borrowAssetName: "cbETH",
+        smallAmount: "0.01",
+        amount: "1",
+        hugeAmount: "10",
+        collateralHolders: [
+          BaseAddresses.HOLDER_WETH,
+          BaseAddresses.HOLDER_WETH_1,
+          BaseAddresses.HOLDER_WETH_2,
+        ],
+        borrowHolder: BaseAddresses.HOLDER_CBETH
+      },
+      pairATokens: {
+        aTokenCollateral: BaseAddresses.AAVE3_USDbC_ATOKEN,
+        aTokenCollateralHolder: BaseAddresses.AAVE3_USDbC_ATOKEN_HOLDER,
+        aTokenBorrow: BaseAddresses.AAVE3_WETH_ATOKEN,
+        aTokenBorrowHolder: BaseAddresses.AAVE3_WETH_ATOKEN_HOLDER,
+      }
+    },
     [POLYGON_NETWORK_ID]: {
       aavePool: MaticAddresses.AAVE_V3_POOL,
       pair: {
@@ -130,43 +167,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
         aTokenCollateralHolder: MaticAddresses.AAVE3_ATOKEN_DAI_HOLDER,
         aTokenBorrow: MaticAddresses.Aave3_Polygon_WMATIC,
         aTokenBorrowHolder: MaticAddresses.AAVE3_ATOKEN_WMATIC_HOLDER,
-      }
-    },
-    [BASE_NETWORK_ID]: {
-      aavePool: BaseAddresses.AAVE_V3_POOL,
-      pair: {
-        collateralAsset: BaseAddresses.USDbC,
-        borrowAsset: BaseAddresses.WETH,
-        collateralAssetName: "USDbC",
-        borrowAssetName: "WETH",
-        smallAmount: "1",
-        amount: "100",
-        hugeAmount: "100000",
-        collateralHolders: [
-          BaseAddresses.HOLDER_USDBC,
-        ],
-        borrowHolder: BaseAddresses.HOLDER_WETH
-      },
-      pairStable: {
-        collateralAsset: BaseAddresses.WETH,
-        borrowAsset: BaseAddresses.cbETH,
-        collateralAssetName: "WETH",
-        borrowAssetName: "cbETH",
-        smallAmount: "0.01",
-        amount: "1",
-        hugeAmount: "10",
-        collateralHolders: [
-          BaseAddresses.HOLDER_WETH,
-          BaseAddresses.HOLDER_WETH_1,
-          BaseAddresses.HOLDER_WETH_2,
-        ],
-        borrowHolder: BaseAddresses.HOLDER_CBETH
-      },
-      pairATokens: {
-        aTokenCollateral: BaseAddresses.AAVE3_USDbC_ATOKEN,
-        aTokenCollateralHolder: BaseAddresses.AAVE3_USDbC_ATOKEN_HOLDER,
-        aTokenBorrow: BaseAddresses.AAVE3_WETH_ATOKEN,
-        aTokenBorrowHolder: BaseAddresses.AAVE3_WETH_ATOKEN_HOLDER,
       }
     },
   }
@@ -441,7 +441,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   });
                   it("should return initial collateral amount", async () => {
                     const r = await loadFixture(setupUserHasBorrowTest);
-                    expect(areAlmostEqual(r.status.collateralAmount, init.collateralAmount)).eq(true);
+                    expect(r.status.collateralAmount).approximately(init.collateralAmount, 1000);
                   });
                   it("shouldn't be liquidated", async () => {
                     const r = await loadFixture(setupUserHasBorrowTest);

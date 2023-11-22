@@ -2,7 +2,14 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {Bookkeeper, MockERC20, PoolAdapterMock2, PriceOracleMock__factory} from "../../typechain";
+import {
+  Bookkeeper,
+  BorrowManagerStub,
+  BorrowManagerStub__factory,
+  MockERC20,
+  PoolAdapterMock2,
+  PriceOracleMock__factory
+} from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
@@ -91,6 +98,7 @@ describe("BookkeeperTest", () => {
       gain: number;
       losses: number;
       prices: number[];
+      poolAdaptersPerUserValid: boolean;
     }
 
     async function makeTest(p: IParams): Promise<IResults> {
@@ -135,18 +143,36 @@ describe("BookkeeperTest", () => {
       }
 
       const countActions = (await bookkeeper.actionsLength(poolAdapter.address)).toNumber();
-      const lastAction = await bookkeeper.actionsAt(poolAdapter.address, countActions - 1);
-      const repayInfo = await bookkeeper.repayInfoAt(poolAdapter.address, countActions - 1);
+
+      let borrowedAmount: number = 0;
+      let suppliedAmount: number = 0;
+      let gain: number = 0;
+      let losses: number = 0;
+      let prices: number[] = [];
+
+      if (countActions != 0) {
+        const lastAction = await bookkeeper.actionsAt(poolAdapter.address, countActions - 1);
+        const repayInfo = await bookkeeper.repayInfoAt(poolAdapter.address, countActions - 1);
+        borrowedAmount = +formatUnits(lastAction.borrowedAmount, decimalsBorrow);
+        suppliedAmount = +formatUnits(lastAction.suppliedAmount, decimalsCollateral);
+        gain = +formatUnits(repayInfo.gain, decimalsUnderlying);
+        losses =  +formatUnits(repayInfo.loss, decimalsUnderlying);
+        prices = repayInfo.prices.map(x => +formatUnits(x, 18));
+      }
+
+      const poolAdaptersPerUserValid = await bookkeeper.poolAdaptersPerUserContains(user.address, poolAdapter.address);
 
       return {
         countActions,
 
-        borrowedAmount: +formatUnits(lastAction.borrowedAmount, decimalsBorrow),
-        suppliedAmount: +formatUnits(lastAction.suppliedAmount, decimalsCollateral),
+        borrowedAmount,
+        suppliedAmount,
 
-        gain: +formatUnits(repayInfo.gain, decimalsUnderlying),
-        losses:  +formatUnits(repayInfo.loss, decimalsUnderlying),
-        prices: repayInfo.prices.map(x => +formatUnits(x, 18))
+        gain,
+        losses,
+        prices,
+
+        poolAdaptersPerUserValid
       }
     }
 
@@ -173,6 +199,10 @@ describe("BookkeeperTest", () => {
         ).eq(
           [10, 20,].join()
         )
+      });
+
+      it("poolAdaptersPerUserValid should be true ", async () => {
+        expect(retBorrow1.poolAdaptersPerUserValid).eq(true);
       });
 
       describe("second borrow", () => {
@@ -284,6 +314,30 @@ describe("BookkeeperTest", () => {
         describe("repay with zero collateral (repayToRebalance)", () => {
           // todo
         });
+      });
+    });
+    describe("Bad paths", () => {
+      it("OnBorrow should revert if signer is not a pool adapter", async () => {
+        await BorrowManagerStub__factory.connect(core.bm.address, signer).setIsPoolAdapter(false);
+        await expect(makeTest({
+          amountC: "10",
+          amountB: "20",
+          totalCollateral: "10",
+          totalDebt: "20",
+          isBorrow: true,
+        })).revertedWith("TC-2 adapter not found"); // POOL_ADAPTER_NOT_FOUND
+      });
+
+      it("OnRepay should be ignored if signer is not a pool adapter", async () => {
+        await BorrowManagerStub__factory.connect(core.bm.address, signer).setIsPoolAdapter(false);
+        const ret = await makeTest({
+          amountC: "10",
+          amountB: "20",
+          totalCollateral: "10",
+          totalDebt: "20",
+          isBorrow: false,
+        });
+        expect(ret.countActions).eq(0);
       });
     });
   });

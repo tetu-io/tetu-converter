@@ -46,7 +46,6 @@ import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
   let snapshot: string;
-  let snapshotForEach: string;
   let deployer: SignerWithAddress;
 //endregion Global vars for all tests
 
@@ -62,14 +61,6 @@ describe("DebtsMonitor", () => {
 
   after(async function () {
     await TimeUtils.rollback(snapshot);
-  });
-
-  beforeEach(async function () {
-    snapshotForEach = await TimeUtils.snapshot();
-  });
-
-  afterEach(async function () {
-    await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
 
@@ -635,6 +626,14 @@ describe("DebtsMonitor", () => {
 
 //region Unit tests
   describe("init", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
       useSecondInitialization?: boolean;
@@ -691,6 +690,14 @@ describe("DebtsMonitor", () => {
   });
 
   describe("onOpenPosition", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       describe("Open single position twice", () => {
         it("should set expected state", async () => {
@@ -890,6 +897,14 @@ describe("DebtsMonitor", () => {
   });
 
   describe("onClosePosition", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       describe("Single borrow, single repay", () => {
         it("should set expected state", async () => {
@@ -1165,6 +1180,14 @@ describe("DebtsMonitor", () => {
   });
 
   describe("closeLiquidatedPosition", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       async function makeCloseLiquidatedPositionNormalBehaviorTest(
         params: IMakeClosePositionTestParams
@@ -1265,10 +1288,26 @@ describe("DebtsMonitor", () => {
   });
 
   describe("isPositionOpened", () => {
+    let snapshotLocal: string;
+    let snapshotForEach: string;
+    let dmAsPa: DebtMonitor;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       describe("The position is opened", () => {
         it("should return true", async () => {
-          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
           await dmAsPa.onOpenPosition();
 
           const ret = await dmAsPa.isPositionOpened();
@@ -1277,15 +1316,12 @@ describe("DebtsMonitor", () => {
       });
       describe("The position is not opened", () => {
         it("should return false", async () => {
-          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
-
           const ret = await dmAsPa.isPositionOpened();
           expect(ret).eq(false);
         });
       });
       describe("The position is closed", () => {
         it("should return false", async () => {
-          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
           await dmAsPa.onOpenPosition();
           await dmAsPa.onClosePosition();
 
@@ -1296,7 +1332,60 @@ describe("DebtsMonitor", () => {
     });
   });
 
+  describe("isPositionOpenedEx", () => {
+    let snapshotLocal: string;
+    let snapshotForEach: string;
+    let dmAsPa: DebtMonitor;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
+    describe("Good paths", () => {
+      describe("The position is opened", () => {
+        it("should return true", async () => {
+          await dmAsPa.onOpenPosition();
+
+          const ret = await dmAsPa.isPositionOpenedEx(dmAsPa.signer.getAddress());
+          expect(ret).eq(true);
+        });
+      });
+      describe("The position is not opened", () => {
+        it("should return false", async () => {
+          const ret = await dmAsPa.isPositionOpenedEx(dmAsPa.signer.getAddress());
+          expect(ret).eq(false);
+        });
+      });
+      describe("The position is closed", () => {
+        it("should return false", async () => {
+          await dmAsPa.onOpenPosition();
+          await dmAsPa.onClosePosition();
+
+          const ret = await dmAsPa.isPositionOpenedEx(dmAsPa.signer.getAddress());
+          expect(ret).eq(false);
+        });
+      });
+    });
+  });
+
   describe("getPositions", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       it("should return pool adapters with expected params", async () => {
         const countUsers = 2;
@@ -1323,6 +1412,14 @@ describe("DebtsMonitor", () => {
   });
 
   describe("getPoolAdapterKey", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     it("should return no pool adapters ", async () => {
         const r = await preparePoolAdapters([1], 1, 2);
         const ret = (await r.core.dm.getPoolAdapterKey(
@@ -1335,6 +1432,14 @@ describe("DebtsMonitor", () => {
   });
 
   describe("getCountPositions", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     it("should return expected value", async () => {
       const countUsers = 2;
       const countAssets = 2;
@@ -1350,6 +1455,14 @@ describe("DebtsMonitor", () => {
   });
 
   describe("checkHealth", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       describe("Single borrow", () => {
         describe("Pool adapter is healthy", () => {
@@ -1864,6 +1977,14 @@ describe("DebtsMonitor", () => {
   });
 
   describe("events", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     it("should emit expected events", async () => {
       const controller = await TetuConverterApp.createController(
         deployer, {

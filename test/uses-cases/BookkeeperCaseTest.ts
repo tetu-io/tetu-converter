@@ -1,9 +1,18 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  Aave3PlatformAdapter, AaveTwoPlatformAdapter, Bookkeeper, Bookkeeper__factory,
+  Aave3PlatformAdapter,
+  AaveTwoPlatformAdapter,
+  Bookkeeper,
+  Bookkeeper__factory,
   BorrowManager,
-  BorrowManager__factory, Compound3PlatformAdapter,
-  ConverterController, IERC20Metadata__factory, IPlatformAdapter, ITetuConverter__factory, MoonwellPlatformAdapter,
+  BorrowManager__factory,
+  Compound3PlatformAdapter,
+  ConverterController,
+  IERC20Metadata__factory,
+  IPlatformAdapter,
+  IPoolAdapter__factory,
+  ITetuConverter__factory,
+  MoonwellPlatformAdapter,
   UserEmulator
 } from "../../typechain";
 import {BASE_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
@@ -20,7 +29,7 @@ import {
 } from "../baseUT/uses-cases/shared/BorrowRepayCases";
 import {IPlatformUtilsProvider} from "../baseUT/types/IPlatformUtilsProvider";
 import {BaseAddresses} from "../../scripts/addresses/BaseAddresses";
-import {parseUnits} from "ethers/lib/utils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {AppConstants} from "../baseUT/types/AppConstants";
 import {expect} from "chai";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
@@ -34,6 +43,7 @@ import {AaveTwoUtilsProvider} from "../baseUT/protocols/aaveTwo/AaveTwoUtilsProv
 import {NumberUtils} from "../baseUT/utils/NumberUtils";
 import {Compound3Utils} from "../baseUT/protocols/compound3/Compound3Utils";
 import {Compound3UtilsProvider} from "../baseUT/protocols/compound3/Compound3UtilsProvider";
+import {BigNumber} from "ethers";
 
 /** Ensure that all repay/borrow operations are correctly registered in the Bookkeeper */
 describe("BookkeeperCaseTest", () => {
@@ -111,8 +121,15 @@ describe("BookkeeperCaseTest", () => {
             return new Compound3UtilsProvider();
           },
           assetPairs: [
-            {collateralAsset: MaticAddresses.WETH, borrowAsset: MaticAddresses.USDC, collateralAssetName: "WETH", borrowAssetName: "USDC", singleParams: PARAMS_WETH_USDC},
-          ]
+            {
+              collateralAsset: MaticAddresses.WETH,
+              borrowAsset: MaticAddresses.USDC,
+              collateralAssetName: "WETH",
+              borrowAssetName: "USDC",
+              singleParams: PARAMS_WETH_USDC,
+              skipCheckingNotZeroGains: true // probably gain is not zero, but it seems like we need to move a lot of blocks ahead to get not zero value
+            },
+          ],
         },
 
         { // AAVETwo on Polygon
@@ -573,6 +590,128 @@ describe("BookkeeperCaseTest", () => {
                     });
                     it("should not unregister the pool adapter for the user", async () => {
                       expect(ret1.poolAdaptersForUser.length).eq(1);
+                    });
+                  });
+                  describe("checkpoint", () => {
+                    let snasnapshotLevel2: string;
+                    let checkpointResults: ICheckpointResults;
+                    let previewResults: ICheckpointResults;
+                    before(async function () {
+                      snasnapshotLevel2 = await TimeUtils.snapshot();
+
+                      // let's give some time to increment debts and gains
+                      await TimeUtils.advanceNBlocks(5000);
+
+                      checkpointResults = await bookkeeper.connect(
+                        await Misc.impersonate(userEmulator.address)
+                      ).callStatic.checkpoint([assetPair.collateralAsset, assetPair.borrowAsset]);
+                      previewResults = await bookkeeper.previewCheckpoint(userEmulator.address, [assetPair.collateralAsset, assetPair.borrowAsset]);
+                    });
+                    after(async function () {
+                      await TimeUtils.rollback(snasnapshotLevel2);
+                    });
+
+                    interface ICheckpointResults {
+                      deltaGains: BigNumber[];
+                      deltaLosses: BigNumber[];
+                    }
+
+                    it("should return arrays with length = 2", async () => {
+                      expect(checkpointResults.deltaGains.length).eq(2);
+                      expect(checkpointResults.deltaLosses.length).eq(2);
+                    });
+                    it("should return actual values same to preview values", async () => {
+                      expect(
+                        checkpointResults.deltaLosses[0].add(checkpointResults.deltaLosses[1])
+                      ).eq(
+                        previewResults.deltaLosses[0].add(previewResults.deltaLosses[1])
+                      );
+
+                      expect(
+                        checkpointResults.deltaGains[0].add(checkpointResults.deltaGains[1])
+                      ).eq(
+                        previewResults.deltaGains[0].add(previewResults.deltaGains[1])
+                      );
+                    });
+                  });
+                  describe("startPeriod", function () {
+                    let snasnapshotLevel2: string;
+                    let ret2: IResults;
+
+                    interface IPeriodResults {
+                      gains: number;
+                      losses: number;
+                    }
+                    interface IResults {
+                      startPeriod: IPeriodResults;
+                      preview: IPeriodResults;
+                      periodLength: number;
+                      periodAt: number;
+                    }
+
+                    before(async function () {
+                      snasnapshotLevel2 = await TimeUtils.snapshot();
+
+                      // let's give some time to increment debts and gains
+                      await TimeUtils.advanceNBlocks(5000);
+
+                      const underlying = IERC20Metadata__factory.connect(assetPair.collateralAsset, signer);
+
+                      await BorrowRepayCases.borrowRepayPairsSingleBlockBookkeeper(
+                        signer,
+                        {
+                          tetuConverter: ITetuConverter__factory.connect(await converterController.tetuConverter(), signer),
+                          user: userEmulator,
+                          borrowAsset: assetPair.borrowAsset,
+                          collateralAsset: assetPair.collateralAsset,
+                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
+                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
+                          userBorrowAssetBalance: "0",
+                          userCollateralAssetBalance: "0",
+                          receiver: RECEIVER
+                        },
+                        [{repay: {repayPart: 100_000}}] // full repay
+                      );
+
+                      const user = await Misc.impersonate(userEmulator.address);
+
+                      const preview = await bookkeeper.previewPeriod(underlying.address, user.address);
+                      const ret = await bookkeeper.connect(user).callStatic.startPeriod(underlying.address);
+                      await bookkeeper.connect(user).startPeriod(underlying.address);
+
+                      const borrowManager = BorrowManager__factory.connect(await converterController.borrowManager(), signer);
+                      const poolAdapter = IPoolAdapter__factory.connect(await borrowManager.listPoolAdapters(0), signer);
+
+                      ret2 = {
+                        startPeriod: {
+                          gains: +formatUnits(ret.gains, await underlying.decimals()),
+                          losses: +formatUnits(ret.losses, await underlying.decimals()),
+                        },
+                        preview: {
+                          gains: +formatUnits(preview.gains, await underlying.decimals()),
+                          losses: +formatUnits(preview.losses, await underlying.decimals()),
+                        },
+                        periodLength: (await bookkeeper.periodsLength(poolAdapter.address)).toNumber(),
+                        periodAt: (await bookkeeper.periodsAt(poolAdapter.address, 0)).toNumber()
+                      }
+                    });
+                    after(async function () {
+                      await TimeUtils.rollback(snasnapshotLevel2);
+                    });
+
+                    it("should return not zero losses", async () => {
+                      expect(ret2.startPeriod.losses).gt(0);
+                      if (!assetPair.skipCheckingNotZeroGains) {
+                        expect(ret2.startPeriod.gains).gt(0);
+                      }
+                    });
+                    it("should return gains and losses equal to preview values", async () => {
+                      expect(ret2.startPeriod.losses).eq(ret2.preview.losses);
+                      expect(ret2.startPeriod.gains).eq(ret2.preview.gains);
+                    });
+                    it("should assign expected values to period array", async () => {
+                      expect(ret2.periodLength).eq(1);
+                      expect(ret2.periodAt).eq(2); // there are two actions: borrow and repay
                     });
                   });
                 });

@@ -221,6 +221,8 @@ export interface IAssetsPairConfig {
 
   singleParams?: IBorrowRepaySingleActionParams;
   multipleParams?: IBorrowRepayMultipleActionParams;
+
+  skipCheckingNotZeroGains?: boolean; // false by default
 }
 
 interface IRepayToRebalanceParams {
@@ -253,13 +255,13 @@ export class BorrowRepayCases {
           p.user.address
         );
       } else {
-        await TokenUtils.getToken(p.collateralAsset, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
-        // await BalanceUtils.getAmountFromHolder(p.collateralAsset, p.collateralAssetHolder, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
+        // await TokenUtils.getToken(p.collateralAsset, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
+        await BalanceUtils.getAmountFromHolder(p.collateralAsset, p.collateralAssetHolder, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
       }
     }
     if (p.userBorrowAssetBalance) {
-      await TokenUtils.getToken(p.borrowAsset, p.user.address, parseUnits(p.userBorrowAssetBalance, decimalsBorrow));
-      // await BalanceUtils.getAmountFromHolder(p.borrowAsset, p.borrowAssetHolder, p.user.address, parseUnits(p.userBorrowAssetBalance, decimalsBorrow));
+      // await TokenUtils.getToken(p.borrowAsset, p.user.address, parseUnits(p.userBorrowAssetBalance, decimalsBorrow));
+      await BalanceUtils.getAmountFromHolder(p.borrowAsset, p.borrowAssetHolder, p.user.address, parseUnits(p.userBorrowAssetBalance, decimalsBorrow));
     }
 
     // prepare sequence of borrow-repay pairs

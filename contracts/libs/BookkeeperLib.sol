@@ -101,7 +101,6 @@ library BookkeeperLib {
   struct CheckpointLocal {
     uint totalCollateral;
     uint totalDebt;
-    uint actionIndexFrom;
     uint countActions;
     uint borrowedAmount;
     uint suppliedAmount;
