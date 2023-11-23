@@ -312,6 +312,8 @@ contract ConverterController is IConverterController, ControllableV3 {
   //region ------------------------------------- Bookkeeper
   function setBookkeeper(address bookkeeper_) external {
     _onlyGovernance();
+    require(bookkeeper_ != address(0), AppErrors.ZERO_ADDRESS);
+
     bookkeeper = bookkeeper_;
     emit OnSetBookkeeper(bookkeeper_);
   }
