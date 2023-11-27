@@ -143,8 +143,8 @@ describe("BorrowRepayCaseTest", () => {
             return platformAdapter;
           },
           assetPairs: [
-            {collateralAsset: BaseAddresses.cbETH, borrowAsset: BaseAddresses.WETH, collateralAssetName: "cbETH", borrowAssetName: "WETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0"},
-            {collateralAsset: BaseAddresses.WETH, borrowAsset: BaseAddresses.cbETH, collateralAssetName: "WETH", borrowAssetName: "cbETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0"},
+            {collateralAsset: BaseAddresses.cbETH, borrowAsset: BaseAddresses.WETH, collateralAssetName: "cbETH", borrowAssetName: "WETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0", hugeCollateralAmount: "1000"},
+            {collateralAsset: BaseAddresses.WETH, borrowAsset: BaseAddresses.cbETH, collateralAssetName: "WETH", borrowAssetName: "cbETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0", hugeCollateralAmount: "1000"},
           ]
         },
         { // Moonwell  on Base chain
@@ -291,43 +291,42 @@ describe("BorrowRepayCaseTest", () => {
       ]
     },
 
-    // TODO: Current holders are not valid for block 29439975, use hardhat-deal instead holders addresses
-    // { // Polygon
-    //   networkId: POLYGON_NETWORK_ID,
-    //   // any block ~2022 (when HundredFinance had good TVL)
-    //   block: 29439975,
-    //   platforms: [
-    //     { // HundredFinance on Polygon
-    //       platformUtilsProviderBuilder() {
-    //         return new HundredFinanceUtilsProvider();
-    //       },
-    //       async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-    //         const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-    //           signer0,
-    //           converterController0,
-    //           MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-    //           (await AdaptersHelper.createHundredFinancePoolAdapter(signer0)).address,
-    //           HundredFinanceUtils.getAllCTokens(),
-    //         ) as HfPlatformAdapter;
-    //
-    //         // register the platform adapter in TetuConverter app
-    //         const pairs = generateAssetPairs(HundredFinanceUtils.getAllAssets());
-    //         await borrowManagerAsGov0.addAssetPairs(
-    //           platformAdapter.address,
-    //           pairs.map(x => x.smallerAddress),
-    //           pairs.map(x => x.biggerAddress)
-    //         );
-    //
-    //         return platformAdapter;
-    //       },
-    //       assetPairs: [
-    //         {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.WMATIC, collateralAssetName: "DAI", borrowAssetName: "WMATIC", singleParams: PARAMS_SINGLE_STABLE_WMATIC},
-    //         {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-    //         {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "WMATIC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
-    //       ]
-    //     },
-    //   ]
-    // },
+    { // Polygon
+      networkId: POLYGON_NETWORK_ID,
+      // any block ~2022 (when HundredFinance had good TVL)
+      block: 29439975,
+      platforms: [
+        { // HundredFinance on Polygon
+          platformUtilsProviderBuilder() {
+            return new HundredFinanceUtilsProvider();
+          },
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+              signer0,
+              converterController0,
+              MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+              (await AdaptersHelper.createHundredFinancePoolAdapter(signer0)).address,
+              HundredFinanceUtils.getAllCTokens(),
+            ) as HfPlatformAdapter;
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(HundredFinanceUtils.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          assetPairs: [
+            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.WMATIC, collateralAssetName: "DAI", borrowAssetName: "WMATIC", singleParams: PARAMS_SINGLE_STABLE_WMATIC},
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+            {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "WMATIC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
+          ]
+        },
+      ]
+    },
   ]
 //endregion Constants
 
@@ -438,8 +437,6 @@ describe("BorrowRepayCaseTest", () => {
                                     user: userEmulator,
                                     borrowAsset: assetPair.borrowAsset,
                                     collateralAsset: assetPair.collateralAsset,
-                                    borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                    collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                                     userBorrowAssetBalance: assetPair.singleParams?.userBorrowAssetBalance,
                                     userCollateralAssetBalance: assetPair.singleParams?.userCollateralAssetBalance,
                                     receiver: RECEIVER
@@ -478,8 +475,6 @@ describe("BorrowRepayCaseTest", () => {
                                           user: userEmulator,
                                           borrowAsset: assetPair.borrowAsset,
                                           collateralAsset: assetPair.collateralAsset,
-                                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                                           userBorrowAssetBalance: "0",
                                           userCollateralAssetBalance: "0",
                                           receiver: RECEIVER
@@ -526,8 +521,6 @@ describe("BorrowRepayCaseTest", () => {
                                       user: userEmulator,
                                       borrowAsset: assetPair.borrowAsset,
                                       collateralAsset: assetPair.collateralAsset,
-                                      borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                      collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                                       userBorrowAssetBalance: "0",
                                       userCollateralAssetBalance: "0",
                                       receiver: RECEIVER
@@ -577,8 +570,6 @@ describe("BorrowRepayCaseTest", () => {
                                       user: userEmulator,
                                       borrowAsset: assetPair.borrowAsset,
                                       collateralAsset: assetPair.collateralAsset,
-                                      borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                      collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                                       receiver: RECEIVER,
                                     },
                                     [{borrow: {amountIn: assetPair.singleParams?.collateralAmountSecond || "0",}}]
@@ -624,8 +615,6 @@ describe("BorrowRepayCaseTest", () => {
                                     user: userEmulator,
                                     borrowAsset: assetPair.borrowAsset,
                                     collateralAsset: assetPair.collateralAsset,
-                                    borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                    collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                                     userBorrowAssetBalance: assetPair.singleParams?.userBorrowAssetBalance,
                                     userCollateralAssetBalance: assetPair.singleParams?.userCollateralAssetBalance,
                                     receiver: RECEIVER,
@@ -674,8 +663,6 @@ describe("BorrowRepayCaseTest", () => {
                                     user: userEmulator,
                                     borrowAsset: assetPair.borrowAsset,
                                     collateralAsset: assetPair.collateralAsset,
-                                    borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                    collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                                     userBorrowAssetBalance: assetPair.singleParams?.userBorrowAssetBalanceTinyAmount,
                                     userCollateralAssetBalance: assetPair.singleParams?.userCollateralAssetBalanceTinyAmount,
                                     receiver: RECEIVER
@@ -713,8 +700,6 @@ describe("BorrowRepayCaseTest", () => {
                                       user: userEmulator,
                                       borrowAsset: assetPair.borrowAsset,
                                       collateralAsset: assetPair.collateralAsset,
-                                      borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                      collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                                       userBorrowAssetBalance: "0",
                                       userCollateralAssetBalance: "0",
                                       receiver: RECEIVER
@@ -768,14 +753,11 @@ describe("BorrowRepayCaseTest", () => {
                                     user: userEmulator,
                                     borrowAsset: assetPair.borrowAsset,
                                     collateralAsset: assetPair.collateralAsset,
-                                    borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                    collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
 
                                     // Borrowed amount is put on user's balance
                                     // we assume, that borrowed amount + 100_000  is enough for full repay
                                     userBorrowAssetBalance: assetPair.singleParams?.userBorrowAssetBalanceHugeAmount,
-                                    userCollateralAssetBalance: Number.MAX_SAFE_INTEGER.toString(),
-                                    additionalCollateralAssetHolders: platformUtilsProvider.getAdditionalAssetHolders(assetPair.borrowAsset),
+                                    userCollateralAssetBalance: assetPair.hugeCollateralAmount ?? "1000000",
                                   },
                                   [{borrow: {amountIn: "0",}}]
                                 );
@@ -810,8 +792,6 @@ describe("BorrowRepayCaseTest", () => {
                                       user: userEmulator,
                                       borrowAsset: assetPair.borrowAsset,
                                       collateralAsset: assetPair.collateralAsset,
-                                      borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                                      collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                                       userBorrowAssetBalance: "0",
                                       userCollateralAssetBalance: "0",
                                       receiver: RECEIVER
@@ -898,8 +878,6 @@ describe("BorrowRepayCaseTest", () => {
                           user: userEmulator,
                           borrowAsset: assetPair.borrowAsset,
                           collateralAsset: assetPair.collateralAsset,
-                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                           userBorrowAssetBalance: assetPair.multipleParams?.userBorrowAssetBalance,
                           userCollateralAssetBalance: assetPair.multipleParams?.userCollateralAssetBalance,
                           receiver: RECEIVER
@@ -945,8 +923,6 @@ describe("BorrowRepayCaseTest", () => {
                             user: userEmulator,
                             borrowAsset: assetPair.borrowAsset,
                             collateralAsset: assetPair.collateralAsset,
-                            borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                            collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                             userBorrowAssetBalance: "0",
                             userCollateralAssetBalance: assetPair.multipleParams?.userCollateralAssetBalanceSecond,
                             receiver: RECEIVER
@@ -1010,8 +986,6 @@ describe("BorrowRepayCaseTest", () => {
                             user: userEmulator,
                             borrowAsset: assetPair.borrowAsset,
                             collateralAsset: assetPair.collateralAsset,
-                            borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                            collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                             userBorrowAssetBalance: "0",
                             userCollateralAssetBalance: "0",
                             receiver: RECEIVER

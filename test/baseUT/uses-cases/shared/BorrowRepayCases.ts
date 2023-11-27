@@ -24,14 +24,10 @@ export interface IBorrowRepaySetup {
   user: UserEmulator;
   collateralAsset: string;
   borrowAsset: string;
-  collateralAssetHolder: string;
-  borrowAssetHolder: string;
   userBorrowAssetBalance?: string;
   userCollateralAssetBalance?: string;
   /** Receive all borrowed and repay amounts. User by default */
   receiver?: string;
-
-  additionalCollateralAssetHolders?: string[];
 }
 
 export interface IBorrowPairParams {
@@ -223,6 +219,7 @@ export interface IAssetsPairConfig {
   multipleParams?: IBorrowRepayMultipleActionParams;
 
   skipCheckingNotZeroGains?: boolean; // false by default
+  hugeCollateralAmount?: string; // 1_000_000 by default
 }
 
 interface IRepayToRebalanceParams {
@@ -244,24 +241,10 @@ export class BorrowRepayCases {
 
     // set up user-emulator balances
     if (p.userCollateralAssetBalance) {
-      if (Number(p.userCollateralAssetBalance) === Number.MAX_SAFE_INTEGER) {
-        // todo await TokenUtils.getToken(p.collateralAsset, p.user.address, requiredAmount)
-        await BalanceUtils.getRequiredAmountFromHolders(
-          undefined,
-          await IERC20Metadata__factory.connect(p.collateralAsset, signer),
-          p.additionalCollateralAssetHolders
-            ? [p.collateralAssetHolder, ...p.additionalCollateralAssetHolders]
-            : [p.collateralAssetHolder],
-          p.user.address
-        );
-      } else {
-        // await TokenUtils.getToken(p.collateralAsset, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
-        await BalanceUtils.getAmountFromHolder(p.collateralAsset, p.collateralAssetHolder, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
-      }
+        await TokenUtils.getToken(p.collateralAsset, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
     }
     if (p.userBorrowAssetBalance) {
-      // await TokenUtils.getToken(p.borrowAsset, p.user.address, parseUnits(p.userBorrowAssetBalance, decimalsBorrow));
-      await BalanceUtils.getAmountFromHolder(p.borrowAsset, p.borrowAssetHolder, p.user.address, parseUnits(p.userBorrowAssetBalance, decimalsBorrow));
+      await TokenUtils.getToken(p.borrowAsset, p.user.address, parseUnits(p.userBorrowAssetBalance, decimalsBorrow));
     }
 
     // prepare sequence of borrow-repay pairs
