@@ -222,62 +222,70 @@ describe("CompoundPoolAdapterLibTest", () => {
             expect(infiniteBorrowApprove).eq(true);
           });
         });
-        describe("Bad paths", () => {
-          let snapshotLocal: string;
-          beforeEach(async function () {
-            snapshotLocal = await TimeUtils.snapshot();
-          });
-          afterEach(async function () {
-            await TimeUtils.rollback(snapshotLocal);
-          });
+      });
+      describe("Bad paths", () => {
+        let snapshotLocal: string;
+        beforeEach(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        afterEach(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
 
-          async function initializeTest(p: {
-            controller?: string;
-            cTokenAddressProvider?: string;
-            comptroller?: string;
-            user?: string;
-            collateralAsset?: string;
-            borrowAsset?: string;
-            originConverter?: string;
-          }): Promise<IResults> {
-            await tokenAddressProviderMock.initExplicit(
-              usdc.address,
-              cUsdc.address,
-              usdt.address,
-              cUsdt.address
-            );
-            return initialize({
-              controller: p?.controller || controller.address,
-              comptroller: p?.comptroller || comptrollerV2.address,
-              cTokenAddressProvider: p?.cTokenAddressProvider || tokenAddressProviderMock.address,
-              user: p?.user || userContract.address,
-              borrowAsset: p?.borrowAsset || usdc.address,
-              collateralAsset: p?.collateralAsset || usdt.address,
-              originConverter: p?.originConverter || randomAddress
-            })
-          }
+        async function initializeTest(p: {
+          controller?: string;
+          cTokenAddressProvider?: string;
+          comptroller?: string;
+          user?: string;
+          collateralAsset?: string;
+          borrowAsset?: string;
+          originConverter?: string;
+          cTokenCollateralNotFound?: boolean;
+          cTokenBorrowNotFound?: boolean;
+        }): Promise<IResults> {
+          await tokenAddressProviderMock.initExplicit(
+            usdc.address,
+            p.cTokenCollateralNotFound ? Misc.ZERO_ADDRESS : cUsdc.address,
+            usdt.address,
+            p.cTokenBorrowNotFound ? Misc.ZERO_ADDRESS : cUsdt.address
+          );
+          return initialize({
+            controller: p?.controller || controller.address,
+            comptroller: p?.comptroller || comptrollerV2.address,
+            cTokenAddressProvider: p?.cTokenAddressProvider || tokenAddressProviderMock.address,
+            user: p?.user || userContract.address,
+            borrowAsset: p?.borrowAsset || usdc.address,
+            collateralAsset: p?.collateralAsset || usdt.address,
+            originConverter: p?.originConverter || randomAddress,
+          })
+        }
 
-          it("should revert if controller is zero", async () => {
-            await expect(initializeTest({controller: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
-          });
-          it("should revert if originConverter is zero", async () => {
-            await expect(initializeTest({originConverter: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
-          });
-          it("should revert if borrowAsset is zero", async () => {
-            await expect(initializeTest({borrowAsset: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
-          });
-          it("should revert if collateralAsset is zero", async () => {
-            await expect(initializeTest({collateralAsset: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
-          });
-          it("should revert if comptroller is zero", async () => {
-            await expect(initializeTest({comptroller: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
-          });
-          it("should revert if cTokenAddressProvider is zero", async () => {
-            await expect(initializeTest({cTokenAddressProvider: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
-          });
-          it("should revert if user is zero", async () => {
-            await expect(initializeTest({user: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
-          });
+        it("should revert if controller is zero", async () => {
+          await expect(initializeTest({controller: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if originConverter is zero", async () => {
+          await expect(initializeTest({originConverter: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if borrowAsset is zero", async () => {
+          await expect(initializeTest({borrowAsset: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if collateralAsset is zero", async () => {
+          await expect(initializeTest({collateralAsset: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if comptroller is zero", async () => {
+          await expect(initializeTest({comptroller: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if cTokenAddressProvider is zero", async () => {
+          await expect(initializeTest({cTokenAddressProvider: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if user is zero", async () => {
+          await expect(initializeTest({user: Misc.ZERO_ADDRESS})).rejectedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if cTokenAddressProvider cannot find cTokenCollateral", async () => {
+          await expect(initializeTest({cTokenCollateralNotFound: true})).rejectedWith("TC-16 ctoken not found"); // C_TOKEN_NOT_FOUND
+        });
+        it("should revert if cTokenAddressProvider cannot find cTokenBorrow", async () => {
+          await expect(initializeTest({cTokenBorrowNotFound: true})).rejectedWith("TC-16 ctoken not found"); // C_TOKEN_NOT_FOUND
         });
       });
     });
