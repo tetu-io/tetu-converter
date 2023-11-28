@@ -142,6 +142,12 @@ library BookkeeperLib {
     uint losses,
     uint[2] prices
   );
+
+  event OnCheckpoint(address user, address[] tokens, uint[] deltaGains, uint[] deltaLosses);
+  event OnCheckpointForPoolAdapter(address poolAdapter, uint deltaGain, uint deltaLoss);
+  event OnStartPeriod(address user, address underlying, uint gains, uint losses);
+  event OnAddPoolAdapter(address user, address poolAdapter, bool onBorrow);
+  event OnRemovePoolAdapter(address user, address poolAdapter);
   //endregion ----------------------------------------------------- Events
 
   //region ----------------------------------------------------- Checkpoint logic
@@ -208,6 +214,7 @@ library BookkeeperLib {
       countActions: v.countActions
     });
 
+    emit OnCheckpointForPoolAdapter(address(poolAdapter_), deltaGain, deltaLoss);
     return (deltaGain, deltaLoss);
   }
 
@@ -243,6 +250,8 @@ library BookkeeperLib {
       deltaGains[v.indexCollateral] += v.gain;
       deltaLosses[v.indexBorrow] += v.loss;
     }
+
+    emit OnCheckpoint(user_, tokens_, deltaGains, deltaLosses);
   }
 
   /// @notice Calculate gain and debt-loss for all user's pool adapter
@@ -301,7 +310,10 @@ library BookkeeperLib {
       actionKind: ActionKind.BORROW_0
     }));
 
-    state.poolAdaptersPerUser[user].add(address(poolAdapter));
+    if (!state.poolAdaptersPerUser[user].contains(address(poolAdapter))) {
+      state.poolAdaptersPerUser[user].add(address(poolAdapter));
+      emit OnAddPoolAdapter(user, address(poolAdapter), true);
+    }
     emit OnBorrow(address(poolAdapter), collateralAmount, borrowedAmount);
   }
 
@@ -346,7 +358,10 @@ library BookkeeperLib {
       prices: prices
     });
 
-    state.poolAdaptersPerUser[v.user].add(address(poolAdapter));
+    if (!state.poolAdaptersPerUser[v.user].contains(address(poolAdapter))) {
+      state.poolAdaptersPerUser[v.user].add(address(poolAdapter));
+      emit OnAddPoolAdapter(v.user, address(poolAdapter), false);
+    }
     emit OnRepay(address(poolAdapter), withdrawnCollateral, paidAmount, gain, loss, prices);
   }
 
@@ -402,9 +417,11 @@ library BookkeeperLib {
       // remove pool adapters without any debts from the set
       if (! debtMonitor.isPositionOpenedEx(address(poolAdapter))) {
         set.remove(address(poolAdapter));
+        emit OnRemovePoolAdapter(user_, address(poolAdapter));
       }
     }
 
+    emit OnStartPeriod(user_, underlying_, gains, losses);
     return (gains, losses);
   }
 
