@@ -53,7 +53,7 @@ export class PriceOracleManager implements IPriceOracleManager {
     return source;
   }
 
-  public getPrice(token: string): Promise<BigNumber> {
+  public async getPrice(token: string): Promise<BigNumber> {
     const source = this.getSourceInfo(token);
     return source.aggregator.price();
   }

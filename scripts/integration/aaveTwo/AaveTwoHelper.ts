@@ -146,14 +146,14 @@ export class AaveTwoHelper {
     }
 
     return {
-      reserveName: reserveName,
-      reserveSymbol: reserveSymbol,
+      reserveName,
+      reserveSymbol,
       reserveAddress: reserve,
-      aTokenSymbol: aTokenSymbol,
+      aTokenSymbol,
       aTokenAddress: await rd.aTokenAddress,
-      aTokenName: aTokenName,
+      aTokenName,
       liquidity: liquidityData,
-      data: data
+      data
     }
   }
 

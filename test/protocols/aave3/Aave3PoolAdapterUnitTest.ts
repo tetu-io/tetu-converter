@@ -35,7 +35,7 @@ import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePr
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {
   BASE_NETWORK_ID,
-  controlGasLimitsEx2, HARDHAT_NETWORK_ID,
+  controlGasLimitsEx2,
   HardhatUtils,
   POLYGON_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
@@ -45,7 +45,7 @@ import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
 import {
   Aave3PoolAdapter, Aave3PoolAdapterEMode, Aave3PoolMock,
   Aave3PoolMock__factory, BorrowManager__factory,
-  ConverterController, DebtMonitor__factory, IAavePool__factory, IERC20Metadata,
+  ConverterController, DebtMonitor__factory, IERC20Metadata,
   IERC20Metadata__factory, IPoolAdapter__factory, ITetuConverter__factory
 } from "../../../typechain";
 import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
@@ -121,8 +121,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
         borrowHolder: BaseAddresses.HOLDER_CBETH
       },
       pairATokens: {
-        aTokenCollateral: BaseAddresses.AAVE3_USDbC_ATOKEN,
-        aTokenCollateralHolder: BaseAddresses.AAVE3_USDbC_ATOKEN_HOLDER,
+        aTokenCollateral: BaseAddresses.AAVE3_USDBC_ATOKEN,
+        aTokenCollateralHolder: BaseAddresses.AAVE3_USDBC_ATOKEN_HOLDER,
         aTokenBorrow: BaseAddresses.AAVE3_WETH_ATOKEN,
         aTokenBorrowHolder: BaseAddresses.AAVE3_WETH_ATOKEN_HOLDER,
       }
@@ -332,9 +332,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
               describe("OnInitialized", () => {
                 it("should return expected values", async () => {
-                  const collateralAsset = testSetup.pair.collateralAsset;
-                  const borrowAsset = testSetup.pair.borrowAsset;
-
                   const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);
                   await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
@@ -349,12 +346,12 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   const tetuConverterSigner = await DeployerUtils.startImpersonate(await controller.tetuConverter());
 
                   const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
-                  await borrowManager.addAssetPairs(platformAdapter.address, [collateralAsset], [borrowAsset]);
+                  await borrowManager.addAssetPairs(platformAdapter.address, [collateralAsset.address], [borrowAsset.address]);
 
                   const bmAsTc = BorrowManager__factory.connect(await controller.borrowManager(), tetuConverterSigner);
 
                   // we need to catch event "OnInitialized" of pool adapter ... but we don't know address of the pool adapter yet
-                  const tx = await bmAsTc.registerPoolAdapter(templateNormal.address, userContract.address, collateralAsset, borrowAsset);
+                  const tx = await bmAsTc.registerPoolAdapter(templateNormal.address, userContract.address, collateralAsset.address, borrowAsset.address);
                   const cr = await tx.wait();
 
                   // now, we know the address of the pool adapter...
@@ -389,8 +386,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
                     controller.address,
                     testSetup.aavePool,
                     userContract.address,
-                    collateralAsset,
-                    borrowAsset,
+                    collateralAsset.address,
+                    borrowAsset.address,
                     templateNormal.address
                   ].join().toLowerCase();
                   expect(retLog).eq(expectedLog);
@@ -416,24 +413,20 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   }
 
                   async function setupUserHasBorrowTest(): Promise<IStatusTestResults> {
-                    const collateralAsset = MaticAddresses.DAI;
-                    const collateralHolder = MaticAddresses.HOLDER_DAI;
-                    const borrowAsset = MaticAddresses.WMATIC;
-
                     const borrowResults = await Aave3TestUtils.makeBorrow(deployer, init);
                     const status = await init.aavePoolAdapterAsTC.getStatus();
 
                     const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
                         await init.controller.borrowManager(),
                         deployer
-                    ).getTargetHealthFactor2(collateralAsset);
+                    ).getTargetHealthFactor2(collateralAsset.address);
 
                     return {borrowResults, status, collateralTargetHealthFactor2};
                   }
 
                   it("health factor of the borrow equals to target health factor of the collateral", async () => {
                     const r = await loadFixture(setupUserHasBorrowTest);
-                    expect(areAlmostEqual(parseUnits(r.collateralTargetHealthFactor2.toString(), 16), r.status.healthFactor18)).eq(true);
+                    expect(r.collateralTargetHealthFactor2).approximately(+formatUnits(r.status.healthFactor18, 16), 1e-5);
                   });
                   it("should return amount-to-pay equal to the borrowed amount (there is no addon for debt-gap here)", async () => {
                     const r = await loadFixture(setupUserHasBorrowTest);
@@ -466,20 +459,20 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   });
 
                   async function setupUserHasBorrowTest(): Promise<IPoolAdapterStatus> {
-                    const collateralToken = await TokenDataTypes.Build(deployer, testSetup.pair.collateralAsset);
-                    const borrowToken = await TokenDataTypes.Build(deployer, testSetup.pair.borrowAsset);
+                    // const collateralToken = await TokenDataTypes.Build(deployer, testSetup.pair.collateralAsset);
+                    // const borrowToken = await TokenDataTypes.Build(deployer, testSetup.pair.borrowAsset);
 
                     // we only prepare to borrow, but don't make a borrow
-                    const init = await Aave3TestUtils.prepareToBorrow(
-                        deployer,
-                        core,
-                        controller,
-                        collateralToken.address,
-                        testSetup.pair.collateralHolders,
-                        parseUnits(testSetup.pair.amount, await IERC20Metadata__factory.connect(testSetup.pair.collateralAsset, deployer).decimals()),
-                        borrowToken.address,
-                        false
-                    );
+                    // const init = await Aave3TestUtils.prepareToBorrow(
+                    //     deployer,
+                    //     core,
+                    //     controller,
+                    //     collateralToken.address,
+                    //     testSetup.pair.collateralHolders,
+                    //     parseUnits(testSetup.pair.amount, await IERC20Metadata__factory.connect(testSetup.pair.collateralAsset, deployer).decimals()),
+                    //     borrowToken.address,
+                    //     false
+                    // );
                     return init.aavePoolAdapterAsTC.getStatus();
                   }
 
@@ -550,20 +543,16 @@ describe("Aave3PoolAdapterUnitTest", () => {
             });
 
             describe("updateBalance", () => {
-              let snapshotLocal0: string;
+              let snapshotLocal1: string;
               before(async function () {
-                snapshotLocal0 = await TimeUtils.snapshot();
+                snapshotLocal1 = await TimeUtils.snapshot();
               });
 
               after(async function () {
-                await TimeUtils.rollback(snapshotLocal0);
+                await TimeUtils.rollback(snapshotLocal1);
               });
 
               it("the function is callable", async () => {
-                const collateralAsset = MaticAddresses.DAI;
-                const collateralHolder = MaticAddresses.HOLDER_DAI;
-                const borrowAsset = MaticAddresses.WMATIC;
-
                 const borrowResults = await Aave3TestUtils.makeBorrow(deployer, init);
 
                 await init.aavePoolAdapterAsTC.updateStatus();

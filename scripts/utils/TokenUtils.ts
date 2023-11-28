@@ -62,23 +62,25 @@ export class TokenUtils {
     return bal;
   }
 
-  public static async getToken(token: string, to: string, amount?: BigNumber, silent?: boolean) {
-    const currentBalance = await IERC20__factory.connect(token, await Misc.impersonate(to)).balanceOf(to);
-    await deal(token, to, currentBalance.add(amount || 0));
+  public static async getToken(tokenAddress: string, to: string, amount?: BigNumber, silent?: boolean) {
+    const token = IERC20__factory.connect(tokenAddress, await Misc.impersonate(to));
+    const currentBalance = await token.balanceOf(to);
+    await deal(tokenAddress, to, currentBalance.add(amount || 0));
 
-    const start = Date.now();
-    if (!silent) {
-      console.log('deal token', token, amount?.toString());
-    }
-
-    if (token.toLowerCase() === await DeployerUtilsLocal.getNetworkTokenAddress()) {
-      await IWmatic__factory.connect(token, await Misc.impersonate(to)).deposit({value: amount});
-      return amount;
-    }
-
-    if (!silent) {
-      TokenUtils.printDuration('getToken completed', start);
-    }
+    // TODO: do we need the following code on Polygon? We don't need it on Base-chain, deal works fine with ETH
+    // const start = Date.now();
+    // if (!silent) {
+    //   console.log('deal token', tokenAddress, amount?.toString());
+    // }
+    //
+    // if (tokenAddress.toLowerCase() === await DeployerUtilsLocal.getNetworkTokenAddress()) {
+    //   await IWmatic__factory.connect(tokenAddress, await Misc.impersonate(to)).deposit({value: amount});
+    //   return amount;
+    // }
+    //
+    // if (!silent) {
+    //   TokenUtils.printDuration('getToken completed', start);
+    // }
   }
 
   public static printDuration(text: string, start: number) {

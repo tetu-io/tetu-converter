@@ -97,7 +97,7 @@ describe("MoonwellPlatformAdapterTest", () => {
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const cTokens = p.cTokens ?? [BaseAddresses.MOONWELL_USDC, BaseAddresses.MOONWELL_DAI];
 
-      const platformAdapter = await AdaptersHelper.createMoonwellPlatformAdapter(
+      const platformAdapterLocal = await AdaptersHelper.createMoonwellPlatformAdapter(
         signer,
         p?.zeroController ? Misc.ZERO_ADDRESS : converterController.address,
         p?.zeroComptroller ? Misc.ZERO_ADDRESS : BaseAddresses.MOONWELL_COMPTROLLER,
@@ -107,11 +107,11 @@ describe("MoonwellPlatformAdapterTest", () => {
 
       return {
         templateAdapterNormalStub: templateAdapterNormalStub.address,
-        controller: await platformAdapter.controller(),
-        comptroller: await platformAdapter.comptroller(),
-        converters: await platformAdapter.converters(),
+        controller: await platformAdapterLocal.controller(),
+        comptroller: await platformAdapterLocal.comptroller(),
+        converters: await platformAdapterLocal.converters(),
         checkedAssets: await Promise.all((p.assetsToCheck ?? [BaseAddresses.USDC, BaseAddresses.DAI]).map(
-          async x =>  platformAdapter.activeAssets(x)
+          async x =>  platformAdapterLocal.activeAssets(x)
         ))
       };
     }
@@ -896,7 +896,6 @@ describe("MoonwellPlatformAdapterTest", () => {
       async function makeTest(p: IPredictBrParams): Promise<IPredictBrResults> {
         const collateralToken = IMToken__factory.connect(MoonwellUtils.getCToken(p.collateralAsset), signer);
         const borrowToken = IMToken__factory.connect(MoonwellUtils.getCToken(p.borrowAsset), signer);
-        const comptroller = await MoonwellHelper.getComptroller(signer);
         const actor = new MoonwellPlatformActor(borrowToken, collateralToken, comptroller, signer);
         return PredictBrUsesCase.predictBrTest(signer, actor, p);
       }

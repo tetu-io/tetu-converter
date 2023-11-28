@@ -174,7 +174,7 @@ describe("BorrowManagerLogicLibTest", () => {
           await TimeUtils.rollback(snapshot);
         });
 
-        function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+        async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
           return getPlanWithRebalancing({
             collateralAsset: dai,
             borrowAsset: usdt,
@@ -209,7 +209,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: dai,
               borrowAsset: usdt,
@@ -242,7 +242,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: dai,
@@ -277,7 +277,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -310,7 +310,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -347,7 +347,7 @@ describe("BorrowManagerLogicLibTest", () => {
           await TimeUtils.rollback(snapshot);
         });
 
-        function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+        async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
           return getPlanWithRebalancing({
             collateralAsset: usdc,
             borrowAsset: usdt,
@@ -382,7 +382,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -415,7 +415,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -450,7 +450,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -483,7 +483,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -520,7 +520,7 @@ describe("BorrowManagerLogicLibTest", () => {
           await TimeUtils.rollback(snapshot);
         });
 
-        function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+        async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
           return getPlanWithRebalancing({
             collateralAsset: usdc,
             borrowAsset: usdt,
@@ -555,7 +555,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -588,7 +588,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -623,7 +623,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -656,7 +656,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,

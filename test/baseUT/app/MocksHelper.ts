@@ -668,10 +668,10 @@ export class MocksHelper {
 
 //region Proxy
   public static async createUpgradeableProxyFacade(signer: SignerWithAddress): Promise<UpgradeableProxyFacade> {
-    return (await DeployUtils.deployContract(signer, 'UpgradeableProxyFacade', )) as UpgradeableProxyFacade;
+    return (await DeployUtils.deployContract(signer, 'UpgradeableProxyFacade',)) as UpgradeableProxyFacade;
   }
   public static async createControllableV3Facade(signer: SignerWithAddress): Promise<ControllableV3Facade> {
-    return (await DeployUtils.deployContract(signer, 'ControllableV3Facade', )) as ControllableV3Facade;
+    return (await DeployUtils.deployContract(signer, 'ControllableV3Facade',)) as ControllableV3Facade;
   }
 //endregion Proxy
 

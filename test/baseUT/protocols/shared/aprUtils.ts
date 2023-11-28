@@ -15,6 +15,7 @@ import {ILendingPlatformFabric} from "../../logic/fabrics/ILendingPlatformFabric
 import {MocksHelper} from "../../app/MocksHelper";
 import {POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 import {parseUnits} from "ethers/lib/utils";
+import {TokenUtils} from "../../../../scripts/utils/TokenUtils";
 
 //region Make borrow
 /**
@@ -40,7 +41,7 @@ export async function makeBorrow (
       networkId: POLYGON_NETWORK_ID,
       swapManagerFabric: {
         deploy: async () => (await MocksHelper.createSwapManagerMock(deployer)).address,
-        init: async (controller, instance) => {},
+        init: async (controller0, instance) => {},
       },
       tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
     },
@@ -52,10 +53,8 @@ export async function makeBorrow (
   const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
   const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
-  await setInitialBalance(deployer, collateralToken.address,
-    p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-  await setInitialBalance(deployer, borrowToken.address,
-    p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+  await setInitialBalance(deployer, collateralToken.address, p.collateral.initialLiquidity, uc.address);
+  await setInitialBalance(deployer, borrowToken.address, p.borrow.initialLiquidity, uc.address);
   const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
   await uc.borrowExactAmount(

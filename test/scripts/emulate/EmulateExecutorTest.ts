@@ -5,12 +5,10 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ethers} from "hardhat";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
-import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {Aave3PlatformFabric} from "../../baseUT/logic/fabrics/Aave3PlatformFabric";
 import {AaveTwoPlatformFabric} from "../../baseUT/logic/fabrics/AaveTwoPlatformFabric";
-import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
 import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 
@@ -30,7 +28,7 @@ describe.skip("Run real work emulator @skip-on-coverage", () => {
     // attach custom price oracles to be able to manipulate with the prices
     const priceOracleAave3 = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer, core);
     const priceOracleAaveTwo = await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
-    const priceOracleDForce = await DForceChangePriceUtils.setupPriceOracleMock(deployer);
+    // const priceOracleDForce = await DForceChangePriceUtils.setupPriceOracleMock(deployer);
     // const priceOracleHundredFinance = await HundredFinanceChangePriceUtils.setupPriceOracleMock(deployer);
 
     const {controller, pools} = await TetuConverterApp.buildApp(
@@ -43,20 +41,20 @@ describe.skip("Run real work emulator @skip-on-coverage", () => {
       [
         new Aave3PlatformFabric(),
         new AaveTwoPlatformFabric(),
-        new DForcePlatformFabric(),
-        //new HundredFinancePlatformFabric(),
+        // new DForcePlatformFabric(),
+        // new HundredFinancePlatformFabric(),
       ],
     );
     const contractAddresses = new Map<string, string>([
       ["aave3:platformAdapter", pools[0].platformAdapter],
       ["aave2:platformAdapter", pools[1].platformAdapter],
-      ["dforce:platformAdapter", pools[2].platformAdapter],
-      //["hf:platformAdapter", pools[3].platformAdapter],
+      // ["dforce:platformAdapter", pools[2].platformAdapter],
+      // ["hf:platformAdapter", pools[3].platformAdapter],
 
       ["aave3:priceOracle", priceOracleAave3.address],
       ["aave2:priceOracle", priceOracleAaveTwo.address],
-      ["dforce:priceOracle", priceOracleDForce.address],
-      //["hf:priceOracle", priceOracleHundredFinance.address],
+      // ["dforce:priceOracle", priceOracleDForce.address],
+      // ["hf:priceOracle", priceOracleHundredFinance.address],
     ]);
     const users = [
       await MocksHelper.deployBorrower(deployer.address, controller, 1000),

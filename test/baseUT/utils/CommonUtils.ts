@@ -1,28 +1,25 @@
 import {BigNumber, BigNumberish} from "ethers";
 import {BalanceUtils} from "./BalanceUtils";
-import {IERC20__factory} from "../../../typechain";
+import {IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {parseUnits} from "ethers/lib/utils";
 
 export async function setInitialBalance(
   deployer: SignerWithAddress,
   asset: string,
-  holders: string,
   amount: number | BigNumber,
   recipient: string
 ) : Promise<BigNumber> {
-  const hh = holders.split(";");
-
-  let dest: BigNumber = BigNumber.from(0);
-  for (const h of hh) {
-    await BalanceUtils.getAmountFromHolder(asset, h, recipient, amount);
-    dest = dest.add(
-      await IERC20__factory.connect(asset, deployer).balanceOf(recipient)
-    );
-  }
-
-  return dest;
+  const token = await IERC20Metadata__factory.connect(asset, deployer);
+  const requiredAmount = typeof(amount) === "number"
+    ? parseUnits(amount.toString(), await token.decimals())
+    : amount;
+  await TokenUtils.getToken(asset, recipient, requiredAmount);
+  return token.balanceOf(recipient);
 }
 
 /// @param accuracy 10 for 1e-10

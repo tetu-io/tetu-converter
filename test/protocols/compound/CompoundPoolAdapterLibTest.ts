@@ -1790,7 +1790,7 @@ describe("CompoundPoolAdapterLibTest", () => {
         });
         it("should return expected amount", async () => {
           const ret = await loadFixture(borrowTest);
-          expect(ret.returnedCollateralAmount).eq( 400 * 70 / 100);
+          expect(ret.returnedCollateralAmount).eq(400 * 70 / 100);
         });
       });
 

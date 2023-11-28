@@ -1024,7 +1024,7 @@ describe("Compound3PlatformAdapterTest", () => {
         [MaticAddresses.COMPOUND3_COMET_USDC],
         MaticAddresses.COMPOUND3_COMET_REWARDS
       )
-      expect( (await pa.platformKind())).eq(5); // LendingPlatformKinds.COMPOUND3_5
+      expect((await pa.platformKind())).eq(5); // LendingPlatformKinds.COMPOUND3_5
     });
   });
 })

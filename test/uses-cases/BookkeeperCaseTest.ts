@@ -319,8 +319,6 @@ describe("BookkeeperCaseTest", () => {
                         user: userEmulator,
                         borrowAsset: assetPair.borrowAsset,
                         collateralAsset: assetPair.collateralAsset,
-                        borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                        collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                         userBorrowAssetBalance: assetPair.singleParams?.userBorrowAssetBalance,
                         userCollateralAssetBalance: assetPair.singleParams?.userCollateralAssetBalance,
                         receiver: RECEIVER
@@ -357,8 +355,6 @@ describe("BookkeeperCaseTest", () => {
                               user: userEmulator,
                               borrowAsset: assetPair.borrowAsset,
                               collateralAsset: assetPair.collateralAsset,
-                              borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                              collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                               userBorrowAssetBalance: "0",
                               userCollateralAssetBalance: "0",
                               receiver: RECEIVER
@@ -414,8 +410,6 @@ describe("BookkeeperCaseTest", () => {
                           user: userEmulator,
                           borrowAsset: assetPair.borrowAsset,
                           collateralAsset: assetPair.collateralAsset,
-                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                           userBorrowAssetBalance: "0",
                           userCollateralAssetBalance: "0",
                           receiver: RECEIVER
@@ -462,8 +456,6 @@ describe("BookkeeperCaseTest", () => {
                           user: userEmulator,
                           borrowAsset: assetPair.borrowAsset,
                           collateralAsset: assetPair.collateralAsset,
-                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                           receiver: RECEIVER,
                         },
                         [{borrow: {amountIn: assetPair.singleParams?.collateralAmountSecond || "0",}}]
@@ -508,8 +500,6 @@ describe("BookkeeperCaseTest", () => {
                           user: userEmulator,
                           borrowAsset: assetPair.borrowAsset,
                           collateralAsset: assetPair.collateralAsset,
-                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                           receiver: RECEIVER,
                         },
                         {
@@ -555,8 +545,6 @@ describe("BookkeeperCaseTest", () => {
                           user: userEmulator,
                           borrowAsset: assetPair.borrowAsset,
                           collateralAsset: assetPair.collateralAsset,
-                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                           userBorrowAssetBalance: "0",
                           userCollateralAssetBalance: "0",
                           receiver: RECEIVER
@@ -584,7 +572,7 @@ describe("BookkeeperCaseTest", () => {
                       expect(ret2.actions[0].borrowedAmount).eq(ret1.actions[0].borrowedAmount);
                     });
                     it("should assign expected amounts to the repay action (assume that increases to debt/collateral are neglect)", async () => {
-                      console.log("ret2", ret2);
+                      // console.log("ret2", ret2);
                       expect(ret2.actions[1].suppliedAmount).approximately(ret1.actions[0].suppliedAmount,1e-5);
                       expect(ret2.actions[1].borrowedAmount).approximately((ret2.actions[0].borrowedAmount) / 2,1e-4);
                     });
@@ -664,8 +652,6 @@ describe("BookkeeperCaseTest", () => {
                           user: userEmulator,
                           borrowAsset: assetPair.borrowAsset,
                           collateralAsset: assetPair.collateralAsset,
-                          borrowAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.borrowAsset),
-                          collateralAssetHolder: platformUtilsProvider.getAssetHolder(assetPair.collateralAsset),
                           userBorrowAssetBalance: "0",
                           userCollateralAssetBalance: "0",
                           receiver: RECEIVER

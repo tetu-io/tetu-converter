@@ -419,7 +419,7 @@ describe("CompoundPlatformAdapterLibTest", () => {
       )
       return {
         cTokens: await Promise.all(p.underlying.map(
-          async x => await facade.getActiveAsset(x.address)
+          async x => facade.getActiveAsset(x.address)
         ))
       }
     }

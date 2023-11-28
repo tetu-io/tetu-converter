@@ -241,7 +241,7 @@ export class BorrowRepayCases {
 
     // set up user-emulator balances
     if (p.userCollateralAssetBalance) {
-        await TokenUtils.getToken(p.collateralAsset, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
+      await TokenUtils.getToken(p.collateralAsset, p.user.address, parseUnits(p.userCollateralAssetBalance, decimalsCollateral));
     }
     if (p.userBorrowAssetBalance) {
       await TokenUtils.getToken(p.borrowAsset, p.user.address, parseUnits(p.userBorrowAssetBalance, decimalsBorrow));
@@ -418,8 +418,6 @@ export class BorrowRepayCases {
     pairs: IBorrowRepayPairParams[],
   ): Promise<IBookkeeperStatusWithResults> {
     const ret = await this.borrowRepayPairsSingleBlock(signer, p, pairs);
-    console.log("ret", ret);
-    console.log("rrp", rrp);
 
     const collateralAsset = await IERC20Metadata__factory.connect(p.collateralAsset, signer);
     const decimalsCollateral = await collateralAsset.decimals();

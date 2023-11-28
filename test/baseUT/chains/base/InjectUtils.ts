@@ -30,7 +30,7 @@ export class InjectUtils {
 
     await liquidator.addLargestPools(
       [{
-        pool: BaseAddresses.UNISWAPV3_USDC_USDbC_100,
+        pool: BaseAddresses.UNISWAPV3_USDC_USDBC_100,
         swapper: BaseAddresses.TETU_UNIV3_SWAPPER,
         tokenIn: BaseAddresses.USDC,
         tokenOut: BaseAddresses.USDbC
@@ -40,7 +40,7 @@ export class InjectUtils {
 
     await liquidator.addLargestPools(
       [{
-        pool: BaseAddresses.UNISWAPV3_DAI_USDbC_100,
+        pool: BaseAddresses.UNISWAPV3_DAI_USDBC_100,
         swapper: BaseAddresses.TETU_UNIV3_SWAPPER,
         tokenIn: BaseAddresses.DAI,
         tokenOut: BaseAddresses.USDbC

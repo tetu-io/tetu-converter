@@ -4,7 +4,6 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {
   Bookkeeper,
-  BorrowManagerStub,
   BorrowManagerStub__factory,
   MockERC20,
   PoolAdapterMock2,
@@ -150,7 +149,7 @@ describe("BookkeeperTest", () => {
       let losses: number = 0;
       let prices: number[] = [];
 
-      if (countActions != 0) {
+      if (countActions !== 0) {
         const lastAction = await bookkeeper.actionsAt(poolAdapter.address, countActions - 1);
         const repayInfo = await bookkeeper.repayInfoAt(poolAdapter.address, countActions - 1);
         borrowedAmount = +formatUnits(lastAction.borrowedAmount, decimalsBorrow);

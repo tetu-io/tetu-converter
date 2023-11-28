@@ -117,7 +117,6 @@ export class BorrowRepayUsesCase {
     for (const action of actions) {
       const balances = await action.doAction(user);
       const poolAdapters: string[] = await user.getBorrows(action.collateralToken.address, action.borrowToken.address);
-      console.log(poolAdapters);
       borrowBalances.push(
         await poolAdapters.reduce(
           async (prevPromise, curPoolAdapterAddress) => {
@@ -314,10 +313,10 @@ export class BorrowRepayUsesCase {
 
     const c0 = await setInitialBalance(deployer,
       collateralToken.address,
-      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      p.collateral.initialLiquidity, uc.address);
     const b0 = await setInitialBalance(deployer,
       borrowToken.address,
-      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+      p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
     console.log("Balance of collateral of the user", await collateralToken.token.balanceOf(uc.address));
     console.log("Balance of borrow of the user", await borrowToken.token.balanceOf(uc.address));
@@ -391,13 +390,11 @@ export class BorrowRepayUsesCase {
 
     const ucBalanceCollateral0 = await setInitialBalance(deployer,
       collateralToken.address,
-      p.collateral.holder,
       initialLiquidityCollateral,
       uc.address
     );
     const ucBalanceBorrow0 = await setInitialBalance(deployer,
       borrowToken.address,
-      p.borrow.holder,
       initialLiquidityBorrow,
       uc.address
     );
@@ -407,7 +404,7 @@ export class BorrowRepayUsesCase {
       tetuConverter.address,
       collateralAmount
     );
-    const tetuConverterAsUser = await TetuConverter__factory.connect(
+    const tetuConverterAsUser = TetuConverter__factory.connect(
       await controller.tetuConverter(),
       await DeployerUtils.startImpersonate(uc.address)
     );
@@ -514,9 +511,9 @@ export class BorrowRepayUsesCase {
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
 
     const c0 = await setInitialBalance(deployer, collateralToken.address,
-      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      p.collateral.initialLiquidity, uc.address);
     const b0 = await setInitialBalance(deployer, borrowToken.address,
-      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+      p.borrow.initialLiquidity, uc.address);
 
     const collateralAmount1 = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
     const collateralAmount2 = getBigNumberFrom(p.collateralAmount2, collateralToken.decimals);
@@ -614,9 +611,9 @@ export class BorrowRepayUsesCase {
     const amountToRepay2 = undefined; // full repay
 
     const initialBalanceCollateral = await setInitialBalance(deployer, collateralToken.address,
-      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      p.collateral.initialLiquidity, uc.address);
     const initialBalanceBorrow = await setInitialBalance(deployer, borrowToken.address,
-      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+      p.borrow.initialLiquidity, uc.address);
 
     const collateralAmount1 = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
     const collateralAmount2 = getBigNumberFrom(p.collateralAmount2, collateralToken.decimals);
@@ -690,9 +687,9 @@ export class BorrowRepayUsesCase {
     }
 
     const ucBalanceCollateral0 = await setInitialBalance(deployer, collateralToken.address,
-      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      p.collateral.initialLiquidity, uc.address);
     const ucBalanceBorrow0 = await setInitialBalance(deployer, borrowToken.address,
-      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+      p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
     const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
@@ -747,9 +744,9 @@ export class BorrowRepayUsesCase {
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
     const ucBalanceCollateral0 = await setInitialBalance(deployer, collateralToken.address,
-      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      p.collateral.initialLiquidity, uc.address);
     const ucBalanceBorrow0 = await setInitialBalance(deployer, borrowToken.address,
-      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+      p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
     const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);

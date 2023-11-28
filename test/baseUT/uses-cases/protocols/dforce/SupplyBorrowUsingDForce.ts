@@ -83,7 +83,7 @@ export class SupplyBorrowUsingDForce {
     const account = await DForceHelper.getMarketAccountRewardsInfo(comptroller, rd, cToken, user);
     const rewards = await rd.reward(user);
     const totalSupply = await cToken.totalSupply();
-    const block = BigNumber.from( (await hre.ethers.provider.getBlock("latest")).number );
+    const block = BigNumber.from((await hre.ethers.provider.getBlock("latest")).number);
     return {
       market,
       account,
@@ -105,7 +105,7 @@ export class SupplyBorrowUsingDForce {
     const market = await DForceHelper.getRewardsForMarket(comptroller, rd, cToken, priceOracle);
     const account = await DForceHelper.getMarketAccountRewardsInfo(comptroller, rd, cToken, user);
     const rewards = await rd.reward(user);
-    const block = BigNumber.from( (await hre.ethers.provider.getBlock("latest")).number );
+    const block = BigNumber.from((await hre.ethers.provider.getBlock("latest")).number);
     const totalBorrows = await cToken.totalBorrows();
     const borrowIndex = await cToken.borrowIndex();
     const borrowBalanceStored = await cToken.borrowBalanceStored(user);

@@ -136,7 +136,7 @@ describe("CompoundLibTest", () => {
     async function preparePriceOracle(p: IGetPriceParams): Promise<CompoundPriceOracleMock> {
       const oracle = await DeployUtils.deployContract(deployer, 'CompoundPriceOracleMock') as CompoundPriceOracleMock;
       for (let i = 0; i < p.cTokens.length; ++i) {
-        oracle.setUnderlyingPrice(p.cTokens[i].address, parseUnits(p.prices[i], p.priceDecimals));
+        await oracle.setUnderlyingPrice(p.cTokens[i].address, parseUnits(p.prices[i], p.priceDecimals));
       }
       return oracle;
     }

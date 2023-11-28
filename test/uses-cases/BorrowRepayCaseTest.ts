@@ -143,8 +143,8 @@ describe("BorrowRepayCaseTest", () => {
             return platformAdapter;
           },
           assetPairs: [
-            {collateralAsset: BaseAddresses.cbETH, borrowAsset: BaseAddresses.WETH, collateralAssetName: "cbETH", borrowAssetName: "WETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0", hugeCollateralAmount: "1000"},
-            {collateralAsset: BaseAddresses.WETH, borrowAsset: BaseAddresses.cbETH, collateralAssetName: "WETH", borrowAssetName: "cbETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0", hugeCollateralAmount: "1000"},
+            {collateralAsset: BaseAddresses.WETH, borrowAsset: BaseAddresses.cbETH, collateralAssetName: "WETH", borrowAssetName: "cbETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0", hugeCollateralAmount: "100"},
+            {collateralAsset: BaseAddresses.cbETH, borrowAsset: BaseAddresses.WETH, collateralAssetName: "cbETH", borrowAssetName: "WETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0", hugeCollateralAmount: "100"},
           ]
         },
         { // Moonwell  on Base chain
@@ -423,7 +423,7 @@ describe("BorrowRepayCaseTest", () => {
                               before(async function () {
                                 snapshotLevel3 = await TimeUtils.snapshot();
                                 borrowResults = await loadFixture(makeBorrowTest);
-                                console.log("borrowResults", borrowResults);
+                                // console.log("borrowResults", borrowResults);
                               });
                               after(async function () {
                                 await TimeUtils.rollback(snapshotLevel3);
@@ -449,6 +449,7 @@ describe("BorrowRepayCaseTest", () => {
                                 expect(borrowResults.borrow[0].borrowedAmount).gt(0); // stablecoin : stablecoin
                               });
                               it("should modify user balance in expected way", async () => {
+                                // console.log("borrowResults", borrowResults);
                                 expect(borrowResults.userCollateralAssetBalance).eq(Number(assetPair.singleParams?.userCollateralAssetBalance) - Number(assetPair.singleParams?.collateralAmount));
                               });
                               it("should put borrowed amount on receiver balance", async () => {
@@ -481,7 +482,7 @@ describe("BorrowRepayCaseTest", () => {
                                         },
                                         [{repay: {repayPart}}]
                                       );
-                                      console.log("repayResults", repayResults);
+                                      // console.log("repayResults", repayResults);
                                     });
                                     after(async function () {
                                       await TimeUtils.rollback(snapshotLevel4);
@@ -556,7 +557,7 @@ describe("BorrowRepayCaseTest", () => {
                                 before(async function () {
                                   snapshotLevel4 = await TimeUtils.snapshot();
                                   secondBorrowResults = await loadFixture(makeSecondBorrowTest);
-                                  console.log("secondBorrowResults", secondBorrowResults);
+                                  // console.log("secondBorrowResults", secondBorrowResults);
                                 });
                                 after(async function () {
                                   await TimeUtils.rollback(snapshotLevel4);
@@ -601,7 +602,7 @@ describe("BorrowRepayCaseTest", () => {
                               before(async function () {
                                 snapshotLevel3 = await TimeUtils.snapshot();
                                 borrowResults = await loadFixture(makeBorrowTest);
-                                console.log("borrowResults", borrowResults);
+                                // console.log("borrowResults", borrowResults);
                               });
                               after(async function () {
                                 await TimeUtils.rollback(snapshotLevel3);
@@ -649,7 +650,7 @@ describe("BorrowRepayCaseTest", () => {
                               before(async function () {
                                 snapshotLevel3 = await TimeUtils.snapshot();
                                 borrowResults = await loadFixture(makeBorrowTest);
-                                console.log("borrowResults", borrowResults);
+                                // console.log("borrowResults", borrowResults);
                               });
                               after(async function () {
                                 await TimeUtils.rollback(snapshotLevel3);
@@ -722,8 +723,8 @@ describe("BorrowRepayCaseTest", () => {
                                   );
                                 });
                                 it("should reduce user balance on repaid-amount", async () => {
-                                  console.log("borrowResults", borrowResults);
-                                  console.log("results", results);
+                                  // console.log("borrowResults", borrowResults);
+                                  // console.log("results", results);
                                   expect(results.userBorrowAssetBalance).approximately(
                                     Number(assetPair.singleParams?.userBorrowAssetBalanceTinyAmount)
                                     - borrowResults.status.amountToPay,
@@ -767,7 +768,7 @@ describe("BorrowRepayCaseTest", () => {
                                 expect(borrowResults.borrow[0].borrowedAmount).gt(0);
                               });
                               it("should put borrowed amount on user's balance", async () => {
-                                console.log("borrowResults", borrowResults);
+                                // console.log("borrowResults", borrowResults);
                                 expect(borrowResults.userBorrowAssetBalance).approximately(
                                   borrowResults.borrow[0].borrowedAmount + Number(assetPair.singleParams?.userBorrowAssetBalanceHugeAmount),
                                   0.1
@@ -864,7 +865,7 @@ describe("BorrowRepayCaseTest", () => {
                     before(async function () {
                       snapshotLevel3 = await TimeUtils.snapshot();
                       borrowResults = await loadFixture(makeBorrowTest);
-                      console.log("borrowResults", borrowResults);
+                      // console.log("borrowResults", borrowResults);
                     });
                     after(async function () {
                       await TimeUtils.rollback(snapshotLevel3);

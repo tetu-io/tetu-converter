@@ -126,7 +126,7 @@ function writeToCsv(positions: IPositionInfo[]) {
 /**
  *
  * Save all positions in TetuConverter for the given block to csv
-
+ *
  * run one of the following commands to run the script:
  *      npx hardhat run scripts/analyse/save-given-positions-to-csv.ts
  */

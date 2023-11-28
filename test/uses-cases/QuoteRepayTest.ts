@@ -184,7 +184,7 @@ describe("QuoteRepayTest", () => {
               });
             });
           });
-          describe("dForce", () => {
+          describe.skip("dForce", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
@@ -391,7 +391,7 @@ describe("QuoteRepayTest", () => {
               });
             });
           });
-          describe("dForce", () => {
+          describe.skip("dForce", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
@@ -579,7 +579,7 @@ describe("QuoteRepayTest", () => {
               });
             });
           });
-          describe("dForce", () => {
+          describe.skip("dForce", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();

@@ -5691,12 +5691,12 @@ describe("TetuConverterTest", () => {
         });
       });
       describe("Bad paths", () => {
-        let snapshot0: string;
+        let snapshot1: string;
         beforeEach(async function () {
-          snapshot0 = await TimeUtils.snapshot();
+          snapshot1 = await TimeUtils.snapshot();
         });
         afterEach(async function () {
-          await TimeUtils.rollback(snapshot0);
+          await TimeUtils.rollback(snapshot1);
         });
 
         it("should revert if not keeper", async () => {

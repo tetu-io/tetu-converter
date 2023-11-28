@@ -101,10 +101,10 @@ export async function getInfoAboutFusePools() : Promise<string> {
   return items.join("\n");
 }
 
-/** Get info for all available fuse pools
- *
- *      npx hardhat run scripts/data/lending/MarketBorrowRates.ts
- * */
+/**
+ * Get info for all available fuse pools
+ *    npx hardhat run scripts/data/lending/MarketBorrowRates.ts
+ */
 async function main() {
   const lines = await getInfoAboutFusePools();
   writeFileSync('./tmp/market.csv', lines, 'utf8');

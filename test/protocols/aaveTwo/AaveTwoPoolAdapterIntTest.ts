@@ -373,7 +373,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           .add(r.userAccountData.availableBorrowsETH)
           .mul(1e4)
           .div(r.userAccountData.totalCollateralETH)
-        ).approximately(r.collateralData.data.ltv, 1); //7500 ~ 7499
+        ).approximately(r.collateralData.data.ltv, 1); // 7500 ~ 7499
       });
     });
   });

@@ -1193,10 +1193,10 @@ describe.skip("HfPoolAdapterUnitTest", () => {
         ? IPoolAdapter__factory.connect(d.hfPoolAdapterTC.address, deployer)
         : d.hfPoolAdapterTC;
       if (badPathsParams?.ignoreBorrowAtRebalance && badPathsParams.useHfComptrollerMock) {
-        badPathsParams.useHfComptrollerMock?.setIgnoreBorrow();
+        await badPathsParams.useHfComptrollerMock?.setIgnoreBorrow();
       }
       if (badPathsParams?.borrowFails && badPathsParams.useHfComptrollerMock) {
-        badPathsParams.useHfComptrollerMock?.setBorrowFails();
+        await badPathsParams.useHfComptrollerMock?.setBorrowFails();
       }
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
@@ -1607,7 +1607,7 @@ describe.skip("HfPoolAdapterUnitTest", () => {
       );
 
       if (p?.useHfComptrollerMock && p.badPathsParams?.repayBorrowFails) {
-        p?.useHfComptrollerMock.setRepayBorrowFails();
+        await p?.useHfComptrollerMock.setRepayBorrowFails();
       }
 
       await poolAdapterSigner.repayToRebalance(

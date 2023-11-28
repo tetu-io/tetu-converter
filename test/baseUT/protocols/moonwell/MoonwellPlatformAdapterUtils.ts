@@ -256,7 +256,7 @@ export class MoonwellPlatformAdapterUtils {
     const expectedPlan: IConversionPlan = {
       converter: planInfo.converter,
       amountToBorrow,
-      collateralAmount: collateralAmount,
+      collateralAmount,
       amountCollateralInBorrowAsset36,
       borrowCost36,
       supplyIncomeInBorrowAsset36,
