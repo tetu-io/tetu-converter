@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {Misc} from "../../scripts/utils/Misc";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 
-describe.skip("Try to call repayTheBorrow @skip-on-coverage", () => {
+describe("Try to call repayTheBorrow @skip-on-coverage", () => {
   before(async function () {
     await HardhatUtils.setupBeforeTest(POLYGON_NETWORK_ID);
   });
@@ -12,8 +12,7 @@ describe.skip("Try to call repayTheBorrow @skip-on-coverage", () => {
     const signer = (await ethers.getSigners())[1];
 
     const openedPoolAdapters = [
-      "0x0204B5625337563307973CCBE89429309A9FF3a5",
-      "0x05Ab54AB2EBeE3b179c4C0b216339ab91706D7Cf"
+      "0x67874287b175eAe2e1bc51E1fEf505C6d2fFad84",
     ];
     const tetuConverter = "0x5E1226f7e743cA56537B3fab0C1A9ea2FAe7BAb1";
     const converterController = "0x2df21e2a115fcB3d850Fbc67237571bBfB566e99";

@@ -19,4 +19,11 @@ contract ConverterControllerMock {
   }
   //endregion minHealthFactor2
 
+  //region governance
+  address public governance;
+  function setGovernance(address governance_) external {
+    governance = governance_;
+  }
+  //endregion governance
+
 }

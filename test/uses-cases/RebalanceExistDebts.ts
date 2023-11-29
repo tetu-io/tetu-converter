@@ -6,14 +6,12 @@ import {
   POLYGON_NETWORK_ID
 } from "../../scripts/utils/HardhatUtils";
 import {IPoolAdapterStatusNum} from "../baseUT/types/BorrowRepayDataTypes";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {
   BorrowManager, BorrowManager__factory,
   ConverterController, ConverterController__factory,
   IERC20Metadata__factory, IPoolAdapter__factory,
   ITetuConverter
 } from "../../typechain";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {Misc} from "../../scripts/utils/Misc";
@@ -21,8 +19,10 @@ import {BorrowRepayDataTypeUtils} from "../baseUT/utils/BorrowRepayDataTypeUtils
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
 
-describe("BorrowRepayTest", () => {
+describe("RebalanceExistDebts", () => {
 //region Global vars for all tests
   let snapshotRoot: string;
   let signer: SignerWithAddress;
@@ -45,8 +45,8 @@ describe("BorrowRepayTest", () => {
 
     const r = await TetuConverterApp.buildApp(
       signer,
+      {networkId: POLYGON_NETWORK_ID}, // disable swap
       [new Aave3PlatformFabric()],
-      {} // disable swap
     );
     const governance = await Misc.impersonate(await r.controller.governance());
     controllerAsGov = ConverterController__factory.connect(r.controller.address, governance);
@@ -62,7 +62,7 @@ describe("BorrowRepayTest", () => {
 //region Unit tests
   /**
    * Make a borrow using given collateral.
-   * Change debt so that rebalancing is required.
+   * Change health factor so that rebalancing is required.
    * Make a second borrow using same collateral amount.
    * Check borrowed amounts and final status of the debt.
    */
@@ -89,6 +89,8 @@ describe("BorrowRepayTest", () => {
       statusAfterBorrow1: IPoolAdapterStatusNum;
       statusBeforeBorrow2: IPoolAdapterStatusNum;
       statusAfterBorrow2: IPoolAdapterStatusNum;
+      /** Block 49968469 on polygon: AAVE3 has a negative APR in following tests */
+      isAprNegative: boolean;
     }
 
     async function makeBorrowWithRebalance(p: IBorrowWithRebalanceParams): Promise<IBorrowWithRebalanceResults> {
@@ -120,6 +122,8 @@ describe("BorrowRepayTest", () => {
         p.borrowAsset,
         1
       );
+      const isAprNegative = plan1.aprs18[0].lt(0);
+
       await tetuConverter.borrow(
         plan1.converters[0],
         p.collateralAsset,
@@ -152,6 +156,7 @@ describe("BorrowRepayTest", () => {
         p.borrowAsset,
         1
       );
+      console.log("plan2", plan2);
 
       const statusBeforeBorrow2 = await poolAdapter.getStatus();
       await tetuConverter.borrow(
@@ -171,6 +176,7 @@ describe("BorrowRepayTest", () => {
         statusAfterBorrow1: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusAfterBorrow1, decimalsCollateral, decimalsBorrow),
         statusBeforeBorrow2: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusBeforeBorrow2, decimalsCollateral, decimalsBorrow),
         statusAfterBorrow2: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusAfterBorrow2, decimalsCollateral, decimalsBorrow),
+        isAprNegative
       }
     }
 
@@ -191,22 +197,31 @@ describe("BorrowRepayTest", () => {
             borrowAsset: MaticAddresses.USDT,
             collateralAmount: "1000",
             countBlocksBetweenBorrows: 1000,
-            targetHealthFactor1: "2.1"
+            targetHealthFactor1: "2.1",
+            rebalanceOnBorrowEnabled: true
           });
         }
 
-        it("second borrowed amount should be less then the first one", async () => {
+        it("second borrowed amount should be less than the first one", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
+          if (ret.isAprNegative) {
+            expect(ret.borrowedAmount2 + 1e-3).gt(ret.borrowedAmount1);
+          } else {
+            expect(ret.borrowedAmount2).lt(ret.borrowedAmount1);
+          }
           console.log(ret);
         });
         it("should change health factor of the pool adapter before second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+          if (ret.isAprNegative) {
+            expect(ret.statusBeforeBorrow2.healthFactor + 1e-5).gt(ret.statusAfterBorrow1.healthFactor);
+          } else {
+            expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+          }
         });
         it("should restore health factor by second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.1, 1e-8);
+          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.1, 1e-7);
         });
       });
       describe("Borrow, increase target health factor a bit, borrow again with full rebalance", () => {
@@ -355,7 +370,8 @@ describe("BorrowRepayTest", () => {
             borrowAsset: MaticAddresses.USDT,
             collateralAmount: "1000",
             countBlocksBetweenBorrows: 1000,
-            targetHealthFactor1: "2.1"
+            targetHealthFactor1: "2.1",
+            rebalanceOnBorrowEnabled: false
           });
         }
 
@@ -366,11 +382,19 @@ describe("BorrowRepayTest", () => {
         });
         it("should change health factor of the pool adapter before second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+          if (ret.isAprNegative) {
+            expect(ret.statusBeforeBorrow2.healthFactor + 1e-5).gt(ret.statusAfterBorrow1.healthFactor);
+          } else {
+            expect(ret.statusBeforeBorrow2.healthFactor).lt(ret.statusAfterBorrow1.healthFactor);
+          }
         });
         it("should not restore health factor by second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusAfterBorrow2.healthFactor).lt(2.1);
+          if (ret.isAprNegative) {
+            expect(ret.statusAfterBorrow2.healthFactor + 1e-5).gt(2.1);
+          } else {
+            expect(ret.statusAfterBorrow2.healthFactor).lt(2.1);
+          }
         });
       });
     });

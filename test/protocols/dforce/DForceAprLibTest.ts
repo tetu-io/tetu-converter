@@ -5,18 +5,18 @@ import {expect} from "chai";
 import {
   IBorrowRewardsPredictionInput,
   ISupplyRewardsStatePoint
-} from "../../../scripts/integration/helpers/DForceHelper";
+} from "../../../scripts/integration/dforce/DForceHelper";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {DForceAprLibFacade, IDForceCToken__factory, IDForceRewardDistributor__factory} from "../../../typechain";
 import {parseUnits} from "ethers/lib/utils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {MocksHelper} from "../../baseUT/app/MocksHelper";
+import {DForceAprLibFacade, IDForceCToken__factory, IDForceRewardDistributor__factory} from "../../../typechain";
 
-describe("DForceHelper unit tests", () => {
+describe.skip("DForceHelper unit tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

@@ -3,20 +3,23 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper} from "../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {AaveTwoTestUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 import {parseUnits} from "ethers/lib/utils";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {ConverterController} from "../../../typechain";
 
 describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
+  let converterController: ConverterController;
 //endregion Global vars for all tests
 
 //region before, after
@@ -27,6 +30,8 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
+
+    converterController = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   });
 
   after(async function () {
@@ -72,6 +77,7 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
     ) : Promise<IMakeBorrowAndRepayDustTokensTestResults>{
       const d = await AaveTwoTestUtils.prepareToBorrow(
         deployer,
+        converterController,
         collateralToken,
         collateralHolder,
         params.collateralAmountRequired,

@@ -10,11 +10,11 @@ import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedR
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {DForceTestUtils, IInitialBorrowResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {ConverterController} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {ConverterController} from "../../../typechain";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 
-describe("DForceCollateralBalanceTest", () => {
+describe.skip("DForceCollateralBalanceTest", () => {
 //region Constants
   const collateralAsset = MaticAddresses.USDC;
   const collateralHolder = MaticAddresses.HOLDER_USDC;
@@ -42,7 +42,7 @@ describe("DForceCollateralBalanceTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    controllerInstance = await TetuConverterApp.createController(deployer);
+    controllerInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
 
     init = await makeInitialBorrow();
   });

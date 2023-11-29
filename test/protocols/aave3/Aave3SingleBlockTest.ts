@@ -1,24 +1,24 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ConverterController, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
 import {
-  IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults
 } from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
 import {Aave3TestUtils} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {ConverterController, IERC20Metadata__factory} from "../../../typechain";
 
-describe("Aave3SingleBlockTest", () => {
+describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions in the single block", () => {
 //region Global vars for all tests
   let snapshot: string;
   let deployer: SignerWithAddress;
@@ -33,7 +33,7 @@ describe("Aave3SingleBlockTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    converterInstance = await TetuConverterApp.createController(deployer);
+    converterInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   });
 
   after(async function () {
@@ -56,11 +56,12 @@ describe("Aave3SingleBlockTest", () => {
     ) : Promise<IMakeBorrowAndRepayResults>{
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converterInstance,
-        collateralToken,
+        collateralToken.address,
         [collateralHolder],
         collateralAmountRequired,
-        borrowToken,
+        borrowToken.address,
         false
       );
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
@@ -154,11 +155,12 @@ describe("Aave3SingleBlockTest", () => {
       // register AAVE3 pool adapter
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converterInstance,
-        collateralToken,
+        collateralToken.address,
         [collateralHolder],
         collateralAmountRequired,
-        borrowToken,
+        borrowToken.address,
         false
       );
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
@@ -252,11 +254,12 @@ describe("Aave3SingleBlockTest", () => {
       // register AAVE3 pool adapter
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
+        MaticCore.getCoreAave3(),
         converterInstance,
-        collateralToken,
+        collateralToken.address,
         [collateralHolder],
         collateralAmountRequired,
-        borrowToken,
+        borrowToken.address,
         false
       );
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);

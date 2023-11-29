@@ -13,14 +13,12 @@ import {
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {Misc} from "../../scripts/utils/Misc";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {proxy} from "../../typechain/contracts";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 /**
  * Most proxy contracts are proxy-contracts, that can be updated by proxy-updater only.
@@ -57,7 +55,7 @@ describe("ProxyTest", () => {
 
 //region Fixtures
   async function createController(): Promise<ConverterController> {
-    return TetuConverterApp.createController(deployer);
+    return TetuConverterApp.createController(deployer, {networkId: HARDHAT_NETWORK_ID,});
   }
   async function deployController(): Promise<string> {
     return CoreContractsHelper.deployController(deployer);
@@ -202,7 +200,8 @@ describe("ProxyTest", () => {
           await controller.borrowManager(),
           await Misc.impersonate(proxyUpdater)
         );
-        const newImplementation = (await DeployUtils.deployContract(deployer, "PriceOracle", MaticAddresses.AAVE_V3_PRICE_ORACLE)).address; // (!)
+        const aavePrieOracleStubAddress = ethers.Wallet.createRandom().address;
+        const newImplementation = (await DeployUtils.deployContract(deployer, "PriceOracle", aavePrieOracleStubAddress)).address; // (!)
         await expect(proxyControlled.upgrade(newImplementation)).reverted;
       });
     });
@@ -316,7 +315,8 @@ describe("ProxyTest", () => {
 
     it("Try to init proxy by not-controllable implementation", async () => {
       // upgrade implementation of the first controller
-      const newImplementation = (await DeployUtils.deployContract(deployer, "PriceOracle", MaticAddresses.AAVE_V3_PRICE_ORACLE)).address;
+      const aavePrieOracleStubAddress = ethers.Wallet.createRandom().address;
+      const newImplementation = (await DeployUtils.deployContract(deployer, "PriceOracle", aavePrieOracleStubAddress)).address;
 
       // try to use same (already created) implementation for the second controller
       const newProxy = await ProxyControlled__factory.connect((await DeployUtils.deployContract(deployer, "ProxyControlled")).address, deployer);

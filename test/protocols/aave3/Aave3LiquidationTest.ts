@@ -12,9 +12,10 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {ConverterController} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {ConverterController} from "../../../typechain";
+import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -57,7 +58,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
    * no platform adapters and no assets are registered.
    */
   async function createControllerDefaultFixture() : Promise<ConverterController> {
-    return  TetuConverterApp.createController(deployer);
+    return  TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   }
 //endregion Initial fixtures
 
@@ -68,6 +69,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       const converter = await loadFixture(createControllerDefaultFixture);
       init = await Aave3TestUtils.prepareToLiquidation(
         deployer,
+        MaticCore.getCoreAave3(),
         converter,
         collateralAsset,
         collateralHolder,
@@ -88,7 +90,8 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     });
 
     it("liquidator receives all collateral", async () => {
-      const r = await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+      const core = MaticCore.getCoreAave3();
+      const r = await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder);
       const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
         r.collateralAmountReceivedByLiquidator,
         init.collateralToken.decimals
@@ -121,7 +124,8 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     });
 
     it("Try to make new borrow after liquidation", async () => {
-      await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder)
+      const core = MaticCore.getCoreAave3();
+      await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder)
 
       // put collateral amount on user's balance
       await BalanceUtils.getRequiredAmountFromHolders(
@@ -132,7 +136,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       );
 
       await expect(
-        Aave3TestUtils.makeBorrow(deployer, init.d, undefined)
+        Aave3TestUtils.makeBorrow(deployer, init.d)
       ).revertedWith("35");
     });
 
@@ -185,6 +189,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       const converter = await loadFixture(createControllerDefaultFixture);
       init = await Aave3TestUtils.prepareToLiquidation(
         deployer,
+        MaticCore.getCoreAave3(),
         converter,
         collateralAsset,
         collateralHolder,
@@ -205,7 +210,8 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     });
 
     it("liquidator receives all collateral", async () => {
-      const r = await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+      const core = MaticCore.getCoreAave3();
+      const r = await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder);
       const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
         r.collateralAmountReceivedByLiquidator,
         init.collateralToken.decimals
@@ -237,7 +243,8 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     });
 
     it.skip("Try to make new borrow after liquidation", async () => {
-      await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder)
+      const core = MaticCore.getCoreAave3();
+      await Aave3TestUtils.makeLiquidation(deployer, core, init.d, borrowHolder)
 
       // put collateral amount on user's balance
       await BalanceUtils.getRequiredAmountFromHolders(
@@ -248,7 +255,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
       );
 
       await expect(
-        Aave3TestUtils.makeBorrow(deployer, init.d, undefined)
+        Aave3TestUtils.makeBorrow(deployer, init.d)
       ).revertedWith("35"); // or 36...
     });
 

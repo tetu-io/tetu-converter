@@ -5,7 +5,7 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {
   BorrowRepayUsesCase
-} from "../baseUT/uses-cases/BorrowRepayUsesCase";
+} from "../baseUT/uses-cases/app/BorrowRepayUsesCase";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {
   ConverterController__factory,
@@ -124,12 +124,12 @@ describe("GetDebtAmountCurrentTest", () => {
 
           const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
 
-          const before = await tetuConverter.callStatic.getDebtAmountCurrent(results.uc.address, ASSET_COLLATERAL, ASSET_BORROW);
+          const before = await tetuConverter.callStatic.getDebtAmountCurrent(results.uc.address, ASSET_COLLATERAL, ASSET_BORROW, true);
           console.log("getDebtAmountCurrent", before.totalDebtAmountOut.toString(), before.totalCollateralAmountOut.toString());
 
           await TimeUtils.advanceNBlocks(918);
 
-          const after = await tetuConverter.callStatic.getDebtAmountCurrent(results.uc.address, ASSET_COLLATERAL, ASSET_BORROW);
+          const after = await tetuConverter.callStatic.getDebtAmountCurrent(results.uc.address, ASSET_COLLATERAL, ASSET_BORROW, true);
           console.log("getDebtAmountCurrent", after.totalDebtAmountOut.toString(), after.totalCollateralAmountOut.toString());
 
           const borrowedAmount = results.userBalances[0].borrow.sub(results.ucBalanceBorrow0);

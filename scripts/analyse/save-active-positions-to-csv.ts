@@ -200,7 +200,7 @@ async function main() {
   for (let nline = 0; nline < countLines; ++nline) {
     const line: string[] = [];
     for (let ncol = 0; ncol < columns.length; ++ncol) {
-      if (nline !== 0 || ncol == 0 || columns[ncol][nline] !== columns[ncol - 1][nline]) {
+      if (nline !== 0 || ncol === 0 || columns[ncol][nline] !== columns[ncol - 1][nline]) {
         line.push(columns[ncol][nline]);
       } else {
         // show block for first position only

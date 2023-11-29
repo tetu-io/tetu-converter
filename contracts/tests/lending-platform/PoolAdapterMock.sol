@@ -5,7 +5,7 @@ import "../../interfaces/IPoolAdapter.sol";
 import "hardhat/console.sol";
 import "../../interfaces/IPriceOracle.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../tokens/MockERC20.sol";
+import "../mocks/MockERC20.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "./PoolStub.sol";
@@ -13,6 +13,7 @@ import "../../interfaces/IConverterController.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../openzeppelin/SafeERC20.sol";
+import "../../openzeppelin/Math.sol";
 
 /// @notice It's rather emulator, not mock. Use PoolAdapterMock2 for mock tests
 contract PoolAdapterMock is IPoolAdapter {
@@ -212,7 +213,8 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
-    console.log("PoolAdapterMock.borrow");
+    console.log("PoolAdapterMock.borrow.borrowAmount_", borrowAmount_);
+    console.log("PoolAdapterMock.borrow.collateralAmount_", collateralAmount_);
     borrowParamsLog = BorrowParamsLog({
       collateralAmount: collateralAmount_,
       borrowAmount: borrowAmount_,
@@ -308,20 +310,21 @@ contract PoolAdapterMock is IPoolAdapter {
 
     // add debts to the borrowed amount
     _accumulateDebt(0);
-    require(_borrowedAmounts >= amountToRepay_, "try to repay too much");
+    // require(_borrowedAmounts >= amountToRepay_, "try to repay too much");
     console.log("_borrowedAmounts", _borrowedAmounts);
 
     IERC20(_borrowAsset).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
     // transfer borrow amount back to the pool
-    IERC20(_borrowAsset).transfer(_pool, amountToRepay_);
+    uint amountToRepay = Math.min(amountToRepay_, _borrowedAmounts);
+    IERC20(_borrowAsset).transfer(_pool, amountToRepay);
 
     //return collateral
     console.log("_borrowedAmounts %s", _borrowedAmounts);
     uint collateralBalance = _cTokenMock.balanceOf(address(this));
-    uint collateralToReturn = _borrowedAmounts == amountToRepay_
+    uint collateralToReturn = _borrowedAmounts == amountToRepay
       ? collateralBalance
-      : collateralBalance * amountToRepay_ / _borrowedAmounts;
+      : collateralBalance * amountToRepay / _borrowedAmounts;
 
     console.log("collateralBalance %d", collateralBalance);
     console.log("collateralToReturn %d", collateralToReturn);
@@ -333,7 +336,12 @@ contract PoolAdapterMock is IPoolAdapter {
     thePool.transferToReceiver(_collateralAsset, collateralToReturn, receiver_);
 
     // update status
-    _borrowedAmounts -= amountToRepay_;
+    _borrowedAmounts -= amountToRepay;
+
+    uint balanceAfter = IERC20(_borrowAsset).balanceOf(address(this));
+    if (balanceAfter != 0) {
+      IERC20(_borrowAsset).transfer(msg.sender, balanceAfter);
+    }
 
     if (closePosition_) {
       IDebtMonitor dm = IDebtMonitor(IConverterController(controller).debtMonitor());

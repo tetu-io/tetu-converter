@@ -10,22 +10,23 @@ import {
   IERC20__factory
 } from "../../../typechain";
 import {expect} from "chai";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
-import {AprAave3} from "../../baseUT/apr/aprAave3";
-import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
-import {AprDForce} from "../../baseUT/apr/aprDForce";
+import {DForceHelper} from "../../../scripts/integration/dforce/DForceHelper";
+import {AprAave3} from "../../baseUT/protocols/aave3/aprAave3";
+import {AprAaveTwo} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
+import {AprDForce} from "../../baseUT/protocols/dforce/aprDForce";
 import {Misc} from "../../../scripts/utils/Misc";
-import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
-import {AprSwap} from "../../baseUT/apr/aprSwap";
+import {AprHundredFinance} from "../../baseUT/protocols/hundred-finance/aprHundredFinance";
+import {AprSwap} from "../../baseUT/protocols/shared/aprSwap";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
-import {BorrowRepayUsesCase} from "../../baseUT/uses-cases/BorrowRepayUsesCase";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
-import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
+import {BorrowRepayUsesCase} from "../../baseUT/uses-cases/app/BorrowRepayUsesCase";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {HundredFinancePlatformFabric} from "../../baseUT/logic/fabrics/HundredFinancePlatformFabric";
+import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
+import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 
 /**
  * For any landing platform:
@@ -83,10 +84,12 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE3", () => {
       it("predicted APR should be equal to real APR", async () => {
+        const core = MaticCore.getCoreAave3();
         const ret = await AprAave3.makeBorrowTest(
-          deployer
-          , AMOUNT_TO_BORROW
-          , {
+          deployer,
+          core,
+          AMOUNT_TO_BORROW,
+          {
             collateral: {
               asset: ASSET_COLLATERAL,
               holder: HOLDER_COLLATERAL,
@@ -100,8 +103,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
             collateralAmount: AMOUNT_COLLATERAL,
             healthFactor2: HEALTH_FACTOR2,
             countBlocks: COUNT_BLOCKS
-          }
-          , [] // no additional points
+          },
+          [] // no additional points
         );
         console.log("ret", ret);
 
@@ -440,10 +443,12 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 
     describe("AAVE3", () => {
       it("predicted APR should be equal to real APR", async () => {
+        const core = MaticCore.getCoreAave3();
         const ret = await AprAave3.makeBorrowTest(
-          deployer
-          , AMOUNT_TO_BORROW
-          , {
+          deployer,
+          core,
+          AMOUNT_TO_BORROW,
+          {
             collateral: {
               asset: ASSET_COLLATERAL,
               holder: HOLDER_COLLATERAL,
@@ -457,8 +462,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
             collateralAmount: AMOUNT_COLLATERAL,
             healthFactor2: HEALTH_FACTOR2,
             countBlocks: COUNT_BLOCKS
-          }
-          , [] // no additional points
+          },
+          [] // no additional points
         );
         console.log("ret", ret);
 
@@ -1227,8 +1232,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     describe("HundredFinance DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
         const {controller} = await TetuConverterApp.buildApp(deployer,
+          {networkId: POLYGON_NETWORK_ID,}, // disable swap
           [new HundredFinancePlatformFabric()],
-          {} // disable swap
         );
         const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(
           deployer,
@@ -1249,8 +1254,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     describe("DForce DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
         const {controller} = await TetuConverterApp.buildApp(deployer,
+            {networkId: POLYGON_NETWORK_ID,}, // disable swap
           [new DForcePlatformFabric()],
-          {} // disable swap
         );
         await DForceChangePriceUtils.setupPriceOracleMock(deployer, true);
         const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(
@@ -1272,8 +1277,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
     describe("Swap DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
         const {controller} = await TetuConverterApp.buildApp(deployer,
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}, // disable swap
           [],
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR} // disable swap
         );
         await DForceChangePriceUtils.setupPriceOracleMock(deployer, true);
         const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(

@@ -10,9 +10,9 @@ import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedR
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {AaveTwoTestUtils, IInitialBorrowResults} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
-import {ConverterController} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {ConverterController} from "../../../typechain";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 
 describe("AaveTwoCollateralBalanceTest", () => {
 //region Constants
@@ -40,7 +40,7 @@ describe("AaveTwoCollateralBalanceTest", () => {
     const signers = await ethers.getSigners();
     deployer = signers[0];
 
-    controllerInstance = await TetuConverterApp.createController(deployer);
+    controllerInstance = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
     init = await makeInitialBorrow();
   });
 

@@ -99,4 +99,14 @@ library AppUtils {
   function sub0(uint a, uint b) internal pure returns (uint) {
     return a > b ? a - b : 0;
   }
+
+  /// @notice Find index of the given {asset_} in array {tokens_}, return type(uint).max if not found
+  function getAssetIndex(address[] memory tokens_, address asset_, uint lenTokens_) internal pure returns (uint) {
+    for (uint i; i < lenTokens_; i = uncheckedInc(i)) {
+      if (tokens_[i] == asset_) {
+        return i;
+      }
+    }
+    return type(uint).max;
+  }
 }

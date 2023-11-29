@@ -1,11 +1,11 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {Compound3AprLibFacade} from "../../../typechain";
 import {expect} from "chai";
 import {parseUnits} from "ethers/lib/utils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {MocksHelper} from "../../baseUT/app/MocksHelper";
+import {Compound3AprLibFacade} from "../../../typechain";
 
 describe("Compound3AprLibTests", () => {
 //region Global vars for all tests

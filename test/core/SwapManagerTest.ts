@@ -8,9 +8,6 @@ import {
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BigNumber} from "ethers";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {
   controlGasLimitsEx2,
@@ -21,9 +18,12 @@ import {
   GAS_FIND_SWAP_STRATEGY,
   GAS_SWAP, GAS_SWAP_APR18,
   GAS_SWAP_SIMULATE
-} from "../baseUT/GasLimit";
+} from "../baseUT/types/GasLimit";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {CoreContractsHelper} from "../baseUT/app/CoreContractsHelper";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 const parseUnits = ethers.utils.parseUnits;
 
@@ -87,6 +87,7 @@ describe("SwapManager", () => {
     // Deploy all application contracts
     controller = await TetuConverterApp.createController(deployer,
       {
+        networkId: HARDHAT_NETWORK_ID,
         tetuLiquidatorAddress: liquidator.address,
         priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(
             deployer,
@@ -139,6 +140,7 @@ describe("SwapManager", () => {
       const controllerLocal = await TetuConverterApp.createController(
         deployer,
         {
+          networkId: HARDHAT_NETWORK_ID,
           borrowManagerFabric: TetuConverterApp.getRandomSet(),
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: TetuConverterApp.getRandomSet(),
@@ -632,6 +634,7 @@ describe("SwapManager", () => {
       )).address;
       const localController = await TetuConverterApp.createController(
         deployer, {
+          networkId: HARDHAT_NETWORK_ID,
           borrowManagerFabric: TetuConverterApp.getRandomSet(),
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: TetuConverterApp.getRandomSet(),

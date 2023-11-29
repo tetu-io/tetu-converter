@@ -4,7 +4,7 @@ import {
   ConverterController__factory
 } from "../../typechain";
 import {readFileSync, writeFileSync} from "fs";
-import {CollectStatusesImpl, IGetStatus} from "../../test/baseUT/analyse/CollectStatusesImpl";
+import {CollectStatusesImpl, IGetStatus} from "../../test/baseUT/utils/CollectStatusesImpl";
 
 /**
  * For the given block:

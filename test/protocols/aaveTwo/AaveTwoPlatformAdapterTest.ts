@@ -4,27 +4,16 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
-import {
-  AaveTwoPlatformAdapter,
-  AaveTwoPlatformAdapter__factory, ConverterController,
-  IAaveTwoPool,
-  IAaveTwoProtocolDataProvider, IERC20__factory,
-  IERC20Metadata__factory
-} from "../../../typechain";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
-import {AprAaveTwo, getAaveTwoStateInfo, IAaveTwoStateInfo, IAaveTwoReserveData} from "../../baseUT/apr/aprAaveTwo";
+import {PredictBrUsesCase} from "../../baseUT/uses-cases/shared/PredictBrUsesCase";
+import {AprAaveTwo, getAaveTwoStateInfo, IAaveTwoStateInfo, IAaveTwoReserveData} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
 import {Misc} from "../../../scripts/utils/Misc";
-import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {convertUnits} from "../../baseUT/protocols/shared/aprUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {
@@ -32,8 +21,20 @@ import {
   HardhatUtils,
   POLYGON_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
-import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
-import {AppConstants} from "../../baseUT/AppConstants";
+import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/types/GasLimit";
+import {AppConstants} from "../../baseUT/types/AppConstants";
+import {IConversionPlan} from "../../baseUT/types/AppDataTypes";
+import {AaveTwoPlatformActor} from "../../baseUT/protocols/aaveTwo/AaveTwoPlatformActor";
+import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
+import {
+  AaveTwoPlatformAdapter,
+  AaveTwoPlatformAdapter__factory,
+  ConverterController,
+  IAaveTwoPool,
+  IERC20__factory
+} from "../../../typechain";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {MocksHelper} from "../../baseUT/app/MocksHelper";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -64,49 +65,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
   });
 //endregion before, after
 
-//region IPlatformActor impl
-  class AaveTwoPlatformActor implements IPlatformActor {
-    dp: IAaveTwoProtocolDataProvider;
-    pool: IAaveTwoPool;
-    collateralAsset: string;
-    borrowAsset: string;
-    constructor(
-      dp: IAaveTwoProtocolDataProvider,
-      pool: IAaveTwoPool,
-      collateralAsset: string,
-      borrowAsset: string
-    ) {
-      this.dp = dp;
-      this.pool = pool;
-      this.collateralAsset = collateralAsset;
-      this.borrowAsset = borrowAsset;
-    }
-    async getAvailableLiquidity() : Promise<BigNumber> {
-      const rd = await this.dp.getReserveData(this.borrowAsset);
-      console.log(`Reserve data before: totalAToken=${rd.availableLiquidity} totalStableDebt=${rd.totalStableDebt} totalVariableDebt=${rd.totalVariableDebt}`);
-      return rd.availableLiquidity;
-    }
-    async getCurrentBR(): Promise<BigNumber> {
-      const data = await AaveTwoHelper.getReserveInfo(deployer, this.pool, this.dp, this.borrowAsset);
-      const br = data.data.currentVariableBorrowRate;
-      console.log(`BR ${br.toString()}`);
-      return BigNumber.from(br);
-    }
-    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      await IERC20Metadata__factory.connect(this.collateralAsset, deployer).approve(this.pool.address, collateralAmount);
-      console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
-      await this.pool.deposit(this.collateralAsset, collateralAmount, deployer.address, 0);
-      const userAccountData = await this.pool.getUserAccountData(deployer.address);
-      console.log(`Available borrow base ${userAccountData.availableBorrowsETH}`);
-      await this.pool.setUserUseReserveAsCollateral(this.collateralAsset, true);
-    }
-    async borrow(borrowAmount: BigNumber): Promise<void> {
-      console.log(`borrow ${this.borrowAsset} amount ${borrowAmount}`);
-      await this.pool.borrow(this.borrowAsset, borrowAmount, 2, 0, deployer.address, {gasLimit: GAS_LIMIT});
-    }
-  }
-//endregion IPlatformActor impl
-
 //region Unit tests
   describe("constructor and converters()", () => {
     interface IContractsSet {
@@ -124,7 +82,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
     ) : Promise<{data: IContractsSet, platformAdapter: AaveTwoPlatformAdapter}> {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
@@ -187,7 +145,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -888,7 +846,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
             borrowAsset: MaticAddresses.USDC,
             countBlocks: 1,
             entryData: "0x",
-            user: Misc.ZERO_ADDRESS
           },
           200,
           {gasLimit: GAS_LIMIT},
@@ -912,19 +869,15 @@ describe("AaveTwoPlatformAdapterTest", () => {
         const dp = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
         const aavePool = await AaveTwoHelper.getAavePool(deployer);
 
-        return PredictBrUsesCase.makeTest(
+        return PredictBrUsesCase.predictBrTest(
           deployer,
-          new AaveTwoPlatformActor(
-            dp,
-            aavePool,
+          new AaveTwoPlatformActor(dp, aavePool, collateralAsset, borrowAsset, deployer),
+          {
             collateralAsset,
-            borrowAsset
-          ),
-          "aaveTwo",
-          collateralAsset,
-          borrowAsset,
-          collateralHolders,
-          part10000
+            borrowAsset,
+            collateralHolders,
+            part10000
+          }
         );
       }
 
@@ -979,7 +932,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -1069,7 +1022,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
       const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
 
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
       const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
         deployer,
@@ -1106,7 +1059,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
     describe("Good paths", () => {
       it("should assign expected value to frozen", async () => {
         const controller = await TetuConverterApp.createController(deployer,
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
 
         const aavePool = await AaveTwoHelper.getAavePool(deployer);
@@ -1133,7 +1086,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       it("should assign expected value to frozen", async () => {
         const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
           deployer,
-          (await TetuConverterApp.createController(deployer)).address,
+          (await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,})).address,
           (await AaveTwoHelper.getAavePool(deployer)).address,
           ethers.Wallet.createRandom().address,
         );
@@ -1147,7 +1100,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
 
       const pa = await AdaptersHelper.createAaveTwoPlatformAdapter(
         deployer,

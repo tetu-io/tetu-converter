@@ -1,22 +1,14 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {
-  Aave3PoolMock__factory,
-  AaveTwoPoolAdapter,
-  AaveTwoPoolAdapter__factory, AaveTwoPoolMock__factory,
-  BorrowManager__factory, ConverterController, DebtMonitor__factory,
-  IERC20Metadata__factory,
-  IPoolAdapter__factory, ITetuConverter__factory
-} from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
-import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper} from "../../../scripts/integration/aaveTwo/AaveTwoHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
+import {IAaveTwoUserAccountDataResults} from "../../baseUT/protocols/aaveTwo/aprAaveTwo";
 import {
   AaveRepayToRebalanceUtils, IAaveMakeRepayToRebalanceResults,
   IMakeRepayToRebalanceResults
@@ -37,10 +29,7 @@ import {
   IMakeBorrowOrRepayBadPathsParams,
   IPrepareToBorrowResults
 } from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {Misc} from "../../../scripts/utils/Misc";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
@@ -48,8 +37,19 @@ import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoCh
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {
+  AaveTwoPoolAdapter,
+  AaveTwoPoolAdapter__factory,
+  AaveTwoPoolMock__factory,
+  BorrowManager__factory,
+  ConverterController, DebtMonitor__factory, IERC20Metadata__factory,
+  IPoolAdapter__factory, ITetuConverter__factory
+} from "../../../typechain";
+import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {MocksHelper} from "../../baseUT/app/MocksHelper";
 
 describe("AaveTwoPoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -78,7 +78,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
    * no platform adapters and no assets are registered.
    */
   async function createControllerDefault() : Promise<ConverterController> {
-    return  TetuConverterApp.createController(deployer);
+    return  TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
   }
 //endregion Initial fixtures
 
@@ -1004,7 +1004,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         p.borrowToken,
         {
           targetHealthFactor2: targetHealthFactorInitial2,
-          useAaveTwoPoolMock: p?.badPathsParams?.useAavePoolMock ?? false
+          useAaveTwoPoolMock: p?.badPathsParams?.poolMocked ?? false
         }
       );
       const collateralAssetData = await AaveTwoHelper.getReserveInfo(deployer,
@@ -1075,7 +1075,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         await d.controller.tetuConverter()
       );
 
-      if (p?.badPathsParams?.useAavePoolMock) {
+      if (p?.badPathsParams?.poolMocked) {
         if (p?.badPathsParams?.addToHealthFactorAfterRepay) {
           await AaveTwoPoolMock__factory.connect(d.aavePool.address, deployer).setHealthFactorAddonAfterRepay(
             parseUnits(p?.badPathsParams?.addToHealthFactorAfterRepay, 18)
@@ -1304,7 +1304,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         describe("RepayToRebalance reduces health factor by a value greater than the limit", () => {
           it("should NOT revert", async () => {
             await testRepayToRebalanceDaiWMatic({
-              useAavePoolMock: true,
+              poolMocked: true,
 
               // the state is healthy
               skipHealthFactors2: true,
@@ -1333,7 +1333,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         describe("RepayToRebalance reduces health factor by a value lesser than the limit", () => {
           it("should NOT revert", async () => {
             await testRepayToRebalanceDaiWMatic({
-              useAavePoolMock: true,
+              poolMocked: true,
 
               // healthFactor before repay = 9999999949101140296
               // healthFactor after repay =  9999990449101434776
@@ -1349,7 +1349,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           it("should revert", async () => {
             await expect(
               testRepayToRebalanceDaiWMatic({
-                useAavePoolMock: true,
+                poolMocked: true,
 
                 // healthFactor before repay = 9999999955468282000
                 // healthFactor after repay =  9900000455468577544
@@ -1602,7 +1602,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const poolAdapter = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
 
@@ -1809,7 +1809,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         const collateralAsset = MaticAddresses.DAI;
         const borrowAsset = MaticAddresses.WMATIC;
 
-        const controller = await TetuConverterApp.createController(deployer);
+        const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
         const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);
         await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
@@ -1885,7 +1885,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
         const collateralAmount = parseUnits("1000", collateralToken.decimals);
 
-        const controller = await TetuConverterApp.createController(deployer);
+        const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
         const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);
         await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
