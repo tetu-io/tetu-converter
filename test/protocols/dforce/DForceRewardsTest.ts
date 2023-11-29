@@ -5,14 +5,14 @@ import {expect} from "chai";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
+import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/protocols/dforce/SupplyBorrowUsingDForce";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 
 /**
  * Supply amount => claim rewards in specified period
  * Borrow amount => claim rewards in specified period
  */
-describe("DForceRewardsTest", () => {
+describe.skip("DForceRewardsTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

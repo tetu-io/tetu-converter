@@ -15,8 +15,6 @@ import {
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
-import {MocksHelper} from "../../helpers/MocksHelper";
-import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Misc} from "../../../../scripts/utils/Misc";
@@ -24,16 +22,19 @@ import {ethers} from "hardhat";
 import {
   HundredFinanceHelper,
   IHundredFinanceMarketData
-} from "../../../../scripts/integration/helpers/HundredFinanceHelper";
+} from "../../../../scripts/integration/hundred-finance/HundredFinanceHelper";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
-import {IHfAccountLiquidity, IHundredFinanceAccountSnapshot} from "../../apr/aprHundredFinance";
+import {IHfAccountLiquidity, IHundredFinanceAccountSnapshot} from "./aprHundredFinance";
 import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {TetuConverterApp} from "../../helpers/TetuConverterApp";
-import {IConversionPlan} from "../../apr/aprDataTypes";
-import {GAS_LIMIT} from "../../GasLimit";
+import {GAS_LIMIT} from "../../types/GasLimit";
+import {IConversionPlan} from "../../types/AppDataTypes";
+import {TetuConverterApp} from "../../app/TetuConverterApp";
+import {MocksHelper} from "../../app/MocksHelper";
+import {AdaptersHelper} from "../../app/AdaptersHelper";
+import {POLYGON_NETWORK_ID} from "../../../../scripts/utils/HardhatUtils";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -147,7 +148,7 @@ export class HundredFinanceTestUtils {
     const periodInBlocks = 1000;
 
     // controller, dm, bm
-    const controller = await TetuConverterApp.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID});
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 

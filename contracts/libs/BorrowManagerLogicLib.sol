@@ -4,12 +4,12 @@ pragma solidity 0.8.17;
 import "./AppDataTypes.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../openzeppelin/EnumerableMap.sol";
+import "../openzeppelin/Math.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../interfaces/IConverterController.sol";
 import "./ConverterLogicLib.sol";
 import "./AppUtils.sol";
 import "./EntryKinds.sol";
-import "hardhat/console.sol";
 
 /// @notice BorrowManager-contract logic-related functions
 library BorrowManagerLogicLib {
@@ -451,23 +451,15 @@ library BorrowManagerLogicLib {
   ) internal view returns (
     uint totalCount
   ) {
-    console.log("_findNewCandidates.1.startDestIndex_", startDestIndex_);
     totalCount = startDestIndex_;
 
     uint len = platformAdapters_.length;
-    console.log("_findNewCandidates.platformAdapters_.length", platformAdapters_.length);
 
     for (uint i; i < len; i = i.uncheckedInc()) {
-      console.log("_findNewCandidates.2,i", i);
       if (address(platformAdapters_[i]) == address(0)) continue;
 
-      console.log("_findNewCandidates.3");
-      console.log("_findNewCandidates.frozen", platformAdapters_[i].frozen());
-      console.log("_findNewCandidates.block.number", block.number);
-      console.log("_findNewCandidates.platformKind", uint(platformAdapters_[i].platformKind()));
       AppDataTypes.ConversionPlan memory plan = platformAdapters_[i].getConversionPlan(p_, pa_.targetHealthFactor2);
 
-      console.log("_findNewCandidates.4");
       if (
         plan.converter != address(0)
         // check if we are able to supply required collateral
@@ -475,7 +467,6 @@ library BorrowManagerLogicLib {
         // take only the pool with enough liquidity
         && plan.maxAmountToBorrow >= plan.amountToBorrow
       ) {
-        console.log("_findNewCandidates.5.plan.converter", plan.converter);
         dest_[totalCount++] = BorrowCandidate({
           apr18: _getApr18(plan, pa_.rewardsFactor),
           amountToBorrow: plan.amountToBorrow,
@@ -484,23 +475,25 @@ library BorrowManagerLogicLib {
           healthFactor18: 0
         });
       }
-      console.log("_findNewCandidates.6");
     }
-    console.log("_findNewCandidates.7");
   }
   //endregion ----------------------------------------------------- Find new lending platforms to borrow
 
   //region ----------------------------------------------------- Utils
-  function _getApr18(AppDataTypes.ConversionPlan memory plan_, uint rewardsFactor_) public pure returns (int) {
+  /// @return Return APR with decimals 18. Positive value means cost, negative - income.
+  function _getApr18(AppDataTypes.ConversionPlan memory plan_, uint rewardsFactor_) internal pure returns (int) {
     // combine all costs and incomes and calculate result APR. Rewards are taken with the given weight.
     // Positive value means cost, negative - income
     // APR = (cost - income) / collateralAmount, decimals 18, all amounts are given in terms of borrow asset.
-    return (
-      int(plan_.borrowCost36)
-      - int(plan_.supplyIncomeInBorrowAsset36)
-      - int(plan_.rewardsAmountInBorrowAsset36 * rewardsFactor_ / REWARDS_FACTOR_DENOMINATOR_18)
-    ) * int(1e18)
-      / int(plan_.amountCollateralInBorrowAsset36);
+    //
+    // SCB-824: Rewards are not able to reduce borrowCost more than on the value borrowCost36 * rewardsFactor_
+    int income = int(plan_.supplyIncomeInBorrowAsset36)
+      + int(Math.min(
+        plan_.rewardsAmountInBorrowAsset36,
+        plan_.borrowCost36 * rewardsFactor_ / REWARDS_FACTOR_DENOMINATOR_18
+      ));
+
+    return (int(plan_.borrowCost36) - income) * int(1e18) / int(plan_.amountCollateralInBorrowAsset36);
   }
 
   //endregion ----------------------------------------------------- Utils

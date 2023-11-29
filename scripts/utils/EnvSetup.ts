@@ -33,7 +33,13 @@ export class EnvSetup {
 
         /////// RPC
 
+        ethRpcUrl: {
+          type: 'string',
+        },
         maticRpcUrl: {
+          type: 'string',
+        },
+        baseRpcUrl: {
           type: 'string',
         },
 
@@ -41,12 +47,22 @@ export class EnvSetup {
 
         maticForkBlock: {
           type: 'number',
-          default: 42618407,
+          default: 49968469, // 49480727, // 42618407,
+        },
+        baseForkBlock: {
+          type: 'number',
+          default: 6625978, // 6100252, // 5939287, // 5725340,
         },
 
         /////// NETWORK EXPLORERS
 
         networkScanKey: {
+          type: 'string',
+        },
+        networkScanKeyMatic: {
+          type: 'string',
+        },
+        networkScanKeyBase: {
           type: 'string',
         },
 

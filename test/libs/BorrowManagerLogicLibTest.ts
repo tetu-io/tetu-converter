@@ -7,15 +7,15 @@ import {
   LendingPlatformMock2,
   MockERC20
 } from "../../typechain";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {AppConstants} from "../baseUT/AppConstants";
+import {AppConstants} from "../baseUT/types/AppConstants";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils";
 import {BorrowManagerLogicLib} from "../../typechain/contracts/tests/facades/BorrowManagerLogicLibFacade";
 import {BigNumber} from "ethers";
+import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 describe("BorrowManagerLogicLibTest", () => {
 //region Global vars for all tests
@@ -174,7 +174,7 @@ describe("BorrowManagerLogicLibTest", () => {
           await TimeUtils.rollback(snapshot);
         });
 
-        function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+        async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
           return getPlanWithRebalancing({
             collateralAsset: dai,
             borrowAsset: usdt,
@@ -209,7 +209,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: dai,
               borrowAsset: usdt,
@@ -242,7 +242,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: dai,
@@ -277,7 +277,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -310,7 +310,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -347,7 +347,7 @@ describe("BorrowManagerLogicLibTest", () => {
           await TimeUtils.rollback(snapshot);
         });
 
-        function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+        async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
           return getPlanWithRebalancing({
             collateralAsset: usdc,
             borrowAsset: usdt,
@@ -382,7 +382,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -415,7 +415,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -450,7 +450,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -483,7 +483,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -520,7 +520,7 @@ describe("BorrowManagerLogicLibTest", () => {
           await TimeUtils.rollback(snapshot);
         });
 
-        function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+        async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
           return getPlanWithRebalancing({
             collateralAsset: usdc,
             borrowAsset: usdt,
@@ -555,7 +555,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -588,7 +588,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -623,7 +623,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -656,7 +656,7 @@ describe("BorrowManagerLogicLibTest", () => {
             await TimeUtils.rollback(snapshot);
           });
 
-          function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
+          async function getPlanWithRebalancingTest(): Promise<IGetPlanWithRebalancingResults> {
             return getPlanWithRebalancing({
               collateralAsset: usdc,
               borrowAsset: usdt,
@@ -2334,6 +2334,89 @@ describe("BorrowManagerLogicLibTest", () => {
     });
   });
 
+  describe("_getApr18", () => {
+    interface IParams {
+      borrowCost?: string;
+      supplyIncomeInBorrowAsset?: string;
+      rewardsAmountInBorrowAsset?: string;
+      rewardsFactor?: string;
+      amountCollateralInBorrowAsset: string;
+    }
+
+    interface IResults {
+      apr: number;
+    }
+
+    async function getApr18(p: IParams): Promise<IResults> {
+      const apr = await facade._getApr18(
+        {
+          borrowCost36: parseUnits(p.borrowCost || "0", 36),
+          supplyIncomeInBorrowAsset36: parseUnits(p.supplyIncomeInBorrowAsset || "0", 36),
+          rewardsAmountInBorrowAsset36: parseUnits(p.rewardsAmountInBorrowAsset || "0", 36),
+          amountCollateralInBorrowAsset36: parseUnits(p.amountCollateralInBorrowAsset || "0", 36),
+
+          // following values are not used here
+
+          converter: Misc.ZERO_ADDRESS,
+          amountToBorrow: 0,
+          ltv18: 0,
+          collateralAmount: 0,
+          liquidationThreshold18: 0,
+          maxAmountToBorrow: 0,
+          maxAmountToSupply: 0
+        },
+        parseUnits(p.rewardsFactor || "0", 18)
+      );
+
+      return {apr: +formatUnits(apr, 18)};
+    }
+
+    it("should return expected value if rewards are zero", async () => {
+      const {apr} = await getApr18({
+        amountCollateralInBorrowAsset: "2",
+        borrowCost: "10",
+        supplyIncomeInBorrowAsset: "7",
+      });
+      expect(apr).eq((10 - 7) / 2);
+    });
+
+    it("should return expected value when rewards don't exceed limits", async () => {
+      const {apr} = await getApr18({
+        amountCollateralInBorrowAsset: "2",
+        borrowCost: "25.9",
+        supplyIncomeInBorrowAsset: "5",
+
+        rewardsFactor: "0.1", // limit is 20.9 * 0.1 = 2.09
+        rewardsAmountInBorrowAsset: "1.9"
+      });
+      expect(apr).eq((25.9 - 5 - 1.9) / 2);
+    });
+
+    it("should return expected value when rewards exceed limits", async () => {
+      const {apr} = await getApr18({
+        amountCollateralInBorrowAsset: "2",
+        borrowCost: "20",
+        supplyIncomeInBorrowAsset: "5",
+
+        rewardsFactor: "0.1", // limit is 20 * 0.1 = 2
+        rewardsAmountInBorrowAsset: "100"
+      });
+      expect(apr).eq((20 - 5 - 2) / 2);
+    });
+
+    it("should return negative value if borrow cost is zero", async () => {
+      const {apr} = await getApr18({
+        amountCollateralInBorrowAsset: "2",
+        borrowCost: "0",
+        supplyIncomeInBorrowAsset: "7",
+
+        rewardsFactor: "1",
+        rewardsAmountInBorrowAsset: "100"
+      });
+      expect(apr).eq(- 7 / 2);
+    });
+
+  });
 //endregion Unit tests
 
 });

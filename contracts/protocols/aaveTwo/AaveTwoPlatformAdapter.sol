@@ -24,7 +24,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   //region ----------------------------------------------------- Constants
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.3";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.4";
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Data types
@@ -171,6 +171,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
             if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
               vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
+            } else {
+              // healthFactor = liquidationThreshold18 / ltv18 - is min allowed health factor
+              // but real health factor should be higher - we need some reserve
+              vars.healthFactor18 = vars.healthFactor18 * healthFactor2_ / vars.controller.minHealthFactor2();
             }
 
             //------------------------------- Calculate collateralAmount and amountToBorrow

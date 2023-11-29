@@ -11,10 +11,10 @@ import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {GAS_LIMIT} from "../baseUT/GasLimit";
+import {GAS_LIMIT} from "../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {Aave3PlatformFabric} from "../baseUT/logic/fabrics/Aave3PlatformFabric";
 
 interface IFindBorrowStrategyInput {
   collateralAsset: string;
@@ -125,10 +125,11 @@ describe.skip("issue230310 (problem happens if mine interval > 1", () => {
     const signer = (await ethers.getSigners())[0];
     const {controller} = await TetuConverterApp.buildApp(
       signer,
-      [new Aave3PlatformFabric()],
       {
+        networkId: POLYGON_NETWORK_ID,
         tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
-      }
+      },
+      [new Aave3PlatformFabric()],
     );
 
     const converter = TetuConverter__factory.connect(await controller.tetuConverter(), signer);

@@ -13,9 +13,14 @@ contract BorrowManagerStub {
     return valueIsPoolAdapter;
   }
 
+  function setIsPoolAdapter(bool valueIsPoolAdapter_) external {
+    valueIsPoolAdapter = valueIsPoolAdapter_;
+  }
+
   function setPoolAdapter(address resultGetPoolAdapter_) external {
     resultGetPoolAdapter = resultGetPoolAdapter_;
   }
+
   function getPoolAdapter(
     address converter_,
     address user_,

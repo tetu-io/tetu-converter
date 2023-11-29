@@ -12,6 +12,7 @@ import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IDebtMonitor.sol";
+import "../../interfaces/IBookkeeper.sol";
 import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
 import "../../integrations/dforce/IDForcePriceOracle.sol";
@@ -29,7 +30,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   uint private constant DELTA = 100;
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   address private constant DFORCE_MATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
-  string public constant POOL_ADAPTER_VERSION = "1.0.2";
+  string public constant POOL_ADAPTER_VERSION = "1.0.3";
 
   //region -----------------------------------------------------  Members and constants
 
@@ -60,6 +61,16 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   event OnSalvage(address receiver, address token, uint amount);
   event ValueReceived(address user, uint amount);
   //endregion ----------------------------------------------------- Events
+
+  //region ----------------------------------------------------- Data types
+  struct BorrowLocal {
+    address cTokenCollateral;
+    address cTokenBorrow;
+    address assetCollateral;
+    address assetBorrow;
+  }
+  //endregion ----------------------------------------------------- Data types
+
 
   //region ----------------------------------------------------- Initialization
 
@@ -152,46 +163,49 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
+    BorrowLocal memory v;
+
     IConverterController c = controller;
     _onlyTetuConverter(c);
 
-    address cTokenCollateral = collateralCToken;
-    address cTokenBorrow = borrowCToken;
-    address assetCollateral = collateralAsset;
-    address assetBorrow = borrowAsset;
+    v.cTokenCollateral = collateralCToken;
+    v.cTokenBorrow = borrowCToken;
+    v.assetCollateral = collateralAsset;
+    v.assetBorrow = borrowAsset;
 
-    IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), collateralAmount_);
+    IERC20(v.assetCollateral).safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
     // enter markets (repeat entering is not a problem)
     address[] memory markets = new address[](2);
-    markets[0] = cTokenCollateral;
-    markets[1] = cTokenBorrow;
+    markets[0] = v.cTokenCollateral;
+    markets[1] = v.cTokenBorrow;
     _comptroller.enterMarkets(markets);
 
-    uint tokenBalanceBefore = _supply(cTokenCollateral, assetCollateral, collateralAmount_);
+    uint tokenBalanceBefore = _supply(v.cTokenCollateral, v.assetCollateral, collateralAmount_);
 
     // make borrow
-    uint balanceBorrowAsset0 = _getBalance(assetBorrow);
-    IDForceCToken(cTokenBorrow).borrow(borrowAmount_);
+    uint balanceBorrowAsset0 = _getBalance(v.assetBorrow);
+    IDForceCToken(v.cTokenBorrow).borrow(borrowAmount_);
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
-    if (_isMatic(assetBorrow)) {
+    if (_isMatic(v.assetBorrow)) {
       IWmatic(WMATIC).deposit{value: borrowAmount_}();
     }
     require(
-      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(v.assetBorrow).balanceOf(address(this)),
       AppErrors.WRONG_BORROWED_BALANCE
     );
-    IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
+    IERC20(v.assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
     // register the borrow in DebtMonitor
     IDebtMonitor(c.debtMonitor()).onOpenPosition();
 
     // ensure that current health factor is greater than min allowed
-    (uint healthFactor, uint tokenBalanceAfter) = _validateHealthStatusAfterBorrow(c, cTokenCollateral, cTokenBorrow);
+    (uint healthFactor, uint tokenBalanceAfter) = _validateHealthStatusAfterBorrow(c, v.cTokenCollateral, v.cTokenBorrow);
     require(tokenBalanceAfter >= tokenBalanceBefore, AppErrors.WEIRD_OVERFLOW); // overflow below is not possible
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
 
+    _registerInBookkeeperBorrow(c, collateralAmount_, borrowAmount_);
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
 
     return borrowAmount_;
@@ -285,6 +299,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     // ensure that current health factor is greater than min allowed
     (resultHealthFactor18,) = _validateHealthStatusAfterBorrow(c, collateralCToken, cTokenBorrow);
 
+    _registerInBookkeeperBorrow(c, 0, borrowAmount_);
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
@@ -382,6 +397,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       collateralTokensBalance -= tokenBalanceBefore - tokenBalanceAfter;
     }
 
+    _registerInBookkeeperRepay(controller, collateralAmountToReturn, amountToRepay_);
     emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor18);
     return collateralAmountToReturn;
   }
@@ -437,6 +453,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       address assetCollateral = collateralAsset;
       IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amount_);
       tokenBalanceBefore = _supply(cTokenCollateral, collateralAsset, amount_);
+      _registerInBookkeeperBorrow(controller, amount_, 0);
     } else {
       uint borrowBalance;
       address assetBorrow = borrowAsset;
@@ -456,6 +473,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
         // replaced by infinity approve in constructor: IERC20(assetBorrow).safeApprove(cTokenBorrow, amount_);
         IDForceCToken(cTokenBorrow).repayBorrow(amount_);
       }
+      _registerInBookkeeperRepay(controller, 0, amount_);
     }
     // validate result status
     (uint tokenBalanceAfter,,
@@ -646,6 +664,24 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   /// @dev TODO SCB-794 should be fixed in same way as it was fixed in AAVE3, AAVETwo
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 > uint(controller_.minHealthFactor2()) * 10 ** (18 - 2), AppErrors.WRONG_HEALTH_FACTOR);
+  }
+
+  /// @notice Register borrow operation in Bookkeeper
+  function _registerInBookkeeperBorrow(
+    IConverterController controller_,
+    uint amountCollateral,
+    uint amountBorrow
+  ) internal {
+    IBookkeeper(controller_.bookkeeper()).onBorrow(amountCollateral, amountBorrow);
+  }
+
+  /// @notice Register repay operation in Bookkeeper
+  function _registerInBookkeeperRepay(
+    IConverterController controller_,
+    uint withdrawnCollateral,
+    uint paidAmount
+  ) internal {
+    IBookkeeper(controller_.bookkeeper()).onRepay(withdrawnCollateral, paidAmount);
   }
   //endregion ----------------------------------------------------- Utils
 

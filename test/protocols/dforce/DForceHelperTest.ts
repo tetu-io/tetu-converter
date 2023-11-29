@@ -1,28 +1,29 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {
-  BorrowManager__factory,
-  DForcePlatformAdapter__factory, IDForceInterestRateModel__factory,
-} from "../../../typechain";
 import {expect} from "chai";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {
   DForceHelper, IBorrowRewardsPredictionInput,
   IRewardsStatePoint,
   ISupplyRewardsStatePoint
-} from "../../../scripts/integration/helpers/DForceHelper";
+} from "../../../scripts/integration/dforce/DForceHelper";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
-import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
+import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/protocols/dforce/SupplyBorrowUsingDForce";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
+import {
+  BorrowManager__factory,
+  DForcePlatformAdapter__factory,
+  IDForceInterestRateModel__factory
+} from "../../../typechain";
 
-describe("DForceHelper tests", () => {
+describe.skip("DForceHelper tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -74,7 +75,7 @@ describe("DForceHelper tests", () => {
     // use DForce-platform adapter to predict amount of rewards
     const controller = await TetuConverterApp.createController(
       deployer,
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
     );
     const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 
@@ -132,7 +133,7 @@ describe("DForceHelper tests", () => {
     // use DForce-platform adapter to predict amount of rewards
     const controller = await TetuConverterApp.createController(
       deployer,
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
     );
     const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 

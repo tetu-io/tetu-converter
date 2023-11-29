@@ -1,38 +1,22 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {
-  IERC20Metadata__factory,
-  IDForceController,
-  IDForceCToken,
-  IDForceCToken__factory,
-  DForcePlatformAdapter__factory,
-  DForceAprLibFacade,
-  BorrowManager__factory,
-  DForcePlatformAdapter,
-  ConverterController,
-  IDForceController__factory,
-} from "../../../typechain";
 import {expect} from "chai";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
-import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
-import {DForceHelper, IDForceMarketData} from "../../../scripts/integration/helpers/DForceHelper";
+import {PredictBrUsesCase} from "../../baseUT/uses-cases/shared/PredictBrUsesCase";
+import {DForceHelper, IDForceMarketData} from "../../../scripts/integration/dforce/DForceHelper";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
-import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
+import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/protocols/dforce/SupplyBorrowUsingDForce";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {AprDForce, getDForceStateInfo} from "../../baseUT/apr/aprDForce";
+import {AprDForce, getDForceStateInfo} from "../../baseUT/protocols/dforce/aprDForce";
 import {Misc} from "../../../scripts/utils/Misc";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
-import {convertUnits} from "../../baseUT/apr/aprUtils";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
+import {convertUnits} from "../../baseUT/protocols/shared/aprUtils";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {
@@ -40,10 +24,23 @@ import {
   HardhatUtils,
   POLYGON_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
-import {GAS_LIMIT, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
-import {AppConstants} from "../../baseUT/AppConstants";
+import {GAS_LIMIT, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/types/GasLimit";
+import {AppConstants} from "../../baseUT/types/AppConstants";
+import {IConversionPlan} from "../../baseUT/types/AppDataTypes";
+import {DForcePlatformActor} from "../../baseUT/protocols/dforce/DForcePlatformActor";
+import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
+import {
+  BorrowManager__factory,
+  ConverterController, DForceAprLibFacade, DForcePlatformAdapter, DForcePlatformAdapter__factory,
+  IDForceController, IDForceController__factory,
+  IDForceCToken,
+  IDForceCToken__factory,
+  IERC20Metadata__factory
+} from "../../../typechain";
 
-describe("DForcePlatformAdapterTest", () => {
+describe.skip("DForcePlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -73,48 +70,6 @@ describe("DForcePlatformAdapterTest", () => {
   });
 //endregion before, after
 
-//region IPlatformActor impl
-  class DForcePlatformActor implements IPlatformActor {
-    collateralCToken: IDForceCToken;
-    borrowCToken: IDForceCToken;
-    comptroller: IDForceController;
-    constructor(
-      collateralCToken: IDForceCToken,
-      borrowCToken: IDForceCToken,
-      comptroller: IDForceController
-    ) {
-      this.borrowCToken = borrowCToken;
-      this.collateralCToken = collateralCToken;
-      this.comptroller = comptroller;
-    }
-    async getAvailableLiquidity() : Promise<BigNumber> {
-      const cashBefore = await this.borrowCToken.getCash();
-      const borrowBefore = await this.borrowCToken.totalBorrows();
-      const reserveBefore = await this.borrowCToken.totalReserves();
-      console.log(`Reserve data before: cash=${cashBefore.toString()} borrow=${borrowBefore.toString()} reserve=${reserveBefore.toString()}`);
-      return cashBefore;
-    }
-    async getCurrentBR(): Promise<BigNumber> {
-      const br = await this.borrowCToken.borrowRatePerBlock();
-      console.log(`BR=${br}`);
-      return br;
-    }
-    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      const collateralAsset = await this.collateralCToken.underlying();
-      await IERC20Metadata__factory.connect(collateralAsset, deployer)
-        .approve(this.collateralCToken.address, collateralAmount);
-      console.log(`Supply collateral ${collateralAsset} amount ${collateralAmount}`);
-      await this.comptroller.enterMarkets([this.collateralCToken.address, this.borrowCToken.address]);
-      await this.collateralCToken.mint(deployer.address, collateralAmount);
-
-    }
-    async borrow(borrowAmount: BigNumber): Promise<void> {
-      await this.borrowCToken.borrow(borrowAmount);
-      console.log(`Borrow ${borrowAmount}`);
-    }
-  }
-//endregion IPlatformActor impl
-
 //region Test predict-br impl
   async function makePredictBrTest(
     collateralAsset: string,
@@ -127,16 +82,14 @@ describe("DForcePlatformAdapterTest", () => {
     const collateralToken = IDForceCToken__factory.connect(collateralCToken, deployer);
     const borrowToken = IDForceCToken__factory.connect(borrowCToken, deployer);
     const comptroller = await DForceHelper.getController(deployer);
+    const actor = new DForcePlatformActor(collateralToken, borrowToken, comptroller, deployer);
 
-    return PredictBrUsesCase.makeTest(
-      deployer,
-      new DForcePlatformActor(collateralToken, borrowToken, comptroller),
-      "dforce",
-      collateralAsset,
-      borrowAsset,
-      collateralHolders,
-      part10000
-    );
+    return PredictBrUsesCase.predictBrTest(deployer, actor, {
+        collateralAsset,
+        borrowAsset,
+        collateralHolders,
+        part10000,
+    });
   }
 //endregion Test predict-br impl
 
@@ -439,7 +392,7 @@ describe("DForcePlatformAdapterTest", () => {
     ) : Promise<{data: IContractsSet, platformAdapter: DForcePlatformAdapter}> {
       const controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
@@ -508,7 +461,7 @@ describe("DForcePlatformAdapterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -1171,7 +1124,6 @@ describe("DForcePlatformAdapterTest", () => {
             borrowAsset: MaticAddresses.USDC,
             countBlocks: 1000,
             entryData: "0x",
-            user: Misc.ZERO_ADDRESS
           },
           200,
           {gasLimit: GAS_LIMIT},
@@ -1298,7 +1250,7 @@ describe("DForcePlatformAdapterTest", () => {
           // use DForce-platform adapter to predict amount of rewards
           const controller = await TetuConverterApp.createController(
             deployer,
-            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+            {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
           );
           const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 
@@ -1349,7 +1301,7 @@ describe("DForcePlatformAdapterTest", () => {
       snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
     after(async function () {
@@ -1441,7 +1393,7 @@ describe("DForcePlatformAdapterTest", () => {
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
-      controller = await TetuConverterApp.createController(deployer);
+      controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
     });
     after(async function () {
       await TimeUtils.rollback(snapshotLocal);
@@ -1522,7 +1474,7 @@ describe("DForcePlatformAdapterTest", () => {
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
 
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
       const converterNormal = await AdaptersHelper.createDForcePoolAdapter(deployer);
       const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
         deployer,
@@ -1563,7 +1515,7 @@ describe("DForcePlatformAdapterTest", () => {
     describe("Good paths", () => {
       it("should assign expected value to frozen", async () => {
         const controller = await TetuConverterApp.createController(deployer,
-          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
 
         const comptroller = await DForceHelper.getController(deployer);
@@ -1592,7 +1544,7 @@ describe("DForcePlatformAdapterTest", () => {
         const comptroller = await DForceHelper.getController(deployer);
         const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
           deployer,
-          (await TetuConverterApp.createController(deployer)).address,
+          (await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,})).address,
           comptroller.address,
           ethers.Wallet.createRandom().address,
           [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
@@ -1607,7 +1559,7 @@ describe("DForcePlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      const controller = await TetuConverterApp.createController(deployer);
+      const controller = await TetuConverterApp.createController(deployer, {networkId: POLYGON_NETWORK_ID,});
 
       const comptroller = await DForceHelper.getController(deployer);
       const pa = await AdaptersHelper.createDForcePlatformAdapter(

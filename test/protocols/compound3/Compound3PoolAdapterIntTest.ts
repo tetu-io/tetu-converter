@@ -14,13 +14,13 @@ import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {IBorrowAndRepayBadParams} from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
-import {IComet__factory, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
-import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {Misc} from "../../../scripts/utils/Misc";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {MocksHelper} from "../../baseUT/app/MocksHelper";
+import {IComet__factory, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 
 describe("Compound3PoolAdapterIntTest", () => {
 //region Global vars for all tests

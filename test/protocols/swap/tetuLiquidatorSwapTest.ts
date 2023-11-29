@@ -2,18 +2,9 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {
-  ConverterController,
-  IERC20__factory,
-  ITetuLiquidator,
-  ITetuLiquidator__factory,
-  SwapManager,
-  SwapManager__factory
-} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {expect} from "chai";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {
@@ -21,8 +12,16 @@ import {
   HardhatUtils,
   POLYGON_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
-import {GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER} from "../../baseUT/GasLimit";
+import {GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER} from "../../baseUT/types/GasLimit";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {
+  ConverterController,
+  IERC20__factory, ITetuLiquidator,
+  ITetuLiquidator__factory,
+  SwapManager,
+  SwapManager__factory
+} from "../../../typechain";
 
 describe("TetuLiquidatorSwapTest", () => {
 //region Global vars for all tests
@@ -42,7 +41,7 @@ describe("TetuLiquidatorSwapTest", () => {
     signer = signers[0];
 
     // Deploy all application contracts
-    controller = await TetuConverterApp.createController(signer, {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR});
+    controller = await TetuConverterApp.createController(signer, {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR});
 
     // Deploy SwapManager
     swapManager = SwapManager__factory.connect(await controller.swapManager(), signer) as SwapManager;

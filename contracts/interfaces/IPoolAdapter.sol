@@ -72,7 +72,7 @@ interface IPoolAdapter is IConverter {
   /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
   /// @return healthFactor18 Current health factor, decimals 18
   /// @return opened The position is opened (there is not empty collateral/borrow balance)
-  /// @return collateralAmountLiquidated How much collateral was liquidated
+  /// @return collateralAmountLiquidated How much collateral was liquidated, amount of lost collateral
   /// @return debtGapRequired When paying off a debt, the amount of the payment must be greater
   ///         than the amount of the debt by a small amount (debt gap, see IConverterController.debtGap)
   ///         getStatus returns it (same as getConfig) to exclude additional call of getConfig by the caller

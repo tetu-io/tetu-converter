@@ -2,11 +2,11 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {HfAprLibFacade} from "../../../typechain";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {expect} from "chai";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {HfAprLibFacade} from "../../../typechain";
 
 describe.skip("HfAprLib unit tests", () => {
 //region Global vars for all tests

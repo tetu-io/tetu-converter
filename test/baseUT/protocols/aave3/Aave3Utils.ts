@@ -1,8 +1,11 @@
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {IAave3ReserveInfo} from "../../../../scripts/integration/helpers/Aave3Helper";
+import {IAave3ReserveInfo} from "../../../../scripts/integration/aave3/Aave3Helper";
 import {IAaveToken__factory} from "../../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {BaseAddresses} from "../../../../scripts/addresses/BaseAddresses";
+import {BaseUtils} from "../../chains/base/BaseUtils";
 
 export class Aave3Utils {
   /* Calculate max allowed amount to borrow by markets configuration data */
@@ -72,4 +75,46 @@ export class Aave3Utils {
 
     return expectedMaxAmountToSupply;
   }
+
+  static getAllAssetsMatic(): string[] {
+    return [
+      MaticAddresses.USDC,
+      MaticAddresses.USDT,
+      MaticAddresses.DAI,
+      MaticAddresses.WETH,
+      MaticAddresses.wstETH,
+      MaticAddresses.WBTC,
+      MaticAddresses.WMATIC,
+      MaticAddresses.BALANCER,
+      MaticAddresses.miMATIC,
+      MaticAddresses.stMATIC,
+      MaticAddresses.MaticX,
+    ];
+  }
+
+  static getAllAssetsBase(): string[] {
+    return [
+      BaseAddresses.USDbC,
+      BaseAddresses.WETH,
+      BaseAddresses.cbETH,
+    ];
+  }
+
+  static getAssetNameBase(asset: string): string {
+    switch (asset) {
+      case BaseAddresses.USDbC: return "USDbC";
+      case BaseAddresses.WETH: return "WETH";
+      case BaseAddresses.cbETH: return "cbETH";
+      default: throw Error(`No asset name found for asset ${asset}`);
+    }
+  }
+
+  static getHolderBase(asset: string): string {
+    return BaseUtils.getHolder(asset);
+  }
+
+  static getAdditionalAssetHoldersBase(asset: string): string[] {
+    return BaseUtils.getAdditionalAssetHolders(asset);
+  }
+
 }

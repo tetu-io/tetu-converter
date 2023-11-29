@@ -28,7 +28,7 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
   }
 
   //region ---------------------------------------------- Constants
-  string public constant DEBT_MONITOR_VERSION = "1.0.3";
+  string public constant DEBT_MONITOR_VERSION = "1.0.4";
   /// @notice Allow {closeLiquidatedPosition} to close position with collateral amount less than given value
   /// @dev For simplicity, this value is same for all assets (with any decimals).
   uint public constant CLOSE_POSITION_GAP_TOKENS = 100;
@@ -71,10 +71,14 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
 
   //region ---------------------------------------------- Operations with positions
 
-  /// @notice Check if the pool-adapter-caller has an opened position
   function isPositionOpened() external override view returns (bool) {
     return positionLastAccess[msg.sender] != 0;
   }
+
+  function isPositionOpenedEx(address poolAdapter) external override view returns (bool) {
+    return positionLastAccess[poolAdapter] != 0;
+  }
+
 
   /// @notice Register new borrow position if it's not yet registered
   /// @dev This function is called from a pool adapter after any borrow

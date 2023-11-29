@@ -11,7 +11,7 @@ import "../proxy/ControllableV3.sol";
 contract ConverterController is IConverterController, ControllableV3 {
 
   //region ------------------------------------- Constants
-  string public constant CONVERTER_CONTROLLER_VERSION = "1.0.1";
+  string public constant CONVERTER_CONTROLLER_VERSION = "1.0.2";
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
   /// @notice Denominator for {debtGap}
   uint constant DEBT_GAP_DENOMINATOR = 100_000;
@@ -81,6 +81,9 @@ contract ConverterController is IConverterController, ControllableV3 {
 
   /// @inheritdoc IConverterController
   bool public override rebalanceOnBorrowEnabled;
+
+  /// @notice Address of bookkeeper
+  address public override bookkeeper;
   //endregion ------------------------------------- Variables
 
   //region ------------------------------------- Events
@@ -93,6 +96,7 @@ contract ConverterController is IConverterController, ControllableV3 {
   event OnAcceptGovernance(address pendingGovernance);
   event OnSetDebtGap(uint debtGap);
   event OnSetPriceOracle(address priceOracle);
+  event OnSetBookkeeper(address bookkeeper);
   //endregion ------------------------------------- Events
 
   //region ------------------------------------- Initialization
@@ -149,6 +153,7 @@ contract ConverterController is IConverterController, ControllableV3 {
     // you can always change this limit using setMaxHealthFactor
     maxHealthFactor2 = 5000;
 
+    // bookkeeper is initialized using setBookkeeper
   }
 
   function _onlyGovernance() internal view {
@@ -304,5 +309,14 @@ contract ConverterController is IConverterController, ControllableV3 {
   }
   //endregion ------------------------------------- Rebalance on borrowing
 
+  //region ------------------------------------- Bookkeeper
+  function setBookkeeper(address bookkeeper_) external {
+    _onlyGovernance();
+    require(bookkeeper_ != address(0), AppErrors.ZERO_ADDRESS);
+
+    bookkeeper = bookkeeper_;
+    emit OnSetBookkeeper(bookkeeper_);
+  }
+  //endregion ------------------------------------- Bookkeeper
 
 }

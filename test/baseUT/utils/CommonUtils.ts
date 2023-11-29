@@ -1,28 +1,25 @@
-import {BigNumber} from "ethers";
+import {BigNumber, BigNumberish} from "ethers";
 import {BalanceUtils} from "./BalanceUtils";
-import {IERC20__factory} from "../../../typechain";
+import {IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {parseUnits} from "ethers/lib/utils";
 
 export async function setInitialBalance(
   deployer: SignerWithAddress,
   asset: string,
-  holders: string,
   amount: number | BigNumber,
   recipient: string
 ) : Promise<BigNumber> {
-  const hh = holders.split(";");
-
-  let dest: BigNumber = BigNumber.from(0);
-  for (const h of hh) {
-    await BalanceUtils.getAmountFromHolder(asset, h, recipient, amount);
-    dest = dest.add(
-      await IERC20__factory.connect(asset, deployer).balanceOf(recipient)
-    );
-  }
-
-  return dest;
+  const token = await IERC20Metadata__factory.connect(asset, deployer);
+  const requiredAmount = typeof(amount) === "number"
+    ? parseUnits(amount.toString(), await token.decimals())
+    : amount;
+  await TokenUtils.getToken(asset, recipient, requiredAmount);
+  return token.balanceOf(recipient);
 }
 
 /// @param accuracy 10 for 1e-10
@@ -37,10 +34,6 @@ export function areAlmostEqual(b1: BigNumber, b2: BigNumber, accuracy: number = 
   console.log("approx4", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toString());
   console.log("approx5", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toNumber().toString());
   return b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toNumber() === 0;
-}
-
-export function toMantissa(amount: BigNumber, from: number, to: number): BigNumber {
-  return amount.mul(getBigNumberFrom(1, to)).div(getBigNumberFrom(1, from));
 }
 
 /**
@@ -58,14 +51,29 @@ export function getDifference(bn1?: BigNumber, bn2?: BigNumber) : BigNumber {
   return (bn1 || BigNumber.from(0)).sub(bn2 || BigNumber.from(0));
 }
 
-export function getRatioMul100(bn1?: BigNumber, bn2?: BigNumber) : BigNumber | undefined {
-  if (bn1 && bn2 && !bn1.eq(0) && !bn2.eq(0)) {
-    return bn1.mul(100).div(bn2);
-  }
-  return undefined;
-}
-
 
 export function getSum(bn: BigNumber[]) : BigNumber {
   return bn.reduce((a, b) => a.add(b), BigNumber.from(0));
+}
+
+export class CommonUtils {
+  public static toString(n: BigNumberish | boolean | undefined) : string {
+    if (n === undefined) {
+      return "";
+    }
+    return typeof n === "object" && n.toString()
+        ? n.toString()
+        : "" + n;
+  }
+
+  public static toMantissa(amount: BigNumber, from: number, to: number): BigNumber {
+    return amount.mul(getBigNumberFrom(1, to)).div(getBigNumberFrom(1, from));
+  }
+
+  public static getRatioMul100(bn1?: BigNumber, bn2?: BigNumber) : BigNumber | undefined {
+    if (bn1 && bn2 && !bn1.eq(0) && !bn2.eq(0)) {
+      return bn1.mul(100).div(bn2);
+    }
+    return undefined;
+  }
 }

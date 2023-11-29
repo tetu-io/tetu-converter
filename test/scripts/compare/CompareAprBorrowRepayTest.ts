@@ -2,24 +2,23 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {IStrategyToConvert} from "../../baseUT/apr/aprDataTypes";
+import {IStrategyToConvert} from "../../baseUT/protocols/shared/aprDataTypes";
 import {BigNumber} from "ethers";
 import {ConverterController, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {Aave3PlatformFabric} from "../../baseUT/fabrics/Aave3PlatformFabric";
-import {AaveTwoPlatformFabric} from "../../baseUT/fabrics/AaveTwoPlatformFabric";
-import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
-import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
 import {
   BorrowRepayUsesCase,
-} from "../../baseUT/uses-cases/BorrowRepayUsesCase";
+} from "../../baseUT/uses-cases/app/BorrowRepayUsesCase";
 import {ITokenParams} from "../../baseUT/types/BorrowRepayDataTypes";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {existsSync, writeFileSync} from "fs";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
+import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
 import {writeFileSyncRestoreFolder} from "../../baseUT/utils/FileUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
+import {AaveTwoPlatformFabric} from "../../baseUT/logic/fabrics/AaveTwoPlatformFabric";
+import {DForcePlatformFabric} from "../../baseUT/logic/fabrics/DForcePlatformFabric";
+import {Aave3PlatformFabric} from "../../baseUT/logic/fabrics/Aave3PlatformFabric";
 
 describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
@@ -57,22 +56,22 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
+         {networkId: POLYGON_NETWORK_ID,}, // disable swap
         [new Aave3PlatformFabric()],
-        {} // disable swap
       );
       controllerForAave3 = controller;
     }
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
+         {networkId: POLYGON_NETWORK_ID,}, // disable swap
         [new AaveTwoPlatformFabric()],
-        {} // disable swap
       );
       controllerForAaveTwo = controller;
     }
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
+         {networkId: POLYGON_NETWORK_ID,}, // disable swap
         [new DForcePlatformFabric()],
-        {} // disable swap
       );
       controllerForDForce = controller;
       // Let's replace DForce's price oracle by mocked version
@@ -88,8 +87,8 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
     // }
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
-        [],
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR} // enable swap
+        {networkId: POLYGON_NETWORK_ID, tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}, // enable swap
+            [],
       );
       controllerSwap = controller;
     }
@@ -172,7 +171,7 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       controller,
       countBlocks
     );
-    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer, MaticAddresses.AAVE_V3_POOL);
     const prices = await priceOracle.getAssetsPrices([collateral.asset, borrow.asset]);
 
     return {
