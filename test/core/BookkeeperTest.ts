@@ -3,7 +3,7 @@ import {HARDHAT_NETWORK_ID, HardhatUtils} from "../../scripts/utils/HardhatUtils
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {
-  Bookkeeper,
+  Bookkeeper, BookkeeperLib__factory,
   BorrowManagerStub__factory,
   MockERC20,
   PoolAdapterMock2,
@@ -16,6 +16,8 @@ import {Misc} from "../../scripts/utils/Misc";
 import {MocksHelper} from "../baseUT/app/MocksHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
+import {ContractReceipt} from "ethers";
+import {OnAddPoolAdapterEventObject} from "../../typechain/contracts/libs/BookkeeperLib";
 
 describe("BookkeeperTest", () => {
 //region Global vars for all tests
@@ -89,6 +91,14 @@ describe("BookkeeperTest", () => {
       prices?: string[]; // "1" by default
     }
 
+    interface IOnAddPoolAdapterParams {
+      poolAdapter: string;
+      onBorrow: boolean;
+      user: string;
+    }
+    interface IResultEvents {
+      onAddPoolAdapter?: IOnAddPoolAdapterParams;
+    }
     interface IResults {
       countActions: number;
       // last registered action data
@@ -98,6 +108,31 @@ describe("BookkeeperTest", () => {
       losses: number;
       prices: number[];
       poolAdaptersPerUserValid: boolean;
+      events: IResultEvents;
+    }
+
+    function parseEvents(cr: ContractReceipt): IResultEvents {
+      let onAddPoolAdapter: IOnAddPoolAdapterParams | undefined;
+
+      const inf = BookkeeperLib__factory.createInterface();
+      for (const event of (cr.events ?? [])) {
+        if (event.topics[0].toLowerCase() === inf.getEventTopic("OnAddPoolAdapter").toLowerCase()) {
+          const log = (inf.decodeEventLog(
+            inf.getEvent("OnAddPoolAdapter"),
+            event.data,
+            event.topics
+          ) as unknown) as OnAddPoolAdapterEventObject;
+          onAddPoolAdapter = {
+            poolAdapter: log.poolAdapter,
+            onBorrow: log.onBorrow,
+            user: log.user
+          };
+        }
+      }
+
+      return {
+        onAddPoolAdapter
+      }
     }
 
     async function makeTest(p: IParams): Promise<IResults> {
@@ -129,16 +164,21 @@ describe("BookkeeperTest", () => {
         borrowAsset.address
       );
 
+      let events: IResultEvents;
       if (p.isBorrow) {
-        await bookkeeper.connect(await Misc.impersonate(poolAdapter.address)).onBorrow(
+        const tx = await bookkeeper.connect(await Misc.impersonate(poolAdapter.address)).onBorrow(
           parseUnits(p.amountC, decimalsCollateral),
           parseUnits(p.amountB, decimalsBorrow),
         );
+        const cr = await tx.wait();
+        events = parseEvents(cr);
       } else {
-        await bookkeeper.connect(await Misc.impersonate(poolAdapter.address)).onRepay(
+        const tx = await bookkeeper.connect(await Misc.impersonate(poolAdapter.address)).onRepay(
           parseUnits(p.amountC, decimalsCollateral),
           parseUnits(p.amountB, decimalsBorrow),
         );
+        const cr = await tx.wait();
+        events = parseEvents(cr);
       }
 
       const countActions = (await bookkeeper.actionsLength(poolAdapter.address)).toNumber();
@@ -171,7 +211,8 @@ describe("BookkeeperTest", () => {
         losses,
         prices,
 
-        poolAdaptersPerUserValid
+        poolAdaptersPerUserValid,
+        events
       }
     }
 
@@ -204,6 +245,10 @@ describe("BookkeeperTest", () => {
         expect(retBorrow1.poolAdaptersPerUserValid).eq(true);
       });
 
+      it("should emit OnAddPoolAdapter", () => {
+        expect(retBorrow1.events.onAddPoolAdapter !== undefined).eq(true);
+      });
+
       describe("second borrow", () => {
         let snapshotLocal1: string;
         let retBorrow2: IResults;
@@ -227,6 +272,10 @@ describe("BookkeeperTest", () => {
           ).eq(
             [15, 30,].join()
           )
+        });
+
+        it("should NOT emit OnAddPoolAdapter", () => {
+          expect(retBorrow2.events.onAddPoolAdapter === undefined).eq(true);
         });
 
         describe("partial repay", () => {

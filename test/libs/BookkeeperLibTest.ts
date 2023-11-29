@@ -856,7 +856,7 @@ describe("BookkeeperLibTest", () => {
       it("should return expected gain and loss", async () => {
         expect([ret.gains, ret.losses].join()).eq([3, 8].join());
       });
-      it("should keep the pool adapter in the set of the user", async () => {
+      it("should remove the pool adapter from the set of the user", async () => {
         expect(ret.inSet.join()).eq([false].join());
       });
       it("should add expected value to periods array", async () => {
@@ -908,7 +908,7 @@ describe("BookkeeperLibTest", () => {
       it("should return expected gain and loss", async () => {
         expect([ret.gains, ret.losses].join()).eq([8, 20].join());
       });
-      it("should keep the pool adapter in the set of the user", async () => {
+      it("should remove the pool adapters from the set of the user", async () => {
         expect(ret.inSet.join()).eq([false, false].join());
       });
       it("should add expected value to periods array", async () => {
@@ -990,7 +990,7 @@ describe("BookkeeperLibTest", () => {
       it("should return expected gain and loss", async () => {
         expect([ret.gains, ret.losses].join()).eq([5 + 3 + 6 + 4, 12 + 11 + 8 + 9].join());
       });
-      it("should keep the pool adapter in the set of the user", async () => {
+      it("should keep all pool adapters except one in the set of the user", async () => {
         expect(ret.inSet.join()).eq([true, false, true, true].join());
       });
       it("should add expected value to periods array", async () => {
