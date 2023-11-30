@@ -12,10 +12,10 @@ import {writeFileSyncRestoreFolder} from "../../test/baseUT/utils/FileUtils";
 async function main() {
   const destPathTxt = "tmp/deployed.txt";
   const contractsToUpdate = [
-    "TetuConverter",
+    // "TetuConverter",
     "BorrowManager",
     "ConverterController",
-    "DebtMonitor"
+    "DebtMonitor",
   ];
 
   const net = await ethers.provider.getNetwork();
