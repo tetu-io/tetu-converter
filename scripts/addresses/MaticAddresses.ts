@@ -227,4 +227,22 @@ export class MaticAddresses {
 //region liquidity pools
   public static SUSHI_WETH_COMP = "0x9021A31062A1D9C9C35d632Ed54a9d923e46809F";
 //endregion liquidity
+
+//region ----------------------------------------------------- 0vix
+  /** https://docs.0vix.com/developers/contract-addresses/mainnet */
+  public static ZEROVIX_COMPTROLLER = "0x8849f1a0cB6b5D6076aB150546EddEe193754F1C";
+  public static ZEROVIX_PRICE_ORACLE = "0x1c312b14c129EabC4796b0165A2c470b659E5f01";
+  public static ZEROVIX_ADMIN = "0x7b2b0cBaDC25953A64D77B4785848b48B45E1017";
+
+  public static oWETH = "0xb2D9646A1394bf784E376612136B3686e74A325F";
+  public static oDai = "0x2175110F2936bf630a278660E9B6E4EFa358490A";
+  public static oUSDC = "0xEBb865Bf286e6eA8aBf5ac97e1b56A76530F3fBe";
+  public static oUSDT = "0x1372c34acC14F1E8644C72Dad82E3a21C211729f";
+  public static oMatic = "0xE554E874c9c60E45F1Debd479389C76230ae25A8";
+  public static oWBTC = "0x3B9128Ddd834cE06A60B0eC31CCfB11582d8ee18";
+  public static oMAI = "0xC57E5e261d49Af3026446de3eC381172f17bB799";
+  public static oMATICX = "0xAAcc5108419Ae55Bc3588E759E28016d06ce5F40";
+  public static ostMATIC = "0xDc3C5E5c01817872599e5915999c0dE70722D07f";
+  public static owstETH = "0xf06edA703C62b9889C75DccDe927b93bde1Ae654";
+//endregion ----------------------------------------------------- 0vix
 }

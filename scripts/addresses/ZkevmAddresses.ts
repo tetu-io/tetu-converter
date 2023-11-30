@@ -9,7 +9,20 @@ export class ZkevmAddresses {
 //endregion ----------------------------------------------------- Assets
 
 //region ----------------------------------------------------- 0vix
+  /** https://docs.0vix.com/developers/contract-addresses/mainnet-1 */
+  public static ZEROVIX_COMPTROLLER = "0x6EA32f626e3A5c41547235ebBdf861526e11f482"; // impl: "0x91e9e99AC7C39d5c057F83ef44136dFB1e7adD7d";
+  public static ZEROVIX_PRICE_ORACLE = "0x65D53619b2BbBb69f8F895Be08758e796952101f"; // "0xBC81104207C160cFE48585cC8D753aD2c7031FF7";
+  public static ZEROVIX_ADMIN = "0x14cc958d41a377d46da4b939c8147bc46426e9af";
 
+  public static oNative = "0xee1727f5074e747716637e1776b7f7c7133f16b1"; // native
+  public static oUSDC = "0x68d9baA40394dA2e2c1ca05d30BF33F52823ee7B";
+  public static oUSDT = "0xad41C77d99E282267C1492cdEFe528D7d5044253";
+  public static oMatic = "0x8903Dc1f4736D2FcB90C1497AebBABA133DaAC76";
+  public static oWETH = "0xbC59506A5Ce024B892776d4F7dd450B0FB3584A2";
+  public static oWBTC = "0x503deabad9641c5B4015041eEb0F1263E415715D";
+  public static oDai = "";
+  public static oMAI = "";
+  public static oMATICX = "";
 //endregion ----------------------------------------------------- 0vix
 
 }
