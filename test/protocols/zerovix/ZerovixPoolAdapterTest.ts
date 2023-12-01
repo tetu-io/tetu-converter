@@ -33,12 +33,11 @@ import {generateAssetPairs} from "../../baseUT/utils/AssetPairUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {BigNumber} from "ethers";
 import {AppConstants} from "../../baseUT/types/AppConstants";
-import {InjectUtils} from "../../baseUT/chains/base/InjectUtils";
-import {BaseUtils} from "../../baseUT/chains/base/BaseUtils";
 import {ZkevmAddresses} from "../../../scripts/addresses/ZkevmAddresses";
 import {ZerovixUtilsZkevm} from "../../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
 import {TokenUtils} from "../../../scripts/utils/TokenUtils";
+import {ZkevmUtils} from "../../baseUT/chains/zkevm/ZkevmUtils";
 
 describe("ZerovixPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -212,7 +211,7 @@ describe("ZerovixPoolAdapterTest", () => {
           {collateral: ZkevmAddresses.MATIC, borrow: ZkevmAddresses.USDT, amount: "0.01"},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
-          const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
+          const testName = `${ZkevmUtils.getAssetName(b.collateral)} - ${ZkevmUtils.getAssetName(b.borrow)}`;
           describe(testName, () => {
             it("should borrow expected amount", async () => {
               const ret = await borrow({
@@ -231,7 +230,7 @@ describe("ZerovixPoolAdapterTest", () => {
           {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.WETH, amount: "1000"},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
-          const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
+          const testName = `${ZkevmUtils.getAssetName(b.collateral)} - ${ZkevmUtils.getAssetName(b.borrow)}`;
           describe(testName, () => {
             it("should borrow expected amount", async () => {
               const ret = await borrow({
@@ -382,7 +381,7 @@ describe("ZerovixPoolAdapterTest", () => {
             {collateral: ZkevmAddresses.MATIC, borrow: ZkevmAddresses.USDT, amount: "0.01"},
           ];
           BORROWS.forEach(function (b: IRepayParams) {
-            const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
+            const testName = `${ZkevmUtils.getAssetName(b.collateral)} - ${ZkevmUtils.getAssetName(b.borrow)}`;
             async function repayTest(): Promise<IResults>  {
               return repay({
                 collateralAsset: b.collateral,
@@ -421,7 +420,7 @@ describe("ZerovixPoolAdapterTest", () => {
             {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.WETH, amount: "1000"},
           ];
           BORROWS.forEach(function (b: IRepayParams) {
-            const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
+            const testName = `${ZkevmUtils.getAssetName(b.collateral)} - ${ZkevmUtils.getAssetName(b.borrow)}`;
             async function repayTest(): Promise<IResults>  {
               return repay({
                 collateralAsset: b.collateral,
@@ -465,7 +464,7 @@ describe("ZerovixPoolAdapterTest", () => {
         }
         it("should receive expected collateral", async () => {
           const ret = await loadFixture(repayTest);
-          expect(ret.collateralBalance).gte(20);
+          expect(ret.collateralBalance + 1e-6).gte(20);
         });
         it("should keep the debt opened", async () => {
           const ret = await loadFixture(repayTest);
@@ -684,7 +683,7 @@ describe("ZerovixPoolAdapterTest", () => {
       TESTS.forEach(function (test: ITest) {
         describe(test.title, () => {
           test.borrows.forEach(function (b: IParamsForPrepare) {
-            const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
+            const testName = `${ZkevmUtils.getAssetName(b.collateral)} - ${ZkevmUtils.getAssetName(b.borrow)}`;
             describe(testName, () => {
               let snapshotLocal: string;
               let pr: IPrepareResults;

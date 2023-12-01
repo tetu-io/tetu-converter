@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import "../compound/ICTokenBase.sol";
 
 /// @notice Restored from zkevm.0x1Eef85B09C8BC5e58A9eD81fF6b2E1420747857D, events were removed
-interface IZerovixToken is ICTokenBase {
+interface IZerovixToken {
   function _acceptAdmin() external returns (uint256);
 
   function _addReserves(uint256 addAmount) external returns (uint256);
@@ -35,7 +35,8 @@ interface IZerovixToken is ICTokenBase {
 
   function balanceOfUnderlying(address owner) external returns (uint256);
 
-  function borrow(uint256 borrowAmount) external; // (!)
+  /// @dev (!) Signature is different from IZerovixTokenNative
+  function borrow(uint256 borrowAmount) external;
 
   function borrowBalanceCurrent(address account) external returns (uint256);
 
@@ -67,7 +68,8 @@ interface IZerovixToken is ICTokenBase {
 
   function liquidateBorrow(address borrower, uint256 repayAmount, address oTokenCollateral) external;
 
-  function mint(uint256 mintAmount) external; // (!)
+  /// @dev (!) Signature is different from IZerovixTokenNative
+  function mint(uint256 mintAmount) external;
 
   function name() external view returns (string memory);
 
@@ -75,7 +77,8 @@ interface IZerovixToken is ICTokenBase {
 
   function protocolSeizeShareMantissa() external view returns (uint256);
 
-  function redeem(uint256 redeemTokens) external; // (!)
+  /// @dev (!) Signature is different from IZerovixTokenNative
+  function redeem(uint256 redeemTokens) external;
 
   function redeemUnderlying(uint256 redeemAmount) external;
 

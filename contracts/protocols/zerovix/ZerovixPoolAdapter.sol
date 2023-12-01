@@ -6,7 +6,7 @@ import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
 import "./ZerovixLib.sol";
-import "../compound/CompoundPoolAdapterLib.sol";
+import "./ZerovixCompoundPoolAdapterLib.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../interfaces/IDebtMonitor.sol";
@@ -25,7 +25,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
   //region ----------------------------------------------------- Constants and variables
   string public constant POOL_ADAPTER_VERSION = "1.0.0";
 
-  CompoundPoolAdapterLib.State internal _state;
+  ZerovixCompoundPoolAdapterLib.State internal _state;
   //endregion ----------------------------------------------------- Constants and variables
 
   //region ----------------------------------------------------- Initialization
@@ -43,7 +43,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     // and initializes it immediately. We should ensure only that the re-initialization is not possible
   initializer
   {
-    CompoundPoolAdapterLib.initialize(
+    ZerovixCompoundPoolAdapterLib.initialize(
       _state,
       controller_,
       cTokenAddressProvider_,
@@ -58,7 +58,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
 
   //region ----------------------------------------------------- Borrow logic
   function updateStatus() external override {
-    CompoundPoolAdapterLib.updateStatus(_state);
+    ZerovixCompoundPoolAdapterLib.updateStatus(_state);
   }
 
   /// @notice Supply collateral to the pool and borrow specified amount
@@ -71,7 +71,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return CompoundPoolAdapterLib.borrow(_state, f, collateralAmount_, borrowAmount_, receiver_);
+    return ZerovixCompoundPoolAdapterLib.borrow(_state, f, collateralAmount_, borrowAmount_, receiver_);
   }
 
   /// @notice Borrow additional amount {borrowAmount_} using exist collateral and send it to {receiver_}
@@ -85,7 +85,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return CompoundPoolAdapterLib.borrowToRebalance(_state, f, borrowAmount_, receiver_);
+    return ZerovixCompoundPoolAdapterLib.borrowToRebalance(_state, f, borrowAmount_, receiver_);
   }
   //endregion ----------------------------------------------------- Borrow logic
 
@@ -101,7 +101,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return CompoundPoolAdapterLib.repay(_state, f, amountToRepay_, receiver_, closePosition_);
+    return ZerovixCompoundPoolAdapterLib.repay(_state, f, amountToRepay_, receiver_, closePosition_);
   }
 
   /// @notice Repay with rebalancing. Send amount of collateral/borrow asset to the pool adapter
@@ -117,12 +117,12 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return CompoundPoolAdapterLib.repayToRebalance(_state, f, amount_, isCollateral_);
+    return ZerovixCompoundPoolAdapterLib.repayToRebalance(_state, f, amount_, isCollateral_);
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
   function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
-    return CompoundPoolAdapterLib.getCollateralAmountToReturn(_state, amountToRepay_, closePosition_);
+    return ZerovixCompoundPoolAdapterLib.getCollateralAmountToReturn(_state, amountToRepay_, closePosition_);
   }
   //endregion ----------------------------------------------------- Repay logic
 
@@ -161,7 +161,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return CompoundPoolAdapterLib.getStatus(_state, f);
+    return ZerovixCompoundPoolAdapterLib.getStatus(_state, f);
   }
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
