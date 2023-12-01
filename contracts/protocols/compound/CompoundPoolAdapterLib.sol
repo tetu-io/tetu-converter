@@ -235,9 +235,12 @@ library CompoundPoolAdapterLib {
 
     // supply collateral
     uint tokenBalanceBeforeBorrow = _supply(f_, v.cTokenCollateral, collateralAmount_);
+    console.log("borrow.3.1");
 
     // make borrow
     uint balanceBorrowAssetBefore = _getBalance(f_, v.assetBorrow);
+
+    console.log("start borrow");
     v.error = ICTokenBase(v.cTokenBorrow).borrow(borrowAmount_);
     require(v.error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(v.error))));
     console.log("borrow.4");
@@ -560,12 +563,15 @@ library CompoundPoolAdapterLib {
     tokenBalanceBefore = IERC20(cToken_).balanceOf(address(this));
 
     if (f_.cTokenNative == cToken_) {
+      console.log("_supply.1");
       INativeToken(f_.nativeToken).withdraw(amount_);
       ICTokenNative(payable(cToken_)).mint{value: amount_}();
     } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
+      console.log("_supply.2");
       uint error = ICTokenBase(cToken_).mint(amount_);
       require(error == 0, string(abi.encodePacked(AppErrors.MINT_FAILED, Strings.toString(error))));
     }
+    console.log("_supply.3");
   }
 
   /// @return healthFactor18 Current health factor, decimal 18
@@ -703,6 +709,7 @@ library CompoundPoolAdapterLib {
 
   /// @param asset Underlying, it can be native token
   function _getBalance(CompoundLib.ProtocolFeatures memory f_, address asset) internal view returns (uint) {
+    console.log("_getBalance");
     return f_.nativeToken == asset
       ? address(this).balance
       : IERC20(asset).balanceOf(address(this));

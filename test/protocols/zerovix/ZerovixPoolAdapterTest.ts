@@ -18,7 +18,6 @@ import {ethers} from "hardhat";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {ZerovixHelper} from "../../../scripts/integration/zerovix/ZerovixHelper";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
 import {
   IZerovixPreparePlan,
   ZerovixPlatformAdapterUtils
@@ -38,6 +37,8 @@ import {InjectUtils} from "../../baseUT/chains/base/InjectUtils";
 import {BaseUtils} from "../../baseUT/chains/base/BaseUtils";
 import {ZkevmAddresses} from "../../../scripts/addresses/ZkevmAddresses";
 import {ZerovixUtilsZkevm} from "../../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
+import {MocksHelper} from "../../baseUT/app/MocksHelper";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 
 describe("ZerovixPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -52,6 +53,7 @@ describe("ZerovixPoolAdapterTest", () => {
   let tetuConverterReplacer: TetuConverterReplacer;
   let converterGovernance: SignerWithAddress;
   let borrowManagerAsGov: BorrowManager;
+  let tetuLiquidator: string;
 //endregion Global vars for all tests
 
 //region before, after
@@ -62,6 +64,8 @@ describe("ZerovixPoolAdapterTest", () => {
     const signers = await ethers.getSigners();
     signer = signers[0];
 
+    tetuLiquidator = (await MocksHelper.createTetuLiquidatorMock(signer, [], [])).address; // todo ZkevmAddresses.TETU_LIQUIDATOR
+
     tetuConverterReplacer = await DeployUtils.deployContract(signer, "TetuConverterReplacer") as TetuConverterReplacer;
     converterController = await TetuConverterApp.createController(
       signer, {
@@ -69,7 +73,7 @@ describe("ZerovixPoolAdapterTest", () => {
         tetuConverterFabric: {
           deploy: async () => tetuConverterReplacer.address,
         },
-        tetuLiquidatorAddress: BaseAddresses.TETU_LIQUIDATOR
+        tetuLiquidatorAddress: tetuLiquidator
       }
     );
     comptroller = ZerovixHelper.getComptroller(signer, ZkevmAddresses.ZEROVIX_COMPTROLLER);
@@ -154,7 +158,6 @@ describe("ZerovixPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = await BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -166,7 +169,7 @@ describe("ZerovixPoolAdapterTest", () => {
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
       const collateralAmountApproved = parseUnits(p.collateralAmountApproved || p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -202,11 +205,11 @@ describe("ZerovixPoolAdapterTest", () => {
       }
       describe("Not-native token", () => {
         const BORROWS: IBorrowParams[] = [
-          {collateral: BaseAddresses.USDbC, borrow: BaseAddresses.USDC, amount: "2500"},
-          {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDC, amount: "1"},
-          {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "50000"},
-          {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDbC, amount: "1000"},
-          {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDbC, amount: "0.01"},
+          {collateral: ZkevmAddresses.USDT, borrow: ZkevmAddresses.USDC, amount: "2500"},
+          {collateral: ZkevmAddresses.MATIC, borrow: ZkevmAddresses.USDC, amount: "1"},
+          {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.MATIC, amount: "50000"},
+          {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.USDT, amount: "1000"},
+          {collateral: ZkevmAddresses.MATIC, borrow: ZkevmAddresses.USDT, amount: "0.01"},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
           const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
@@ -224,8 +227,8 @@ describe("ZerovixPoolAdapterTest", () => {
       });
       describe("Native token", () => {
         const BORROWS: IBorrowParams[] = [
-          {collateral: BaseAddresses.WETH, borrow: BaseAddresses.USDC, amount: "1"},
-          {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "1000"},
+          {collateral: ZkevmAddresses.WETH, borrow: ZkevmAddresses.USDC, amount: "1"},
+          {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.WETH, amount: "1000"},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
           const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
@@ -245,8 +248,8 @@ describe("ZerovixPoolAdapterTest", () => {
     describe("Bad paths", () => {
       it("should revert if not TetuConverter", async () => {
         await expect(borrow({
-          collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDC,
+          collateralAsset: ZkevmAddresses.MATIC,
+          borrowAsset: ZkevmAddresses.USDC,
           collateralAmount: "1",
           notTetuConverter: true
         })).rejectedWith("TC-8 tetu converter only") // TETU_CONVERTER_ONLY
@@ -287,8 +290,6 @@ describe("ZerovixPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
-      const borrowHolder = BaseUtils.getHolder(p.borrowAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -300,7 +301,7 @@ describe("ZerovixPoolAdapterTest", () => {
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
       const collateralAmountApproved = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -322,7 +323,7 @@ describe("ZerovixPoolAdapterTest", () => {
 
       // prepare to repay
       const amountToRepay = statusAfterBorrow.amountToPay.mul(p.repayPart ?? 100_000).div(100_000);
-      await BalanceUtils.getAmountFromHolder(p.borrowAsset, borrowHolder, tetuConverterSigner.address, amountToRepay.mul(2));
+      await TokenUtils.getToken(p.borrowAsset, tetuConverterSigner.address, amountToRepay.mul(2));
       await IERC20__factory.connect(p.borrowAsset, tetuConverterSigner).approve(poolAdapterInstance.address, amountToRepay.mul(2));
 
       if (p.countBlocksBetweenBorrowAndRepay) {
@@ -374,11 +375,11 @@ describe("ZerovixPoolAdapterTest", () => {
           });
 
           const BORROWS: IRepayParams[] = [
-            {collateral: BaseAddresses.USDbC, borrow: BaseAddresses.USDC, amount: "2500"},
-            {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDC, amount: "1"},
-            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "50000"},
-            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDbC, amount: "1000"},
-            {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDbC, amount: "0.01"},
+            {collateral: ZkevmAddresses.USDT, borrow: ZkevmAddresses.USDC, amount: "2500"},
+            {collateral: ZkevmAddresses.MATIC, borrow: ZkevmAddresses.USDC, amount: "1"},
+            {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.MATIC, amount: "50000"},
+            {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.USDT, amount: "1000"},
+            {collateral: ZkevmAddresses.MATIC, borrow: ZkevmAddresses.USDT, amount: "0.01"},
           ];
           BORROWS.forEach(function (b: IRepayParams) {
             const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
@@ -416,8 +417,8 @@ describe("ZerovixPoolAdapterTest", () => {
           });
 
           const BORROWS: IRepayParams[] = [
-            {collateral: BaseAddresses.WETH, borrow: BaseAddresses.USDC, amount: "1"},
-            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "1000"},
+            {collateral: ZkevmAddresses.WETH, borrow: ZkevmAddresses.USDC, amount: "1"},
+            {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.WETH, amount: "1000"},
           ];
           BORROWS.forEach(function (b: IRepayParams) {
             const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}`;
@@ -456,8 +457,8 @@ describe("ZerovixPoolAdapterTest", () => {
 
         async function repayTest(): Promise<IResults>  {
           return repay({
-            collateralAsset: BaseAddresses.USDC,
-            borrowAsset: BaseAddresses.USDbC,
+            collateralAsset: ZkevmAddresses.USDC,
+            borrowAsset: ZkevmAddresses.USDT,
             collateralAmount: "100",
             repayPart: 20_000
           });
@@ -495,8 +496,8 @@ describe("ZerovixPoolAdapterTest", () => {
 
       it("should revert if not TetuConverter", async () => {
         await expect(repay({
-          collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDC,
+          collateralAsset: ZkevmAddresses.MATIC,
+          borrowAsset: ZkevmAddresses.USDC,
           collateralAmount: "1",
           notTetuConverter: true
         })).rejectedWith("TC-8 tetu converter only") // TETU_CONVERTER_ONLY
@@ -504,8 +505,8 @@ describe("ZerovixPoolAdapterTest", () => {
 
       it("should revert if try to repay too match", async () => {
         await expect(repay({
-          collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDC,
+          collateralAsset: ZkevmAddresses.MATIC,
+          borrowAsset: ZkevmAddresses.USDC,
           collateralAmount: "1",
           repayPart: 100_001
         })).rejectedWith("TC-15 wrong borrow balance") // WRONG_BORROWED_BALANCE
@@ -548,8 +549,6 @@ describe("ZerovixPoolAdapterTest", () => {
       borrowAsset: IERC20Metadata;
       decimalsCollateral: number;
       decimalsBorrow: number;
-      collateralHolder: string;
-      borrowHolder: string;
       plan: IConversionPlanNum;
       collateralAmount: BigNumber;
       collateralAmountApproved: BigNumber;
@@ -566,8 +565,6 @@ describe("ZerovixPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
-      const borrowHolder = BaseUtils.getHolder(p.borrowAsset);
 
       // set up initial health factor
       await converterController.connect(converterGovernance).setTargetHealthFactor2(parseUnits(p.targetHealthFactorBeforeBorrow, 2));
@@ -582,7 +579,7 @@ describe("ZerovixPoolAdapterTest", () => {
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
       const collateralAmountApproved = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -613,14 +610,12 @@ describe("ZerovixPoolAdapterTest", () => {
       return {
         receiver,
         borrowAsset,
-        borrowHolder,
         tetuConverterSigner,
         collateralAmountApproved,
         collateralAmount,
         decimalsBorrow,
         plan,
         collateralAsset,
-        collateralHolder,
         poolAdapterInstance,
         statusAfterBorrow,
         decimalsCollateral
@@ -633,10 +628,10 @@ describe("ZerovixPoolAdapterTest", () => {
         ? pr.statusAfterBorrow.collateralAmount.mul(p.repayPart ?? 100_000).div(100_000)
         : pr.statusAfterBorrow.amountToPay.mul(p.repayPart ?? 100_000).div(100_000);
       if (p.isCollateral) {
-        await BalanceUtils.getAmountFromHolder(pr.collateralAsset.address, pr.collateralHolder, pr.tetuConverterSigner.address, amountIn.mul(2));
+        await TokenUtils.getToken(pr.collateralAsset.address, pr.tetuConverterSigner.address, amountIn.mul(2));
         await IERC20__factory.connect(pr.collateralAsset.address, pr.tetuConverterSigner).approve(pr.poolAdapterInstance.address, amountIn.mul(2));
       } else {
-        await BalanceUtils.getAmountFromHolder(pr.borrowAsset.address, pr.borrowHolder, pr.tetuConverterSigner.address, amountIn.mul(2));
+        await TokenUtils.getToken(pr.borrowAsset.address, pr.tetuConverterSigner.address, amountIn.mul(2));
         await IERC20__factory.connect(pr.borrowAsset.address, pr.tetuConverterSigner).approve(pr.poolAdapterInstance.address, amountIn.mul(2));
       }
 
@@ -672,16 +667,16 @@ describe("ZerovixPoolAdapterTest", () => {
         {
           title: "Native token",
           borrows: [
-            {collateral: BaseAddresses.WETH, borrow: BaseAddresses.USDC, amount: "100"},
-            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "100"},
+            {collateral: ZkevmAddresses.WETH, borrow: ZkevmAddresses.USDC, amount: "100"},
+            {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.WETH, amount: "100"},
           ]
         },
         {
           title: "Not native token",
           borrows: [
-            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "50000"},
-            {collateral: BaseAddresses.USDC, borrow: BaseAddresses.USDbC, amount: "1000"},
-            {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDbC, amount: "0.1"},
+            {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.MATIC, amount: "50000"},
+            {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.USDT, amount: "1000"},
+            {collateral: ZkevmAddresses.MATIC, borrow: ZkevmAddresses.USDT, amount: "0.1"},
           ]
         },
       ];
@@ -772,8 +767,8 @@ describe("ZerovixPoolAdapterTest", () => {
 
       it("should revert if not TetuConverter", async () => {
         const pr = await prepare({
-          collateralAsset: BaseAddresses.USDC,
-          borrowAsset: BaseAddresses.USDbC,
+          collateralAsset: ZkevmAddresses.USDC,
+          borrowAsset: ZkevmAddresses.USDT,
           collateralAmount: "1000",
           targetHealthFactorBeforeRepay: "2",
           targetHealthFactorBeforeBorrow: "3",
@@ -804,9 +799,9 @@ describe("ZerovixPoolAdapterTest", () => {
       const receiver = ethers.Wallet.createRandom().address;
       const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
 
-      await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, BaseAddresses.DAI, BaseAddresses.WETH);
+      await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, ZkevmAddresses.MATIC, ZkevmAddresses.WETH);
       const poolAdapterInstance = ZerovixPoolAdapter__factory.connect(
-        await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, BaseAddresses.DAI, BaseAddresses.WETH),
+        await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, ZkevmAddresses.MATIC, ZkevmAddresses.WETH),
         tetuConverterSigner
       );
       const config = await poolAdapterInstance.getConfig();
@@ -818,8 +813,8 @@ describe("ZerovixPoolAdapterTest", () => {
       ].join().toLowerCase()).eq([
         poolAdapter.address,
         receiver,
-        BaseAddresses.DAI,
-        BaseAddresses.WETH
+        ZkevmAddresses.MATIC,
+        ZkevmAddresses.WETH
       ].join().toLowerCase());
     })
   });
@@ -855,7 +850,6 @@ describe("ZerovixPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -866,7 +860,7 @@ describe("ZerovixPoolAdapterTest", () => {
 
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -900,8 +894,8 @@ describe("ZerovixPoolAdapterTest", () => {
     describe("Good paths", () => {
       it("should return expected amount for full repay", async () => {
         const ret = await getCollateralAmountToReturn({
-          collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDC,
+          collateralAsset: ZkevmAddresses.MATIC,
+          borrowAsset: ZkevmAddresses.USDC,
           collateralAmount: "1234",
           closePosition: true,
           partToRepay: 100_000,
@@ -910,8 +904,8 @@ describe("ZerovixPoolAdapterTest", () => {
       });
       it("should return expected amount for partial repay", async () => {
         const ret = await getCollateralAmountToReturn({
-          collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDC,
+          collateralAsset: ZkevmAddresses.MATIC,
+          borrowAsset: ZkevmAddresses.USDC,
           collateralAmount: "500",
           closePosition: false,
           partToRepay: 50_000,
@@ -953,7 +947,6 @@ describe("ZerovixPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -964,7 +957,7 @@ describe("ZerovixPoolAdapterTest", () => {
 
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -1002,8 +995,8 @@ describe("ZerovixPoolAdapterTest", () => {
     describe("Good paths", () => {
       it("should increase debt amount and collateral amount", async () => {
         const ret = await updateStatus({
-          collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDC,
+          collateralAsset: ZkevmAddresses.MATIC,
+          borrowAsset: ZkevmAddresses.USDC,
           collateralAmount: "1234",
           countBlocksBeforeUpdateStatus: 10_000
         });
@@ -1013,169 +1006,165 @@ describe("ZerovixPoolAdapterTest", () => {
         expect(ret.statusAfterUpdateStatus.collateralAmount).gt(ret.statusAfterBorrow.collateralAmount);
       });
     });
-//endregion Unit tests
   });
 
-  describe("claimRewards", () => {
-    let snapshotLocal: string;
-    beforeEach(async function () {
-      snapshotLocal = await TimeUtils.snapshot();
-    });
-    afterEach(async function () {
-      await TimeUtils.rollback(snapshotLocal);
-    });
-
-    interface IParams {
-      collateralAsset: string;
-      borrowAsset: string;
-      collateralAmount: string;
-
-      countBlocksBeforeClaimingRewards: number;
-    }
-
-    interface IResults {
-      rewardToken: string;
-      amount: number;
-      rewardsBalance: number;
-    }
-
-    async function claimRewards(p: IParams): Promise<IResults> {
-      await InjectUtils.registerWethWellPoolInLiquidator(signer);
-      const liquidator = await ITetuLiquidator__factory.connect(BaseAddresses.TETU_LIQUIDATOR, signer);
-      const test = await liquidator.getPrice(BaseAddresses.WELL, BaseAddresses.USDC, BigNumber.from("65147450812097255374"));
-      console.log("test", test);
-
-
-      const receiver = ethers.Wallet.createRandom().address;
-      const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
-
-      const collateralAsset = IERC20Metadata__factory.connect(p.collateralAsset, signer);
-      const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
-      const decimalsCollateral = await collateralAsset.decimals();
-      const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
-
-      // prepare conversion plan
-      const plan = await getConversionPlan({
-        collateralAsset: p.collateralAsset,
-        borrowAsset: p.borrowAsset,
-        amountIn: p.collateralAmount,
-        countBlocks: p.countBlocksBeforeClaimingRewards
-      });
-
-      // put collateral amount on TetuConverter balance
-      const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
-
-      // initialize the pool adapter
-      await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
-      const poolAdapterInstance = ZerovixPoolAdapter__factory.connect(
-        await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset),
-        tetuConverterSigner
-      );
-      await IERC20__factory.connect(p.collateralAsset, tetuConverterSigner).approve(poolAdapterInstance.address, collateralAmount);
-
-      // make borrow
-      await poolAdapterInstance.connect(tetuConverterSigner).borrow(
-        collateralAmount,
-        parseUnits(plan.amountToBorrow.toString(), decimalsBorrow),
-        receiver
-      );
-
-      // move time
-      await TimeUtils.advanceNBlocks(p.countBlocksBeforeClaimingRewards);
-
-      // call update status
-      const ret = await poolAdapterInstance.callStatic.claimRewards(receiver);
-      await poolAdapterInstance.claimRewards(receiver);
-
-      return {
-        rewardToken: ret.rewardToken,
-        amount: ret.amount.eq(0)
-          ? 0
-          : +formatUnits(ret.amount, await IERC20Metadata__factory.connect(ret.rewardToken, signer).decimals()),
-        rewardsBalance: +formatUnits(
-          await IERC20__factory.connect(BaseAddresses.WELL, signer).balanceOf(receiver),
-          await IERC20Metadata__factory.connect(BaseAddresses.WELL, signer).decimals()
-        )
-      }
-    }
-
-    describe("Good paths", () => {
-      it("should increase debt amount and collateral amount DAI:USDC", async () => {
-        const ret = await claimRewards({
-          collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDC,
-          collateralAmount: "1234",
-          countBlocksBeforeClaimingRewards: 10_000,
-        });
-        console.log(ret);
-        // const ret2 = await claimRewards({
-        //   collateralAsset: BaseAddresses.DAI,
-        //   borrowAsset: BaseAddresses.USDC,
-        //   collateralAmount: "1234",
-        //   countBlocksBeforeClaimingRewards: 10_000,
-        // });
-        expect(ret.amount).gt(0, "rewards should be paid");
-        expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
-      });
-      it("should increase debt amount and collateral amount USDC:USDbC", async () => {
-        const ret = await claimRewards({
-          collateralAsset: BaseAddresses.USDC,
-          borrowAsset: BaseAddresses.USDbC,
-          collateralAmount: "1234",
-          countBlocksBeforeClaimingRewards: 10_000,
-        });
-        console.log(ret);
-        expect(ret.amount).gt(0, "rewards should be paid");
-        expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
-      });
-    });
-    describe("temp test @skip-on-coverage", () => {
-      it("todo", async () => {
-        await InjectUtils.registerWethWellPoolInLiquidator(signer);
-        const assets = [
-          BaseAddresses.WETH,
-          BaseAddresses.USDC,
-          BaseAddresses.USDbC,
-          BaseAddresses.DAI,
-        ]
-
-        const liquidator = await ITetuLiquidator__factory.connect(BaseAddresses.TETU_LIQUIDATOR, signer);
-        const well = IERC20Metadata__factory.connect(BaseAddresses.WELL, signer);
-        const decimalsWell = await well.decimals();
-
-        for (const asset of assets) {
-          const assetName = await IERC20Metadata__factory.connect(asset, signer).symbol();
-          const assetDecimals = await IERC20Metadata__factory.connect(asset, signer).decimals();
-          const source1 = parseUnits("1000", decimalsWell);
-          const fromWell = await liquidator.getPrice(BaseAddresses.WELL, asset, source1);
-          console.log(`well ${source1.toString()} => ${assetName} ${fromWell.toString()}`);
-
-          const source2 = parseUnits("1000", assetDecimals);
-          const toWell = await liquidator.getPrice(asset, BaseAddresses.WELL, source2);
-          console.log(`${assetName} ${source2.toString()}=> well ${toWell.toString()}`);
-        }
-
-        const sourceTest1 = BigNumber.from("65147450812097255374");
-        const test1 = await liquidator.getPrice(BaseAddresses.WELL, BaseAddresses.USDC, sourceTest1.toString());
-        console.log(`WELL ${sourceTest1.toString()} => USDC ${test1.toString()}`);
-
-        const sourceTest2 = BigNumber.from("33");
-        const test2 = await liquidator.getPrice(BaseAddresses.WELL, BaseAddresses.USDC, sourceTest2.toString());
-        console.log(`WELL ${sourceTest2.toString()} => USDC ${test2.toString()}`);
-
-        // const receiver = ethers.Wallet.createRandom().address;
-        // await BalanceUtils.getAmountFromHolder(BaseAddresses.WELL, BaseAddresses.HOLDER_WELL, receiver, parseUnits("1", 18));
-        // await IERC20Metadata__factory.connect(BaseAddresses.USDC, await Misc.impersonate(receiver)).approve(liquidator.address, Misc.MAX_UINT);
-        // await liquidator.connect(await Misc.impersonate(receiver)).liquidate(BaseAddresses.WELL, BaseAddresses.USDC, sourceTest2, 100_000);
-        // const balance = await IERC20Metadata__factory.connect(BaseAddresses.USDC, signer).balanceOf(receiver);
-        // console.log("balance", balance);
-      });
-    });
-
-//endregion Unit tests
-  });
+  // describe("claimRewards", () => {
+  //   let snapshotLocal: string;
+  //   beforeEach(async function () {
+  //     snapshotLocal = await TimeUtils.snapshot();
+  //   });
+  //   afterEach(async function () {
+  //     await TimeUtils.rollback(snapshotLocal);
+  //   });
+  //
+  //   interface IParams {
+  //     collateralAsset: string;
+  //     borrowAsset: string;
+  //     collateralAmount: string;
+  //
+  //     countBlocksBeforeClaimingRewards: number;
+  //   }
+  //
+  //   interface IResults {
+  //     rewardToken: string;
+  //     amount: number;
+  //     rewardsBalance: number;
+  //   }
+  //
+  //   async function claimRewards(p: IParams): Promise<IResults> {
+  //     await InjectUtils.registerWethWellPoolInLiquidator(signer);
+  //     const liquidator = await ITetuLiquidator__factory.connect(tetuLiquidator, signer);
+  //     const test = await liquidator.getPrice(BaseAddresses.WELL, ZkevmAddresses.USDC, BigNumber.from("65147450812097255374"));
+  //     console.log("test", test);
+  //
+  //
+  //     const receiver = ethers.Wallet.createRandom().address;
+  //     const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+  //
+  //     const collateralAsset = IERC20Metadata__factory.connect(p.collateralAsset, signer);
+  //     const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
+  //     const decimalsCollateral = await collateralAsset.decimals();
+  //     const decimalsBorrow = await borrowAsset.decimals();
+  //
+  //     // prepare conversion plan
+  //     const plan = await getConversionPlan({
+  //       collateralAsset: p.collateralAsset,
+  //       borrowAsset: p.borrowAsset,
+  //       amountIn: p.collateralAmount,
+  //       countBlocks: p.countBlocksBeforeClaimingRewards
+  //     });
+  //
+  //     // put collateral amount on TetuConverter balance
+  //     const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
+  //     await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
+  //
+  //     // initialize the pool adapter
+  //     await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
+  //     const poolAdapterInstance = ZerovixPoolAdapter__factory.connect(
+  //       await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset),
+  //       tetuConverterSigner
+  //     );
+  //     await IERC20__factory.connect(p.collateralAsset, tetuConverterSigner).approve(poolAdapterInstance.address, collateralAmount);
+  //
+  //     // make borrow
+  //     await poolAdapterInstance.connect(tetuConverterSigner).borrow(
+  //       collateralAmount,
+  //       parseUnits(plan.amountToBorrow.toString(), decimalsBorrow),
+  //       receiver
+  //     );
+  //
+  //     // move time
+  //     await TimeUtils.advanceNBlocks(p.countBlocksBeforeClaimingRewards);
+  //
+  //     // call update status
+  //     const ret = await poolAdapterInstance.callStatic.claimRewards(receiver);
+  //     await poolAdapterInstance.claimRewards(receiver);
+  //
+  //     return {
+  //       rewardToken: ret.rewardToken,
+  //       amount: ret.amount.eq(0)
+  //         ? 0
+  //         : +formatUnits(ret.amount, await IERC20Metadata__factory.connect(ret.rewardToken, signer).decimals()),
+  //       rewardsBalance: +formatUnits(
+  //         await IERC20__factory.connect(BaseAddresses.WELL, signer).balanceOf(receiver),
+  //         await IERC20Metadata__factory.connect(BaseAddresses.WELL, signer).decimals()
+  //       )
+  //     }
+  //   }
+  //
+  //   describe("Good paths", () => {
+  //     it("should increase debt amount and collateral amount DAI:USDC", async () => {
+  //       const ret = await claimRewards({
+  //         collateralAsset: ZkevmAddresses.MATIC,
+  //         borrowAsset: ZkevmAddresses.USDC,
+  //         collateralAmount: "1234",
+  //         countBlocksBeforeClaimingRewards: 10_000,
+  //       });
+  //       console.log(ret);
+  //       // const ret2 = await claimRewards({
+  //       //   collateralAsset: ZkevmAddresses.MATIC,
+  //       //   borrowAsset: ZkevmAddresses.USDC,
+  //       //   collateralAmount: "1234",
+  //       //   countBlocksBeforeClaimingRewards: 10_000,
+  //       // });
+  //       expect(ret.amount).gt(0, "rewards should be paid");
+  //       expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
+  //     });
+  //     it("should increase debt amount and collateral amount USDC:USDbC", async () => {
+  //       const ret = await claimRewards({
+  //         collateralAsset: ZkevmAddresses.USDC,
+  //         borrowAsset: ZkevmAddresses.USDT,
+  //         collateralAmount: "1234",
+  //         countBlocksBeforeClaimingRewards: 10_000,
+  //       });
+  //       console.log(ret);
+  //       expect(ret.amount).gt(0, "rewards should be paid");
+  //       expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
+  //     });
+  //   });
+  //   describe("temp test @skip-on-coverage", () => {
+  //     it("todo", async () => {
+  //       await InjectUtils.registerWethWellPoolInLiquidator(signer);
+  //       const assets = [
+  //         ZkevmAddresses.WETH,
+  //         ZkevmAddresses.USDC,
+  //         ZkevmAddresses.USDT,
+  //         ZkevmAddresses.MATIC,
+  //       ]
+  //
+  //       const liquidator = await ITetuLiquidator__factory.connect(BaseAddresses.TETU_LIQUIDATOR, signer);
+  //       const well = IERC20Metadata__factory.connect(BaseAddresses.WELL, signer);
+  //       const decimalsWell = await well.decimals();
+  //
+  //       for (const asset of assets) {
+  //         const assetName = await IERC20Metadata__factory.connect(asset, signer).symbol();
+  //         const assetDecimals = await IERC20Metadata__factory.connect(asset, signer).decimals();
+  //         const source1 = parseUnits("1000", decimalsWell);
+  //         const fromWell = await liquidator.getPrice(BaseAddresses.WELL, asset, source1);
+  //         console.log(`well ${source1.toString()} => ${assetName} ${fromWell.toString()}`);
+  //
+  //         const source2 = parseUnits("1000", assetDecimals);
+  //         const toWell = await liquidator.getPrice(asset, BaseAddresses.WELL, source2);
+  //         console.log(`${assetName} ${source2.toString()}=> well ${toWell.toString()}`);
+  //       }
+  //
+  //       const sourceTest1 = BigNumber.from("65147450812097255374");
+  //       const test1 = await liquidator.getPrice(BaseAddresses.WELL, ZkevmAddresses.USDC, sourceTest1.toString());
+  //       console.log(`WELL ${sourceTest1.toString()} => USDC ${test1.toString()}`);
+  //
+  //       const sourceTest2 = BigNumber.from("33");
+  //       const test2 = await liquidator.getPrice(BaseAddresses.WELL, ZkevmAddresses.USDC, sourceTest2.toString());
+  //       console.log(`WELL ${sourceTest2.toString()} => USDC ${test2.toString()}`);
+  //
+  //       // const receiver = ethers.Wallet.createRandom().address;
+  //       // await BalanceUtils.getAmountFromHolder(BaseAddresses.WELL, BaseAddresses.HOLDER_WELL, receiver, parseUnits("1", 18));
+  //       // await IERC20Metadata__factory.connect(ZkevmAddresses.USDC, await Misc.impersonate(receiver)).approve(liquidator.address, Misc.MAX_UINT);
+  //       // await liquidator.connect(await Misc.impersonate(receiver)).liquidate(BaseAddresses.WELL, ZkevmAddresses.USDC, sourceTest2, 100_000);
+  //       // const balance = await IERC20Metadata__factory.connect(ZkevmAddresses.USDC, signer).balanceOf(receiver);
+  //       // console.log("balance", balance);
+  //     });
+  //   });
+  // });
 
 //endregion Unit tests
 });
