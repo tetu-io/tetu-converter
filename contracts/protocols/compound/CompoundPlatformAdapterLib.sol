@@ -17,6 +17,7 @@ import "../../integrations/compound/ICompoundPriceOracle.sol";
 import "../../libs/AppDataTypes.sol";
 import "../../integrations/compound/ICompoundComptrollerBaseV1.sol";
 import "../../integrations/compound/ICompoundComptrollerBaseV2.sol";
+import "../../integrations/compound/ICompoundComptrollerBaseV2Zerovix.sol";
 import "../../libs/AppErrors.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../libs/EntryKinds.sol";
@@ -326,7 +327,7 @@ library CompoundPlatformAdapterLib {
       uint256 collateralFactorMantissa;
       if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
         (isListed, collateralFactorMantissa) = ICompoundComptrollerBaseV1(address(comptroller)).markets(cTokenBorrow_);
-      } else {
+      } else { // CompoundLib.COMPOUND_STORAGE_V2
         (isListed, collateralFactorMantissa,) = ICompoundComptrollerBaseV2(address(comptroller)).markets(cTokenBorrow_);
       }
 
@@ -334,7 +335,7 @@ library CompoundPlatformAdapterLib {
         ltv18 = collateralFactorMantissa;
         if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
           (isListed, collateralFactorMantissa) = ICompoundComptrollerBaseV1(address(comptroller)).markets(cTokenCollateral_);
-        } else {
+        } else { // CompoundLib.COMPOUND_STORAGE_V2
           (isListed, collateralFactorMantissa,) = ICompoundComptrollerBaseV2(address(comptroller)).markets(cTokenCollateral_);
         }
         if (isListed) {
@@ -348,5 +349,4 @@ library CompoundPlatformAdapterLib {
     return (ltv18, liquidityThreshold18);
   }
   //endregion ----------------------------------------------------- Utils
-
 }

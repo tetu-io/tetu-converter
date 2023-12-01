@@ -1,6 +1,10 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {BASE_NETWORK_ID, controlGasLimitsEx2, HardhatUtils} from "../../../scripts/utils/HardhatUtils";
-import {ConverterController, IMoonwellComptroller, IMoonwellPriceOracle, MoonwellPlatformAdapter, CompoundAprLibFacade, CompoundPlatformAdapterLibFacade, MoonwellPlatformAdapter__factory, IERC20Metadata__factory, BorrowManager__factory, IMToken__factory} from "../../../typechain";
+import {
+  controlGasLimitsEx2,
+  HardhatUtils,
+  ZKEVM_NETWORK_ID
+} from "../../../scripts/utils/HardhatUtils";
+import {ConverterController, IZerovixComptroller, IZerovixPriceOracle, ZerovixPlatformAdapter, CompoundAprLibFacade, CompoundPlatformAdapterLibFacade, ZerovixPlatformAdapter__factory, IERC20Metadata__factory, BorrowManager__factory, IMToken__factory} from "../../../typechain";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {ethers} from "hardhat";
@@ -9,34 +13,32 @@ import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
 import {Misc} from "../../../scripts/utils/Misc";
 import {expect} from "chai";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
-import {MoonwellHelper} from "../../../scripts/integration/moonwell/MoonwellHelper";
+import {ZerovixHelper} from "../../../scripts/integration/zerovix/ZerovixHelper";
 import {IConversionPlanNum} from "../../baseUT/types/AppDataTypes";
 import {
-  IMoonwellPreparePlan,
-  IMoonwellPreparePlanBadPaths,
-  IPlanSourceInfo,
-  MoonwellPlatformAdapterUtils
-} from "../../baseUT/protocols/moonwell/MoonwellPlatformAdapterUtils";
-import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
-import {MoonwellUtils} from "../../baseUT/protocols/moonwell/MoonwellUtils";
+  IPlanSourceInfo, IZerovixPreparePlan, IZerovixPreparePlanBadPaths,
+  ZerovixPlatformAdapterUtils
+} from "../../baseUT/protocols/zerovix/ZerovixPlatformAdapterUtils";
 import {defaultAbiCoder, formatUnits} from "ethers/lib/utils";
 import {AppConstants} from "../../baseUT/types/AppConstants";
 import {BigNumber} from "ethers";
 import {GAS_LIMIT_MOONWELL_GET_CONVERSION_PLAN} from "../../baseUT/types/GasLimit";
 import {generateAssetPairs} from "../../baseUT/utils/AssetPairUtils";
 import {IPredictBrParams, IPredictBrResults, PredictBrUsesCase} from "../../baseUT/uses-cases/shared/PredictBrUsesCase";
-import {MoonwellPlatformActor} from "../../baseUT/protocols/moonwell/MoonwellPlatformActor";
-import {BaseUtils} from "../../baseUT/chains/base/BaseUtils";
+import {ZerovixPlatformActor} from "../../baseUT/protocols/zerovix/ZerovixPlatformActor";
+import {ZkevmAddresses} from "../../../scripts/addresses/ZkevmAddresses";
+import {ZerovixUtilsZkevm} from "../../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
+import {ZkevmUtils} from "../../baseUT/chains/zkevm/ZkevmUtils";
 
-describe("MoonwellPlatformAdapterTest", () => {
+describe("ZerovixPlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let signer: SignerWithAddress;
 
   let converterController: ConverterController;
-  let comptroller: IMoonwellComptroller;
-  let priceOracle: IMoonwellPriceOracle;
-  let platformAdapter: MoonwellPlatformAdapter;
+  let comptroller: IZerovixComptroller;
+  let priceOracle: IZerovixPriceOracle;
+  let platformAdapter: ZerovixPlatformAdapter;
   let facadeAprLib: CompoundAprLibFacade;
   let facadePlatformLib: CompoundPlatformAdapterLibFacade;
   let poolAdapterTemplate: string;
@@ -44,27 +46,27 @@ describe("MoonwellPlatformAdapterTest", () => {
 
 //region before, after
   before(async function () {
-    await HardhatUtils.setupBeforeTest(BASE_NETWORK_ID);
+    await HardhatUtils.setupBeforeTest(ZKEVM_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     signer = signers[0];
 
-    converterController  = await TetuConverterApp.createController(signer, {networkId: BASE_NETWORK_ID,});
-    comptroller = await MoonwellHelper.getComptroller(signer);
-    priceOracle = await MoonwellHelper.getPriceOracle(signer);
+    converterController  = await TetuConverterApp.createController(signer, {networkId: ZKEVM_NETWORK_ID,});
+    comptroller = ZerovixHelper.getComptroller(signer, ZkevmAddresses.ZEROVIX_COMPTROLLER);
+    priceOracle = await ZerovixHelper.getPriceOracle(signer, ZkevmAddresses.ZEROVIX_COMPTROLLER);
     facadeAprLib = await DeployUtils.deployContract(signer, "CompoundAprLibFacade") as CompoundAprLibFacade;
     facadePlatformLib = await DeployUtils.deployContract(signer, "CompoundPlatformAdapterLibFacade") as CompoundPlatformAdapterLibFacade;
 
-    poolAdapterTemplate = (await AdaptersHelper.createMoonwellPoolAdapter(signer)).address;
+    poolAdapterTemplate = (await AdaptersHelper.createZerovixPoolAdapter(signer)).address;
     platformAdapter = await DeployUtils.deployContract(
       signer,
-      "MoonwellPlatformAdapter",
+      "ZerovixPlatformAdapter",
       converterController.address,
       comptroller.address,
       poolAdapterTemplate,
-      MoonwellUtils.getAllCTokens()
-    ) as MoonwellPlatformAdapter;
+      ZerovixUtilsZkevm.getAllCTokens()
+    ) as ZerovixPlatformAdapter;
   });
 
   after(async function () {
@@ -95,12 +97,12 @@ describe("MoonwellPlatformAdapterTest", () => {
     }
     async function initializePlatformAdapter(p: IParams) : Promise<IResults> {
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
-      const cTokens = p.cTokens ?? [BaseAddresses.MOONWELL_USDC, BaseAddresses.MOONWELL_DAI];
+      const cTokens = p.cTokens ?? [ZkevmAddresses.oUSDC, ZkevmAddresses.oUSDT];
 
-      const platformAdapterLocal = await AdaptersHelper.createMoonwellPlatformAdapter(
+      const platformAdapterLocal = await AdaptersHelper.createZerovixPlatformAdapter(
         signer,
         p?.zeroController ? Misc.ZERO_ADDRESS : converterController.address,
-        p?.zeroComptroller ? Misc.ZERO_ADDRESS : BaseAddresses.MOONWELL_COMPTROLLER,
+        p?.zeroComptroller ? Misc.ZERO_ADDRESS : ZkevmAddresses.ZEROVIX_COMPTROLLER,
         p?.zeroConverter ? Misc.ZERO_ADDRESS : templateAdapterNormalStub.address,
         cTokens,
       );
@@ -110,7 +112,7 @@ describe("MoonwellPlatformAdapterTest", () => {
         controller: await platformAdapterLocal.controller(),
         comptroller: await platformAdapterLocal.comptroller(),
         converters: await platformAdapterLocal.converters(),
-        checkedAssets: await Promise.all((p.assetsToCheck ?? [BaseAddresses.USDC, BaseAddresses.DAI]).map(
+        checkedAssets: await Promise.all((p.assetsToCheck ?? [ZkevmAddresses.USDC, ZkevmAddresses.USDT]).map(
           async x =>  platformAdapterLocal.activeAssets(x)
         ))
       };
@@ -119,8 +121,8 @@ describe("MoonwellPlatformAdapterTest", () => {
       describe("Normal case", () => {
         async function initializePlatformAdapterTest(): Promise<IResults> {
           return initializePlatformAdapter({
-            cTokens: [BaseAddresses.MOONWELL_USDC, BaseAddresses.MOONWELL_WETH, BaseAddresses.MOONWELL_DAI],
-            assetsToCheck: [BaseAddresses.USDC, BaseAddresses.WETH, BaseAddresses.cbETH, BaseAddresses.DAI]
+            cTokens: [ZkevmAddresses.oUSDC, ZkevmAddresses.oWETH, ZkevmAddresses.oUSDT],
+            assetsToCheck: [ZkevmAddresses.USDC, ZkevmAddresses.WETH, ZkevmAddresses.oMatic, ZkevmAddresses.USDT]
           })
         }
         it("should return expected controller and comptroller", async () => {
@@ -128,7 +130,7 @@ describe("MoonwellPlatformAdapterTest", () => {
           expect(
             [r.controller, r.comptroller].join().toLowerCase()
           ).eq(
-            [converterController.address, BaseAddresses.MOONWELL_COMPTROLLER].join().toLowerCase()
+            [converterController.address, ZkevmAddresses.ZEROVIX_COMPTROLLER].join().toLowerCase()
           );
         });
         it("should return expected converters", async () => {
@@ -140,7 +142,7 @@ describe("MoonwellPlatformAdapterTest", () => {
           expect(
             r.checkedAssets.join().toLowerCase()
           ).eq(
-            [BaseAddresses.MOONWELL_USDC, BaseAddresses.MOONWELL_WETH, Misc.ZERO_ADDRESS, BaseAddresses.MOONWELL_DAI].join().toLowerCase()
+            [ZkevmAddresses.oUSDC, ZkevmAddresses.oWETH, Misc.ZERO_ADDRESS, ZkevmAddresses.oUSDT].join().toLowerCase()
           );
         });
       });
@@ -171,18 +173,18 @@ describe("MoonwellPlatformAdapterTest", () => {
       expectedPlan: IConversionPlanNum;
       gasUsed: BigNumber;
     }
-    async function getConversionPlan(p: IMoonwellPreparePlan): Promise<IResults> {
+    async function getConversionPlan(p: IZerovixPreparePlan): Promise<IResults> {
       const pa = p.platformAdapter
-        ? MoonwellPlatformAdapter__factory.connect(p.platformAdapter, signer)
+        ? ZerovixPlatformAdapter__factory.connect(p.platformAdapter, signer)
         : platformAdapter;
 
       const {
         plan,
         sourceInfo,
         gasUsed
-      } = await MoonwellPlatformAdapterUtils.getConversionPlan(signer, comptroller, priceOracle, p, pa, poolAdapterTemplate);
+      } = await ZerovixPlatformAdapterUtils.getConversionPlan(signer, comptroller, priceOracle, p, pa, poolAdapterTemplate);
 
-      const expectedPlan = await MoonwellPlatformAdapterUtils.getExpectedPlan(
+      const expectedPlan = await ZerovixPlatformAdapterUtils.getExpectedPlan(
         p,
         plan,
         sourceInfo,
@@ -205,15 +207,15 @@ describe("MoonwellPlatformAdapterTest", () => {
         }
 
         const BORROWS: IBorrowParams[] = [
-          {collateral: BaseAddresses.DAI, borrow: BaseAddresses.USDC, amount: "1000"},
-          {collateral: BaseAddresses.USDC, borrow: BaseAddresses.DAI, amount: "10000"},
-          {collateral: BaseAddresses.USDC, borrow: BaseAddresses.WETH, amount: "5000"},
-          {collateral: BaseAddresses.WETH, borrow: BaseAddresses.DAI, amount: "1"},
-          {collateral: BaseAddresses.USDbC, borrow: BaseAddresses.DAI, amount: "1", entryKind: 1},
-          {collateral: BaseAddresses.USDbC, borrow: BaseAddresses.USDC, amount: "1", entryKind: 2},
+          {collateral: ZkevmAddresses.USDT, borrow: ZkevmAddresses.USDC, amount: "1000"},
+          {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.USDT, amount: "10000"},
+          {collateral: ZkevmAddresses.USDC, borrow: ZkevmAddresses.WETH, amount: "5000"},
+          {collateral: ZkevmAddresses.WETH, borrow: ZkevmAddresses.USDT, amount: "1"},
+          {collateral: ZkevmAddresses.USDT, borrow: ZkevmAddresses.USDC, amount: "1", entryKind: 1},
+          {collateral: ZkevmAddresses.USDT, borrow: ZkevmAddresses.USDC, amount: "1", entryKind: 2},
         ];
         BORROWS.forEach(function (b: IBorrowParams) {
-          const testName = `${BaseUtils.getAssetName(b.collateral)} - ${BaseUtils.getAssetName(b.borrow)}, ${b.entryKind ?? 0}`;
+          const testName = `${ZkevmUtils.getAssetName(b.collateral)} - ${ZkevmUtils.getAssetName(b.borrow)}, ${b.entryKind ?? 0}`;
           describe(testName, () => {
             let snapshotLocal: string;
             before(async function () {
@@ -299,8 +301,8 @@ describe("MoonwellPlatformAdapterTest", () => {
 
         it("should return borrow amount equal to max available amount", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDbC,
-            borrowAsset: BaseAddresses.DAI,
+            collateralAsset: ZkevmAddresses.USDC,
+            borrowAsset: ZkevmAddresses.USDT,
             amountIn: "10000000000000000000000000",
           });
           expect(r.plan.amountToBorrow).eq(r.expectedPlan.maxAmountToBorrow);
@@ -319,8 +321,8 @@ describe("MoonwellPlatformAdapterTest", () => {
         /**  totalBorrows    <    borrowCap       <       totalBorrows + available cash */
         it("maxAmountToBorrow is equal to borrowCap - totalBorrows", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDbC,
-            borrowAsset: BaseAddresses.DAI,
+            collateralAsset: ZkevmAddresses.USDC,
+            borrowAsset: ZkevmAddresses.USDT,
             amountIn: "10000000000000000000000000",
             setMinBorrowCapacityDelta: "7"
           });
@@ -330,8 +332,8 @@ describe("MoonwellPlatformAdapterTest", () => {
         /** totalBorrows    <     totalBorrows + available cash    <     borrowCap */
         it("maxAmountToBorrow is equal to available cash if borrowCap is huge", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDbC,
-            borrowAsset: BaseAddresses.DAI,
+            collateralAsset: ZkevmAddresses.USDC,
+            borrowAsset: ZkevmAddresses.USDT,
             amountIn: "1",
             setMinBorrowCapacityDelta: "7000000000000000000000000000000"
           });
@@ -342,8 +344,8 @@ describe("MoonwellPlatformAdapterTest", () => {
         /** borrowCap   <     totalBorrows    <   totalBorrows + available cash */
         it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDbC,
-            borrowAsset: BaseAddresses.DAI,
+            collateralAsset: ZkevmAddresses.USDC,
+            borrowAsset: ZkevmAddresses.USDT,
             amountIn: "1",
             setBorrowCapacityExceeded: true
           });
@@ -362,8 +364,8 @@ describe("MoonwellPlatformAdapterTest", () => {
 
         it("should return no plan", async () => {
           const r = await getConversionPlan({
-            collateralAsset: BaseAddresses.USDbC,
-            borrowAsset: BaseAddresses.DAI,
+            collateralAsset: ZkevmAddresses.USDC,
+            borrowAsset: ZkevmAddresses.USDT,
             amountIn: "1",
             frozen: true
           });
@@ -383,8 +385,8 @@ describe("MoonwellPlatformAdapterTest", () => {
 
           it("should return not zero borrow amount", async () => {
             const r = await getConversionPlan({
-              collateralAsset: BaseAddresses.USDbC,
-              borrowAsset: BaseAddresses.DAI,
+              collateralAsset: ZkevmAddresses.USDC,
+              borrowAsset: ZkevmAddresses.USDT,
               amountIn: "6338.199834",
               entryData: defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
             });
@@ -404,8 +406,8 @@ describe("MoonwellPlatformAdapterTest", () => {
           it("should split source amount on the parts with almost same cost", async () => {
             const collateralAmount = 1000;
             const r = await getConversionPlan({
-              collateralAsset: BaseAddresses.USDbC,
-              borrowAsset: BaseAddresses.DAI,
+              collateralAsset: ZkevmAddresses.USDC,
+              borrowAsset: ZkevmAddresses.USDT,
               amountIn: collateralAmount.toString(),
               entryKind: AppConstants.ENTRY_KIND_1,
               entryData: defaultAbiCoder.encode(
@@ -437,16 +439,16 @@ describe("MoonwellPlatformAdapterTest", () => {
             // let's calculate borrow amount by known collateral amount
             const collateralAmount = 10;
             const amountIn = (await getConversionPlan({
-              collateralAsset: BaseAddresses.DAI,
-              borrowAsset: BaseAddresses.USDbC,
+              collateralAsset: ZkevmAddresses.USDT,
+              borrowAsset: ZkevmAddresses.USDC,
               amountIn: collateralAmount.toString(),
             })).plan.amountToBorrow;
             console.log("collateralAmount", collateralAmount);
             console.log("amountIn", amountIn);
 
             const r = await getConversionPlan({
-              collateralAsset: BaseAddresses.DAI,
-              borrowAsset: BaseAddresses.USDbC,
+              collateralAsset: ZkevmAddresses.USDT,
+              borrowAsset: ZkevmAddresses.USDC,
               amountIn: amountIn.toString(),
               entryData: defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2]),
               entryKind: AppConstants.ENTRY_KIND_2,
@@ -521,15 +523,15 @@ describe("MoonwellPlatformAdapterTest", () => {
           it("should return expected borrow and collateral amounts", async () => {
             // let's get max available borrow amount
             const sample = await getConversionPlan({
-              collateralAsset: BaseAddresses.USDbC,
-              borrowAsset: BaseAddresses.DAI,
+              collateralAsset: ZkevmAddresses.USDC,
+              borrowAsset: ZkevmAddresses.USDT,
               amountIn: "1",
             });
 
             // let's try to borrow amount using collateral that exceeds max borrow amount
             const r = await getConversionPlan({
-              collateralAsset: BaseAddresses.USDbC,
-              borrowAsset: BaseAddresses.DAI,
+              collateralAsset: ZkevmAddresses.USDC,
+              borrowAsset: ZkevmAddresses.USDT,
               amountIn: (sample.plan.maxAmountToBorrow + 1000).toString(),
               entryKind: AppConstants.ENTRY_KIND_2,
               entryData: defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
@@ -551,16 +553,16 @@ describe("MoonwellPlatformAdapterTest", () => {
       });
 
       async function tryGetConversionPlan(
-        badPathsParams: IMoonwellPreparePlanBadPaths,
-        collateralAsset: string = BaseAddresses.USDbC,
-        borrowAsset: string = BaseAddresses.DAI,
+        badPathsParams: IZerovixPreparePlanBadPaths,
+        collateralAsset: string = ZkevmAddresses.USDC,
+        borrowAsset: string = ZkevmAddresses.USDT,
         collateralAmount: string = "1",
       ) : Promise<IConversionPlanNum> {
         const pa = badPathsParams.platformAdapter
-          ? MoonwellPlatformAdapter__factory.connect(badPathsParams.platformAdapter, signer)
+          ? ZerovixPlatformAdapter__factory.connect(badPathsParams.platformAdapter, signer)
           : platformAdapter;
 
-        const {plan} = await MoonwellPlatformAdapterUtils.getConversionPlan(
+        const {plan} = await ZerovixPlatformAdapterUtils.getConversionPlan(
           signer,
           comptroller,
           priceOracle,
@@ -617,38 +619,38 @@ describe("MoonwellPlatformAdapterTest", () => {
         it("should fail if collateral token is not registered", async () => {
           const platformAdapterNoWeth = await DeployUtils.deployContract(
             signer,
-            "MoonwellPlatformAdapter",
+            "ZerovixPlatformAdapter",
             converterController.address,
             comptroller.address,
             poolAdapterTemplate,
-            [BaseAddresses.MOONWELL_USDBC, BaseAddresses.MOONWELL_DAI]
-          ) as MoonwellPlatformAdapter;
+            [ZkevmAddresses.oUSDC, ZkevmAddresses.oUSDT]
+          ) as ZerovixPlatformAdapter;
 
           expect((await tryGetConversionPlan(
             {
-              cTokenCollateral: BaseAddresses.MOONWELL_WETH,
+              cTokenCollateral: ZkevmAddresses.oWETH,
               platformAdapter: platformAdapterNoWeth.address
             },
-            BaseAddresses.WETH
+            ZkevmAddresses.WETH
           )).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrow token is not registered", async () => {
           const platformAdapterNoWeth = await DeployUtils.deployContract(
             signer,
-            "MoonwellPlatformAdapter",
+            "ZerovixPlatformAdapter",
             converterController.address,
             comptroller.address,
             poolAdapterTemplate,
-            [BaseAddresses.MOONWELL_USDBC, BaseAddresses.MOONWELL_DAI]
-          ) as MoonwellPlatformAdapter;
+            [ZkevmAddresses.oUSDC, ZkevmAddresses.oUSDT]
+          ) as ZerovixPlatformAdapter;
 
           expect((await tryGetConversionPlan(
             {
-              cTokenBorrow: BaseAddresses.MOONWELL_WETH,
+              cTokenBorrow: ZkevmAddresses.oWETH,
               platformAdapter: platformAdapterNoWeth.address
             },
-            BaseAddresses.USDbC,
-            BaseAddresses.WETH,
+            ZkevmAddresses.USDC,
+            ZkevmAddresses.WETH,
           )).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
@@ -656,15 +658,15 @@ describe("MoonwellPlatformAdapterTest", () => {
         it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () => {
           const planBorrowCapacityNotLimited = await tryGetConversionPlan(
             {},
-            BaseAddresses.USDbC,
-            BaseAddresses.DAI,
+            ZkevmAddresses.USDC,
+            ZkevmAddresses.USDT,
             "1"
           );
           console.log("planBorrowCapacityNotLimited", planBorrowCapacityNotLimited);
           const plan = await tryGetConversionPlan(
             {setMinBorrowCapacity: true},
-            BaseAddresses.USDbC,
-            BaseAddresses.DAI,
+            ZkevmAddresses.USDC,
+            ZkevmAddresses.USDT,
             "10000000000000000000000000000000"
           );
           expect(plan.amountToBorrow).eq(plan.maxAmountToBorrow);
@@ -683,8 +685,8 @@ describe("MoonwellPlatformAdapterTest", () => {
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
         const ret = await getConversionPlan({
-          collateralAsset: BaseAddresses.DAI,
-          borrowAsset: BaseAddresses.USDbC,
+          collateralAsset: ZkevmAddresses.USDT,
+          borrowAsset: ZkevmAddresses.USDC,
           amountIn: "1"
         });
 
@@ -696,34 +698,34 @@ describe("MoonwellPlatformAdapterTest", () => {
   });
 
   describe("registerCTokens", () => {
-    let platformAdapterLocal: MoonwellPlatformAdapter;
+    let platformAdapterLocal: ZerovixPlatformAdapter;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
       platformAdapterLocal = await DeployUtils.deployContract(
         signer,
-        "MoonwellPlatformAdapter",
+        "ZerovixPlatformAdapter",
         converterController.address,
         comptroller.address,
         poolAdapterTemplate,
         [] // no mTokens are registered at first
-      ) as MoonwellPlatformAdapter;
+      ) as ZerovixPlatformAdapter;
     });
     after(async function () {
       await TimeUtils.rollback(snapshotLocal);
     });
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        await platformAdapterLocal.registerCTokens([BaseAddresses.MOONWELL_USDBC, BaseAddresses.MOONWELL_DAI]);
+        await platformAdapterLocal.registerCTokens([ZkevmAddresses.oUSDC, ZkevmAddresses.oUSDT]);
 
         expect([
-          await platformAdapterLocal.activeAssets(BaseAddresses.USDC),  // (!) not registered
-          await platformAdapterLocal.activeAssets(BaseAddresses.USDbC),
-          await platformAdapterLocal.activeAssets(BaseAddresses.DAI),
+          await platformAdapterLocal.activeAssets(ZkevmAddresses.WBTC),  // (!) not registered
+          await platformAdapterLocal.activeAssets(ZkevmAddresses.USDC),
+          await platformAdapterLocal.activeAssets(ZkevmAddresses.USDT),
         ].join().toLowerCase()).eq([
           Misc.ZERO_ADDRESS,
-          BaseAddresses.MOONWELL_USDBC,
-          BaseAddresses.MOONWELL_DAI,
+          ZkevmAddresses.oUSDC,
+          ZkevmAddresses.oUSDT,
         ].join().toLowerCase());
       });
     });
@@ -731,7 +733,7 @@ describe("MoonwellPlatformAdapterTest", () => {
       describe("Not governance", () => {
         it("should revert", async () => {
           await expect(
-            platformAdapterLocal.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).registerCTokens([BaseAddresses.MOONWELL_USDBC])
+            platformAdapterLocal.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).registerCTokens([ZkevmAddresses.oUSDC])
           ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
         });
       });
@@ -758,20 +760,20 @@ describe("MoonwellPlatformAdapterTest", () => {
 
     describe("Good paths", () => {
       it("should return not zero ltv and liquidityThreshold", async () => {
-        const r = await platformAdapter.getMarketsInfo(BaseAddresses.MOONWELL_WETH, BaseAddresses.MOONWELL_USDBC);
+        const r = await platformAdapter.getMarketsInfo(ZkevmAddresses.oWETH, ZkevmAddresses.oUSDC);
         expect(r.ltv18.eq(0) || r.liquidityThreshold18.eq(0)).eq(false);
       });
     });
     describe("Bad paths", () => {
       describe("Collateral token is unregistered in the protocol", () => {
         it("should return zero ltv and zero liquidityThreshold", async () => {
-          const r = await platformAdapter.getMarketsInfo(ethers.Wallet.createRandom().address, BaseAddresses.MOONWELL_USDBC);
+          const r = await platformAdapter.getMarketsInfo(ethers.Wallet.createRandom().address, ZkevmAddresses.oUSDC);
           expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
         });
       });
       describe("Borrow token is unregistered in the protocol", () => {
         it("should return zero ltv and zero liquidityThreshold", async () => {
-          const r = await platformAdapter.getMarketsInfo(BaseAddresses.MOONWELL_WETH, ethers.Wallet.createRandom().address);
+          const r = await platformAdapter.getMarketsInfo(ZkevmAddresses.oWETH, ethers.Wallet.createRandom().address);
           expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
         });
       });
@@ -800,7 +802,7 @@ describe("MoonwellPlatformAdapterTest", () => {
 
   describe("platformKind", () => {
     it("should return expected values", async () => {
-      expect((await platformAdapter.platformKind())).eq(AppConstants.LENDING_PLATFORM_KIND_MOONWELL_6);
+      expect((await platformAdapter.platformKind())).eq(AppConstants.LENDING_PLATFORM_KIND_ZEROVIX_7);
     });
   });
 
@@ -833,9 +835,9 @@ describe("MoonwellPlatformAdapterTest", () => {
       const user = ethers.Wallet.createRandom().address;
       const converterGovernance = await Misc.impersonate(await converterController.governance());
       const borrowManagerAsGov = await BorrowManager__factory.connect(await converterController.borrowManager(), converterGovernance);
-      const poolAdapter = await AdaptersHelper.createMoonwellPoolAdapter(signer);
+      const poolAdapter = await AdaptersHelper.createZerovixPoolAdapter(signer);
 
-      const pairs = generateAssetPairs(MoonwellUtils.getAllAssets());
+      const pairs = generateAssetPairs(ZerovixUtilsZkevm.getAllAssets());
       await borrowManagerAsGov.addAssetPairs(
         platformAdapter.address,
         pairs.map(x => x.smallerAddress),
@@ -869,8 +871,8 @@ describe("MoonwellPlatformAdapterTest", () => {
     describe("Good paths", () => {
       it("initialized pool adapter should has expected values", async () => {
         const r = await initializePoolAdapter({
-          collateralAsset: BaseAddresses.USDC,
-          borrowAsset: BaseAddresses.DAI,
+          collateralAsset: ZkevmAddresses.USDC,
+          borrowAsset: ZkevmAddresses.USDT,
         });
         expect([
           r.user,
@@ -881,10 +883,10 @@ describe("MoonwellPlatformAdapterTest", () => {
           r.collateralTokensBalance
         ].join().toLowerCase()).eq([
           r.expectedUser,
-          BaseAddresses.MOONWELL_COMPTROLLER,
+          ZkevmAddresses.ZEROVIX_COMPTROLLER,
           converterController.address,
-          BaseAddresses.USDC,
-          BaseAddresses.DAI,
+          ZkevmAddresses.USDC,
+          ZkevmAddresses.USDT,
           0
         ].join().toLowerCase());
       });
@@ -894,18 +896,18 @@ describe("MoonwellPlatformAdapterTest", () => {
   describe("getBorrowRateAfterBorrow", () => {
     describe("Good paths", () => {
       async function makeTest(p: IPredictBrParams): Promise<IPredictBrResults> {
-        const collateralToken = IMToken__factory.connect(MoonwellUtils.getCToken(p.collateralAsset), signer);
-        const borrowToken = IMToken__factory.connect(MoonwellUtils.getCToken(p.borrowAsset), signer);
-        const actor = new MoonwellPlatformActor(borrowToken, collateralToken, comptroller, signer);
+        const collateralToken = IMToken__factory.connect(ZerovixUtilsZkevm.getCToken(p.collateralAsset), signer);
+        const borrowToken = IMToken__factory.connect(ZerovixUtilsZkevm.getCToken(p.borrowAsset), signer);
+        const actor = new ZerovixPlatformActor(borrowToken, collateralToken, comptroller, signer);
         return PredictBrUsesCase.predictBrTest(signer, actor, p);
       }
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const r = await makeTest({
-            collateralAsset: BaseAddresses.DAI,
-            borrowAsset: BaseAddresses.USDbC,
-            borrowPart10000: 1, // 1/10000 of available liquidity
+            collateralAsset: ZkevmAddresses.USDT,
+            borrowAsset: ZkevmAddresses.USDC,
+            borrowPart10000: 1
           });
 
           expect(r.br).approximately(r.brPredicted, r.brPredicted.div(10000)); // 755719373 vs 755719325, 1831232354 vs 1831170886
@@ -915,9 +917,9 @@ describe("MoonwellPlatformAdapterTest", () => {
       describe("Huge amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const r = await makeTest({
-            collateralAsset: BaseAddresses.DAI,
-            borrowAsset: BaseAddresses.USDbC,
-            borrowPart10000: 500,
+            collateralAsset: ZkevmAddresses.USDT,
+            borrowAsset: ZkevmAddresses.USDC,
+            borrowPart10000: 500
           });
           expect(r.br).approximately(r.brPredicted, r.brPredicted.div(10000)); // 789340079 vs 789340079
         });

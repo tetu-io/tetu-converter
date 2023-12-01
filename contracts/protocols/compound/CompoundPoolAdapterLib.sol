@@ -17,11 +17,13 @@ import "../../integrations/compound/ICTokenBase.sol";
 import "../../integrations/compound/INativeToken.sol";
 import "../../integrations/compound/ICTokenNative.sol";
 import "../../integrations/compound/ICompoundPriceOracle.sol";
-import "../../integrations/compound/ICompoundComptrollerBaseV2.sol";
 import "../../integrations/compound/ICompoundComptrollerBaseV1.sol";
+import "../../integrations/compound/ICompoundComptrollerBaseV2.sol";
+import "../../integrations/compound/ICompoundComptrollerBaseV2Zerovix.sol";
 import "../../libs/AppDataTypes.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
+import "hardhat/console.sol";
 
 library CompoundPoolAdapterLib {
   using SafeERC20 for IERC20;
@@ -208,10 +210,12 @@ library CompoundPoolAdapterLib {
     uint borrowAmount_,
     address receiver_
   ) internal returns (uint) {
+    console.log("borrow");
     BorrowLocal memory v;
 
     v.controller = state.controller;
     _onlyTetuConverter(v.controller);
+    console.log("borrow.1");
 
     v.comptroller = state.comptroller;
     v.cTokenCollateral = state.collateralCToken;
@@ -219,6 +223,7 @@ library CompoundPoolAdapterLib {
     v.assetCollateral = state.collateralAsset;
     v.assetBorrow = state.borrowAsset;
 
+    console.log("borrow.2");
     IERC20(v.assetCollateral).safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
     // enter markets (repeat entering is not a problem)
@@ -226,6 +231,7 @@ library CompoundPoolAdapterLib {
     v.markets[0] = v.cTokenCollateral;
     v.markets[1] = v.cTokenBorrow;
     v.comptroller.enterMarkets(v.markets);
+    console.log("borrow.3");
 
     // supply collateral
     uint tokenBalanceBeforeBorrow = _supply(f_, v.cTokenCollateral, collateralAmount_);
@@ -234,26 +240,31 @@ library CompoundPoolAdapterLib {
     uint balanceBorrowAssetBefore = _getBalance(f_, v.assetBorrow);
     v.error = ICTokenBase(v.cTokenBorrow).borrow(borrowAmount_);
     require(v.error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(v.error))));
+    console.log("borrow.4");
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     if (f_.nativeToken == v.assetBorrow) {
       INativeToken(v.assetBorrow).deposit{value: borrowAmount_}();
     }
+    console.log("borrow.5");
     uint balanceBorrowAssetAfter = IERC20(v.assetBorrow).balanceOf(address(this));
     require(
       borrowAmount_ + balanceBorrowAssetBefore <= balanceBorrowAssetAfter,
       AppErrors.WRONG_BORROWED_BALANCE
     );
+    console.log("borrow.6");
     IERC20(v.assetBorrow).safeTransfer(receiver_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
 
     // register the borrow in DebtMonitor
     IDebtMonitor(v.controller.debtMonitor()).onOpenPosition();
+    console.log("borrow.7");
 
     // ensure that current health factor is greater than min allowed
     (uint healthFactor, uint tokenBalanceAfterBorrow) = _validateHealthStatusAfterBorrow(
       f_, v.controller, v.comptroller, v.cTokenCollateral, v.cTokenBorrow
     );
     state.collateralTokensBalance += AppUtils.sub0(tokenBalanceAfterBorrow, tokenBalanceBeforeBorrow);
+    console.log("borrow.8");
 
     _registerInBookkeeperBorrow(v.controller, collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
     emit OnBorrow(collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore, receiver_, healthFactor);
@@ -737,7 +748,9 @@ library CompoundPoolAdapterLib {
   ) internal view returns (uint collateralFactor) {
     if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
       (, collateralFactor) = ICompoundComptrollerBaseV1(address(comptroller_)).markets(cTokenCollateral_);
-    } else {
+    } else if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V2_ZEROVIX) {
+      (, , collateralFactor) = ICompoundComptrollerBaseV2Zerovix(address(comptroller_)).markets(cTokenCollateral_);
+    } else { // CompoundLib.COMPOUND_STORAGE_V2
       (, collateralFactor ,) = ICompoundComptrollerBaseV2(address(comptroller_)).markets(cTokenCollateral_);
     }
   }

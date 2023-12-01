@@ -20,9 +20,9 @@ export class ZkevmAddresses {
   public static oMatic = "0x8903Dc1f4736D2FcB90C1497AebBABA133DaAC76";
   public static oWETH = "0xbC59506A5Ce024B892776d4F7dd450B0FB3584A2";
   public static oWBTC = "0x503deabad9641c5B4015041eEb0F1263E415715D";
-  public static oDai = "";
-  public static oMAI = "";
-  public static oMATICX = "";
+  // public static oDai = "";
+  // public static oMAI = "";
+  // public static oMATICX = "";
 //endregion ----------------------------------------------------- 0vix
 
 }

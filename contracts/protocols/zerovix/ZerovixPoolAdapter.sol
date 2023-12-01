@@ -5,7 +5,7 @@ import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
-import "./MoonwellLib.sol";
+import "./ZerovixLib.sol";
 import "../compound/CompoundPoolAdapterLib.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
@@ -15,16 +15,15 @@ import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/IWmatic.sol";
-import "../../integrations/moonwell/IMoonwellComptroller.sol";
+import "../../integrations/zerovix/IZerovixComptroller.sol";
 
-/// @notice Implementation of IPoolAdapter for Moonwell-protocol, see https://docs.moonwell.fi/
+/// @notice Implementation of IPoolAdapter for Zerovix-protocol, see https://docs.0vix.com/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
+contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
   using SafeERC20 for IERC20;
 
   //region ----------------------------------------------------- Constants and variables
-  string public constant POOL_ADAPTER_VERSION = "1.0.1";
-  address public constant WELL_TOKEN = 0xFF8adeC2221f9f4D8dfbAFa6B9a297d17603493D;
+  string public constant POOL_ADAPTER_VERSION = "1.0.0";
 
   CompoundPoolAdapterLib.State internal _state;
   //endregion ----------------------------------------------------- Constants and variables
@@ -70,7 +69,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   /// @return Result borrowed amount sent to the {receiver_}
   function borrow(uint collateralAmount_, uint borrowAmount_, address receiver_) external override returns (uint) {
     CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
+    ZerovixLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.borrow(_state, f, collateralAmount_, borrowAmount_, receiver_);
   }
@@ -84,7 +83,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     uint borrowedAmountOut
   ) {
     CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
+    ZerovixLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.borrowToRebalance(_state, f, borrowAmount_, receiver_);
   }
@@ -100,7 +99,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   /// @return Amount of collateral asset sent to the {receiver_}
   function repay(uint amountToRepay_, address receiver_, bool closePosition_) external override returns (uint) {
     CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
+    ZerovixLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.repay(_state, f, amountToRepay_, receiver_, closePosition_);
   }
@@ -116,7 +115,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   /// @return resultHealthFactor18 Result health factor after repay, decimals 18
   function repayToRebalance(uint amount_, bool isCollateral_) external override returns (uint resultHealthFactor18) {
     CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
+    ZerovixLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.repayToRebalance(_state, f, amount_, isCollateral_);
   }
@@ -128,22 +127,11 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
   //endregion ----------------------------------------------------- Repay logic
 
   //region ----------------------------------------------------- Rewards
-  function claimRewards(address receiver_) external override returns (
+  function claimRewards(address /*receiver_*/ ) external pure override returns (
     address rewardToken,
     uint amount
   ) {
-    IMoonwellComptroller _comptroller = IMoonwellComptroller(address(_state.comptroller));
-
-    address[] memory markets = new address[](2);
-    markets[0] = _state.collateralCToken;
-    markets[1] = _state.borrowCToken;
-    _comptroller.claimReward(address(this), markets);
-
-    amount = IERC20(WELL_TOKEN).balanceOf(address(this));
-    if (amount != 0) {
-      IERC20(WELL_TOKEN).transfer(receiver_, amount);
-      rewardToken = WELL_TOKEN;
-    }
+    // todo
 
     return (rewardToken, amount);
   }
@@ -171,7 +159,7 @@ contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Ini
     bool debtGapRequired
   ) {
     CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
+    ZerovixLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.getStatus(_state, f);
   }

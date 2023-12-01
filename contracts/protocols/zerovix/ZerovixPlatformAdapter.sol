@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./MoonwellLib.sol";
+import "./ZerovixLib.sol";
 import "../compound/CompoundPlatformAdapterLib.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
@@ -14,10 +14,10 @@ import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
-import "../../integrations/moonwell/IMoonwellComptroller.sol";
+import "../../integrations/zerovix/IZerovixComptroller.sol";
 
-/// @notice Adapter to read current pools info from Moonwell-protocol, see https://docs.moonwell.fi/
-contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
+/// @notice Adapter to read current pools info from Zerovix-protocol, see https://docs.0vix.com/
+contract ZerovixPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
@@ -34,7 +34,7 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @param template_ Template of the pool adapter
   constructor (address controller_, address comptroller_, address template_, address[] memory activeCTokens_) {
     CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
+    ZerovixLib.initProtocolFeatures(f);
 
     CompoundPlatformAdapterLib.init(_state, f, controller_, comptroller_, template_, activeCTokens_);
   }
@@ -59,7 +59,7 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @dev It's possible to add CTokens only because, we can add unregister function if necessary
   function registerCTokens(address[] memory cTokens_) external {
     CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
+    ZerovixLib.initProtocolFeatures(f);
 
     CompoundPlatformAdapterLib.registerCTokens(_state, f, cTokens_);
   }
@@ -80,7 +80,7 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   }
 
   function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
-    return AppDataTypes.LendingPlatformKinds.MOONWELL_6;
+    return AppDataTypes.LendingPlatformKinds.ZEROVIX_7;
   }
 
   function frozen() external view returns (bool) {
@@ -115,11 +115,9 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
       // LTV and liquidation threshold
       CompoundLib.ProtocolFeatures memory f;
-      MoonwellLib.initProtocolFeatures(f);
+      ZerovixLib.initProtocolFeatures(f);
 
-      (plan.ltv18, plan.liquidationThreshold18) = CompoundPlatformAdapterLib.getMarketsInfo(
-        _state, f, v.cTokenCollateral, v.cTokenBorrow
-      );
+      (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(v.cTokenCollateral, v.cTokenBorrow);
       if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
 
         // Calculate maxAmountToSupply and maxAmountToBorrow
@@ -151,7 +149,7 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               plan.collateralAmount, plan.amountToBorrow, f, v.cTokenCollateral, v.cTokenBorrow, p_.countBlocks, pd
             );
 
-            plan.rewardsAmountInBorrowAsset36 = estimateRewardsAmountInBorrowAsset36(p_, v, plan, pd);
+            // todo plan.rewardsAmountInBorrowAsset36 = estimateRewardsAmountInBorrowAsset36(p_, v, plan, pd);
           }
         }
       }
@@ -165,39 +163,36 @@ contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     }
   }
 
-  /// @notice Estimate amount of any rewards that can be received for the borrowing according the {plan}
-  function estimateRewardsAmountInBorrowAsset36(
-    AppDataTypes.InputConversionParams memory p_,
-    CompoundPlatformAdapterLib.ConversionPlanLocal memory v,
-    AppDataTypes.ConversionPlan memory plan,
-    AppDataTypes.PricesAndDecimals memory pd
-  ) public view returns (uint) {
-    uint periodSec = p_.countBlocks * COUNT_SECONDS_PER_YEAR / (_state.controller.blocksPerDay() * 365);
-    (uint rewardsSupply, uint rewardsBorrow) = MoonwellLib.estimateRewardAmounts(
-      v.cTokenCollateral,
-      v.cTokenBorrow,
-      plan.collateralAmount,
-      plan.amountToBorrow,
-      uint32(periodSec == 0 ? 1 : periodSec),
-      IMoonwellComptroller(address(v.comptroller)).rewardDistributor(),
-      ITetuLiquidator(_state.controller.tetuLiquidator()),
-      p_.borrowAsset
-    );
-    return (rewardsSupply + rewardsBorrow) * 10**36 / pd.rb10powDec;
-  }
   //endregion ----------------------------------------------------- Get conversion plan
 
   //region ----------------------------------------------------- Utils
 
   /// @notice Check if the c-tokens are active and return LTV and liquidityThreshold values for the borrow
+  /// @dev Zerovix's comptroller has some methods with not-standard signature:
   function getMarketsInfo(address cTokenCollateral_, address cTokenBorrow_) public view returns (
     uint ltv18,
     uint liquidityThreshold18
   ) {
-    CompoundLib.ProtocolFeatures memory f;
-    MoonwellLib.initProtocolFeatures(f);
+    IZerovixComptroller _comptroller = IZerovixComptroller(payable(address(_state.comptroller)));
+    (, bool borrowPaused) = _comptroller.guardianPaused(cTokenBorrow_);
+    (bool mintPaused, ) = _comptroller.guardianPaused(cTokenCollateral_);
+    if (!borrowPaused && !mintPaused) {
+      bool isListed;
+      uint256 collateralFactorMantissa;
+      (isListed, , collateralFactorMantissa) = _comptroller.markets(cTokenBorrow_);
 
-    return CompoundPlatformAdapterLib.getMarketsInfo(_state, f, cTokenCollateral_, cTokenBorrow_);
+      if (isListed) {
+        ltv18 = collateralFactorMantissa;
+        (isListed, , collateralFactorMantissa) = _comptroller.markets(cTokenCollateral_);
+        if (isListed) {
+          liquidityThreshold18 = collateralFactorMantissa;
+        } else {
+          ltv18 = 0; // not efficient, but it's error case
+        }
+      }
+    }
+
+    return (ltv18, liquidityThreshold18);
   }
   //endregion ----------------------------------------------------- Utils
 }

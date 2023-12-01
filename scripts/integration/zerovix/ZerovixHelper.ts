@@ -65,7 +65,7 @@ export class ZerovixHelper {
     return IZerovixComptroller__factory.connect(comptroller, signer);
   }
 
-  public static async getPriceOracle(signer: SignerWithAddress, comptroller: string) : IZerovixPriceOracle {
+  public static async getPriceOracle(signer: SignerWithAddress, comptroller: string) : Promise<IZerovixPriceOracle> {
     return IZerovixPriceOracle__factory.connect(
       await IZerovixComptroller__factory.connect(comptroller, signer).oracle(),
       signer
@@ -102,7 +102,7 @@ export class ZerovixHelper {
     signer: SignerWithAddress,
     comptroller: IZerovixComptroller,
     cToken: IZerovixToken,
-    nativeToken: string
+    nativeOToken: string
   ) : Promise<IZerovixMarketData> {
     const m = await comptroller.markets(cToken.address);
     const irm = IZerovixInterestRateModel__factory.connect(await cToken.interestRateModel(), signer);
@@ -111,7 +111,7 @@ export class ZerovixHelper {
     return {
       comptroller: await cToken.comptroller(),
       ctoken: cToken.address,
-      underlying: cToken.address.toLowerCase() === nativeToken.toLowerCase()
+      underlying: cToken.address.toLowerCase() === nativeOToken.toLowerCase()
         ? "" // hMATIC doesn't support CErc20Storage and doesn't have underlying property
         : await cToken.underlying(),
       name: await cToken.name(),
@@ -133,8 +133,8 @@ export class ZerovixHelper {
       borrowCap: await comptroller.borrowCaps(cToken.address),
       price: await priceOracle.getUnderlyingPrice(cToken.address),
       underlyingDecimals: await IERC20Metadata__factory.connect(
-        cToken.address.toLowerCase() === nativeToken.toLowerCase()
-          ? nativeToken
+        cToken.address.toLowerCase() === nativeOToken.toLowerCase()
+          ? nativeOToken
           : await cToken.underlying()
         , signer
       ).decimals(),
@@ -146,7 +146,7 @@ export class ZerovixHelper {
   public static async getData(
     signer: SignerWithAddress,
     comptroller: IZerovixComptroller,
-    nativeToken: string
+    nativeOToken: string
   ) : Promise<string[]> {
     const markets = await comptroller.getAllMarkets();
     const dest: string[] = [];
@@ -178,7 +178,7 @@ export class ZerovixHelper {
       console.log(`Market ${market}`);
 
       const cToken = IZerovixToken__factory.connect(market, signer);
-      const rd = await ZerovixHelper.getOTokenData(signer, comptroller, cToken, nativeToken);
+      const rd = await ZerovixHelper.getOTokenData(signer, comptroller, cToken, nativeOToken);
       const irm = await getInterestRateModel(cToken);
 
       const line = [

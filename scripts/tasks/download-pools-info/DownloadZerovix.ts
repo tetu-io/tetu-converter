@@ -10,13 +10,13 @@ import {MaticAddresses} from "../../addresses/MaticAddresses";
  *      npx hardhat run scripts/tasks/download-pools-info/DownloadZerovix.ts
  */
 async function main() {
-  const chainId = ZKEVM_NETWORK_ID;
-  const nativeToken = ZkevmAddresses.oNative;
-  const comptrollerAddress = ZkevmAddresses.ZEROVIX_COMPTROLLER;
+  // const chainId = ZKEVM_NETWORK_ID;
+  // const nativeToken = ZkevmAddresses.oNative;
+  // const comptrollerAddress = ZkevmAddresses.ZEROVIX_COMPTROLLER;
 
-  // const chainId = POLYGON_NETWORK_ID;
-  // const nativeToken = MaticAddresses.oMatic;
-  // const comptrollerAddress = MaticAddresses.ZEROVIX_COMPTROLLER;
+  const chainId = POLYGON_NETWORK_ID;
+  const nativeToken = MaticAddresses.oMatic;
+  const comptrollerAddress = MaticAddresses.ZEROVIX_COMPTROLLER;
 
   await HardhatUtils.setupBeforeTest(chainId);
 

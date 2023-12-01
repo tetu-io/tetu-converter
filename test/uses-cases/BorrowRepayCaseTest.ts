@@ -5,9 +5,9 @@ import {
   BorrowManager__factory,
   ConverterController, HfPlatformAdapter,
   IPlatformAdapter, ITetuConverter__factory, MoonwellPlatformAdapter,
-  UserEmulator
+  UserEmulator, ZerovixPlatformAdapter
 } from "../../typechain";
-import {BASE_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {BASE_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID, ZKEVM_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
@@ -39,6 +39,9 @@ import {HundredFinanceUtilsProvider} from "../baseUT/protocols/hundred-finance/H
 import {HundredFinanceUtils} from "../baseUT/protocols/hundred-finance/HundredFinanceUtils";
 import {AaveTwoUtils} from "../baseUT/protocols/aaveTwo/AaveTwoUtils";
 import {AaveTwoUtilsProvider} from "../baseUT/protocols/aaveTwo/AaveTwoUtilsProvider";
+import {ZkevmAddresses} from "../../scripts/addresses/ZkevmAddresses";
+import {ZerovixUtilsProviderZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsProviderZkevm";
+import {ZerovixUtilsZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
 
 describe("BorrowRepayCaseTest", () => {
 //region Data types
@@ -115,6 +118,39 @@ describe("BorrowRepayCaseTest", () => {
   }
 
   const NETWORKS: IChainParams[] = [
+    { // Polygon zkEvm chain
+      networkId: ZKEVM_NETWORK_ID,
+      platforms: [
+        { // Zerovix  on zkEVM chain
+          platformUtilsProviderBuilder() {
+            return new ZerovixUtilsProviderZkevm();
+          },
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createZerovixPlatformAdapter(
+              signer0,
+              converterController0,
+              (await MoonwellHelper.getComptroller(signer0)).address,
+              (await AdaptersHelper.createZerovixPoolAdapter(signer0)).address,
+              MoonwellUtils.getAllCTokens()
+            );
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(ZerovixUtilsZkevm.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          assetPairs: [
+            {collateralAsset: ZkevmAddresses.USDC, borrowAsset: ZkevmAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+          ]
+        },
+      ]
+    },
+
     { // Base chain
       networkId: BASE_NETWORK_ID,
       platforms: [

@@ -6,7 +6,7 @@ import {
   ConverterController, ConverterController__factory,
   DebtMonitor__factory,
   Keeper__factory,
-  PriceOracle, PriceOracleMoonwell,
+  PriceOracle, PriceOracleMoonwell, PriceOracleZerovixZkevm,
   SwapManager__factory,
   TetuConverter__factory,
 } from "../../../typechain";
@@ -160,6 +160,9 @@ export class CoreContractsHelper {
   }
   public static async createPriceOracleMoonwell(signer: SignerWithAddress, priceOracleMoonwell: string): Promise<PriceOracleMoonwell> {
       return (await DeployUtils.deployContract(signer, "PriceOracleMoonwell", priceOracleMoonwell)) as PriceOracleMoonwell;
+  }
+  public static async createPriceOracleZerovixZkevm(signer: SignerWithAddress, priceOracleZerovix: string): Promise<PriceOracleZerovixZkevm> {
+    return (await DeployUtils.deployContract(signer, "PriceOracleZerovixZkevm", priceOracleZerovix)) as PriceOracleZerovixZkevm;
   }
 //endregion Create core contracts
 }

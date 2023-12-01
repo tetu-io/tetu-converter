@@ -9,7 +9,7 @@ import {expect} from "chai";
 import {ethers} from "hardhat";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 
-describe("CompoundLibTest", () => {
+describe("Moonwell: CompoundLibTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let deployer: SignerWithAddress;
