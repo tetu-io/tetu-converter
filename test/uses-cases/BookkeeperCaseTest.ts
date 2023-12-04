@@ -15,7 +15,7 @@ import {
   MoonwellPlatformAdapter,
   UserEmulator
 } from "../../typechain";
-import {BASE_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {BASE_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID, ZKEVM_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
@@ -44,6 +44,10 @@ import {NumberUtils} from "../baseUT/utils/NumberUtils";
 import {Compound3Utils} from "../baseUT/protocols/compound3/Compound3Utils";
 import {Compound3UtilsProvider} from "../baseUT/protocols/compound3/Compound3UtilsProvider";
 import {BigNumber} from "ethers";
+import {ZerovixUtilsProviderZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsProviderZkevm";
+import {ZerovixUtilsZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
+import {ZkevmAddresses} from "../../scripts/addresses/ZkevmAddresses";
+import {ZerovixHelper} from "../../scripts/integration/zerovix/ZerovixHelper";
 
 /** Ensure that all repay/borrow operations are correctly registered in the Bookkeeper */
 describe("BookkeeperCaseTest", () => {
@@ -94,6 +98,39 @@ describe("BookkeeperCaseTest", () => {
   }
 
   const NETWORKS: IChainParams[] = [
+    { // Base chain
+      networkId: ZKEVM_NETWORK_ID,
+      platforms: [
+        { // Zerovix on Zkevm chain
+          platformUtilsProviderBuilder() {
+            return new ZerovixUtilsProviderZkevm();
+          },
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createZerovixPlatformAdapter(
+              signer0,
+              converterController0,
+              (await ZerovixHelper.getComptroller(signer0, ZkevmAddresses.ZEROVIX_COMPTROLLER)).address,
+              (await AdaptersHelper.createZerovixPoolAdapter(signer0)).address,
+              ZerovixUtilsZkevm.getAllCTokens()
+            );
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(ZerovixUtilsZkevm.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          assetPairs: [
+            {collateralAsset: ZkevmAddresses.USDC, borrowAsset: ZkevmAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE},
+          ]
+        },
+      ]
+    },
+
     { // Polygon
       networkId: POLYGON_NETWORK_ID,
       platforms: [
@@ -493,6 +530,7 @@ describe("BookkeeperCaseTest", () => {
                     });
 
                     async function repayToRebalanceTest(): Promise<IBookkeeperStatusWithResults> {
+                      const collateralDecimals = await IERC20Metadata__factory.connect(assetPair.collateralAsset, signer).decimals();
                       return BorrowRepayCases.borrowRepayToRebalanceBookkeeper(
                         signer,
                         {
@@ -504,8 +542,14 @@ describe("BookkeeperCaseTest", () => {
                         },
                         {
                           isCollateral: true,
-                          amount: (ret1.results.status.collateralAmount / 2).toString(),
-                          userCollateralAssetBalance: (ret1.results.status.collateralAmount / 2).toString(),
+                          amount: NumberUtils.trimDecimals(
+                            (ret1.results.status.collateralAmount / 2).toString(),
+                            collateralDecimals
+                          ),
+                          userCollateralAssetBalance: NumberUtils.trimDecimals(
+                            (ret1.results.status.collateralAmount / 2).toString(),
+                            collateralDecimals
+                          ),
                           targetHealthFactor: Math.round(Number(TARGET_HEALTH_FACTOR) * 2).toString(),
                         },
                         []

@@ -24,7 +24,6 @@ import "../../libs/AppDataTypes.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../integrations/compound/ICompoundPoolAdapterLibCaller.sol";
-import "hardhat/console.sol";
 
 library CompoundPoolAdapterLib {
   using SafeERC20 for IERC20;
@@ -212,12 +211,10 @@ library CompoundPoolAdapterLib {
     uint borrowAmount_,
     address receiver_
   ) internal returns (uint) {
-    console.log("borrow");
     BorrowLocal memory v;
 
     v.controller = state.controller;
     _onlyTetuConverter(v.controller);
-    console.log("borrow.1");
 
     v.comptroller = state.comptroller;
     v.cTokenCollateral = state.collateralCToken;
@@ -225,7 +222,6 @@ library CompoundPoolAdapterLib {
     v.assetCollateral = state.collateralAsset;
     v.assetBorrow = state.borrowAsset;
 
-    console.log("borrow.2");
     IERC20(v.assetCollateral).safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
     // enter markets (repeat entering is not a problem)
@@ -233,16 +229,13 @@ library CompoundPoolAdapterLib {
     v.markets[0] = v.cTokenCollateral;
     v.markets[1] = v.cTokenBorrow;
     v.comptroller.enterMarkets(v.markets);
-    console.log("borrow.3");
 
     // supply collateral
     uint tokenBalanceBeforeBorrow = _supply(f_, v.cTokenCollateral, collateralAmount_);
-    console.log("borrow.3.1");
 
     // make borrow
     uint balanceBorrowAssetBefore = _getBalance(f_, v.assetBorrow);
 
-    console.log("start borrow");
     if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
       ICompoundPoolAdapterLibCaller(address(this))._borrow(v.assetBorrow, v.cTokenBorrow, borrowAmount_);
     } else {
@@ -253,25 +246,21 @@ library CompoundPoolAdapterLib {
         INativeToken(v.assetBorrow).deposit{value: borrowAmount_}();
       }
     }
-    console.log("borrow.5");
     uint balanceBorrowAssetAfter = IERC20(v.assetBorrow).balanceOf(address(this));
     require(
       borrowAmount_ + balanceBorrowAssetBefore <= balanceBorrowAssetAfter,
       AppErrors.WRONG_BORROWED_BALANCE
     );
-    console.log("borrow.6");
     IERC20(v.assetBorrow).safeTransfer(receiver_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
 
     // register the borrow in DebtMonitor
     IDebtMonitor(v.controller.debtMonitor()).onOpenPosition();
-    console.log("borrow.7");
 
     // ensure that current health factor is greater than min allowed
     (uint healthFactor, uint tokenBalanceAfterBorrow) = _validateHealthStatusAfterBorrow(
       f_, v.controller, v.comptroller, v.cTokenCollateral, v.cTokenBorrow
     );
     state.collateralTokensBalance += AppUtils.sub0(tokenBalanceAfterBorrow, tokenBalanceBeforeBorrow);
-    console.log("borrow.8");
 
     _registerInBookkeeperBorrow(v.controller, collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
     emit OnBorrow(collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore, receiver_, healthFactor);
@@ -583,22 +572,16 @@ library CompoundPoolAdapterLib {
     tokenBalanceBefore = IERC20(cToken_).balanceOf(address(this));
 
     if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
-      console.log("_supply.1");
       ICompoundPoolAdapterLibCaller(address(this))._mint(cToken_, amount_);
-      console.log("_supply.1.1");
     } else {
-      console.log("_supply.2");
       if (f_.cTokenNative == cToken_) {
-        console.log("_supply.2.1");
         INativeToken(f_.nativeToken).withdraw(amount_);
         ICTokenNative(payable(cToken_)).mint{value: amount_}();
       } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
-        console.log("_supply.2.2");
         uint error = ICTokenBase(cToken_).mint(amount_);
         require(error == 0, string(abi.encodePacked(AppErrors.MINT_FAILED, Strings.toString(error))));
       }
     }
-    console.log("_supply.3");
   }
 
   /// @return healthFactor18 Current health factor, decimal 18
@@ -736,7 +719,6 @@ library CompoundPoolAdapterLib {
 
   /// @param asset Underlying, it can be native token
   function _getBalance(CompoundLib.ProtocolFeatures memory f_, address asset) internal view returns (uint) {
-    console.log("_getBalance");
     return f_.nativeToken == asset
       ? address(this).balance
       : IERC20(asset).balanceOf(address(this));

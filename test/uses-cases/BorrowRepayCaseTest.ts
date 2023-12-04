@@ -42,6 +42,7 @@ import {AaveTwoUtilsProvider} from "../baseUT/protocols/aaveTwo/AaveTwoUtilsProv
 import {ZkevmAddresses} from "../../scripts/addresses/ZkevmAddresses";
 import {ZerovixUtilsProviderZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsProviderZkevm";
 import {ZerovixUtilsZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
+import {ZerovixHelper} from "../../scripts/integration/zerovix/ZerovixHelper";
 
 describe("BorrowRepayCaseTest", () => {
 //region Data types
@@ -129,9 +130,9 @@ describe("BorrowRepayCaseTest", () => {
             const platformAdapter = await AdaptersHelper.createZerovixPlatformAdapter(
               signer0,
               converterController0,
-              (await MoonwellHelper.getComptroller(signer0)).address,
+              (await ZerovixHelper.getComptroller(signer0, ZkevmAddresses.ZEROVIX_COMPTROLLER)).address,
               (await AdaptersHelper.createZerovixPoolAdapter(signer0)).address,
-              MoonwellUtils.getAllCTokens()
+              ZerovixUtilsZkevm.getAllCTokens()
             );
 
             // register the platform adapter in TetuConverter app

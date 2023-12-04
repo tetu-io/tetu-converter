@@ -12,13 +12,11 @@ import "../../interfaces/IBookkeeper.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/compound/ICompoundComptrollerBaseV2Zerovix.sol";
+import "../../integrations/zerovix/IZerovixToken.sol";
 import "../../libs/AppDataTypes.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../compound/CompoundLib.sol";
-
-import "hardhat/console.sol";
-import "../../integrations/zerovix/IZerovixToken.sol";
 
 /// @dev Modified copy of CompoundPoolAdapterLib
 ///      oToken doesn't support IZerovixToken because key functions like borrow and mint don't return error codes.
@@ -211,12 +209,10 @@ library ZerovixCompoundPoolAdapterLib {
     uint borrowAmount_,
     address receiver_
   ) internal returns (uint) {
-    console.log("borrow");
     BorrowLocal memory v;
 
     v.controller = state.controller;
     _onlyTetuConverter(v.controller);
-    console.log("borrow.1");
 
     v.comptroller = state.comptroller;
     v.cTokenCollateral = state.collateralCToken;
@@ -224,7 +220,6 @@ library ZerovixCompoundPoolAdapterLib {
     v.assetCollateral = state.collateralAsset;
     v.assetBorrow = state.borrowAsset;
 
-    console.log("borrow.2");
     IERC20(v.assetCollateral).safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
     // enter markets (repeat entering is not a problem)
@@ -232,39 +227,31 @@ library ZerovixCompoundPoolAdapterLib {
     v.markets[0] = v.cTokenCollateral;
     v.markets[1] = v.cTokenBorrow;
     v.comptroller.enterMarkets(v.markets);
-    console.log("borrow.3");
 
     // supply collateral
     uint tokenBalanceBeforeBorrow = _supply(f_, v.cTokenCollateral, collateralAmount_);
-    console.log("borrow.3.1");
 
     // make borrow
     uint balanceBorrowAssetBefore = _getBalance(f_, v.assetBorrow);
 
-    console.log("start borrow");
     IZerovixToken(v.cTokenBorrow).borrow(borrowAmount_);
-    console.log("borrow.4");
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
-    console.log("borrow.5");
     uint balanceBorrowAssetAfter = IERC20(v.assetBorrow).balanceOf(address(this));
     require(
       borrowAmount_ + balanceBorrowAssetBefore <= balanceBorrowAssetAfter,
       AppErrors.WRONG_BORROWED_BALANCE
     );
-    console.log("borrow.6");
     IERC20(v.assetBorrow).safeTransfer(receiver_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
 
     // register the borrow in DebtMonitor
     IDebtMonitor(v.controller.debtMonitor()).onOpenPosition();
-    console.log("borrow.7");
 
     // ensure that current health factor is greater than min allowed
     (uint healthFactor, uint tokenBalanceAfterBorrow) = _validateHealthStatusAfterBorrow(
       f_, v.controller, v.comptroller, v.cTokenCollateral, v.cTokenBorrow
     );
     state.collateralTokensBalance += AppUtils.sub0(tokenBalanceAfterBorrow, tokenBalanceBeforeBorrow);
-    console.log("borrow.8");
 
     _registerInBookkeeperBorrow(v.controller, collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore);
     emit OnBorrow(collateralAmount_, balanceBorrowAssetAfter - balanceBorrowAssetBefore, receiver_, healthFactor);
@@ -547,11 +534,9 @@ library ZerovixCompoundPoolAdapterLib {
     tokenBalanceBefore = IERC20(cToken_).balanceOf(address(this));
 
     // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
-    console.log("_supply.2");
     IZerovixToken(cToken_).mint(amount_);
     // todo check results
 
-    console.log("_supply.3");
   }
 
   /// @return healthFactor18 Current health factor, decimal 18
@@ -689,7 +674,6 @@ library ZerovixCompoundPoolAdapterLib {
 
   /// @param asset Underlying, it can be native token
   function _getBalance(CompoundLib.ProtocolFeatures memory f_, address asset) internal view returns (uint) {
-    console.log("_getBalance");
     return f_.nativeToken == asset
       ? address(this).balance
       : IERC20(asset).balanceOf(address(this));

@@ -129,23 +129,11 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
 
   //region ------------------------------------------------ ICompoundPoolAdapterLibCaller (for CompoundPoolAdapterLib)
   function _borrow(address /*borrowAsset*/, address borrowCToken, uint amount) external {
-    console.log("_borrow.1");
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
-    console.log("_borrow.2");
     IZerovixToken(borrowCToken).borrow(amount);
-    console.log("_borrow.3");
-//    if (borrowAsset == ZerovixLib.getNativeToken()) {
-//      console.log("_borrow.4");
-//      INativeToken(borrowAsset).deposit{value: amount}();
-//    }
-    console.log("_borrow.5");
   }
   function _repayBorrow(address /*borrowAsset*/, address borrowCToken, uint amountToRepay) external {
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
-//    if (v.cTokenBorrow == f_.cTokenNative) {
-//      INativeToken(f_.nativeToken).withdraw(amountToRepay_);
-//      ICTokenNative(payable(v.cTokenBorrow)).repayBorrow{value: amountToRepay_}();
-//    } else {
     IZerovixToken(borrowCToken).repayBorrow(amountToRepay);
   }
 
@@ -159,17 +147,8 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
   }
 
   function _mint(address collateralCToken, uint amount) external {
-    console.log("_mint.1", amount);
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
-    console.log("_mint.2");
-//    if (f_.cTokenNative == cToken_) {
-//      console.log("_supply.1");
-//      INativeToken(f_.nativeToken).withdraw(amount_);
-//      ICTokenNative(payable(cToken_)).mint{value: amount_}();
-//    } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
     IZerovixToken(collateralCToken).mint(amount);
-//    }
-    console.log("_mint.3");
   }
 
   function _markets(address collateralCToken) external view returns (uint collateralFactor) {
