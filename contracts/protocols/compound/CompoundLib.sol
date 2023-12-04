@@ -18,8 +18,9 @@ library CompoundLib {
   /// @notice Protocol uses ComptrollerV2Storage, so comptroller supports ICompoundComptrollerBaseV2
   uint constant public COMPOUND_STORAGE_V2 = 2;
 
-  /// @notice Protocol uses ComptrollerV2Storage, comptroller supports ICompoundComptrollerBaseV2Zerovix
-  uint constant public COMPOUND_STORAGE_V2_ZEROVIX = 2_000_001;
+  /// @notice Protocol's cToken doesn't support ICTokenBase.
+  ///         In this case, the caller of CompoundPoolAdapterLib must support ICompoundPoolAdapterLibCaller.
+  uint constant public COMPOUND_STORAGE_CUSTOM = 0;
 
   struct ProtocolFeatures {
     /// @param Address of native token for the current chain, i.e. WMATIC on Polygon or WETH9 on Base

@@ -18,7 +18,7 @@ library ZerovixLib {
       dest.nativeToken = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270; // WMATIC
     }
     dest.cTokenNative = address(0);
-    dest.compoundStorageVersion = CompoundLib.COMPOUND_STORAGE_V2_ZEROVIX;
+    dest.compoundStorageVersion = CompoundLib.COMPOUND_STORAGE_CUSTOM;
   }
 
   function _getChainID() internal view returns (uint256) {

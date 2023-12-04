@@ -1,7 +1,7 @@
 import {ethers, network} from "hardhat";
 import {DeployUtils} from "../utils/DeployUtils";
 import {writeFileSyncRestoreFolder} from "../../test/baseUT/utils/FileUtils";
-import {ConverterController__factory, ProxyControlled} from "../../typechain";
+import {Bookkeeper__factory, ConverterController__factory, ProxyControlled} from "../../typechain";
 import {RunHelper} from "../utils/RunHelper";
 
 /**
@@ -22,6 +22,11 @@ async function main() {
 
   const proxy = await DeployUtils.deployProxy(signer, contractName);
   console.log(`${contractName}`, proxy);
+
+  const bookkeeper = Bookkeeper__factory.connect(proxy, signer);
+  await RunHelper.runAndWait(
+    () => bookkeeper.init("0x2df21e2a115fcB3d850Fbc67237571bBfB566e99")
+  )
 
   writeFileSyncRestoreFolder(destPathTxt, `${contractName}: ${proxy}\n`, { encoding: 'utf8', flag: 'a' });
 }

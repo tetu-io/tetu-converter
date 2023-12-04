@@ -24,6 +24,7 @@ import "../../libs/AppDataTypes.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "hardhat/console.sol";
+import "../../integrations/compound/ICompoundPoolAdapterLibCaller.sol";
 
 library CompoundPoolAdapterLib {
   using SafeERC20 for IERC20;
@@ -75,6 +76,7 @@ library CompoundPoolAdapterLib {
     uint healthFactorBefore;
     uint balanceCollateralAssetBeforeRedeem;
     uint balanceCollateralAssetAfterRedeem;
+    uint collateralAmountToReturn;
   }
 
   struct GetStatusLocal {
@@ -192,8 +194,8 @@ library CompoundPoolAdapterLib {
   function updateStatus(State storage state) internal {
     // Update borrowBalance to actual value
     _onlyTetuConverter(state.controller);
-    ICTokenBase(state.borrowCToken).borrowBalanceCurrent(address(this));
-    ICTokenBase(state.collateralCToken).exchangeRateCurrent();
+    ICTokenCurrent(state.borrowCToken).borrowBalanceCurrent(address(this));
+    ICTokenCurrent(state.collateralCToken).exchangeRateCurrent();
   }
 
   /// @notice Supply collateral to the pool and borrow specified amount
@@ -241,13 +243,15 @@ library CompoundPoolAdapterLib {
     uint balanceBorrowAssetBefore = _getBalance(f_, v.assetBorrow);
 
     console.log("start borrow");
-    v.error = ICTokenBase(v.cTokenBorrow).borrow(borrowAmount_);
-    require(v.error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(v.error))));
-    console.log("borrow.4");
-
-    // ensure that we have received required borrowed amount, send the amount to the receiver
-    if (f_.nativeToken == v.assetBorrow) {
-      INativeToken(v.assetBorrow).deposit{value: borrowAmount_}();
+    if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
+      ICompoundPoolAdapterLibCaller(address(this)).borrow(v.assetBorrow, v.cTokenBorrow, borrowAmount_);
+    } else {
+      v.error = ICTokenBase(v.cTokenBorrow).borrow(borrowAmount_);
+      require(v.error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(v.error))));
+      // ensure that we have received required borrowed amount, send the amount to the receiver
+      if (f_.nativeToken == v.assetBorrow) {
+        INativeToken(v.assetBorrow).deposit{value: borrowAmount_}();
+      }
     }
     console.log("borrow.5");
     uint balanceBorrowAssetAfter = IERC20(v.assetBorrow).balanceOf(address(this));
@@ -328,7 +332,7 @@ library CompoundPoolAdapterLib {
     IERC20(v.assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
     // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
-    ICTokenBase(v.cTokenBorrow).borrowBalanceCurrent(address(this));
+    ICTokenCurrent(v.cTokenBorrow).borrowBalanceCurrent(address(this));
 
     // how much collateral we are going to return
     AccountData memory data;
@@ -342,31 +346,43 @@ library CompoundPoolAdapterLib {
     (v.healthFactorBefore,,,) = _getAccountValues(f_, v.comptroller, v.cTokenCollateral, data, prices);
 
     // transfer borrow amount back to the pool
-    if (v.cTokenBorrow == f_.cTokenNative) {
-      INativeToken(f_.nativeToken).withdraw(amountToRepay_);
-      ICTokenNative(payable(v.cTokenBorrow)).repayBorrow{value: amountToRepay_}();
+    if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
+      ICompoundPoolAdapterLibCaller(address(this)).repayBorrow(v.assetBorrow, v.cTokenBorrow, amountToRepay_);
     } else {
-      // infinity approve
-      v.error = ICTokenBase(v.cTokenBorrow).repayBorrow(amountToRepay_);
-      require(v.error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(v.error))));
+      if (v.cTokenBorrow == f_.cTokenNative) {
+        INativeToken(f_.nativeToken).withdraw(amountToRepay_);
+        ICTokenNative(payable(v.cTokenBorrow)).repayBorrow{value: amountToRepay_}();
+      } else {
+        // infinity approve
+        v.error = ICTokenBase(v.cTokenBorrow).repayBorrow(amountToRepay_);
+        require(v.error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(v.error))));
+      }
     }
 
     // withdraw the collateral
-    v.balanceCollateralAssetBeforeRedeem = _getBalance(f_, v.assetCollateral);
-    v.error = ICTokenBase(v.cTokenCollateral).redeem(v.collateralTokensToWithdraw);
-    require(v.error == 0, string(abi.encodePacked(AppErrors.REDEEM_FAILED, Strings.toString(v.error))));
+    if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
+      v.collateralAmountToReturn = ICompoundPoolAdapterLibCaller(address(this)).redeem(
+        v.assetCollateral,
+        v.cTokenCollateral,
+        v.collateralTokensToWithdraw
+      );
+    } else {
+      v.balanceCollateralAssetBeforeRedeem = _getBalance(f_, v.assetCollateral);
+      v.error = ICTokenBase(v.cTokenCollateral).redeem(v.collateralTokensToWithdraw);
+      require(v.error == 0, string(abi.encodePacked(AppErrors.REDEEM_FAILED, Strings.toString(v.error))));
 
-    // transfer collateral back to the user
-    v.balanceCollateralAssetAfterRedeem = _getBalance(f_, v.assetCollateral);
-    uint collateralAmountToReturn = AppUtils.sub0(v.balanceCollateralAssetAfterRedeem, v.balanceCollateralAssetBeforeRedeem);
-    if (v.assetCollateral == f_.nativeToken) {
-      INativeToken(f_.nativeToken).deposit{value: collateralAmountToReturn}();
+      // transfer collateral back to the user
+      v.balanceCollateralAssetAfterRedeem = _getBalance(f_, v.assetCollateral);
+      v.collateralAmountToReturn = AppUtils.sub0(v.balanceCollateralAssetAfterRedeem, v.balanceCollateralAssetBeforeRedeem);
+      if (v.assetCollateral == f_.nativeToken) {
+        INativeToken(f_.nativeToken).deposit{value: v.collateralAmountToReturn}();
+      }
     }
 
     // we don't check equality [token amount] * [exchange rate] = [asset amount]
     // we can do it, but it's too dangerous to have additional revert in repay
 
-    IERC20(v.assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
+    IERC20(v.assetCollateral).safeTransfer(receiver_, v.collateralAmountToReturn);
 
     // validate result status
     _initAccountData(v.cTokenCollateral, v.cTokenBorrow, data);
@@ -387,9 +403,9 @@ library CompoundPoolAdapterLib {
     );
     state.collateralTokensBalance = v.collateralTokensBalance - (v.tokenBalanceBefore - data.collateralTokenBalance);
 
-    _registerInBookkeeperRepay(controller, collateralAmountToReturn, amountToRepay_);
+    _registerInBookkeeperRepay(controller, v.collateralAmountToReturn, amountToRepay_);
     emit OnRepay(amountToRepay_, receiver_, closePosition_, v.healthFactor18);
-    return collateralAmountToReturn;
+    return v.collateralAmountToReturn;
   }
 
   /// @notice Repay with rebalancing. Send amount of collateral/borrow asset to the pool adapter
@@ -446,13 +462,17 @@ library CompoundPoolAdapterLib {
       //    require(IERC20(assetBorrow).balanceOf(address(this)) >= amount_, AppErrors.MINT_FAILED);
 
       // transfer borrow amount back to the pool
-      if (f_.cTokenNative == cTokenBorrow) {
-        INativeToken(f_.nativeToken).withdraw(amountIn_);
-        ICTokenNative(payable(cTokenBorrow)).repayBorrow{value: amountIn_}();
+      if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
+        ICompoundPoolAdapterLibCaller(address(this)).repayBorrow(assetBorrow, cTokenBorrow, amountIn_);
       } else {
-        // infinity approve
-        uint error = ICTokenBase(cTokenBorrow).repayBorrow(amountIn_);
-        require(error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(error))));
+        if (f_.cTokenNative == cTokenBorrow) {
+          INativeToken(f_.nativeToken).withdraw(amountIn_);
+          ICTokenNative(payable(cTokenBorrow)).repayBorrow{value: amountIn_}();
+        } else {
+          // infinity approve
+          uint error = ICTokenBase(cTokenBorrow).repayBorrow(amountIn_);
+          require(error == 0, string(abi.encodePacked(AppErrors.REPAY_FAILED, Strings.toString(error))));
+        }
       }
       _registerInBookkeeperRepay(controller, 0, amountIn_);
     }
@@ -562,14 +582,18 @@ library CompoundPoolAdapterLib {
     //    require(tokenBalanceBefore >= collateralAmount_, AppErrors.MINT_FAILED);
     tokenBalanceBefore = IERC20(cToken_).balanceOf(address(this));
 
-    if (f_.cTokenNative == cToken_) {
-      console.log("_supply.1");
-      INativeToken(f_.nativeToken).withdraw(amount_);
-      ICTokenNative(payable(cToken_)).mint{value: amount_}();
-    } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
-      console.log("_supply.2");
-      uint error = ICTokenBase(cToken_).mint(amount_);
-      require(error == 0, string(abi.encodePacked(AppErrors.MINT_FAILED, Strings.toString(error))));
+    if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
+      ICompoundPoolAdapterLibCaller(address(this)).mint(cToken_, amount_);
+    } else {
+      if (f_.cTokenNative == cToken_) {
+        console.log("_supply.1");
+        INativeToken(f_.nativeToken).withdraw(amount_);
+        ICTokenNative(payable(cToken_)).mint{value: amount_}();
+      } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
+        console.log("_supply.2");
+        uint error = ICTokenBase(cToken_).mint(amount_);
+        require(error == 0, string(abi.encodePacked(AppErrors.MINT_FAILED, Strings.toString(error))));
+      }
     }
     console.log("_supply.3");
   }
@@ -753,12 +777,14 @@ library CompoundPoolAdapterLib {
     ICompoundComptrollerBase comptroller_,
     address cTokenCollateral_
   ) internal view returns (uint collateralFactor) {
-    if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
-      (, collateralFactor) = ICompoundComptrollerBaseV1(address(comptroller_)).markets(cTokenCollateral_);
-    } else if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V2_ZEROVIX) {
-      (, , collateralFactor) = ICompoundComptrollerBaseV2Zerovix(address(comptroller_)).markets(cTokenCollateral_);
-    } else { // CompoundLib.COMPOUND_STORAGE_V2
-      (, collateralFactor ,) = ICompoundComptrollerBaseV2(address(comptroller_)).markets(cTokenCollateral_);
+    if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
+      collateralFactor = ICompoundPoolAdapterLibCaller(address(this)).markets(cTokenCollateral_);
+    } else {
+      if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
+        (, collateralFactor) = ICompoundComptrollerBaseV1(address(comptroller_)).markets(cTokenCollateral_);
+      } else { // CompoundLib.COMPOUND_STORAGE_V2
+        (, collateralFactor ,) = ICompoundComptrollerBaseV2(address(comptroller_)).markets(cTokenCollateral_);
+      }
     }
   }
 

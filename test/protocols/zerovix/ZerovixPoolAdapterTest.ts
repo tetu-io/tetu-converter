@@ -38,6 +38,7 @@ import {ZerovixUtilsZkevm} from "../../baseUT/protocols/zerovix/ZerovixUtilsZkev
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
 import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 import {ZkevmUtils} from "../../baseUT/chains/zkevm/ZkevmUtils";
+import {ZerovixSetupUtils} from "../../baseUT/protocols/zerovix/ZerovixSetupUtils";
 
 describe("ZerovixPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -993,6 +994,7 @@ describe("ZerovixPoolAdapterTest", () => {
 
     describe("Good paths", () => {
       it("should increase debt amount and collateral amount", async () => {
+        await ZerovixSetupUtils.setupPriceOracleMock(signer, true);
         const ret = await updateStatus({
           collateralAsset: ZkevmAddresses.MATIC,
           borrowAsset: ZkevmAddresses.USDC,
