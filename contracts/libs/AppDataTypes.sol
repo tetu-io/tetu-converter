@@ -11,7 +11,8 @@ library AppDataTypes {
     HUNDRED_FINANCE_4,
     COMPOUND3_5,
     MOONWELL_6,
-    ZEROVIX_7
+    ZEROVIX_7,
+    KEOM_8
   }
 
   enum ConversionKind {

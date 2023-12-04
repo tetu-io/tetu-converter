@@ -5,7 +5,7 @@ import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
-import "./ZerovixLib.sol";
+import "./KeomLib.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../interfaces/IDebtMonitor.sol";
@@ -14,13 +14,13 @@ import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/IWmatic.sol";
-import "../../integrations/zerovix/IZerovixComptroller.sol";
+import "../../integrations/keom/IKeomComptroller.sol";
 import "../compound/CompoundPoolAdapterLib.sol";
-import "../../integrations/zerovix/IZerovixToken.sol";
+import "../../integrations/keom/IKeomToken.sol";
 
-/// @notice Implementation of IPoolAdapter for Zerovix-protocol, see https://docs.0vix.com/
+/// @notice Implementation of IPoolAdapter for Keom-protocol, see https://docs.keom.io/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICompoundPoolAdapterLibCaller, Initializable {
+contract KeomPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICompoundPoolAdapterLibCaller, Initializable {
   using SafeERC20 for IERC20;
 
   //region ----------------------------------------------------- Constants and variables
@@ -70,7 +70,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
   /// @return Result borrowed amount sent to the {receiver_}
   function borrow(uint collateralAmount_, uint borrowAmount_, address receiver_) external override returns (uint) {
     CompoundLib.ProtocolFeatures memory f;
-    ZerovixLib.initProtocolFeatures(f);
+    KeomLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.borrow(_state, f, collateralAmount_, borrowAmount_, receiver_);
   }
@@ -84,7 +84,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
     uint borrowedAmountOut
   ) {
     CompoundLib.ProtocolFeatures memory f;
-    ZerovixLib.initProtocolFeatures(f);
+    KeomLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.borrowToRebalance(_state, f, borrowAmount_, receiver_);
   }
@@ -100,7 +100,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
   /// @return Amount of collateral asset sent to the {receiver_}
   function repay(uint amountToRepay_, address receiver_, bool closePosition_) external override returns (uint) {
     CompoundLib.ProtocolFeatures memory f;
-    ZerovixLib.initProtocolFeatures(f);
+    KeomLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.repay(_state, f, amountToRepay_, receiver_, closePosition_);
   }
@@ -116,7 +116,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
   /// @return resultHealthFactor18 Result health factor after repay, decimals 18
   function repayToRebalance(uint amount_, bool isCollateral_) external override returns (uint resultHealthFactor18) {
     CompoundLib.ProtocolFeatures memory f;
-    ZerovixLib.initProtocolFeatures(f);
+    KeomLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.repayToRebalance(_state, f, amount_, isCollateral_);
   }
@@ -130,7 +130,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
   //region ------------------------------------------------ ICompoundPoolAdapterLibCaller (for CompoundPoolAdapterLib)
   function _borrow(address /*borrowAsset*/, address borrowCToken, uint amount) external {
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
-    IZerovixToken(borrowCToken).borrow(amount);
+    IKeomToken(borrowCToken).borrow(amount);
     // CompoundPoolAdapterLib checks that borrowed amount is actually received on its own side,
     // so we don't make such check here
   }
@@ -138,14 +138,14 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
 
     // assume, that repayBorrow generates exception if any error happens
-    IZerovixToken(borrowCToken).repayBorrow(amountToRepay);
+    IKeomToken(borrowCToken).repayBorrow(amountToRepay);
   }
 
   /// @return Received amount of collateral
   function _redeem(address collateralAsset, address collateralCToken, uint amountToWithdraw) external returns (uint) {
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
     uint balanceBefore = IERC20(collateralAsset).balanceOf(address(this));
-    IZerovixToken(collateralCToken).redeem(amountToWithdraw);
+    IKeomToken(collateralCToken).redeem(amountToWithdraw);
     uint balanceAfter = IERC20(collateralAsset).balanceOf(address(this));
     return AppUtils.sub0(balanceAfter, balanceBefore);
   }
@@ -154,12 +154,12 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
 
     // assume, that mint generates exception if any error happens
-    IZerovixToken(collateralCToken).mint(amount);
+    IKeomToken(collateralCToken).mint(amount);
   }
 
   function _markets(address collateralCToken) external view returns (uint collateralFactor) {
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
-    (, , collateralFactor) = IZerovixComptroller(payable(address(_state.comptroller))).markets(collateralCToken);
+    (, , collateralFactor) = IKeomComptroller(payable(address(_state.comptroller))).markets(collateralCToken);
   }
 
   //endregion --------------------------------------------- ICompoundPoolAdapterLibCaller (for CompoundPoolAdapterLib)
@@ -197,7 +197,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICom
     bool debtGapRequired
   ) {
     CompoundLib.ProtocolFeatures memory f;
-    ZerovixLib.initProtocolFeatures(f);
+    KeomLib.initProtocolFeatures(f);
 
     return CompoundPoolAdapterLib.getStatus(_state, f);
   }

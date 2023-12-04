@@ -245,4 +245,23 @@ export class MaticAddresses {
   public static ostMATIC = "0xDc3C5E5c01817872599e5915999c0dE70722D07f";
   public static owstETH = "0xf06edA703C62b9889C75DccDe927b93bde1Ae654";
 //endregion ----------------------------------------------------- 0vix
+
+//region ----------------------------------------------------- Keom
+  public static KEOM_COMPTROLLER = "0x5B7136CFFd40Eee5B882678a5D02AA25A48d669F";
+  public static KEOM_PRICE_ORACLE = "0x828fb251167145F89cd479f9D71a5A762F23BF13";
+
+  public static KEOM_MATIC = "0x7854D4Cfa7d0B877E399bcbDFfb49536d7A14fc7";
+  public static KEOM_WBTC = "0x4e7d313918B9A8c32f18BC1Df346c79E36D0f9DC";
+  public static KEOM_DAI = "0x83f98471F6F5D0ad82b0FE99d2Ce26F65995Ef32";
+  public static KEOM_WETH = "0x44010CBf1EC8B8D8275d86D8e28278C06DD07C48";
+  public static KEOM_USDC = "0xF5EcA026809785165Ad468171cE10E1DA59CA866";
+  public static KEOM_USDT = "0xce71F99c6B09ba50AEA18F8132D674dC57fe0839";
+  public static KEOM_miMATIC = "0x0edc2B1239D3d4ad03A2deB23517A50A406eB6D2";
+  public static KEOM_MATICX = "0x6b4c8e36Cec677D68cfbAbA375230F959199A673";
+  public static KEOM_stMATIC = "0x4bc6E73B215B7F1dDfcE83B887525f72a53e1ED8";
+  public static KEOM_jEUR = "0xa17E7765b38b9AFf1Fb8BEB3AD865aFF68eBDA96";
+  public static KEOM_gDAI = "0x4da1CF31f15185EFe7a0883AC805AfD2e9543249";
+  public static KEOM_vGHST = "0x95B847BD54d151231f1c82Bf2EECbe5c211bD9bC";
+  public static KEOM_wstETH = "0x0e9f5E4e8ec73E909830B67E3E61b5DB70E3b2E9";
+//endregion ----------------------------------------------------- Keom
 }
