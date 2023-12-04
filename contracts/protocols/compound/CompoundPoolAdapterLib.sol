@@ -23,8 +23,8 @@ import "../../integrations/compound/ICompoundComptrollerBaseV2Zerovix.sol";
 import "../../libs/AppDataTypes.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
-import "hardhat/console.sol";
 import "../../integrations/compound/ICompoundPoolAdapterLibCaller.sol";
+import "hardhat/console.sol";
 
 library CompoundPoolAdapterLib {
   using SafeERC20 for IERC20;
@@ -244,7 +244,7 @@ library CompoundPoolAdapterLib {
 
     console.log("start borrow");
     if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
-      ICompoundPoolAdapterLibCaller(address(this)).borrow(v.assetBorrow, v.cTokenBorrow, borrowAmount_);
+      ICompoundPoolAdapterLibCaller(address(this))._borrow(v.assetBorrow, v.cTokenBorrow, borrowAmount_);
     } else {
       v.error = ICTokenBase(v.cTokenBorrow).borrow(borrowAmount_);
       require(v.error == 0, string(abi.encodePacked(AppErrors.BORROW_FAILED, Strings.toString(v.error))));
@@ -347,7 +347,7 @@ library CompoundPoolAdapterLib {
 
     // transfer borrow amount back to the pool
     if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
-      ICompoundPoolAdapterLibCaller(address(this)).repayBorrow(v.assetBorrow, v.cTokenBorrow, amountToRepay_);
+      ICompoundPoolAdapterLibCaller(address(this))._repayBorrow(v.assetBorrow, v.cTokenBorrow, amountToRepay_);
     } else {
       if (v.cTokenBorrow == f_.cTokenNative) {
         INativeToken(f_.nativeToken).withdraw(amountToRepay_);
@@ -361,7 +361,7 @@ library CompoundPoolAdapterLib {
 
     // withdraw the collateral
     if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
-      v.collateralAmountToReturn = ICompoundPoolAdapterLibCaller(address(this)).redeem(
+      v.collateralAmountToReturn = ICompoundPoolAdapterLibCaller(address(this))._redeem(
         v.assetCollateral,
         v.cTokenCollateral,
         v.collateralTokensToWithdraw
@@ -463,7 +463,7 @@ library CompoundPoolAdapterLib {
 
       // transfer borrow amount back to the pool
       if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
-        ICompoundPoolAdapterLibCaller(address(this)).repayBorrow(assetBorrow, cTokenBorrow, amountIn_);
+        ICompoundPoolAdapterLibCaller(address(this))._repayBorrow(assetBorrow, cTokenBorrow, amountIn_);
       } else {
         if (f_.cTokenNative == cTokenBorrow) {
           INativeToken(f_.nativeToken).withdraw(amountIn_);
@@ -583,14 +583,17 @@ library CompoundPoolAdapterLib {
     tokenBalanceBefore = IERC20(cToken_).balanceOf(address(this));
 
     if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
-      ICompoundPoolAdapterLibCaller(address(this)).mint(cToken_, amount_);
+      console.log("_supply.1");
+      ICompoundPoolAdapterLibCaller(address(this))._mint(cToken_, amount_);
+      console.log("_supply.1.1");
     } else {
+      console.log("_supply.2");
       if (f_.cTokenNative == cToken_) {
-        console.log("_supply.1");
+        console.log("_supply.2.1");
         INativeToken(f_.nativeToken).withdraw(amount_);
         ICTokenNative(payable(cToken_)).mint{value: amount_}();
       } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
-        console.log("_supply.2");
+        console.log("_supply.2.2");
         uint error = ICTokenBase(cToken_).mint(amount_);
         require(error == 0, string(abi.encodePacked(AppErrors.MINT_FAILED, Strings.toString(error))));
       }
@@ -778,7 +781,7 @@ library CompoundPoolAdapterLib {
     address cTokenCollateral_
   ) internal view returns (uint collateralFactor) {
     if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_CUSTOM) {
-      collateralFactor = ICompoundPoolAdapterLibCaller(address(this)).markets(cTokenCollateral_);
+      collateralFactor = ICompoundPoolAdapterLibCaller(address(this))._markets(cTokenCollateral_);
     } else {
       if (f_.compoundStorageVersion == CompoundLib.COMPOUND_STORAGE_V1) {
         (, collateralFactor) = ICompoundComptrollerBaseV1(address(comptroller_)).markets(cTokenCollateral_);

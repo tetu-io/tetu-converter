@@ -6,7 +6,6 @@ import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
 import "./ZerovixLib.sol";
-import "./ZerovixCompoundPoolAdapterLib.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../interfaces/IDebtMonitor.sol";
@@ -16,16 +15,18 @@ import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/IWmatic.sol";
 import "../../integrations/zerovix/IZerovixComptroller.sol";
+import "../compound/CompoundPoolAdapterLib.sol";
+import "../../integrations/zerovix/IZerovixToken.sol";
 
 /// @notice Implementation of IPoolAdapter for Zerovix-protocol, see https://docs.0vix.com/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
+contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICompoundPoolAdapterLibCaller, Initializable {
   using SafeERC20 for IERC20;
 
   //region ----------------------------------------------------- Constants and variables
   string public constant POOL_ADAPTER_VERSION = "1.0.0";
 
-  ZerovixCompoundPoolAdapterLib.State internal _state;
+  CompoundPoolAdapterLib.State internal _state;
   //endregion ----------------------------------------------------- Constants and variables
 
   //region ----------------------------------------------------- Initialization
@@ -43,7 +44,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     // and initializes it immediately. We should ensure only that the re-initialization is not possible
   initializer
   {
-    ZerovixCompoundPoolAdapterLib.initialize(
+    CompoundPoolAdapterLib.initialize(
       _state,
       controller_,
       cTokenAddressProvider_,
@@ -58,7 +59,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
 
   //region ----------------------------------------------------- Borrow logic
   function updateStatus() external override {
-    ZerovixCompoundPoolAdapterLib.updateStatus(_state);
+    CompoundPoolAdapterLib.updateStatus(_state);
   }
 
   /// @notice Supply collateral to the pool and borrow specified amount
@@ -71,7 +72,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return ZerovixCompoundPoolAdapterLib.borrow(_state, f, collateralAmount_, borrowAmount_, receiver_);
+    return CompoundPoolAdapterLib.borrow(_state, f, collateralAmount_, borrowAmount_, receiver_);
   }
 
   /// @notice Borrow additional amount {borrowAmount_} using exist collateral and send it to {receiver_}
@@ -85,7 +86,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return ZerovixCompoundPoolAdapterLib.borrowToRebalance(_state, f, borrowAmount_, receiver_);
+    return CompoundPoolAdapterLib.borrowToRebalance(_state, f, borrowAmount_, receiver_);
   }
   //endregion ----------------------------------------------------- Borrow logic
 
@@ -101,7 +102,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return ZerovixCompoundPoolAdapterLib.repay(_state, f, amountToRepay_, receiver_, closePosition_);
+    return CompoundPoolAdapterLib.repay(_state, f, amountToRepay_, receiver_, closePosition_);
   }
 
   /// @notice Repay with rebalancing. Send amount of collateral/borrow asset to the pool adapter
@@ -117,14 +118,66 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return ZerovixCompoundPoolAdapterLib.repayToRebalance(_state, f, amount_, isCollateral_);
+    return CompoundPoolAdapterLib.repayToRebalance(_state, f, amount_, isCollateral_);
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
   function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
-    return ZerovixCompoundPoolAdapterLib.getCollateralAmountToReturn(_state, amountToRepay_, closePosition_);
+    return CompoundPoolAdapterLib.getCollateralAmountToReturn(_state, amountToRepay_, closePosition_);
   }
   //endregion ----------------------------------------------------- Repay logic
+
+  //region ------------------------------------------------ ICompoundPoolAdapterLibCaller (for CompoundPoolAdapterLib)
+  function _borrow(address /*borrowAsset*/, address borrowCToken, uint amount) external {
+    console.log("_borrow.1");
+    require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
+    console.log("_borrow.2");
+    IZerovixToken(borrowCToken).borrow(amount);
+    console.log("_borrow.3");
+//    if (borrowAsset == ZerovixLib.getNativeToken()) {
+//      console.log("_borrow.4");
+//      INativeToken(borrowAsset).deposit{value: amount}();
+//    }
+    console.log("_borrow.5");
+  }
+  function _repayBorrow(address /*borrowAsset*/, address borrowCToken, uint amountToRepay) external {
+    require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
+//    if (v.cTokenBorrow == f_.cTokenNative) {
+//      INativeToken(f_.nativeToken).withdraw(amountToRepay_);
+//      ICTokenNative(payable(v.cTokenBorrow)).repayBorrow{value: amountToRepay_}();
+//    } else {
+    IZerovixToken(borrowCToken).repayBorrow(amountToRepay);
+  }
+
+  /// @return collateralAmountToReturn
+  function _redeem(address collateralAsset, address collateralCToken, uint amountToWithdraw) external returns (uint) {
+    require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
+    uint balanceBefore = IERC20(collateralAsset).balanceOf(address(this));
+    IZerovixToken(collateralCToken).redeem(amountToWithdraw);
+    uint balanceAfter = IERC20(collateralAsset).balanceOf(address(this));
+    return AppUtils.sub0(balanceAfter, balanceBefore);
+  }
+
+  function _mint(address collateralCToken, uint amount) external {
+    console.log("_mint.1", amount);
+    require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
+    console.log("_mint.2");
+//    if (f_.cTokenNative == cToken_) {
+//      console.log("_supply.1");
+//      INativeToken(f_.nativeToken).withdraw(amount_);
+//      ICTokenNative(payable(cToken_)).mint{value: amount_}();
+//    } else { // assume infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
+    IZerovixToken(collateralCToken).mint(amount);
+//    }
+    console.log("_mint.3");
+  }
+
+  function _markets(address collateralCToken) external view returns (uint collateralFactor) {
+    require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
+    (, , collateralFactor) = IZerovixComptroller(payable(address(_state.comptroller))).markets(collateralCToken);
+  }
+
+  //endregion --------------------------------------------- ICompoundPoolAdapterLibCaller (for CompoundPoolAdapterLib)
 
   //region ----------------------------------------------------- Rewards
   function claimRewards(address /*receiver_*/ ) external pure override returns (
@@ -161,7 +214,7 @@ contract ZerovixPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Init
     CompoundLib.ProtocolFeatures memory f;
     ZerovixLib.initProtocolFeatures(f);
 
-    return ZerovixCompoundPoolAdapterLib.getStatus(_state, f);
+    return CompoundPoolAdapterLib.getStatus(_state, f);
   }
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {

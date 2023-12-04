@@ -5,13 +5,13 @@ pragma solidity 0.8.17;
 /// @dev This interface should be implemented if the protocol's token doesn't support ICTokenBase, i.e.
 ///      the token uses not-standard declaration of all or some key functions - borrow(), repayBorrow and so on.
 interface ICompoundPoolAdapterLibCaller {
-  function borrow(address borrowAsset, address borrowCToken, uint amount) external;
-  function repayBorrow(address borrowAsset, address borrowCToken, uint amountToRepay) external;
+  function _borrow(address borrowAsset, address borrowCToken, uint amount) external;
+  function _repayBorrow(address borrowAsset, address borrowCToken, uint amountToRepay) external;
 
   /// @return collateralAmountToReturn
-  function redeem(address collateralAsset, address collateralCToken, uint amountToWithdraw) external returns (uint);
+  function _redeem(address collateralAsset, address collateralCToken, uint amountToWithdraw) external returns (uint);
 
-  function mint(address collateralCToken, uint amount) external;
+  function _mint(address collateralCToken, uint amount) external;
 
-  function markets(address collateralCToken) external view returns (uint collateralFactor);
+  function _markets(address collateralCToken) external view returns (uint collateralFactor);
 }

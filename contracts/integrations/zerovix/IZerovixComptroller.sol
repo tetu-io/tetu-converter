@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import "../compound/ICompoundComptrollerBase.sol";
+
 /// @notice Restored from zkevm.0xf29d0ae1A29C453df338C5eEE4f010CFe08bb3FF, events were removed
-interface IZerovixComptroller {
+interface IZerovixComptroller is ICompoundComptrollerBase {
   function _become(address unitroller) external;
 
   function _borrowGuardianPaused() external view returns (bool);
