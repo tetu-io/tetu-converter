@@ -76,7 +76,6 @@ describe.skip("DForcePlatformAdapterTest", () => {
     collateralCToken: string,
     borrowAsset: string,
     borrowCToken: string,
-    collateralHolders: string[],
     part10000: number
   ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
     const collateralToken = IDForceCToken__factory.connect(collateralCToken, deployer);
@@ -87,8 +86,7 @@ describe.skip("DForcePlatformAdapterTest", () => {
     return PredictBrUsesCase.predictBrTest(deployer, actor, {
         collateralAsset,
         borrowAsset,
-        collateralHolders,
-        part10000,
+        borrowPart10000: part10000,
     });
   }
 //endregion Test predict-br impl
@@ -1144,14 +1142,6 @@ describe.skip("DForcePlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.USDC;
           const borrowCToken = MaticAddresses.dForce_iUSDC;
 
-          const collateralHolders = [
-            MaticAddresses.HOLDER_DAI,
-            MaticAddresses.HOLDER_DAI_2,
-            MaticAddresses.HOLDER_DAI_3,
-            MaticAddresses.HOLDER_DAI_4,
-            MaticAddresses.HOLDER_DAI_5,
-            MaticAddresses.HOLDER_DAI_6,
-          ];
           const part10000 = 1;
 
           const r = await makePredictBrTest(
@@ -1159,7 +1149,6 @@ describe.skip("DForcePlatformAdapterTest", () => {
             collateralCToken,
             borrowAsset,
             borrowCToken,
-            collateralHolders,
             part10000,
           );
 
@@ -1175,14 +1164,6 @@ describe.skip("DForcePlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.USDC;
           const borrowCToken = MaticAddresses.dForce_iUSDC;
 
-          const collateralHolders = [
-            MaticAddresses.HOLDER_DAI,
-            MaticAddresses.HOLDER_DAI_2,
-            MaticAddresses.HOLDER_DAI_3,
-            MaticAddresses.HOLDER_DAI_4,
-            MaticAddresses.HOLDER_DAI_5,
-            MaticAddresses.HOLDER_DAI_6,
-          ];
           const part10000 = 500;
 
           const r = await makePredictBrTest(
@@ -1190,7 +1171,6 @@ describe.skip("DForcePlatformAdapterTest", () => {
             collateralCToken,
             borrowAsset,
             borrowCToken,
-            collateralHolders,
             part10000,
           );
 
@@ -1207,14 +1187,6 @@ describe.skip("DForcePlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.WBTC;
           const borrowCToken = MaticAddresses.dForce_iWBTC;
 
-          const collateralHolders = [
-            MaticAddresses.HOLDER_DAI,
-            MaticAddresses.HOLDER_DAI_2,
-            MaticAddresses.HOLDER_DAI_3,
-            MaticAddresses.HOLDER_DAI_4,
-            MaticAddresses.HOLDER_DAI_5,
-            MaticAddresses.HOLDER_DAI_6,
-          ];
           const part10000 = 500;
 
           const r = await makePredictBrTest(
@@ -1222,7 +1194,6 @@ describe.skip("DForcePlatformAdapterTest", () => {
             collateralCToken,
             borrowAsset,
             borrowCToken,
-            collateralHolders,
             part10000,
           );
 

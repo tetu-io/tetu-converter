@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import "./AppErrors.sol";
+import "../openzeppelin/IERC20.sol";
 
 /// @notice Common utils
 library AppUtils {
@@ -116,5 +117,12 @@ library AppUtils {
       id := chainid()
     }
     return id;
+  }
+
+  /// @param asset Underlying, it can be native token
+  function getBalance(address nativeToken, address asset) internal view returns (uint) {
+    return nativeToken == asset
+      ? address(this).balance
+      : IERC20(asset).balanceOf(address(this));
   }
 }

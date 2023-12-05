@@ -1150,7 +1150,6 @@ describe("Aave3PlatformAdapterTest", () => {
               async function makeGetBorrowRateAfterBorrowTest(
                 collateralAsset: string,
                 borrowAsset: string,
-                collateralHolders: string[],
                 part10000: number
               ): Promise<{ br: BigNumber, brPredicted: BigNumber }> {
                 const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, testSetup.aavePool);
@@ -1161,8 +1160,7 @@ describe("Aave3PlatformAdapterTest", () => {
                   {
                     collateralAsset,
                     borrowAsset,
-                    collateralHolders,
-                    part10000
+                    borrowPart10000: part10000
                   }
                 );
               }
@@ -1174,7 +1172,6 @@ describe("Aave3PlatformAdapterTest", () => {
                   const r = await makeGetBorrowRateAfterBorrowTest(
                     testSetup.pair.collateralAsset,
                     testSetup.pair.borrowAsset,
-                    testSetup.pair.collateralHolders,
                     part10000
                   );
 

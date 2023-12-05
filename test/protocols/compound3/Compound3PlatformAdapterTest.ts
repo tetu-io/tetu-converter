@@ -73,7 +73,6 @@ describe("Compound3PlatformAdapterTest", () => {
     collateralAsset: string,
     cometAddress: string,
     cometRewards: string,
-    collateralHolders: string[],
     part10000: number
   ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
     const comet = IComet__factory.connect(cometAddress, deployer)
@@ -81,8 +80,7 @@ describe("Compound3PlatformAdapterTest", () => {
     return PredictBrUsesCase.predictBrTest(deployer, actor,{
       collateralAsset,
       borrowAsset: await comet.baseToken(),
-      collateralHolders,
-      part10000
+      borrowPart10000: part10000
     });
   }
 //endregion Test predict-br impl
@@ -732,12 +730,6 @@ describe("Compound3PlatformAdapterTest", () => {
             MaticAddresses.WETH,
             MaticAddresses.COMPOUND3_COMET_USDC,
             MaticAddresses.COMPOUND3_COMET_REWARDS,
-            [
-              MaticAddresses.HOLDER_WETH,
-              MaticAddresses.HOLDER_WETH_2,
-              MaticAddresses.HOLDER_WETH_3,
-              MaticAddresses.HOLDER_WETH_4,
-            ],
 
             // Compound III implements a minimum borrow position size which can be found as baseBorrowMin in the protocol configuration.
             // A withdraw transaction to borrow that results in the account’s borrow size being less than the baseBorrowMin will revert.
@@ -756,12 +748,6 @@ describe("Compound3PlatformAdapterTest", () => {
             MaticAddresses.WETH,
             MaticAddresses.COMPOUND3_COMET_USDC,
             MaticAddresses.COMPOUND3_COMET_REWARDS,
-            [
-              MaticAddresses.HOLDER_WETH,
-              MaticAddresses.HOLDER_WETH_2,
-              MaticAddresses.HOLDER_WETH_3,
-              MaticAddresses.HOLDER_WETH_4,
-            ],
             500
           )
 

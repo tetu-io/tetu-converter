@@ -11,7 +11,7 @@ import {
   IERC20Metadata__factory,
   IPlatformAdapter,
   IPoolAdapter__factory,
-  ITetuConverter__factory,
+  ITetuConverter__factory, KeomPlatformAdapter,
   MoonwellPlatformAdapter,
   UserEmulator
 } from "../../typechain";
@@ -48,6 +48,10 @@ import {ZerovixUtilsProviderZkevm} from "../baseUT/protocols/zerovix/ZerovixUtil
 import {ZerovixUtilsZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
 import {ZkevmAddresses} from "../../scripts/addresses/ZkevmAddresses";
 import {ZerovixHelper} from "../../scripts/integration/zerovix/ZerovixHelper";
+import {KeomUtilsPolygon} from "../baseUT/protocols/keom/KeomUtilsPolygon";
+import {KeomUtilsProviderPolygon} from "../baseUT/protocols/keom/KeomUtilsProviderPolygon";
+import {KeomSetupUtils} from "../baseUT/protocols/keom/KeomSetupUtils";
+import {MaticCore} from "../baseUT/chains/polygon/maticCore";
 
 /** Ensure that all repay/borrow operations are correctly registered in the Bookkeeper */
 describe("BookkeeperCaseTest", () => {
@@ -98,42 +102,39 @@ describe("BookkeeperCaseTest", () => {
   }
 
   const NETWORKS: IChainParams[] = [
-    { // Base chain
-      networkId: ZKEVM_NETWORK_ID,
+    { // Polygon
+      networkId: POLYGON_NETWORK_ID,
       platforms: [
-        { // Zerovix on Zkevm chain
-          platformUtilsProviderBuilder() {
-            return new ZerovixUtilsProviderZkevm();
-          },
+        { // Keom on Polygon
           async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await AdaptersHelper.createZerovixPlatformAdapter(
+            const platformAdapter = await AdaptersHelper.createKeomPlatformAdapter(
               signer0,
               converterController0,
-              (await ZerovixHelper.getComptroller(signer0, ZkevmAddresses.ZEROVIX_COMPTROLLER)).address,
-              (await AdaptersHelper.createZerovixPoolAdapter(signer0)).address,
-              ZerovixUtilsZkevm.getAllCTokens()
-            );
+              MaticAddresses.KEOM_COMPTROLLER,
+              (await AdaptersHelper.createKeomPoolAdapter(signer0)).address,
+              KeomUtilsPolygon.getAllCTokens(),
+            ) as KeomPlatformAdapter;
 
             // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(ZerovixUtilsZkevm.getAllAssets());
+            const pairs = generateAssetPairs(KeomUtilsPolygon.getAllAssets());
             await borrowManagerAsGov0.addAssetPairs(
               platformAdapter.address,
               pairs.map(x => x.smallerAddress),
               pairs.map(x => x.biggerAddress)
             );
 
+            // avoid error "Update time (heartbeat) exceeded"
+            await KeomSetupUtils.disableHeartbeat(signer, MaticCore.getCoreKeom());
+
             return platformAdapter;
           },
+          platformUtilsProviderBuilder() {
+            return new KeomUtilsProviderPolygon();
+          },
           assetPairs: [
-            {collateralAsset: ZkevmAddresses.USDC, borrowAsset: ZkevmAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE},
-          ]
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE,},
+          ],
         },
-      ]
-    },
-
-    { // Polygon
-      networkId: POLYGON_NETWORK_ID,
-      platforms: [
         { // Compound3 on Polygon
           async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
             const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
@@ -222,6 +223,39 @@ describe("BookkeeperCaseTest", () => {
           },
           assetPairs: [
             {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE},
+          ]
+        },
+      ]
+    },
+
+    { // Base chain
+      networkId: ZKEVM_NETWORK_ID,
+      platforms: [
+        { // Zerovix on Zkevm chain
+          platformUtilsProviderBuilder() {
+            return new ZerovixUtilsProviderZkevm();
+          },
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createZerovixPlatformAdapter(
+              signer0,
+              converterController0,
+              (await ZerovixHelper.getComptroller(signer0, ZkevmAddresses.ZEROVIX_COMPTROLLER)).address,
+              (await AdaptersHelper.createZerovixPoolAdapter(signer0)).address,
+              ZerovixUtilsZkevm.getAllCTokens()
+            );
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(ZerovixUtilsZkevm.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          assetPairs: [
+            {collateralAsset: ZkevmAddresses.USDC, borrowAsset: ZkevmAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE},
           ]
         },
       ]

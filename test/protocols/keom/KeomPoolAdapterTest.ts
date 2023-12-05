@@ -12,7 +12,12 @@ import {
   KeomPoolAdapter__factory,
   TetuConverterReplacer
 } from "../../../typechain";
-import {HardhatUtils, POLYGON_NETWORK_ID, ZKEVM_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {
+  controlGasLimitsEx2,
+  HardhatUtils,
+  POLYGON_NETWORK_ID,
+  ZKEVM_NETWORK_ID
+} from "../../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
@@ -36,8 +41,12 @@ import {AppConstants} from "../../baseUT/types/AppConstants";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
 import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 import {KeomSetupUtils} from "../../baseUT/protocols/keom/KeomSetupUtils";
-import {IKeomCore} from "../../baseUT/protocols/keom/IKeomCore";
 import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {IKeomCore} from "../../baseUT/protocols/keom/IKeomCore";
+import {
+  GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
+  GAS_KEOM_POLYGON_FULL_REPAY
+} from "../../baseUT/types/GasLimit";
 
 describe("KeomPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -155,6 +164,7 @@ describe("KeomPoolAdapterTest", () => {
         borrowBalance: number;
         plan: IConversionPlanNum;
         status: IPoolAdapterStatusNum;
+        gasUsed: BigNumber;
       }
 
       async function borrow(p: IParams): Promise<IResults> {
@@ -189,11 +199,13 @@ describe("KeomPoolAdapterTest", () => {
         await IERC20__factory.connect(p.collateralAsset, tetuConverterSigner).approve(poolAdapterInstance.address, collateralAmountApproved);
 
         // make borrow
-        await poolAdapterInstance.connect(tetuConverterSigner).borrow(
+        const tx = await poolAdapterInstance.connect(tetuConverterSigner).borrow(
           collateralAmount,
           parseUnits(plan.amountToBorrow.toString(), decimalsBorrow),
           receiver
         );
+        const cr = await tx.wait();
+        const gasUsed = cr.gasUsed;
 
         // get status
         const status = await poolAdapterInstance.getStatus();
@@ -202,7 +214,8 @@ describe("KeomPoolAdapterTest", () => {
           collateralBalance: +formatUnits(await collateralAsset.balanceOf(tetuConverterSigner.address), decimalsCollateral),
           borrowBalance: +formatUnits(await borrowAsset.balanceOf(receiver), decimalsBorrow),
           plan,
-          status: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(status, decimalsCollateral, decimalsBorrow)
+          status: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(status, decimalsCollateral, decimalsBorrow),
+          gasUsed
         }
       }
 
@@ -290,6 +303,7 @@ describe("KeomPoolAdapterTest", () => {
         statusBeforeRepay: IPoolAdapterStatusNum;
         statusAfterBorrow: IPoolAdapterStatusNum;
         statusAfterRepay: IPoolAdapterStatusNum;
+        gasUsed: BigNumber;
       }
 
       async function repay(p: IParams): Promise<IResults> {
@@ -341,20 +355,25 @@ describe("KeomPoolAdapterTest", () => {
         }
 
         // repay
+        let gasUsed: BigNumber = BigNumber.from(0);
         const statusBeforeRepay = await poolAdapterInstance.getStatus();
         if (p.notTetuConverter) {
-          await poolAdapterInstance.connect(await Misc.impersonate(receiver)).repay(
+          const tx = await poolAdapterInstance.connect(await Misc.impersonate(receiver)).repay(
             amountToRepay,
             receiver,
             p.closePosition ?? false
           );
+          const cr = await tx.wait();
+          gasUsed = cr.gasUsed;
         } else {
-          await tetuConverterReplacer.repay(
+          const tx = await tetuConverterReplacer.repay(
             poolAdapterInstance.address,
             p.repayPart ?? 100_000,
             p.closePosition ?? false,
             receiver,
           );
+          const cr = await tx.wait();
+          gasUsed = cr.gasUsed;
         }
         const statusAfterRepay = await poolAdapterInstance.getStatus();
 
@@ -365,6 +384,7 @@ describe("KeomPoolAdapterTest", () => {
           statusBeforeRepay: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusBeforeRepay, decimalsCollateral, decimalsBorrow),
           statusAfterBorrow: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusAfterBorrow, decimalsCollateral, decimalsBorrow),
           statusAfterRepay: BorrowRepayDataTypeUtils.getPoolAdapterStatusNum(statusAfterRepay, decimalsCollateral, decimalsBorrow),
+          gasUsed
         }
       }
 
@@ -416,6 +436,14 @@ describe("KeomPoolAdapterTest", () => {
                   ].join()).eq([
                     false, 0, 0
                   ].join());
+                });
+                it("should not exceed gas limits @skip-on-coverage", async () => {
+                  const ret = await loadFixture(repayTest);
+                  if (chainInfo.chain === POLYGON_NETWORK_ID) {
+                    controlGasLimitsEx2(ret.gasUsed, GAS_KEOM_POLYGON_FULL_REPAY, (u, t) => {
+                      expect(u).to.be.below(t);
+                    });
+                  }
                 });
               });
             });

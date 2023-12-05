@@ -4,7 +4,7 @@ import {
   BorrowManager,
   BorrowManager__factory,
   ConverterController, HfPlatformAdapter,
-  IPlatformAdapter, ITetuConverter__factory, MoonwellPlatformAdapter,
+  IPlatformAdapter, ITetuConverter__factory, KeomPlatformAdapter, MoonwellPlatformAdapter,
   UserEmulator, ZerovixPlatformAdapter
 } from "../../typechain";
 import {BASE_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID, ZKEVM_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
@@ -43,6 +43,10 @@ import {ZkevmAddresses} from "../../scripts/addresses/ZkevmAddresses";
 import {ZerovixUtilsProviderZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsProviderZkevm";
 import {ZerovixUtilsZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
 import {ZerovixHelper} from "../../scripts/integration/zerovix/ZerovixHelper";
+import {KeomUtilsPolygon} from "../baseUT/protocols/keom/KeomUtilsPolygon";
+import {KeomSetupUtils} from "../baseUT/protocols/keom/KeomSetupUtils";
+import {MaticCore} from "../baseUT/chains/polygon/maticCore";
+import {KeomUtilsProviderPolygon} from "../baseUT/protocols/keom/KeomUtilsProviderPolygon";
 
 describe("BorrowRepayCaseTest", () => {
 //region Data types
@@ -119,6 +123,113 @@ describe("BorrowRepayCaseTest", () => {
   }
 
   const NETWORKS: IChainParams[] = [
+    { // Polygon
+      networkId: POLYGON_NETWORK_ID,
+      platforms: [
+        { // Keom on Polygon
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createKeomPlatformAdapter(
+              signer0,
+              converterController0,
+              MaticAddresses.KEOM_COMPTROLLER,
+              (await AdaptersHelper.createKeomPoolAdapter(signer0)).address,
+              KeomUtilsPolygon.getAllCTokens(),
+            ) as KeomPlatformAdapter;
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(KeomUtilsPolygon.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            // avoid error "Update time (heartbeat) exceeded"
+            await KeomSetupUtils.disableHeartbeat(signer, MaticCore.getCoreKeom());
+
+            return platformAdapter;
+          },
+          platformUtilsProviderBuilder() {
+            return new KeomUtilsProviderPolygon();
+          },
+          assetPairs: [
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+            {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
+            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE},
+          ]
+        },
+        { // AAVETwo on Polygon
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+              signer0,
+              converterController0,
+              MaticAddresses.AAVE_TWO_POOL,
+              (await AdaptersHelper.createAaveTwoPoolAdapter(signer0)).address,
+              borrowManagerAsGov0.address,
+            ) as AaveTwoPlatformAdapter;
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(AaveTwoUtils.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          platformUtilsProviderBuilder() {
+            return new AaveTwoUtilsProvider();
+          },
+          assetPairs: [
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", minTargetHealthFactor: "1.0625", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+
+            // AAVE 2 doesn't allow to use USDT as a collateral
+            // {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC"},
+
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", minTargetHealthFactor: "1.0625", singleParams: PARAMS_SINGLE_STABLE},
+            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", minTargetHealthFactor: "1.0625", singleParams: PARAMS_SINGLE_STABLE},
+          ]
+        },
+        { // AAVE3 on Polygon
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+              signer0,
+              converterController0,
+              MaticAddresses.AAVE_V3_POOL,
+              (await AdaptersHelper.createAave3PoolAdapter(signer0)).address,
+              (await AdaptersHelper.createAave3PoolAdapterEMode(signer0)).address,
+              borrowManagerAsGov0.address,
+            ) as Aave3PlatformAdapter;
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(Aave3Utils.getAllAssetsMatic());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          platformUtilsProviderBuilder() {
+            return new Aave3UtilsProviderMatic();
+          },
+          assetPairs: [
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+            {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+
+            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
+            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE},
+
+            {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.MaticX, collateralAssetName: "WMATIC", borrowAssetName: "MaticX", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+          ]
+        },
+      ]
+    },
+
     { // Polygon zkEvm chain
       networkId: ZKEVM_NETWORK_ID,
       platforms: [
@@ -219,112 +330,6 @@ describe("BorrowRepayCaseTest", () => {
             {collateralAsset: BaseAddresses.DAI, borrowAsset: BaseAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE},
           ]
         },
-      ]
-    },
-
-    { // Polygon
-      networkId: POLYGON_NETWORK_ID,
-      platforms: [
-        { // AAVETwo on Polygon
-          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-              signer0,
-              converterController0,
-              MaticAddresses.AAVE_TWO_POOL,
-              (await AdaptersHelper.createAaveTwoPoolAdapter(signer0)).address,
-              borrowManagerAsGov0.address,
-            ) as AaveTwoPlatformAdapter;
-
-            // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(AaveTwoUtils.getAllAssets());
-            await borrowManagerAsGov0.addAssetPairs(
-              platformAdapter.address,
-              pairs.map(x => x.smallerAddress),
-              pairs.map(x => x.biggerAddress)
-            );
-
-            return platformAdapter;
-          },
-          platformUtilsProviderBuilder() {
-            return new AaveTwoUtilsProvider();
-          },
-          assetPairs: [
-            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", minTargetHealthFactor: "1.0625", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-
-            // AAVE 2 doesn't allow to use USDT as a collateral
-            // {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC"},
-
-            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", minTargetHealthFactor: "1.0625", singleParams: PARAMS_SINGLE_STABLE},
-            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", minTargetHealthFactor: "1.0625", singleParams: PARAMS_SINGLE_STABLE},
-          ]
-        },
-        { // AAVE3 on Polygon
-          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-              signer0,
-              converterController0,
-              MaticAddresses.AAVE_V3_POOL,
-              (await AdaptersHelper.createAave3PoolAdapter(signer0)).address,
-              (await AdaptersHelper.createAave3PoolAdapterEMode(signer0)).address,
-              borrowManagerAsGov0.address,
-            ) as Aave3PlatformAdapter;
-
-            // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(Aave3Utils.getAllAssetsMatic());
-            await borrowManagerAsGov0.addAssetPairs(
-              platformAdapter.address,
-              pairs.map(x => x.smallerAddress),
-              pairs.map(x => x.biggerAddress)
-            );
-
-            return platformAdapter;
-          },
-          platformUtilsProviderBuilder() {
-            return new Aave3UtilsProviderMatic();
-          },
-          assetPairs: [
-            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-            {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-
-            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
-            {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE},
-
-            {collateralAsset: MaticAddresses.WMATIC, borrowAsset: MaticAddresses.MaticX, collateralAssetName: "WMATIC", borrowAssetName: "MaticX", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-          ]
-        },
-
-        // { // DForce on Polygon
-        //   async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-        //     const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
-        //       signer0,
-        //       converterController0,
-        //       MaticAddresses.DFORCE_CONTROLLER,
-        //       (await AdaptersHelper.createDForcePoolAdapter(signer0)).address,
-        //       DForceUtils.getAllCTokens(),
-        //       borrowManagerAsGov0.address,
-        //     ) as DForcePlatformAdapter;
-        //
-        //     // register the platform adapter in TetuConverter app
-        //     const pairs = generateAssetPairs(DForceUtils.getAllAssets());
-        //     await borrowManagerAsGov0.addAssetPairs(
-        //       platformAdapter.address,
-        //       pairs.map(x => x.smallerAddress),
-        //       pairs.map(x => x.biggerAddress)
-        //     );
-        //
-        //     return platformAdapter;
-        //   },
-        //   platformUtilsProviderBuilder() {
-        //     return new DForceUtilsProvider();
-        //   },
-        //   assetPairs: [
-        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-        //     {collateralAsset: MaticAddresses.USDT, borrowAsset: MaticAddresses.USDC, collateralAssetName: "USDT", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-        //
-        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-        //     {collateralAsset: MaticAddresses.DAI, borrowAsset: MaticAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-        //   ]
-        // },
       ]
     },
 

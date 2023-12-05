@@ -129,24 +129,26 @@ contract KeomPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICompou
   //endregion ----------------------------------------------------- Repay logic
 
   //region ------------------------------------------------ ICompoundPoolAdapterLibCaller (for CompoundPoolAdapterLib)
-  function _borrow(address /*borrowAsset*/, address borrowCToken, uint amount) external {
-    console.log("KeomPoolAdapter._borrow.amount", amount);
+  function _borrow(address borrowAsset, address borrowCToken, uint amount) external {
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
     IKeomToken(borrowCToken).borrow(amount);
+
+    (address nativeToken, ) = KeomLib.getNativeTokens();
+    if (nativeToken == borrowAsset) {
+      INativeToken(borrowAsset).deposit{value: amount}();
+    }
     // CompoundPoolAdapterLib checks that borrowed amount is actually received on its own side,
     // so we don't make such check here
+
   }
   function _repayBorrow(address /*borrowAsset*/, address borrowCToken, uint amountToRepay) external {
-    console.log("KeomPoolAdapter._repayBorrow.amountToRepay", amountToRepay);
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
 
     (address nativeToken, address cTokenNative) = KeomLib.getNativeTokens();
     if (borrowCToken == cTokenNative) {
-      console.log("KeomPoolAdapter._repayBorrow.1");
       INativeToken(nativeToken).withdraw(amountToRepay);
       ICTokenNative(payable(borrowCToken)).repayBorrow{value: amountToRepay}();
     } else {
-      console.log("KeomPoolAdapter._repayBorrow.2");
       // infinity approve
       // assume, that repayBorrow generates exception if any error happens
       IKeomToken(borrowCToken).repayBorrow(amountToRepay);
@@ -155,32 +157,32 @@ contract KeomPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICompou
 
   /// @return Received amount of collateral
   function _redeem(address collateralAsset, address collateralCToken, uint amountToWithdraw) external returns (uint) {
-    console.log("KeomPoolAdapter._redeem.amountToWithdraw", amountToWithdraw);
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
-    uint balanceBefore = IERC20(collateralAsset).balanceOf(address(this));
-    console.log("Native balance.1", address(this).balance);
+    (address nativeToken, ) = KeomLib.getNativeTokens();
+
+    uint balanceBefore = AppUtils.getBalance(nativeToken, collateralAsset);
     IKeomToken(collateralCToken).redeem(amountToWithdraw);
-    console.log("Native balance.2", address(this).balance);
-    uint balanceAfter = IERC20(collateralAsset).balanceOf(address(this));
-    return AppUtils.sub0(balanceAfter, balanceBefore);
+    uint balanceAfter = AppUtils.getBalance(nativeToken, collateralAsset);
+
+    uint collateralAmountToReturn = AppUtils.sub0(balanceAfter, balanceBefore);
+    if (collateralAsset == nativeToken) {
+      INativeToken(nativeToken).deposit{value: collateralAmountToReturn}();
+    }
+
+    return collateralAmountToReturn;
   }
 
   function _mint(address collateralCToken, uint amount) external {
-    console.log("KeomPoolAdapter._mint.amount", amount);
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
 
     (address nativeToken, address cTokenNative) = KeomLib.getNativeTokens();
     if (cTokenNative == collateralCToken) {
-      console.log("KeomPoolAdapter._mint.1");
       INativeToken(nativeToken).withdraw(amount);
-      console.log("KeomPoolAdapter._mint.2");
       IKeomTokenNative(payable(collateralCToken)).mint{value: amount}();
     } else {
-      console.log("KeomPoolAdapter._mint.3");
       // assume, that mint generates exception if any error happens
       IKeomToken(collateralCToken).mint(amount);
     }
-
   }
 
   function _markets(address collateralCToken) external view returns (uint collateralFactor) {
@@ -195,8 +197,6 @@ contract KeomPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICompou
     address rewardToken,
     uint amount
   ) {
-    // todo
-
     return (rewardToken, amount);
   }
   //endregion ----------------------------------------------------- Rewards
