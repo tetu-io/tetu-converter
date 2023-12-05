@@ -11,7 +11,7 @@ import {
   DForcePoolAdapter,
   HfPlatformAdapter,
   HfPoolAdapter,
-  IConverterController__factory,
+  IConverterController__factory, KeomPlatformAdapter, KeomPoolAdapter,
   MoonwellPlatformAdapter,
   MoonwellPoolAdapter,
   ZerovixPlatformAdapter,
@@ -168,7 +168,7 @@ export class AdaptersHelper {
   }
 //endregion Moonwell
 
-//region zkEVM
+//region Zerovix
   public static async createZerovixPlatformAdapter(
     signer: SignerWithAddress,
     controller: string,
@@ -189,5 +189,28 @@ export class AdaptersHelper {
   public static async createZerovixPoolAdapter(signer: SignerWithAddress) : Promise<ZerovixPoolAdapter> {
     return (await DeployUtils.deployContract(signer, "ZerovixPoolAdapter")) as ZerovixPoolAdapter;
   }
-//endregion zkEVM
+//endregion Zerovix
+
+//region Keom
+  public static async createKeomPlatformAdapter(
+    signer: SignerWithAddress,
+    controller: string,
+    comptroller: string,
+    templateAdapterNormal: string,
+    cTokensActive: string[],
+  ) : Promise<KeomPlatformAdapter> {
+    return (await DeployUtils.deployContract(
+      signer,
+      "KeomPlatformAdapter",
+      controller,
+      comptroller,
+      templateAdapterNormal,
+      cTokensActive,
+    )) as KeomPlatformAdapter;
+  }
+
+  public static async createKeomPoolAdapter(signer: SignerWithAddress) : Promise<KeomPoolAdapter> {
+    return (await DeployUtils.deployContract(signer, "KeomPoolAdapter")) as KeomPoolAdapter;
+  }
+//endregion Keom
 }
