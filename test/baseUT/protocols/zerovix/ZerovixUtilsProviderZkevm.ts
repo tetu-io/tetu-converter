@@ -1,5 +1,6 @@
 import {IPlatformUtilsProvider} from "../../types/IPlatformUtilsProvider";
 import {ZkevmUtils} from "../../chains/zkevm/ZkevmUtils";
+import {ZerovixUtilsZkevm} from "./ZerovixUtilsZkevm";
 
 export class ZerovixUtilsProviderZkevm implements  IPlatformUtilsProvider {
   getPlatformName() {
@@ -9,11 +10,14 @@ export class ZerovixUtilsProviderZkevm implements  IPlatformUtilsProvider {
   getAssetName(asset: string): string {
     return ZkevmUtils.getAssetName(asset);
   }
-  getAssetHolder(asset: string): string {
-    return ZkevmUtils.getHolder(asset);
+  getCToken(asset: string) : string {
+    return ZerovixUtilsZkevm.getCToken(asset);
   }
-  getAdditionalAssetHolders(asset: string): string[] {
-    return ZkevmUtils.getAdditionalAssetHolders(asset);
+  getAllCTokens(): string[] {
+    return ZerovixUtilsZkevm.getAllCTokens();
+  }
+  getAllAssets(): string[] {
+    return ZerovixUtilsZkevm.getAllAssets();
   }
 
 }

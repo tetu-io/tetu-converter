@@ -1,7 +1,8 @@
 import {IPlatformUtilsProvider} from "../../types/IPlatformUtilsProvider";
 import {PolygonUtils} from "../../chains/polygon/PolygonUtils";
+import {KeomUtilsPolygon} from "./KeomUtilsPolygon";
 
-export class KeomUtilsProviderPolygon implements  IPlatformUtilsProvider {
+export class KeomUtilsProviderPolygon implements IPlatformUtilsProvider {
   getPlatformName() {
     return "Keom-matic";
   }
@@ -9,11 +10,14 @@ export class KeomUtilsProviderPolygon implements  IPlatformUtilsProvider {
   getAssetName(asset: string): string {
     return PolygonUtils.getAssetName(asset);
   }
-  getAssetHolder(asset: string): string {
-    return PolygonUtils.getHolder(asset);
+  getCToken(asset: string) : string {
+    return KeomUtilsPolygon.getCToken(asset);
   }
-  getAdditionalAssetHolders(asset: string): string[] {
-    return PolygonUtils.getAdditionalAssetHolders(asset);
+  getAllCTokens(): string[] {
+    return KeomUtilsPolygon.getAllCTokens();
+  }
+  getAllAssets(): string[] {
+    return KeomUtilsPolygon.getAllAssets();
   }
 
 }

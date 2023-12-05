@@ -17,6 +17,7 @@ import "../../integrations/IWmatic.sol";
 import "../../integrations/keom/IKeomComptroller.sol";
 import "../compound/CompoundPoolAdapterLib.sol";
 import "../../integrations/keom/IKeomToken.sol";
+import "../../integrations/keom/IKeomTokenNative.sol";
 
 /// @notice Implementation of IPoolAdapter for Keom-protocol, see https://docs.keom.io/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -129,32 +130,57 @@ contract KeomPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, ICompou
 
   //region ------------------------------------------------ ICompoundPoolAdapterLibCaller (for CompoundPoolAdapterLib)
   function _borrow(address /*borrowAsset*/, address borrowCToken, uint amount) external {
+    console.log("KeomPoolAdapter._borrow.amount", amount);
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
     IKeomToken(borrowCToken).borrow(amount);
     // CompoundPoolAdapterLib checks that borrowed amount is actually received on its own side,
     // so we don't make such check here
   }
   function _repayBorrow(address /*borrowAsset*/, address borrowCToken, uint amountToRepay) external {
+    console.log("KeomPoolAdapter._repayBorrow.amountToRepay", amountToRepay);
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
 
-    // assume, that repayBorrow generates exception if any error happens
-    IKeomToken(borrowCToken).repayBorrow(amountToRepay);
+    (address nativeToken, address cTokenNative) = KeomLib.getNativeTokens();
+    if (borrowCToken == cTokenNative) {
+      console.log("KeomPoolAdapter._repayBorrow.1");
+      INativeToken(nativeToken).withdraw(amountToRepay);
+      ICTokenNative(payable(borrowCToken)).repayBorrow{value: amountToRepay}();
+    } else {
+      console.log("KeomPoolAdapter._repayBorrow.2");
+      // infinity approve
+      // assume, that repayBorrow generates exception if any error happens
+      IKeomToken(borrowCToken).repayBorrow(amountToRepay);
+    }
   }
 
   /// @return Received amount of collateral
   function _redeem(address collateralAsset, address collateralCToken, uint amountToWithdraw) external returns (uint) {
+    console.log("KeomPoolAdapter._redeem.amountToWithdraw", amountToWithdraw);
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
     uint balanceBefore = IERC20(collateralAsset).balanceOf(address(this));
+    console.log("Native balance.1", address(this).balance);
     IKeomToken(collateralCToken).redeem(amountToWithdraw);
+    console.log("Native balance.2", address(this).balance);
     uint balanceAfter = IERC20(collateralAsset).balanceOf(address(this));
     return AppUtils.sub0(balanceAfter, balanceBefore);
   }
 
   function _mint(address collateralCToken, uint amount) external {
+    console.log("KeomPoolAdapter._mint.amount", amount);
     require(msg.sender == address(this), AppErrors.ACCESS_DENIED);
 
-    // assume, that mint generates exception if any error happens
-    IKeomToken(collateralCToken).mint(amount);
+    (address nativeToken, address cTokenNative) = KeomLib.getNativeTokens();
+    if (cTokenNative == collateralCToken) {
+      console.log("KeomPoolAdapter._mint.1");
+      INativeToken(nativeToken).withdraw(amount);
+      console.log("KeomPoolAdapter._mint.2");
+      IKeomTokenNative(payable(collateralCToken)).mint{value: amount}();
+    } else {
+      console.log("KeomPoolAdapter._mint.3");
+      // assume, that mint generates exception if any error happens
+      IKeomToken(collateralCToken).mint(amount);
+    }
+
   }
 
   function _markets(address collateralCToken) external view returns (uint collateralFactor) {

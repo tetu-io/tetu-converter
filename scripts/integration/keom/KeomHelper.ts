@@ -98,7 +98,7 @@ export class KeomHelper {
     return dest;
   }
 
-  public static async getOTokenData(
+  public static async getCTokenData(
     signer: SignerWithAddress,
     comptroller: IKeomComptroller,
     cToken: IKeomToken,
@@ -153,7 +153,7 @@ export class KeomHelper {
   public static async getData(
     signer: SignerWithAddress,
     comptroller: IKeomComptroller,
-    nativeOToken: string
+    nativeCToken: string
   ) : Promise<string[]> {
     const markets = await comptroller.getAllMarkets();
     const dest: string[] = [];
@@ -185,7 +185,7 @@ export class KeomHelper {
       console.log(`Market ${market}`);
 
       const cToken = IKeomToken__factory.connect(market, signer);
-      const rd = await KeomHelper.getOTokenData(signer, comptroller, cToken, nativeOToken);
+      const rd = await KeomHelper.getCTokenData(signer, comptroller, cToken, nativeCToken);
       const irm = await getInterestRateModel(cToken);
 
       const line = [

@@ -1,18 +1,19 @@
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {BASE_NETWORK_ID, HardhatUtils, ZKEVM_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {HardhatUtils, ZKEVM_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {ethers} from "hardhat";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {formatUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {PriceOracleKeomPolygon} from "../../../typechain";
 
 describe("PriceOracleKeomPolygonTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let signer: SignerWithAddress;
 
-  let priceOracle: PriceOracleKeomPolygonTest;
+  let priceOracle: PriceOracleKeomPolygon;
 //endregion Global vars for all tests
 
 //region before, after
@@ -23,7 +24,7 @@ describe("PriceOracleKeomPolygonTest", () => {
     const signers = await ethers.getSigners();
     signer = signers[0];
 
-    priceOracle = await DeployUtils.deployContract(signer, "PriceOracleKeomPolygonTest", MaticAddresses.KEOM_PRICE_ORACLE) as PriceOracleKeomPolygonTest;
+    priceOracle = await DeployUtils.deployContract(signer, "PriceOracleKeomPolygon", MaticAddresses.KEOM_PRICE_ORACLE) as PriceOracleKeomPolygon;
   });
 
   after(async function () {

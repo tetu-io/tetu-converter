@@ -15,6 +15,7 @@ import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/keom/IKeomComptroller.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from Keom-protocol, see https://docs.keom.io/
 contract KeomPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -106,28 +107,35 @@ contract KeomPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
+    console.log("getConversionPlan.1");
     require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
     require(p_.amountIn != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= _state.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
+    console.log("getConversionPlan.2");
     CompoundPlatformAdapterLib.ConversionPlanLocal memory v;
     if (CompoundPlatformAdapterLib.initConversionPlanLocal(_state, p_, v)) {
+      console.log("getConversionPlan.3");
 
       // LTV and liquidation threshold
       CompoundLib.ProtocolFeatures memory f;
       KeomLib.initProtocolFeatures(f);
+      console.log("getConversionPlan.4");
 
       (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(v.cTokenCollateral, v.cTokenBorrow);
       if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
+        console.log("getConversionPlan.5");
 
         // Calculate maxAmountToSupply and maxAmountToBorrow
         plan.maxAmountToBorrow = CompoundPlatformAdapterLib.getMaxAmountToBorrow(v);
         plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
+        console.log("getConversionPlan.6");
 
         if (plan.maxAmountToBorrow != 0 && plan.maxAmountToSupply != 0) {
           // Prices and health factor
           AppDataTypes.PricesAndDecimals memory pd;
           CompoundPlatformAdapterLib.initPricesAndDecimals(pd, p_.collateralAsset, p_.borrowAsset, v);
+          console.log("getConversionPlan.7");
           // ltv and liquidation threshold are exactly the same in HundredFinance
           // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
 
@@ -136,9 +144,11 @@ contract KeomPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           (plan.collateralAmount, plan.amountToBorrow) = CompoundPlatformAdapterLib.getAmountsForEntryKind(
             p_, plan.liquidationThreshold18, healthFactor2_, pd, true
           );
+          console.log("getConversionPlan.8");
 
           // Validate the borrow, calculate amounts for APR
           if (plan.amountToBorrow != 0 && plan.collateralAmount != 0) {
+            console.log("getConversionPlan.9");
             plan.converter = _state.converter;
             (plan.collateralAmount, plan.amountToBorrow) = CompoundPlatformAdapterLib.reduceAmountsByMax(
               plan, plan.collateralAmount, plan.amountToBorrow

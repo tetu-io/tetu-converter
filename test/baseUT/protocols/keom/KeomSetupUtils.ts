@@ -5,13 +5,24 @@ import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {KeomUtilsPolygon} from "./KeomUtilsPolygon";
 import {KeomHelper} from "../../../../scripts/integration/keom/KeomHelper";
-import {ZkevmAddresses} from "../../../../scripts/addresses/ZkevmAddresses";
+import {IKeomCore} from "./IKeomCore";
+import {Misc} from "../../../../scripts/utils/Misc";
+import {parseUnits} from "ethers/lib/utils";
 
 export class KeomSetupUtils {
-  public static async setupPriceOracleMock(deployer: SignerWithAddress, copyPrices: boolean = true) : Promise<KeomOracleMock> {
+  /** Increase heartbeat significantly to prevent the error "Update time (heartbeat) exceeded" */
+  public static async disableHeartbeat(signer: SignerWithAddress, core: IKeomCore) {
+    const priceOracle = await KeomHelper.getPriceOracle(signer, core.comptroller);
+    const admin = await priceOracle.admin();
+    for (const kToken of core.utils.getAllCTokens()) {
+      await priceOracle.connect(await Misc.impersonate(admin)).setHeartbeat(kToken, parseUnits("1", 27));
+    }
+  }
+
+  public static async setupPriceOracleMock(deployer: SignerWithAddress, core: IKeomCore, copyPrices: boolean = true) : Promise<KeomOracleMock> {
     const cTokensList = KeomUtilsPolygon.getAllCTokens();
-    const priceOracle = await KeomHelper.getPriceOracle(deployer, ZkevmAddresses.ZEROVIX_COMPTROLLER);
-    const comptroller = await KeomHelper.getComptroller(deployer, ZkevmAddresses.ZEROVIX_COMPTROLLER);
+    const priceOracle = await KeomHelper.getPriceOracle(deployer, core.comptroller);
+    const comptroller = await KeomHelper.getComptroller(deployer, core.comptroller);
     const admin = await DeployerUtils.startImpersonate(await comptroller.admin());
     const mock = (await DeployUtils.deployContract(deployer, "KeomOracleMock")) as KeomOracleMock;
 
@@ -19,7 +30,7 @@ export class KeomSetupUtils {
     if (copyPrices) {
       for (const cToken of cTokensList) {
         const price = await priceOracle.getUnderlyingPrice(cToken);
-        await mock.setUnderlyingPrice(cToken, price);
+        await mock._setUnderlyingPrice(cToken, price);
       }
     }
 
@@ -36,12 +47,12 @@ export class KeomSetupUtils {
     const newPrice = inc
       ? currentPrice.mul(times)
       : currentPrice.div(times);
-    await oracle.setUnderlyingPrice(cToken, newPrice);
+    await oracle._setUnderlyingPrice(cToken, newPrice);
     console.log(`Price of asset ${cToken} was changed from ${currentPrice} to ${newPrice}`);
   }
 
-  public static async setBorrowCapacity(deployer: SignerWithAddress, cToken: string, amount: BigNumber) {
-    const comptroller = await KeomHelper.getComptroller(deployer, ZkevmAddresses.ZEROVIX_COMPTROLLER);
+  public static async setBorrowCapacity(deployer: SignerWithAddress, comptrollerAddress: string, cToken: string, amount: BigNumber) {
+    const comptroller = await KeomHelper.getComptroller(deployer, comptrollerAddress);
     const admin = await comptroller.admin();
 
     const comptrollerAsAdmin = IKeomComptroller__factory.connect(
@@ -51,8 +62,8 @@ export class KeomSetupUtils {
     await comptrollerAsAdmin._setMarketBorrowCaps([cToken], [amount]);
   }
 
-  public static async setMintPaused(deployer: SignerWithAddress, cToken: string, paused: boolean = true) {
-    const comptroller = await KeomHelper.getComptroller(deployer, ZkevmAddresses.ZEROVIX_COMPTROLLER);
+  public static async setMintPaused(deployer: SignerWithAddress, comptrollerAddress: string, cToken: string, paused: boolean = true) {
+    const comptroller = await KeomHelper.getComptroller(deployer, comptrollerAddress);
     const admin = await comptroller.admin();
 
     const comptrollerAsAdmin = IKeomComptroller__factory.connect(
@@ -62,8 +73,8 @@ export class KeomSetupUtils {
     await comptrollerAsAdmin._setMintPaused(cToken, paused);
   }
 
-  public static async setBorrowPaused(deployer: SignerWithAddress, cToken: string, paused: boolean = true) {
-    const comptroller = await KeomHelper.getComptroller(deployer, ZkevmAddresses.ZEROVIX_COMPTROLLER);
+  public static async setBorrowPaused(deployer: SignerWithAddress, comptrollerAddress: string, cToken: string, paused: boolean = true) {
+    const comptroller = await KeomHelper.getComptroller(deployer, comptrollerAddress);
     const admin = await comptroller.admin();
 
     const comptrollerAsAdmin = IKeomComptroller__factory.connect(

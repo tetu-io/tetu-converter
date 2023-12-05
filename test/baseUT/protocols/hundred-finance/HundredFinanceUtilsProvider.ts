@@ -1,5 +1,6 @@
 import {PolygonUtils} from "../../chains/polygon/PolygonUtils";
 import {IPlatformUtilsProvider} from "../../types/IPlatformUtilsProvider";
+import {HundredFinanceUtils} from "./HundredFinanceUtils";
 
 export class HundredFinanceUtilsProvider implements IPlatformUtilsProvider {
   getPlatformName() {
@@ -9,11 +10,14 @@ export class HundredFinanceUtilsProvider implements IPlatformUtilsProvider {
   getAssetName(asset: string): string {
     return PolygonUtils.getAssetName(asset);
   }
-  getAssetHolder(asset: string): string {
-    return PolygonUtils.getHolder(asset);
+  getCToken(asset: string) : string {
+    return HundredFinanceUtils.getCToken(asset);
   }
-  getAdditionalAssetHolders(asset: string): string[] {
-    return PolygonUtils.getAdditionalAssetHolders(asset);
+  getAllCTokens(): string[] {
+    return HundredFinanceUtils.getAllCTokens();
+  }
+  getAllAssets(): string[] {
+    return HundredFinanceUtils.getAllAssets();
   }
 }
 

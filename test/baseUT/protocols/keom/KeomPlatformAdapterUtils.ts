@@ -3,7 +3,7 @@ import {
   IERC20Metadata__factory,
   IKeomComptroller,
   IKeomPriceOracle,
-  KeomPlatformAdapter, IKeomToken__factory, IKeomToken
+  KeomPlatformAdapter, IKeomToken__factory, IKeomToken, IKeomComptroller__factory, IKeomPriceOracle__factory
 } from "../../../../typechain";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {KeomUtilsPolygon} from "./KeomUtilsPolygon";
@@ -21,6 +21,7 @@ import {AppConstants} from "../../types/AppConstants";
 import {NumberUtils} from "../../utils/NumberUtils";
 import {IKeomMarketData, KeomHelper} from "../../../../scripts/integration/keom/KeomHelper";
 import {ZkevmAddresses} from "../../../../scripts/addresses/ZkevmAddresses";
+import {IKeomCore} from "./IKeomCore";
 
 export interface IKeomPreparePlanBadPaths {
   zeroCollateralAsset?: boolean;
@@ -77,12 +78,13 @@ export interface IPreparePlanResults {
 export class KeomPlatformAdapterUtils {
   static async getConversionPlan(
     signer: SignerWithAddress,
-    comptroller: IKeomComptroller,
-    priceOracle: IKeomPriceOracle,
+    core: IKeomCore,
     p: IKeomPreparePlan,
     platformAdapter: KeomPlatformAdapter,
-    poolAdapterTemplate: string
+    poolAdapterTemplate: string,
   ): Promise<IPreparePlanResults> {
+    const comptroller = IKeomComptroller__factory.connect(core.comptroller, signer);
+    const priceOracle = IKeomPriceOracle__factory.connect(core.priceOracle, signer);
     const entryKind = p.entryKind ?? AppConstants.ENTRY_KIND_0;
 
     const countBlocks = p.countBlocks ?? 1;
@@ -101,27 +103,27 @@ export class KeomPlatformAdapterUtils {
     const decimalsBorrowAsset = await (IERC20Metadata__factory.connect(borrowAsset, signer)).decimals();
     const decimalsCollateralAsset = await (IERC20Metadata__factory.connect(collateralAsset, signer)).decimals();
 
-    const borrowAssetData = await KeomHelper.getOTokenData(signer, comptroller, cTokenBorrow, ZkevmAddresses.oWETH);
-    const collateralAssetData = await KeomHelper.getOTokenData(signer, comptroller, cTokenCollateral, ZkevmAddresses.oWETH);
+    const borrowAssetData = await KeomHelper.getCTokenData(signer, comptroller, cTokenBorrow, core.nativeCToken);
+    const collateralAssetData = await KeomHelper.getCTokenData(signer, comptroller, cTokenCollateral, core.nativeCToken);
 
     const priceBorrow = await priceOracle.getUnderlyingPrice(cTokenBorrow.address);
     const priceCollateral = await priceOracle.getUnderlyingPrice(cTokenCollateral.address);
 
     if (p.setMinBorrowCapacity) {
-      await KeomSetupUtils.setBorrowCapacity(signer, cTokenBorrow.address, borrowAssetData.totalBorrows);
+      await KeomSetupUtils.setBorrowCapacity(signer, comptroller.address, cTokenBorrow.address, borrowAssetData.totalBorrows);
     }
     if (p.setCollateralMintPaused) {
-      await KeomSetupUtils.setMintPaused(signer, cTokenCollateral.address);
+      await KeomSetupUtils.setMintPaused(signer, comptroller.address, cTokenCollateral.address);
     }
     if (p.setBorrowPaused) {
-      await KeomSetupUtils.setBorrowPaused(signer, cTokenBorrow.address);
+      await KeomSetupUtils.setBorrowPaused(signer, comptroller.address, cTokenBorrow.address);
     }
     if (p.setBorrowCapacityExceeded) {
-      await KeomSetupUtils.setBorrowCapacity(signer, cTokenBorrow.address, borrowAssetData.totalBorrows.div(2));
+      await KeomSetupUtils.setBorrowCapacity(signer, comptroller.address, cTokenBorrow.address, borrowAssetData.totalBorrows.div(2));
     }
     if (p.setMinBorrowCapacityDelta) {
       const amount = borrowAssetData.totalBorrows.add(parseUnits(p?.setMinBorrowCapacityDelta, decimalsBorrowAsset));
-      await KeomSetupUtils.setBorrowCapacity(signer, cTokenBorrow.address, amount);
+      await KeomSetupUtils.setBorrowCapacity(signer, comptroller.address, cTokenBorrow.address, amount);
     }
     if (p.frozen) {
       await platformAdapter.setFrozen(true);
@@ -178,6 +180,7 @@ export class KeomPlatformAdapterUtils {
   }
 
   static async getExpectedPlan(
+    comptroller: string,
     p: IKeomPreparePlan,
     plan: IConversionPlanNum,
     planInfo: IPlanSourceInfo,
@@ -192,7 +195,7 @@ export class KeomPlatformAdapterUtils {
     const maxAmountToBorrow = await facadePlatformLib.getMaxAmountToBorrow({
       cTokenCollateral: planInfo.cTokenCollateral.address,
       cTokenBorrow: planInfo.cTokenBorrow.address,
-      comptroller: ZkevmAddresses.ZEROVIX_COMPTROLLER
+      comptroller
     });
     const maxAmountToSupply = Misc.MAX_UINT;
 

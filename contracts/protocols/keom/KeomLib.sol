@@ -10,18 +10,17 @@ library KeomLib {
   uint constant public MIN_ALLOWED_AMOUNT_TO_LIQUIDATE = 1000;
 
   function initProtocolFeatures(CompoundLib.ProtocolFeatures memory dest) internal view {
-    dest.cTokenNative = address(0);
     dest.compoundStorageVersion = CompoundLib.COMPOUND_STORAGE_CUSTOM;
-    dest.nativeToken = getNativeToken();
+    (dest.nativeToken, dest.cTokenNative) = getNativeTokens();
   }
 
-  function getNativeToken() internal view returns (address) {
+  function getNativeTokens() internal view returns (address asset, address cToken) {
     if (_getChainID() == 1101) {
       // Polygon zkEVM
-      return 0x4F9A0e7FD2Bf6067db6994CF12E4495Df938E6e9; // WETH
+      return (0x4F9A0e7FD2Bf6067db6994CF12E4495Df938E6e9, address(0)); // WETH
     } else {
       // Polygon POS
-      return 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270; // WMATIC
+      return (0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270, 0x7854D4Cfa7d0B877E399bcbDFfb49536d7A14fc7); // WMATIC, KEOM_MATIC
     }
   }
 

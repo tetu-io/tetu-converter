@@ -1,5 +1,6 @@
 import {IPlatformUtilsProvider} from "../../types/IPlatformUtilsProvider";
 import {PolygonUtils} from "../../chains/polygon/PolygonUtils";
+import {DForceUtils} from "./DForceUtils";
 
 export class DForceUtilsProvider implements  IPlatformUtilsProvider {
   getPlatformName() {
@@ -9,10 +10,13 @@ export class DForceUtilsProvider implements  IPlatformUtilsProvider {
   getAssetName(asset: string): string {
     return PolygonUtils.getAssetName(asset);
   }
-  getAssetHolder(asset: string): string {
-    return PolygonUtils.getHolder(asset);
+  getCToken(asset: string) : string {
+    return DForceUtils.getCTokenAddressForAsset(asset);
   }
-  getAdditionalAssetHolders(asset: string): string[] {
-    return PolygonUtils.getAdditionalAssetHolders(asset);
+  getAllCTokens(): string[] {
+    return DForceUtils.getAllCTokens();
+  }
+  getAllAssets(): string[] {
+    return DForceUtils.getAllAssets();
   }
 }
