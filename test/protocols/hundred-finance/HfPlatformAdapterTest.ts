@@ -337,7 +337,7 @@ describe.skip("Hundred finance, platform adapter", () => {
         const ret = [
           await r.platformAdapter.controller(),
           await r.platformAdapter.comptroller(),
-          await r.platformAdapter.converter(),
+          (await r.platformAdapter.converters())[0],
           (await r.platformAdapter.converters()).join(),
           await r.platformAdapter.activeAssets(MaticAddresses.DAI),
           await r.platformAdapter.activeAssets(MaticAddresses.USDC)

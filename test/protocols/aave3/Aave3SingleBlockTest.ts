@@ -17,6 +17,7 @@ import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUt
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {ConverterController, IERC20Metadata__factory} from "../../../typechain";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 
 describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions in the single block", () => {
 //region Global vars for all tests
@@ -48,7 +49,7 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
     async function makeBorrowAndRepay(
       collateralToken: TokenDataTypes,
       collateralHolder: string,
-      collateralAmountRequired: BigNumber | undefined,
+      collateralAmountRequired: BigNumber,
       borrowToken: TokenDataTypes,
       borrowHolder: string,
       amountToRepay: BigNumber,
@@ -59,7 +60,6 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
         MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken.address,
-        [collateralHolder],
         collateralAmountRequired,
         borrowToken.address,
         false
@@ -144,8 +144,7 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
     /* Make full or partial repay. Set amountToRepay for partial repay, leave it undefined to full repay */
     async function makeBorrowThenRepayBorrow(
       collateralToken: TokenDataTypes,
-      collateralHolder: string,
-      collateralAmountRequired: BigNumber | undefined,
+      collateralAmountRequired: BigNumber,
       borrowToken: TokenDataTypes,
       borrowHolder: string,
       amountToRepay: BigNumber,
@@ -158,7 +157,6 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
         MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken.address,
-        [collateralHolder],
         collateralAmountRequired,
         borrowToken.address,
         false
@@ -230,7 +228,6 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
 
       const r = await makeBorrowThenRepayBorrow(
         collateralToken,
-        MaticAddresses.HOLDER_USDC,
         parseUnits("10000", 6),
         borrowToken,
         MaticAddresses.HOLDER_USDT,
@@ -244,8 +241,7 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
     /* Make full or partial repay. Set amountToRepay for partial repay, leave it undefined to full repay */
     async function makeBorrowRepay(
       collateralToken: TokenDataTypes,
-      collateralHolder: string,
-      collateralAmountRequired: BigNumber | undefined,
+      collateralAmountRequired: BigNumber,
       borrowToken: TokenDataTypes,
       borrowHolder: string,
       initialBorrowAmountOnUserBalance: BigNumber,
@@ -257,7 +253,6 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
         MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken.address,
-        [collateralHolder],
         collateralAmountRequired,
         borrowToken.address,
         false
@@ -296,7 +291,7 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
       await TimeUtils.advanceNBlocks(1000);
 
       // make borrow and repay in the same block on AAVE3
-      await BalanceUtils.getAmountFromHolder(collateralToken.address, collateralHolder, d.userContract.address, d.collateralAmount);
+      await TokenUtils.getToken(collateralToken.address, d.userContract.address, d.collateralAmount);
       await d.userContract.makeBorrowRepay(collateralToken.address, borrowToken.address, d.userContract.address, d.collateralAmount);
 
       // check results
@@ -331,7 +326,6 @@ describe("Aave3SingleBlockTest: study various sequence of borrow/repay actions i
 
       const r = await makeBorrowRepay(
         collateralToken,
-        MaticAddresses.HOLDER_USDC,
         parseUnits("10000", 6),
         borrowToken,
         MaticAddresses.HOLDER_USDT,

@@ -20,15 +20,15 @@ contract PriceOracleKeomPolygon is IPriceOracle {
   function getAssetPrice(address asset) external view override returns (uint256) {
     // get kToken by asset
     address kToken;
-    if (asset == 0xA8CE8aee21bC2A48a5EF670afCc9274C7bbbC035) { // usdc
+    if (asset == 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174) { // usdc
       kToken = 0xF5EcA026809785165Ad468171cE10E1DA59CA866; // kUsdc
-    } else if (asset == 0x1E4a5963aBFD975d8c9021ce480b42188849D41d) { // USDT
+    } else if (asset == 0xc2132D05D31c914a87C6611C10748AEb04B58e8F) { // USDT
       kToken = 0xce71F99c6B09ba50AEA18F8132D674dC57fe0839; // kUsdt
-    } else if (asset == 0x4F9A0e7FD2Bf6067db6994CF12E4495Df938E6e9) { // WETH
+    } else if (asset == 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619) { // WETH
       kToken = 0x44010CBf1EC8B8D8275d86D8e28278C06DD07C48; // kWeth
-    } else if (asset == 0xa2036f0538221a77A3937F1379699f44945018d0) { // Matic
+    } else if (asset == 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270) { // Matic
       kToken = 0x7854D4Cfa7d0B877E399bcbDFfb49536d7A14fc7; // kMatic
-    } else if (asset == 0xEA034fb02eB1808C2cc3adbC15f447B93CbE08e1) { // WBTC
+    } else if (asset == 0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6) { // WBTC
       kToken = 0x4e7d313918B9A8c32f18BC1Df346c79E36D0f9DC; // kWBTC
     } else if (asset == 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063) { // DAI
       kToken = 0x83f98471F6F5D0ad82b0FE99d2Ce26F65995Ef32; //kDAI

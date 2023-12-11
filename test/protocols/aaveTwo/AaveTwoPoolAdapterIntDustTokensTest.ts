@@ -13,6 +13,7 @@ import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {ConverterController} from "../../../typechain";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 
 describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
 //region Global vars for all tests
@@ -70,17 +71,14 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
 
     async function makeBorrowAndRepayDustTokensTest(
       collateralToken: TokenDataTypes,
-      collateralHolder: string,
       borrowToken: TokenDataTypes,
-      borrowHolder: string,
       params: IMakeBorrowAndRepayDustTokensTestParams
     ) : Promise<IMakeBorrowAndRepayDustTokensTestResults>{
       const d = await AaveTwoTestUtils.prepareToBorrow(
         deployer,
         converterController,
         collateralToken,
-        collateralHolder,
-        params.collateralAmountRequired,
+        params.collateralAmountRequired ?? parseUnits("1", collateralToken.decimals),
         borrowToken,
       );
       const collateralData = await AaveTwoHelper.getReserveInfo(deployer,
@@ -92,9 +90,7 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
 
       // put initial amount on user's balance
       if (params.initialBorrowAmountOnUserBalance) {
-        await borrowToken.token
-          .connect(await DeployerUtils.startImpersonate(borrowHolder))
-          .transfer(d.userContract.address, params.initialBorrowAmountOnUserBalance);
+        await TokenUtils.getToken(borrowToken.token.address, d.userContract.address, params.initialBorrowAmountOnUserBalance);
       }
 
       // make borrow
@@ -149,9 +145,7 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
         it("estimate amount of dust tokens", async () => {
           const ret = await makeBorrowAndRepayDustTokensTest(
             await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
-            MaticAddresses.HOLDER_DAI,
             await TokenDataTypes.Build(deployer, MaticAddresses.USDC),
-            MaticAddresses.HOLDER_USDC,
             {
               borrowRepayDistanceInBlocks: 1, // 100_0000, (!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!)
               initialBorrowAmountOnUserBalance: parseUnits("5000", 6) // it should be enough for repay needs

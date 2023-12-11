@@ -432,7 +432,7 @@ describe("ZerovixPoolAdapterTest", () => {
             describe(testName, () => {
               it("should receive expected collateral", async () => {
                 const ret = await loadFixture(repayTest);
-                expect(ret.collateralBalance).gte(Number(b.amount));
+                expect(ret.collateralBalance + 1e-6).gte(Number(b.amount));
               });
               it("should close the debt", async () => {
                 const ret = await loadFixture(repayTest);

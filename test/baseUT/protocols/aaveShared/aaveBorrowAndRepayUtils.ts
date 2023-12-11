@@ -6,6 +6,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {IPoolAdapter__factory} from "../../../../typechain";
 import {areAlmostEqual} from "../../utils/CommonUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {parseUnits} from "ethers/lib/utils";
 
 export interface IMakeBorrowAndRepayResults {
   userBalancesBeforeBorrow: IUserBalances;
@@ -53,12 +54,10 @@ export interface IBorrowAndRepayBadParams {
  */
 type MakeBorrowAndRepayFunc = (
   collateralToken: TokenDataTypes,
-  collateralHolder: string,
-  collateralAmountRequired: BigNumber | undefined,
+  collateralAmountRequired: BigNumber,
   borrowToken: TokenDataTypes,
-  borrowHolder: string,
   borrowAmount: BigNumber | undefined,
-  amountToRepay?: BigNumber,
+  amountToRepay?: BigNumber | undefined,
   initialBorrowAmountOnUserBalance?: BigNumber,
   badParams?: IBorrowAndRepayBadParams
 ) => Promise<IMakeBorrowAndRepayResults>;
@@ -80,30 +79,23 @@ export class AaveMakeBorrowAndRepayUtils {
     badParams?: IBorrowAndRepayBadParams
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.DAI;
-    const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
-    const borrowHolder = MaticAddresses.HOLDER_WMATIC;
 
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
     const collateralAmount = useMaxAvailableCollateral
-      ? undefined
-      : getBigNumberFrom(100_000, collateralToken.decimals);
+      ? parseUnits("10000000", collateralToken.decimals) // huge amount <= max available collateral; TODO: auto calculate
+      : parseUnits("100000", collateralToken.decimals);
     const borrowAmount = useMaxAvailableCollateral
       ? undefined
-      : getBigNumberFrom(10, borrowToken.decimals);
+      : parseUnits("10", borrowToken.decimals);
 
-    const initialBorrowAmountOnUserBalance = getBigNumberFrom(
-      initialBorrowAmountOnUserBalanceNumber || 0,
-      borrowToken.decimals
-    );
+    const initialBorrowAmountOnUserBalance = parseUnits((initialBorrowAmountOnUserBalanceNumber || 0).toString(), borrowToken.decimals);
     const r = await funcMakeBorrowAndRepay(
       collateralToken,
-      collateralHolder,
       collateralAmount,
       borrowToken,
-      borrowHolder,
       borrowAmount,
       fullRepay ? undefined : borrowAmount, // amount to repay
       initialBorrowAmountOnUserBalance,
@@ -147,19 +139,17 @@ export class AaveMakeBorrowAndRepayUtils {
     badParams?: IBorrowAndRepayBadParams
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.WMATIC;
-    const collateralHolder = MaticAddresses.HOLDER_WMATIC;
     const borrowAsset = MaticAddresses.DAI;
-    const borrowHolder = MaticAddresses.HOLDER_DAI;
 
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
     const collateralAmount = useMaxAvailableCollateral
-      ? undefined
-      : getBigNumberFrom(1_000, collateralToken.decimals);
+      ? parseUnits("10000000", collateralToken.decimals) // // huge amount <= max available collateral; TODO: auto calculate
+      : parseUnits("1000", collateralToken.decimals);
     const borrowAmount = useMaxAvailableCollateral
       ? undefined
-      : getBigNumberFrom(10, borrowToken.decimals);
+      : parseUnits("10", borrowToken.decimals);
 
     const initialBorrowAmountOnUserBalance = getBigNumberFrom(
       initialBorrowAmountOnUserBalanceNumber || 0,
@@ -168,10 +158,8 @@ export class AaveMakeBorrowAndRepayUtils {
 
     const r = await funcMakeBorrowAndRepay(
       collateralToken,
-      collateralHolder,
       collateralAmount,
       borrowToken,
-      borrowHolder,
       borrowAmount,
       fullRepay ? undefined : borrowAmount, // amount to repay
       initialBorrowAmountOnUserBalance,

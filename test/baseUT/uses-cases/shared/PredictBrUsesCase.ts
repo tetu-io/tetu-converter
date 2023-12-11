@@ -4,6 +4,9 @@ import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {IPlatformActor} from "../../types/IPlatformActor";
 import {TokenUtils} from "../../../../scripts/utils/TokenUtils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {BalanceUtils} from "../../utils/BalanceUtils";
+import {NumberUtils} from "../../utils/NumberUtils";
 
 export interface IPredictBrParams {
   collateralAsset: string;
@@ -29,12 +32,16 @@ export interface IPredictBrResults {
  */
 export class PredictBrUsesCase {
   static async predictBrTest(signer: SignerWithAddress, actor: IPlatformActor, p: IPredictBrParams) : Promise<IPredictBrResults> {
+    const decimalsBorrow = await IERC20Metadata__factory.connect(p.borrowAsset, signer).decimals();
+    const decimalsCollateral = await IERC20Metadata__factory.connect(p.collateralAsset, signer).decimals();
+
     // get available liquidity, we are going to borrow given part of the liquidity
     //                 [available liquidity] * percent100 / 100
-    const availableLiquidity = await actor.getAvailableLiquidity();
-    const amountToBorrow = availableLiquidity.mul(p.borrowPart10000).div(10000);
+    const availableLiquidity = +formatUnits(await actor.getAvailableLiquidity(), decimalsBorrow);
+    const amountToBorrowNum = availableLiquidity * p.borrowPart10000 / 10_000;
+    const amountToBorrow = parseUnits(NumberUtils.trimDecimals(amountToBorrowNum.toString(), decimalsBorrow), decimalsBorrow);
 
-    const collateralAmount = amountToBorrow.mul(p.collateralMult ?? 2);
+    const collateralAmount = parseUnits(NumberUtils.trimDecimals((amountToBorrowNum * (p.collateralMult ?? 3)).toString(), decimalsCollateral), decimalsCollateral);
     await TokenUtils.getToken(p.collateralAsset, signer.address, collateralAmount);
 
     // before borrow

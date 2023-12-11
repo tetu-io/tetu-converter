@@ -25,6 +25,7 @@ import {ICoreAave3} from "./Aave3DataTypes";
 import {IConversionPlan} from "../../types/AppDataTypes";
 import {AdaptersHelper} from "../../app/AdaptersHelper";
 import {MocksHelper} from "../../app/MocksHelper";
+import {TokenUtils} from "../../../../scripts/utils/TokenUtils";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -57,7 +58,6 @@ export interface IPrepareToBorrowResults {
 }
 
 export interface IPrepareToBorrowOptionalSetup {
-  borrowHolders?: string[];
   targetHealthFactor2?: number;
   useAave3PoolMock?: Aave3PoolMock;
   useMockedAavePriceOracle?: boolean;
@@ -162,8 +162,7 @@ export class Aave3TestUtils {
     core: ICoreAave3,
     controller: ConverterController,
     collateralAsset: string,
-    collateralHolders: string[],
-    collateralAmountRequired: BigNumber | undefined,
+    collateralAmountRequired: BigNumber,
     borrowAsset: string,
     useEMode: boolean,
     additionalParams?: IPrepareToBorrowOptionalSetup
@@ -222,43 +221,36 @@ export class Aave3TestUtils {
       borrowAsset
     );
     // put collateral amount on user's balance
-    const collateralAmount = await BalanceUtils.getRequiredAmountFromHolders(
-      collateralAmountRequired,
-      IERC20Metadata__factory.connect(collateralAsset, deployer),
-      collateralHolders,
-      userContract.address
-    );
-    console.log(`Put collateral=${collateralAmount} on user balance`);
-    if (additionalParams?.borrowHolders) {
-      // get max allowed amount to supply
-      const reversePlan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
-        {
-          collateralAsset: borrowAsset,
-          amountIn: parseUnits("1", await IERC20Metadata__factory.connect(borrowAsset, deployer).decimals()),
-          borrowAsset: collateralAsset,
-          countBlocks: 1,
-          entryData: "0x",
-        },
-        additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
-        {gasLimit: GAS_LIMIT}
-      );
-      await supplyEnoughBorrowAssetToAavePool(
-        aavePool.address,
-        additionalParams?.borrowHolders,
-        borrowAsset,
-        reversePlan.maxAmountToSupply.div(2)
-      );
-    }
+    const collateralAmount = collateralAmountRequired;
+    await TokenUtils.getToken(collateralAsset, userContract.address, collateralAmount);
+
+    // todo
+    // console.log(`Put collateral=${collateralAmount} on user balance`);
+    // if (additionalParams?.borrowHolders) {
+    //   // get max allowed amount to supply
+    //   const reversePlan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
+    //     {
+    //       collateralAsset: borrowAsset,
+    //       amountIn: parseUnits("1", await IERC20Metadata__factory.connect(borrowAsset, deployer).decimals()),
+    //       borrowAsset: collateralAsset,
+    //       countBlocks: 1,
+    //       entryData: "0x",
+    //     },
+    //     additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+    //     {gasLimit: GAS_LIMIT}
+    //   );
+    //   await supplyEnoughBorrowAssetToAavePool(
+    //     aavePool.address,
+    //     additionalParams?.borrowHolders,
+    //     borrowAsset,
+    //     reversePlan.maxAmountToSupply.div(2)
+    //   );
+    // }
 
     if (additionalParams?.useAave3PoolMock) {
       // see Aave3PoolMock.supply for explanation
       // we need to put additional amount to mock to be able to split a-tokens on two parts
-      await BalanceUtils.getRequiredAmountFromHolders(
-        collateralAmount,
-        IERC20Metadata__factory.connect(collateralAsset, deployer),
-        collateralHolders,
-        aavePool.address
-      );
+      await TokenUtils.getToken(collateralAsset, aavePool.address, collateralAmount);
     }
 
     // calculate max allowed amount to borrow
@@ -426,14 +418,13 @@ export class Aave3TestUtils {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
-    const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
+    const collateralAmount = parseUnits(collateralAmountNum.toString(), collateralToken.decimals);
 
     const d = await Aave3TestUtils.prepareToBorrow(
       deployer,
       core,
       controller,
       collateralToken.address,
-      [collateralHolder],
       collateralAmount,
       borrowToken.address,
       false
@@ -503,20 +494,11 @@ export class Aave3TestUtils {
     return {status, collateralBalanceATokens: collateralBalanceBase, accountState, balanceATokensForCollateral};
   }
 
-  public static async putCollateralAmountOnUserBalance(init: IInitialBorrowResults, collateralHolder: string) {
-    await BalanceUtils.getRequiredAmountFromHolders(
-      init.collateralAmount,
-      init.collateralToken.token,
-      [collateralHolder],
-      init.d.userContract.address
-    );
+  public static async putCollateralAmountOnUserBalance(init: IInitialBorrowResults) {
+    await TokenUtils.getToken(init.collateralToken.address, init.d.userContract.address, init.collateralAmount);
   }
-  public static async putDoubleBorrowAmountOnUserBalance(signer: SignerWithAddress, init: IPrepareToBorrowResults, borrowHolder: string) {
-    await BalanceUtils.getRequiredAmountFromHolders(
-      init.amountToBorrow.mul(2),
-      await IERC20Metadata__factory.connect(init.borrowToken, signer),
-      [borrowHolder],
-      init.userContract.address
-    );
+
+  public static async putDoubleBorrowAmountOnUserBalance(signer: SignerWithAddress, init: IPrepareToBorrowResults) {
+    await TokenUtils.getToken(init.borrowToken, init.userContract.address, init.amountToBorrow.mul(2));
   }
 }

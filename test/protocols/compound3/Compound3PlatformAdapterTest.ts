@@ -150,7 +150,7 @@ describe("Compound3PlatformAdapterTest", () => {
 
     try {
       collateralAssetInfo = await comet.getAssetInfoByAddress(collateralAsset)
-    } catch {}
+    } catch { /* empty */ }
     if (collateralAssetInfo) {
       const collateralAssetPriceFeed = IPriceFeed__factory.connect(collateralAssetInfo.priceFeed, deployer)
       priceBorrow = (await borrowAssetPriceFeed.latestRoundData()).answer

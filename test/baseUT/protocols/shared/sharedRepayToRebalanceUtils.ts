@@ -7,6 +7,7 @@ import {
 } from "./sharedDataTypes";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {transferAndApprove} from "../../utils/transferUtils";
+import {TokenUtils} from "../../../../scripts/utils/TokenUtils";
 
 
 export class SharedRepayToRebalanceUtils {
@@ -44,9 +45,7 @@ export class SharedRepayToRebalanceUtils {
       const userBorrowAssetBalance = await IERC20__factory.connect(p.borrowToken.address, deployer)
         .balanceOf(userContract.address);
       if (userBorrowAssetBalance.lt(expectedBorrowAssetAmountToRepay)) {
-        await IERC20__factory.connect(p.borrowToken.address,
-          await DeployerUtils.startImpersonate(p.borrowHolder)
-        ).transfer(userContract.address, expectedBorrowAssetAmountToRepay.sub(userBorrowAssetBalance));
+        await TokenUtils.getToken(p.borrowToken.address, userContract.address, expectedBorrowAssetAmountToRepay.sub(userBorrowAssetBalance));
       }
     }
 
@@ -55,9 +54,7 @@ export class SharedRepayToRebalanceUtils {
       const userCollateralAssetBalance = await IERC20__factory.connect(p.collateralToken.address, deployer)
         .balanceOf(userContract.address);
       if (userCollateralAssetBalance.lt(expectedCollateralAssetAmountToRepay)) {
-        await IERC20__factory.connect(p.collateralToken.address,
-          await DeployerUtils.startImpersonate(p.collateralHolder)
-        ).transfer(userContract.address, expectedCollateralAssetAmountToRepay.sub(userCollateralAssetBalance));
+        await TokenUtils.getToken(p.collateralToken.address, userContract.address, expectedCollateralAssetAmountToRepay.sub(userCollateralAssetBalance));
       }
     }
 

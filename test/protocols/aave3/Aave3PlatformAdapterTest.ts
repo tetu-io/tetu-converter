@@ -62,7 +62,6 @@ describe("Aave3PlatformAdapterTest", () => {
     amount: string;
     smallAmount: string;
     hugeAmount: string;
-    collateralHolders: string[];
     tag?: string;
   }
 
@@ -99,11 +98,6 @@ describe("Aave3PlatformAdapterTest", () => {
         smallAmount: "1",
         amount: "100",
         hugeAmount: "100000",
-        collateralHolders: [
-          BaseAddresses.HOLDER_WETH,
-          BaseAddresses.HOLDER_WETH_1,
-          BaseAddresses.HOLDER_WETH_2,
-        ]
       },
       pairStable: {
         collateralAsset: BaseAddresses.WETH,
@@ -113,11 +107,6 @@ describe("Aave3PlatformAdapterTest", () => {
         smallAmount: "0.01",
         amount: "1",
         hugeAmount: "10",
-        collateralHolders: [
-          BaseAddresses.HOLDER_WETH,
-          BaseAddresses.HOLDER_WETH_1,
-          BaseAddresses.HOLDER_WETH_2,
-        ]
       }
     },
     [POLYGON_NETWORK_ID]: {
@@ -150,14 +139,6 @@ describe("Aave3PlatformAdapterTest", () => {
         smallAmount: "1",
         amount: "100",
         hugeAmount: "100000000",
-        collateralHolders: [
-          MaticAddresses.HOLDER_DAI,
-          MaticAddresses.HOLDER_DAI_2,
-          MaticAddresses.HOLDER_DAI_3,
-          MaticAddresses.HOLDER_DAI_4,
-          MaticAddresses.HOLDER_DAI_5,
-          MaticAddresses.HOLDER_DAI_6,
-        ]
       },
       pairStable: {
         collateralAsset: MaticAddresses.USDC,
@@ -167,11 +148,6 @@ describe("Aave3PlatformAdapterTest", () => {
         smallAmount: "1",
         amount: "100",
         hugeAmount: "100000000",
-        collateralHolders: [
-          MaticAddresses.HOLDER_USDC,
-          MaticAddresses.HOLDER_USDC_2,
-          MaticAddresses.HOLDER_USDC_3,
-        ]
       }
     }
   }
@@ -1187,7 +1163,6 @@ describe("Aave3PlatformAdapterTest", () => {
                   const r = await makeGetBorrowRateAfterBorrowTest(
                     testSetup.pair.collateralAsset,
                     testSetup.pair.borrowAsset,
-                    testSetup.pair.collateralHolders,
                     part10000
                   );
 

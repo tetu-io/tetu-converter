@@ -104,7 +104,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       deployer,
       controller,
       collateralToken,
-      collateralHolder,
       parseUnits(collateralAmountStr, collateralToken.decimals),
       borrowToken,
       {
@@ -255,9 +254,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
     interface IMakeRepayTestParams extends IMakeRepayBadPathsParams {
       collateralAsset: string,
-      collateralHolder: string,
       borrowAsset: string,
-      borrowHolder: string,
       collateralAmountStr: string,
 
       /**
@@ -304,7 +301,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         deployer,
         controller,
         collateralToken,
-        p.collateralHolder,
         parseUnits(p.collateralAmountStr, collateralToken.decimals),
         borrowToken,
         {
@@ -353,7 +349,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
               ? parseUnits(p.amountToRepayPart, borrowToken.decimals)
               : statusBeforeRepay.amountToPay.sub(-parseUnits(p.amountToRepayPart, borrowToken.decimals))
             : undefined;
-      await AaveTwoTestUtils.putDoubleBorrowAmountOnUserBalance(init, p.borrowHolder);
+      await AaveTwoTestUtils.putDoubleBorrowAmountOnUserBalance(init);
 
       const userBorrowAssetBalanceBeforeRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
 
@@ -416,13 +412,11 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           after(async function () {await TimeUtils.rollback(snapshotLocal);});
 
           const collateralAsset = MaticAddresses.DAI;
-          const collateralHolder = MaticAddresses.HOLDER_DAI;
           const borrowAsset = MaticAddresses.WMATIC;
-          const borrowHolder = MaticAddresses.HOLDER_WMATIC;
           const collateralAmountStr = "1999";
 
           async function makeFullRepayTest() : Promise<IMakeRepayTestResults> {
-            return makeRepay({collateralAsset, collateralHolder, borrowAsset, borrowHolder, collateralAmountStr});
+            return makeRepay({collateralAsset, borrowAsset, collateralAmountStr});
           }
 
           it("should get expected status", async () => {
@@ -497,13 +491,11 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         });
         describe("DAI:USDC - large amount", () => {
           const collateralAsset = MaticAddresses.DAI;
-          const collateralHolder = MaticAddresses.HOLDER_DAI;
           const borrowAsset = MaticAddresses.USDC;
-          const borrowHolder = MaticAddresses.HOLDER_USDC;
           const collateralAmountStr = "5000000";
 
           async function makeFullRepayTest() : Promise<IMakeRepayTestResults> {
-            return makeRepay({collateralAsset, collateralHolder, borrowAsset, borrowHolder, collateralAmountStr});
+            return makeRepay({collateralAsset, borrowAsset, collateralAmountStr});
           }
 
           let snapshotLocal: string;
@@ -581,13 +573,11 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         });
         describe("WETH:WMATIC - large amount", () => {
           const collateralAsset = MaticAddresses.WETH;
-          const collateralHolder = MaticAddresses.HOLDER_WETH;
           const borrowAsset = MaticAddresses.WMATIC;
-          const borrowHolder = MaticAddresses.HOLDER_WMATIC;
-          const collateralAmountStr = "1000000";
+          const collateralAmountStr = "1000";
 
           async function makeFullRepayTest() : Promise<IMakeRepayTestResults> {
-            return makeRepay({collateralAsset, collateralHolder, borrowAsset, borrowHolder, collateralAmountStr});
+            return makeRepay({collateralAsset, borrowAsset, collateralAmountStr});
           }
 
           let snapshotLocal: string;
@@ -675,9 +665,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
        */
       describe("closePosition is false, but actually full debt is paid", () => {
         const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
         const borrowAsset = MaticAddresses.WMATIC;
-        const borrowHolder = MaticAddresses.HOLDER_WMATIC;
         const collateralAmountStr = "1000";
 
         let snapshotLocal: string;
@@ -689,9 +677,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           // we have only 1009, so we pay 1009 and use closePosition = false
           return makeRepay({
             collateralAsset,
-            collateralHolder,
             borrowAsset,
-            borrowHolder,
             collateralAmountStr,
             payDebtGapPercent: 80,
             closePosition: false
@@ -795,7 +781,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         after(async function () {await TimeUtils.rollback(snapshotLocal);});
 
         it("Should repay expected amount + tiny debt gap (at most several tokens)", async () => {
-          const r = await makeRepay({collateralAsset, collateralHolder, borrowAsset, borrowHolder, collateralAmountStr: "0.00006"});
+          const r = await makeRepay({collateralAsset, borrowAsset, collateralAmountStr: "0.00006"});
           expect(r.statusAfterRepay.opened).eq(false);
           const paid = r.userBorrowAssetBalanceBeforeRepay.sub(r.userBorrowAssetBalanceAfterRepay);
           const expected = r.statusBeforeRepay.amountToPay;
@@ -817,9 +803,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         async function makePartialRepayTest() : Promise<IMakeRepayTestResults> {
           return makeRepay({
             collateralAsset: MaticAddresses.DAI,
-            collateralHolder: MaticAddresses.HOLDER_DAI,
             borrowAsset: MaticAddresses.WMATIC,
-            borrowHolder: MaticAddresses.HOLDER_WMATIC,
             collateralAmountStr: "1999",
             amountToRepayPart: "100",
             targetHealthFactor2: 150,
@@ -839,9 +823,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     });
     describe("Bad paths", () => {
       const collateralAsset = MaticAddresses.DAI;
-      const collateralHolder = MaticAddresses.HOLDER_DAI;
       const borrowAsset = MaticAddresses.WMATIC;
-      const borrowHolder = MaticAddresses.HOLDER_WMATIC;
 
       let snapshotForEach: string;
       beforeEach(async function () {snapshotForEach = await TimeUtils.snapshot();});
@@ -850,9 +832,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       it("should return exceeded amount if user tries to pay too much", async () => {
         const results = await makeRepay({
           collateralAsset,
-          collateralHolder,
           borrowAsset,
-          borrowHolder,
           collateralAmountStr: "1999",
           amountToRepayStr: "1500", // amount to repay is ~905, user has 905*2 in total
           closePosition: true
@@ -868,9 +848,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         await expect(
           makeRepay({
             collateralAsset,
-            collateralHolder,
             borrowAsset,
-            borrowHolder,
             collateralAmountStr: "1999",
             makeRepayAsNotTc: true,
             amountToRepayStr: "10" // it's much harder to emulate not-TC call for full repay
@@ -881,9 +859,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         await expect(
           makeRepay({
             collateralAsset,
-            collateralHolder,
             borrowAsset,
-            borrowHolder,
             collateralAmountStr: "1999",
             amountToRepayStr: "1",
             closePosition: true
@@ -894,9 +870,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         await expect(
           makeRepay({
             collateralAsset,
-            collateralHolder,
             borrowAsset,
-            borrowHolder,
             collateralAmountStr: "1999",
             usePoolMock: true,
             ignoreWithdraw: true,
@@ -907,9 +881,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       it("should NOT revert if pool has used all amount-to-repay and hasn't sent anything back", async () => {
         const r = await makeRepay({
           collateralAsset,
-          collateralHolder,
           borrowAsset,
-          borrowHolder,
           collateralAmountStr: "1999",
           usePoolMock: true,
           grabAllBorrowAssetFromSenderOnRepay: true
@@ -925,9 +897,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         await expect(
           makeRepay({
             collateralAsset,
-            collateralHolder,
             borrowAsset,
-            borrowHolder,
             collateralAmountStr: "1999",
             collateralPriceIsZero: true,
             amountToRepayStr: "1" // we need partial-repay mode in this test to avoid calling getStatus in makeRepayComplete
@@ -938,9 +908,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         await expect(
           makeRepay({
             collateralAsset,
-            collateralHolder,
             borrowAsset,
-            borrowHolder,
             collateralAmountStr: "1999",
 
             // we cannot use real pool
@@ -999,7 +967,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         deployer,
         controller,
         p.collateralToken,
-        p.collateralHolder,
         p.collateralAmount,
         p.borrowToken,
         {
@@ -1399,17 +1366,14 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     async function makeBorrowToRebalance (
       controller: ConverterController,
       collateralToken: TokenDataTypes,
-      collateralHolder: string,
       collateralAmount: BigNumber,
       borrowToken: TokenDataTypes,
-      borrowHolder: string,
       badPathsParams?: IMakeBorrowToRebalanceBadPathParams
     ) : Promise<IMakeBorrowToRebalanceResults>{
       const d = await AaveTwoTestUtils.prepareToBorrow(
         deployer,
         controller,
         collateralToken,
-        collateralHolder,
         collateralAmount,
         borrowToken,
         {
@@ -1715,8 +1679,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           deployer,
           controller,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
-          MaticAddresses.HOLDER_DAI,
-          undefined,
+          parseUnits("1000", 18),
           await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
           {targetHealthFactor2: 200}
         );
@@ -1743,8 +1706,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           deployer,
           controller,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
-          MaticAddresses.HOLDER_DAI,
-          undefined,
+          parseUnits("1000", 18),
           await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
           {targetHealthFactor2: 200}
         );
@@ -1771,8 +1733,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           deployer,
           controller,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
-          MaticAddresses.HOLDER_DAI,
-          undefined,
+          parseUnits("1", 18),
           await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
           {targetHealthFactor2: 200}
         );
@@ -2042,7 +2003,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             deployer,
             controller,
             collateralToken,
-            collateralHolder,
             parseUnits("999", collateralToken.decimals),
             borrowToken,
           );
@@ -2271,7 +2231,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         deployer,
         controller,
         collateralToken,
-        MaticAddresses.HOLDER_USDC,
         parseUnits("1", collateralToken.decimals),
         borrowToken,
       );

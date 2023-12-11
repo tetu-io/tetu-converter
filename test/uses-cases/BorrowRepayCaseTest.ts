@@ -122,6 +122,9 @@ describe("BorrowRepayCaseTest", () => {
     userBorrowAssetBalanceHugeAmount: "1000",
   }
 
+  /** Allow to change the order of execution without modification of NETWORKS */
+  const CHAINS_IN_ORDER_OF_EXECUTION = [BASE_NETWORK_ID, POLYGON_NETWORK_ID, ZKEVM_NETWORK_ID];
+
   const NETWORKS: IChainParams[] = [
     { // Polygon
       networkId: POLYGON_NETWORK_ID,
@@ -266,6 +269,41 @@ describe("BorrowRepayCaseTest", () => {
     { // Base chain
       networkId: BASE_NETWORK_ID,
       platforms: [
+        { // Moonwell  on Base chain
+          platformUtilsProviderBuilder() {
+            return new MoonwellUtilsProvider();
+          },
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await DeployUtils.deployContract(
+              signer0,
+              "MoonwellPlatformAdapter",
+              converterController0,
+              (await MoonwellHelper.getComptroller(signer0)).address,
+              (await AdaptersHelper.createMoonwellPoolAdapter(signer0)).address,
+              MoonwellUtils.getAllCTokens()
+            ) as MoonwellPlatformAdapter;
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(MoonwellUtils.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          assetPairs: [
+            {collateralAsset: BaseAddresses.USDbC, borrowAsset: BaseAddresses.DAI, collateralAssetName: "USDbC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE, hugeCollateralAmount: "100000"},
+            {collateralAsset: BaseAddresses.DAI, borrowAsset: BaseAddresses.USDbC, collateralAssetName: "DAI", borrowAssetName: "USDbC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE, hugeCollateralAmount: "100000"},
+
+            {collateralAsset: BaseAddresses.USDC, borrowAsset: BaseAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE, hugeCollateralAmount: "100000"},
+            {collateralAsset: BaseAddresses.DAI, borrowAsset: BaseAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, hugeCollateralAmount: "100000"},
+
+            {collateralAsset: BaseAddresses.USDC, borrowAsset: BaseAddresses.USDbC, collateralAssetName: "USDC", borrowAssetName: "USDbC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+            {collateralAsset: BaseAddresses.USDbC, borrowAsset: BaseAddresses.USDC, collateralAssetName: "USDbC", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
+          ]
+        },
         { // AAVE3 on Base chain
           platformUtilsProviderBuilder() {
             return new Aave3UtilsProviderBase();
@@ -293,41 +331,6 @@ describe("BorrowRepayCaseTest", () => {
           assetPairs: [
             {collateralAsset: BaseAddresses.WETH, borrowAsset: BaseAddresses.cbETH, collateralAssetName: "WETH", borrowAssetName: "cbETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0", hugeCollateralAmount: "100"},
             {collateralAsset: BaseAddresses.cbETH, borrowAsset: BaseAddresses.WETH, collateralAssetName: "cbETH", borrowAssetName: "WETH", singleParams: PARAMS_SINGLE_WETH, multipleParams: PARAMS_MULTIPLE_WETH, minTargetHealthFactor: "0", hugeCollateralAmount: "100"},
-          ]
-        },
-        { // Moonwell  on Base chain
-          platformUtilsProviderBuilder() {
-            return new MoonwellUtilsProvider();
-          },
-          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await DeployUtils.deployContract(
-              signer0,
-              "MoonwellPlatformAdapter",
-              converterController0,
-              (await MoonwellHelper.getComptroller(signer0)).address,
-              (await AdaptersHelper.createMoonwellPoolAdapter(signer0)).address,
-              MoonwellUtils.getAllCTokens()
-            ) as MoonwellPlatformAdapter;
-
-            // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(MoonwellUtils.getAllAssets());
-            await borrowManagerAsGov0.addAssetPairs(
-              platformAdapter.address,
-              pairs.map(x => x.smallerAddress),
-              pairs.map(x => x.biggerAddress)
-            );
-
-            return platformAdapter;
-          },
-          assetPairs: [
-            {collateralAsset: BaseAddresses.USDC, borrowAsset: BaseAddresses.USDbC, collateralAssetName: "USDC", borrowAssetName: "USDbC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-            {collateralAsset: BaseAddresses.USDbC, borrowAsset: BaseAddresses.USDC, collateralAssetName: "USDbC", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-
-            {collateralAsset: BaseAddresses.DAI, borrowAsset: BaseAddresses.USDbC, collateralAssetName: "DAI", borrowAssetName: "USDbC", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-            {collateralAsset: BaseAddresses.USDbC, borrowAsset: BaseAddresses.DAI, collateralAssetName: "USDbC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE, multipleParams: PARAMS_MULTIPLE_STABLE},
-
-            {collateralAsset: BaseAddresses.USDC, borrowAsset: BaseAddresses.DAI, collateralAssetName: "USDC", borrowAssetName: "DAI", singleParams: PARAMS_SINGLE_STABLE},
-            {collateralAsset: BaseAddresses.DAI, borrowAsset: BaseAddresses.USDC, collateralAssetName: "DAI", borrowAssetName: "USDC", singleParams: PARAMS_SINGLE_STABLE},
           ]
         },
       ]
@@ -382,7 +385,8 @@ describe("BorrowRepayCaseTest", () => {
   let borrowManagerAsGov: BorrowManager;
 //endregion Global vars for all tests
 
-  NETWORKS.forEach(network => {
+  CHAINS_IN_ORDER_OF_EXECUTION.forEach(selectedChain => {
+    const network = NETWORKS[NETWORKS.findIndex(x => x.networkId === selectedChain)];
     describe(`${network.networkId}`, function () {
       before(async function () {
         await HardhatUtils.setupBeforeTest(network.networkId, network.block);
