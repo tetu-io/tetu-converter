@@ -2163,14 +2163,13 @@ describe("Aave3PoolAdapterUnitTest", () => {
             async function salvageToken(
               p: IPrepareResults,
               tokenAddress: string,
-              holder: string,
               amountNum: string,
               caller?: string
             ): Promise<number> {
               const token = await IERC20Metadata__factory.connect(tokenAddress, deployer);
               const decimals = await token.decimals();
               const amount = parseUnits(amountNum, decimals);
-              await BalanceUtils.getRequiredAmountFromHolders(amount, token, [holder], p.init.aavePoolAdapterAsTC.address);
+              await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
               await p.init.aavePoolAdapterAsTC.connect(await Misc.impersonate(caller || p.governance)).salvage(receiver, tokenAddress, amount);
               return +formatUnits(await token.balanceOf(receiver), decimals);
             }
@@ -2178,25 +2177,25 @@ describe("Aave3PoolAdapterUnitTest", () => {
             describe("Good paths", () => {
               it("should salvage collateral asset", async () => {
                 const p = await loadFixture(prepare);
-                expect(await salvageToken(p, testSetup.pair.collateralAsset, testSetup.pair.collateralHolders[0], testSetup.pair.amount)).eq(Number(testSetup.pair.amount));
+                expect(await salvageToken(p, testSetup.pair.collateralAsset, testSetup.pair.amount)).eq(Number(testSetup.pair.amount));
               });
               it("should salvage borrow asset", async () => {
                 const p = await loadFixture(prepare);
-                expect(await salvageToken(p, testSetup.pair.borrowAsset, testSetup.pair.borrowHolder, "1")).eq(1);
+                expect(await salvageToken(p, testSetup.pair.borrowAsset, "1")).eq(1);
               });
             });
             describe("Bad paths", () => {
               it("should revert on attempt to salvage collateral aToken", async () => {
                 const p = await loadFixture(prepare);
-                await expect(salvageToken(p, testSetup.pairATokens.aTokenCollateral, testSetup.pairATokens.aTokenCollateralHolder, "1")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
+                await expect(salvageToken(p, testSetup.pairATokens.aTokenCollateral, "1")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
               });
               it("should revert on attempt to salvage borrow stable aToken", async () => {
                 const p = await loadFixture(prepare);
-                await expect(salvageToken(p, testSetup.pairATokens.aTokenBorrow, testSetup.pairATokens.aTokenBorrowHolder, "1")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
+                await expect(salvageToken(p, testSetup.pairATokens.aTokenBorrow, "1")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
               });
               it("should revert if not governance", async () => {
                 const p = await loadFixture(prepare);
-                await expect(salvageToken(p, testSetup.pair.collateralAsset, testSetup.pair.collateralHolders[0], testSetup.pair.amount, receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+                await expect(salvageToken(p, testSetup.pair.collateralAsset, testSetup.pair.amount, receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
               });
             });
           });

@@ -63,6 +63,8 @@ describe("Aave3PlatformAdapterTest", () => {
     smallAmount: string;
     hugeAmount: string;
     tag?: string;
+    /** collateral amount ~ collateralMult * borrow amount */
+    collateralMult?: number; // 3 by default
   }
 
   interface ITestSetup {
@@ -98,6 +100,7 @@ describe("Aave3PlatformAdapterTest", () => {
         smallAmount: "1",
         amount: "100",
         hugeAmount: "100000",
+        collateralMult: 3000
       },
       pairStable: {
         collateralAsset: BaseAddresses.WETH,
@@ -1126,7 +1129,8 @@ describe("Aave3PlatformAdapterTest", () => {
               async function makeGetBorrowRateAfterBorrowTest(
                 collateralAsset: string,
                 borrowAsset: string,
-                part10000: number
+                part10000: number,
+                collateralMult?: number
               ): Promise<{ br: BigNumber, brPredicted: BigNumber }> {
                 const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, testSetup.aavePool);
 
@@ -1136,7 +1140,8 @@ describe("Aave3PlatformAdapterTest", () => {
                   {
                     collateralAsset,
                     borrowAsset,
-                    borrowPart10000: part10000
+                    borrowPart10000: part10000,
+                    collateralMult
                   }
                 );
               }
@@ -1148,7 +1153,8 @@ describe("Aave3PlatformAdapterTest", () => {
                   const r = await makeGetBorrowRateAfterBorrowTest(
                     testSetup.pair.collateralAsset,
                     testSetup.pair.borrowAsset,
-                    part10000
+                    part10000,
+                    testSetup.pair.collateralMult
                   );
 
                   const ret = areAlmostEqual(r.br, r.brPredicted, 5);
@@ -1163,7 +1169,8 @@ describe("Aave3PlatformAdapterTest", () => {
                   const r = await makeGetBorrowRateAfterBorrowTest(
                     testSetup.pair.collateralAsset,
                     testSetup.pair.borrowAsset,
-                    part10000
+                    part10000,
+                    testSetup.pair.collateralMult
                   );
 
                   const ret = areAlmostEqual(r.br, r.brPredicted, 5);

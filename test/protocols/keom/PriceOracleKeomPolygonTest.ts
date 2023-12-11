@@ -63,6 +63,22 @@ describe("PriceOracleKeomPolygonTest", () => {
     it("check stMATIC price", async () => {
       expect(await getAssetPrice(MaticAddresses.stMATIC)).approximately(1, 0.7);
     })
+    it("check wstETH price", async () => {
+      expect(await getAssetPrice(MaticAddresses.wstETH)).gt(0);
+    })
+    it("check WETH price", async () => {
+      expect(await getAssetPrice(MaticAddresses.WETH)).gt(0);
+    })
+    it("check WBTC price", async () => {
+      expect(await getAssetPrice(MaticAddresses.WBTC)).gt(0);
+    })
+    it("check miMATIC price", async () => {
+      expect(await getAssetPrice(MaticAddresses.miMATIC)).gt(0);
+    })
+
+    it("Bad path: check price of unknown asset", async () => {
+      expect(await getAssetPrice(MaticAddresses.Aave3_Polygon_EURS)).eq(0);
+    })
   });
 
 //endregion Unit tests

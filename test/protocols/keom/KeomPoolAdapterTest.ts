@@ -866,6 +866,30 @@ describe("KeomPoolAdapterTest", () => {
       })
     });
 
+    describe("borrowToRebalance", () => {
+      let snapshotLocal: string;
+      beforeEach(async function () {
+        snapshotLocal = await TimeUtils.snapshot();
+      });
+      afterEach(async function () {
+        await TimeUtils.rollback(snapshotLocal);
+      });
+
+      it("should revert", async () => {
+        const receiver = ethers.Wallet.createRandom().address;
+        const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+        await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth);
+        const poolAdapterInstance = KeomPoolAdapter__factory.connect(
+          await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth),
+          tetuConverterSigner
+        );
+        await expect(
+          poolAdapterInstance.borrowToRebalance(0, receiver)
+        ).revertedWith("TC-62: legacy"); // DEPRECATED_LEGACY_CODE
+      })
+    });
+
     describe("getCollateralAmountToReturn", () => {
       let snapshotLocal: string;
       beforeEach(async function () {
@@ -1056,163 +1080,165 @@ describe("KeomPoolAdapterTest", () => {
       });
     });
 
-    // describe("claimRewards", () => {
-    //   let snapshotLocal: string;
-    //   beforeEach(async function () {
-    //     snapshotLocal = await TimeUtils.snapshot();
-    //   });
-    //   afterEach(async function () {
-    //     await TimeUtils.rollback(snapshotLocal);
-    //   });
-    //
-    //   interface IParams {
-    //     collateralAsset: string;
-    //     borrowAsset: string;
-    //     collateralAmount: string;
-    //
-    //     countBlocksBeforeClaimingRewards: number;
-    //   }
-    //
-    //   interface IResults {
-    //     rewardToken: string;
-    //     amount: number;
-    //     rewardsBalance: number;
-    //   }
-    //
-    //   async function claimRewards(p: IParams): Promise<IResults> {
-    //     await InjectUtils.registerWethWellPoolInLiquidator(signer);
-    //     const liquidator = await ITetuLiquidator__factory.connect(tetuLiquidator, signer);
-    //     const test = await liquidator.getPrice(BaseAddresses.WELL, chainInfo.core.usdc, BigNumber.from("65147450812097255374"));
-    //     console.log("test", test);
-    //
-    //
-    //     const receiver = ethers.Wallet.createRandom().address;
-    //     const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
-    //
-    //     const collateralAsset = IERC20Metadata__factory.connect(p.collateralAsset, signer);
-    //     const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
-    //     const decimalsCollateral = await collateralAsset.decimals();
-    //     const decimalsBorrow = await borrowAsset.decimals();
-    //
-    //     // prepare conversion plan
-    //     const plan = await getConversionPlan({
-    //       collateralAsset: p.collateralAsset,
-    //       borrowAsset: p.borrowAsset,
-    //       amountIn: p.collateralAmount,
-    //       countBlocks: p.countBlocksBeforeClaimingRewards
-    //     });
-    //
-    //     // put collateral amount on TetuConverter balance
-    //     const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
-    //     await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
-    //
-    //     // initialize the pool adapter
-    //     await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
-    //     const poolAdapterInstance = KeomPoolAdapter__factory.connect(
-    //       await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset),
-    //       tetuConverterSigner
-    //     );
-    //     await IERC20__factory.connect(p.collateralAsset, tetuConverterSigner).approve(poolAdapterInstance.address, collateralAmount);
-    //
-    //     // make borrow
-    //     await poolAdapterInstance.connect(tetuConverterSigner).borrow(
-    //       collateralAmount,
-    //       parseUnits(plan.amountToBorrow.toString(), decimalsBorrow),
-    //       receiver
-    //     );
-    //
-    //     // move time
-    //     await TimeUtils.advanceNBlocks(p.countBlocksBeforeClaimingRewards);
-    //
-    //     // call update status
-    //     const ret = await poolAdapterInstance.callStatic.claimRewards(receiver);
-    //     await poolAdapterInstance.claimRewards(receiver);
-    //
-    //     return {
-    //       rewardToken: ret.rewardToken,
-    //       amount: ret.amount.eq(0)
-    //         ? 0
-    //         : +formatUnits(ret.amount, await IERC20Metadata__factory.connect(ret.rewardToken, signer).decimals()),
-    //       rewardsBalance: +formatUnits(
-    //         await IERC20__factory.connect(BaseAddresses.WELL, signer).balanceOf(receiver),
-    //         await IERC20Metadata__factory.connect(BaseAddresses.WELL, signer).decimals()
-    //       )
-    //     }
-    //   }
-    //
-    //   describe("Good paths", () => {
-    //     it("should increase debt amount and collateral amount DAI:USDC", async () => {
-    //       const ret = await claimRewards({
-    //         collateralAsset: chainInfo.core.wmatic,
-    //         borrowAsset: chainInfo.core.usdc,
-    //         collateralAmount: "1234",
-    //         countBlocksBeforeClaimingRewards: 10_000,
-    //       });
-    //       console.log(ret);
-    //       // const ret2 = await claimRewards({
-    //       //   collateralAsset: chainInfo.core.wmatic,
-    //       //   borrowAsset: chainInfo.core.usdc,
-    //       //   collateralAmount: "1234",
-    //       //   countBlocksBeforeClaimingRewards: 10_000,
-    //       // });
-    //       expect(ret.amount).gt(0, "rewards should be paid");
-    //       expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
-    //     });
-    //     it("should increase debt amount and collateral amount USDC:USDbC", async () => {
-    //       const ret = await claimRewards({
-    //         collateralAsset: chainInfo.core.usdc,
-    //         borrowAsset: chainInfo.core.usdt,
-    //         collateralAmount: "1234",
-    //         countBlocksBeforeClaimingRewards: 10_000,
-    //       });
-    //       console.log(ret);
-    //       expect(ret.amount).gt(0, "rewards should be paid");
-    //       expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
-    //     });
-    //   });
-    //   describe("temp test @skip-on-coverage", () => {
-    //     it("todo", async () => {
-    //       await InjectUtils.registerWethWellPoolInLiquidator(signer);
-    //       const assets = [
-    //         chainInfo.core.weth,
-    //         chainInfo.core.usdc,
-    //         chainInfo.core.usdt,
-    //         chainInfo.core.wmatic,
-    //       ]
-    //
-    //       const liquidator = await ITetuLiquidator__factory.connect(BaseAddresses.TETU_LIQUIDATOR, signer);
-    //       const well = IERC20Metadata__factory.connect(BaseAddresses.WELL, signer);
-    //       const decimalsWell = await well.decimals();
-    //
-    //       for (const asset of assets) {
-    //         const assetName = await IERC20Metadata__factory.connect(asset, signer).symbol();
-    //         const assetDecimals = await IERC20Metadata__factory.connect(asset, signer).decimals();
-    //         const source1 = parseUnits("1000", decimalsWell);
-    //         const fromWell = await liquidator.getPrice(BaseAddresses.WELL, asset, source1);
-    //         console.log(`well ${source1.toString()} => ${assetName} ${fromWell.toString()}`);
-    //
-    //         const source2 = parseUnits("1000", assetDecimals);
-    //         const toWell = await liquidator.getPrice(asset, BaseAddresses.WELL, source2);
-    //         console.log(`${assetName} ${source2.toString()}=> well ${toWell.toString()}`);
-    //       }
-    //
-    //       const sourceTest1 = BigNumber.from("65147450812097255374");
-    //       const test1 = await liquidator.getPrice(BaseAddresses.WELL, chainInfo.core.usdc, sourceTest1.toString());
-    //       console.log(`WELL ${sourceTest1.toString()} => USDC ${test1.toString()}`);
-    //
-    //       const sourceTest2 = BigNumber.from("33");
-    //       const test2 = await liquidator.getPrice(BaseAddresses.WELL, chainInfo.core.usdc, sourceTest2.toString());
-    //       console.log(`WELL ${sourceTest2.toString()} => USDC ${test2.toString()}`);
-    //
-    //       // const receiver = ethers.Wallet.createRandom().address;
-    //       // await BalanceUtils.getAmountFromHolder(BaseAddresses.WELL, BaseAddresses.HOLDER_WELL, receiver, parseUnits("1", 18));
-    //       // await IERC20Metadata__factory.connect(chainInfo.core.usdc, await Misc.impersonate(receiver)).approve(liquidator.address, Misc.MAX_UINT);
-    //       // await liquidator.connect(await Misc.impersonate(receiver)).liquidate(BaseAddresses.WELL, chainInfo.core.usdc, sourceTest2, 100_000);
-    //       // const balance = await IERC20Metadata__factory.connect(chainInfo.core.usdc, signer).balanceOf(receiver);
-    //       // console.log("balance", balance);
-    //     });
-    //   });
-    // });
+    describe("todo: claimRewards", () => {
+      let snapshotLocal: string;
+      beforeEach(async function () {
+        snapshotLocal = await TimeUtils.snapshot();
+      });
+      afterEach(async function () {
+        await TimeUtils.rollback(snapshotLocal);
+      });
+
+      interface IParams {
+        collateralAsset: string;
+        borrowAsset: string;
+        collateralAmount: string;
+
+        countBlocksBeforeClaimingRewards: number;
+      }
+
+      interface IResults {
+        rewardToken: string;
+        amount: number;
+        // todo rewardsBalance: number;
+      }
+
+      async function claimRewards(p: IParams): Promise<IResults> {
+        const receiver = ethers.Wallet.createRandom().address;
+        const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+        const collateralAsset = IERC20Metadata__factory.connect(p.collateralAsset, signer);
+        const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
+        const decimalsCollateral = await collateralAsset.decimals();
+        const decimalsBorrow = await borrowAsset.decimals();
+
+        // prepare conversion plan
+        const plan = await getConversionPlan({
+          collateralAsset: p.collateralAsset,
+          borrowAsset: p.borrowAsset,
+          amountIn: p.collateralAmount,
+          countBlocks: p.countBlocksBeforeClaimingRewards
+        });
+
+        // put collateral amount on TetuConverter balance
+        const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
+        await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
+
+        // initialize the pool adapter
+        await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
+        const poolAdapterInstance = KeomPoolAdapter__factory.connect(
+          await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset),
+          tetuConverterSigner
+        );
+        await IERC20__factory.connect(p.collateralAsset, tetuConverterSigner).approve(poolAdapterInstance.address, collateralAmount);
+
+        // make borrow
+        await poolAdapterInstance.connect(tetuConverterSigner).borrow(
+          collateralAmount,
+          parseUnits(plan.amountToBorrow.toString(), decimalsBorrow),
+          receiver
+        );
+
+        // move time
+        await TimeUtils.advanceNBlocks(p.countBlocksBeforeClaimingRewards);
+
+        // claim rewards
+        const ret = await poolAdapterInstance.callStatic.claimRewards(receiver);
+        await poolAdapterInstance.claimRewards(receiver);
+
+        return {
+          rewardToken: ret.rewardToken,
+          amount: ret.amount.eq(0)
+            ? 0
+            : +formatUnits(ret.amount, await IERC20Metadata__factory.connect(ret.rewardToken, signer).decimals()),
+          // todo
+          // rewardsBalance: +formatUnits(
+          //   await IERC20__factory.connect(BaseAddresses.WELL, signer).balanceOf(receiver),
+          //   await IERC20Metadata__factory.connect(BaseAddresses.WELL, signer).decimals()
+          // )
+        }
+      }
+
+      describe("Good paths", () => {
+        it("should not claim any rewards", async () => {
+          const ret = await claimRewards({
+            collateralAsset: chainInfo.core.wmatic,
+            borrowAsset: chainInfo.core.usdc,
+            collateralAmount: "1234",
+            countBlocksBeforeClaimingRewards: 10_000,
+          });
+
+          expect(ret.amount).eq(0, "no rewards");
+          // todo expect(ret.amount).approximately(ret.rewardsBalance, 0.01, "rewards should be received");
+        });
+      });
+    });
+
+    describe("ICompoundPoolAdapterLibCaller bad paths", () => {
+      let snapshotLocal: string;
+      beforeEach(async function () {
+        snapshotLocal = await TimeUtils.snapshot();
+      });
+      afterEach(async function () {
+        await TimeUtils.rollback(snapshotLocal);
+      });
+
+      it("should revert if _borrow is called by not-sender", async () => {
+        const receiver = ethers.Wallet.createRandom().address;
+        const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+        await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth);
+        const poolAdapterInstance = KeomPoolAdapter__factory.connect(
+          await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth),
+          tetuConverterSigner
+        );
+        await expect(
+          poolAdapterInstance._borrow(chainInfo.core.weth, chainInfo.core.kWeth, Misc.MAX_UINT)
+        ).revertedWith("TC-48 access denied"); // ACCESS_DENIED
+      })
+
+      it("should revert if _repayBorrow is called by not-sender", async () => {
+        const receiver = ethers.Wallet.createRandom().address;
+        const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+        await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth);
+        const poolAdapterInstance = KeomPoolAdapter__factory.connect(
+          await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth),
+          tetuConverterSigner
+        );
+        await expect(
+          poolAdapterInstance._repayBorrow(chainInfo.core.weth, chainInfo.core.kWeth, Misc.MAX_UINT)
+        ).revertedWith("TC-48 access denied"); // ACCESS_DENIED
+      })
+
+      it("should revert if _redeem is called by not-sender", async () => {
+        const receiver = ethers.Wallet.createRandom().address;
+        const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+        await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth);
+        const poolAdapterInstance = KeomPoolAdapter__factory.connect(
+          await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth),
+          tetuConverterSigner
+        );
+        await expect(
+          poolAdapterInstance._redeem(chainInfo.core.wmatic, chainInfo.core.kMatic, Misc.MAX_UINT)
+        ).revertedWith("TC-48 access denied"); // ACCESS_DENIED
+      })
+
+      it("should revert if _mint is called by not-sender", async () => {
+        const receiver = ethers.Wallet.createRandom().address;
+        const tetuConverterSigner = await Misc.impersonate(tetuConverterReplacer.address);
+
+        await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth);
+        const poolAdapterInstance = KeomPoolAdapter__factory.connect(
+          await borrowManagerAsGov.getPoolAdapter(poolAdapter.address, receiver, chainInfo.core.wmatic, chainInfo.core.weth),
+          tetuConverterSigner
+        );
+        await expect(
+          poolAdapterInstance._mint(chainInfo.core.kMatic, Misc.MAX_UINT)
+        ).revertedWith("TC-48 access denied"); // ACCESS_DENIED
+      })
+    });
   });
 
 //endregion Unit tests

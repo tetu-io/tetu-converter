@@ -73,14 +73,16 @@ describe("Compound3PlatformAdapterTest", () => {
     collateralAsset: string,
     cometAddress: string,
     cometRewards: string,
-    part10000: number
+    part10000: number,
+    collateralMult?: number
   ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
     const comet = IComet__factory.connect(cometAddress, deployer)
     const actor = new Compound3PlatformActor(deployer, comet, collateralAsset);
     return PredictBrUsesCase.predictBrTest(deployer, actor,{
       collateralAsset,
       borrowAsset: await comet.baseToken(),
-      borrowPart10000: part10000
+      borrowPart10000: part10000,
+      collateralMult
     });
   }
 //endregion Test predict-br impl
@@ -744,11 +746,20 @@ describe("Compound3PlatformAdapterTest", () => {
       })
       describe("huge amount WETH => USDC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          const comet = await IComet__factory.connect(MaticAddresses.COMPOUND3_COMET_USDC, deployer);
+          const collateralAssetInfo = await comet.getAssetInfoByAddress(MaticAddresses.WETH);
+          console.log(collateralAssetInfo.supplyCap);
+          const totalSupply = await comet.totalSupply();
+          const maxSupplyAmount = collateralAssetInfo.supplyCap.sub(totalSupply);
+          console.log("maxSupplyAmount", maxSupplyAmount);
+
+          // todo Supplied amount cannot exceed maxSupplyAmount
           const r = await makePredictBrTest(
             MaticAddresses.WETH,
             MaticAddresses.COMPOUND3_COMET_USDC,
             MaticAddresses.COMPOUND3_COMET_REWARDS,
-            500
+            500,
+            0.1
           )
 
           expect(areAlmostEqual(r.br, r.brPredicted, 4)).eq(true)

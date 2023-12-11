@@ -46,6 +46,20 @@ describe("PriceOracleZerovixZkevmTest", () => {
     it("check USDT price", async () => {
       expect(await getAssetPrice(ZkevmAddresses.USDT)).approximately(1, 0.1);
     })
+
+    it("check WETH price", async () => {
+      expect(await getAssetPrice(ZkevmAddresses.WETH)).gt(0);
+    })
+    it("check Matic price", async () => {
+      expect(await getAssetPrice(ZkevmAddresses.MATIC)).gt(0);
+    })
+    it("check WBTC price", async () => {
+      expect(await getAssetPrice(ZkevmAddresses.WBTC)).gt(0);
+    })
+
+    it("Bad path: check price of unknown asset", async () => {
+      expect(await getAssetPrice(ZkevmAddresses.ZEROVIX_COMPTROLLER)).eq(0);
+    })
   });
 
 //endregion Unit tests
