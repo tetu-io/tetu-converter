@@ -1,4 +1,10 @@
 export class ZkevmAddresses {
+//region -------------------------------------------------------- Tetu
+  public static TETU_LIQUIDATOR = "TODO";
+  public static TETU_PANCAKE3_SWAPPER = "TODO";
+  public static TETU_CONTROLLER = "TODO";
+//endregion -------------------------------------------------------- Tetu
+
 //region ----------------------------------------------------- Assets
   public static MATIC = "0xa2036f0538221a77A3937F1379699f44945018d0".toLowerCase();
   public static USDC = "0xA8CE8aee21bC2A48a5EF670afCc9274C7bbbC035".toLowerCase();

@@ -17,6 +17,7 @@ export class BaseAddresses {
     public static TETU_LIQUIDATOR = "0x22e2625F9d8c28CB4BcE944E9d64efb4388ea991";
     public static TETU_DISTOPIA_SWAPPER = "0x60BF9c1FC8b93B6400608c82107a852C54aD110F";
     public static TETU_UNIV3_SWAPPER = "0x00379dD90b2A337C4652E286e4FBceadef940a21";
+    public static TETU_CONTROLLER = "0x255707B70BF90aa112006E1b07B9AeA6De021424";
 //endregion -------------------------------------------------------- Tetu
 
 //region ----------------------------------------------------- AAVE3

@@ -1,9 +1,9 @@
 import {
-  BaseDeploySolutionUtils
-} from "./BaseDeploySolutionUtils";
+  ZkEvmDeploySolutionUtils
+} from "./ZkEvmDeploySolutionUtils";
 import {ethers, network} from "hardhat";
 import {DeployerUtils} from "../../../utils/DeployerUtils";
-import {BaseAddresses} from "../../../addresses/BaseAddresses";
+import {ZkevmAddresses} from "../../../addresses/ZkevmAddresses";
 
 /**
  * Deploy TetuConverter application to blockchain.
@@ -35,11 +35,11 @@ async function main() {
       process?.env.APP_PRIVATE_GOVERNANCE_ACCOUNT_FOR_HARDHAT || (await ethers.getSigners())[0].address)
     : (await ethers.getSigners())[0];
 
-  const proxyUpdater = BaseAddresses.TETU_CONTROLLER; // TetuController-V2
+  const proxyUpdater = ZkevmAddresses.TETU_CONTROLLER;
 
   console.log("signer", signer.address);
 
-  await BaseDeploySolutionUtils.runMain(signer, proxyUpdater,
+  await ZkEvmDeploySolutionUtils.runMain(signer, proxyUpdater,
     // already deployed if necessary
     {
     }
