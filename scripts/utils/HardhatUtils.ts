@@ -8,14 +8,24 @@ export const POLYGON_NETWORK_ID = 137;
 export const BASE_NETWORK_ID = 8453;
 export const ZKEVM_NETWORK_ID = 1101;
 
+interface IEnvData {
+  rpcUrl: string;
+  forkBlock: number;
+}
+
 export class HardhatUtils {
 
   static async switchToMostCurrentBlock() {
     await reset(EnvSetup.getEnv().maticRpcUrl);
   }
 
-  static async switchToBlock(block: number) {
-    await reset(EnvSetup.getEnv().maticRpcUrl, block);
+  static async switchToBlock(block: number, chain: number = POLYGON_NETWORK_ID) {
+    const envData = this.getEnvData(chain);
+    if (envData) {
+      await reset(envData.rpcUrl, block === -1 ? undefined : block);
+    } else {
+      await reset();
+    }
   }
 
   static async restoreBlockFromEnv() {
@@ -52,6 +62,19 @@ export class HardhatUtils {
     if (chainId === BASE_NETWORK_ID) return "base";
     if (chainId === ZKEVM_NETWORK_ID) return "zkevm";
     return "unknown chain";
+  }
+
+  public static getEnvData(chainId: number) : IEnvData | undefined {
+    const env = EnvSetup.getEnv();
+    if (chainId === HARDHAT_NETWORK_ID) {
+      return undefined;
+    } else if (chainId === POLYGON_NETWORK_ID) {
+      return {rpcUrl: env.maticRpcUrl, forkBlock: env.maticForkBlock};
+    } else if (chainId === BASE_NETWORK_ID) {
+      return {rpcUrl: env.baseRpcUrl, forkBlock: env.baseForkBlock};
+    } else if (chainId === ZKEVM_NETWORK_ID) {
+      return {rpcUrl: env.zkevmRpcUrl, forkBlock: env.zkevmForkBlock};
+    }
   }
 }
 

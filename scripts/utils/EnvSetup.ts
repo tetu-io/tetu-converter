@@ -42,6 +42,9 @@ export class EnvSetup {
         baseRpcUrl: {
           type: 'string',
         },
+        zkevmRpcUrl: {
+          type: 'string',
+        },
 
         /////// BLOCKS
 
@@ -52,6 +55,10 @@ export class EnvSetup {
         baseForkBlock: {
           type: 'number',
           default: 6625978, // 6100252, // 5939287, // 5725340,
+        },
+        zkevmForkBlock: {
+          type: 'number',
+          default: 8539213,
         },
 
         /////// NETWORK EXPLORERS

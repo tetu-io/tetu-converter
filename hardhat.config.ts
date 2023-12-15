@@ -44,7 +44,7 @@ export default {
           EnvSetup.getEnv().hardhatChainId === 1 ? EnvSetup.getEnv().ethRpcUrl :
             EnvSetup.getEnv().hardhatChainId === 137 ? EnvSetup.getEnv().maticRpcUrl :
               EnvSetup.getEnv().hardhatChainId === 8453 ? EnvSetup.getEnv().baseRpcUrl :
-								EnvSetup.getEnv().hardhatChainId === 1101? EnvSetup.getEnv().zkevmRpcUrl :
+		EnvSetup.getEnv().hardhatChainId === 1101? EnvSetup.getEnv().zkevmRpcUrl :
 	              undefined,
         blockNumber:
           EnvSetup.getEnv().hardhatChainId === 1 ? EnvSetup.getEnv().ethForkBlock !== 0 ? EnvSetup.getEnv().ethForkBlock : undefined :
@@ -76,7 +76,7 @@ export default {
       // gas: 50_000_000_000,
       accounts: [EnvSetup.getEnv().privateKey],
     },
-		base: {
+    base: {
       url: EnvSetup.getEnv().baseRpcUrl || '',
       chainId: 8453,
       accounts: [EnvSetup.getEnv().privateKey],
@@ -87,7 +87,7 @@ export default {
         }
       }
     },
-		zkevm: {
+    zkevm: {
       url: EnvSetup.getEnv().zkevmRpcUrl || '',
       chainId: 1101,
       accounts: [EnvSetup.getEnv().privateKey],
@@ -97,7 +97,6 @@ export default {
           apiKey: EnvSetup.getEnv().networkScanKeyZkevm
         }
       }
-
     },
   },
   etherscan: {
