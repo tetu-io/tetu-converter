@@ -26,9 +26,15 @@ export class ZkevmAddresses {
   public static oMatic = "0x8903Dc1f4736D2FcB90C1497AebBABA133DaAC76";
   public static oWETH = "0xbC59506A5Ce024B892776d4F7dd450B0FB3584A2";
   public static oWBTC = "0x503deabad9641c5B4015041eEb0F1263E415715D";
-  // public static oDai = "";
-  // public static oMAI = "";
-  // public static oMATICX = "";
 //endregion ----------------------------------------------------- 0vix
 
+//region ----------------------------------------------------- Keom
+  public static KEOM_COMPTROLLER = "0x6ea32f626e3a5c41547235ebbdf861526e11f482 ";
+  public static KEOM_PRICE_ORACLE = "0x19194261d8f0599bd079c52623c80c5150f010cf";
+
+  public static KEOM_WETH = "0xee1727f5074E747716637e1776B7F7C7133f16b1";
+  public static KEOM_MATIC = "0x8903Dc1f4736D2FcB90C1497AebBABA133DaAC76";
+  public static KEOM_USDC = "0x68d9baA40394dA2e2c1ca05d30BF33F52823ee7B";
+  public static KEOM_USDT = "0xad41C77d99E282267C1492cdEFe528D7d5044253";
+//endregion ----------------------------------------------------- Keom
 }
