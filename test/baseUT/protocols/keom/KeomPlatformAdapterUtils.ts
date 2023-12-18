@@ -1,12 +1,9 @@
 import {
   CompoundAprLibFacade, CompoundPlatformAdapterLibFacade,
   IERC20Metadata__factory,
-  IKeomComptroller,
-  IKeomPriceOracle,
   KeomPlatformAdapter, IKeomToken__factory, IKeomToken, IKeomComptroller__factory, IKeomPriceOracle__factory
 } from "../../../../typechain";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
-import {KeomUtilsPolygon} from "./KeomUtilsPolygon";
 import {KeomSetupUtils} from "./KeomSetupUtils";
 import {IConversionPlan, IConversionPlanNum} from "../../types/AppDataTypes";
 import {AppDataTypesUtils} from "../../utils/AppDataTypesUtils";
@@ -16,11 +13,9 @@ import {GAS_LIMIT} from "../../types/GasLimit";
 import {AprUtils} from "../../utils/aprUtils";
 import {convertUnits} from "../shared/aprUtils";
 import {BigNumber} from "ethers";
-import {ethers} from "hardhat";
 import {AppConstants} from "../../types/AppConstants";
 import {NumberUtils} from "../../utils/NumberUtils";
 import {IKeomMarketData, KeomHelper} from "../../../../scripts/integration/keom/KeomHelper";
-import {ZkevmAddresses} from "../../../../scripts/addresses/ZkevmAddresses";
 import {IKeomCore} from "./IKeomCore";
 
 export interface IKeomPreparePlanBadPaths {
@@ -35,8 +30,6 @@ export interface IKeomPreparePlanBadPaths {
   setBorrowCapacityExceeded?: boolean;
   setMinBorrowCapacityDelta?: string;
   frozen?: boolean;
-  cTokenCollateral?: string;
-  cTokenBorrow?: string;
   platformAdapter?: string;
 }
 
@@ -90,15 +83,15 @@ export class KeomPlatformAdapterUtils {
     const countBlocks = p.countBlocks ?? 1;
     const healthFactor2 = parseUnits(p?.incorrectHealthFactor ?? (p.healthFactor ?? "2"), 2);
 
-    const cTokenBorrow = IKeomToken__factory.connect(p?.cTokenBorrow ?? KeomUtilsPolygon.getCToken(p.borrowAsset), signer);
-    const cTokenCollateral = IKeomToken__factory.connect(p?.cTokenCollateral ?? KeomUtilsPolygon.getCToken(p.collateralAsset), signer);
+    const cTokenBorrow = IKeomToken__factory.connect(core.utils.getCToken(p.borrowAsset), signer);
+    const cTokenCollateral = IKeomToken__factory.connect(core.utils.getCToken(p.collateralAsset), signer);
 
-    const borrowAsset = p?.cTokenBorrow
-      ? await cTokenBorrow.underlying()
-      : p.borrowAsset;
-    const collateralAsset = p?.cTokenCollateral
-      ? await cTokenCollateral.underlying()
-      : p.collateralAsset;
+    const borrowAsset = p.borrowAsset.toLowerCase() === core.nativeToken.toLowerCase()
+      ? p.borrowAsset
+      : await cTokenBorrow.underlying();
+    const collateralAsset = p.collateralAsset.toLowerCase() === core.nativeToken.toLowerCase()
+      ? p.collateralAsset
+      : await cTokenCollateral.underlying();
 
     const decimalsBorrowAsset = await (IERC20Metadata__factory.connect(borrowAsset, signer)).decimals();
     const decimalsCollateralAsset = await (IERC20Metadata__factory.connect(collateralAsset, signer)).decimals();

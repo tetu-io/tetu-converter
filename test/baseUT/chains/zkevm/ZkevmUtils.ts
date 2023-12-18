@@ -20,31 +20,4 @@ export class ZkevmUtils {
         return address;
     }
   }
-
-  static getCoreKeom(): IKeomCore {
-    return {
-      chain: ZKEVM_NETWORK_ID,
-      nativeToken: ZkevmAddresses.MATIC,
-      nativeCToken: ZkevmAddresses.KEOM_MATIC,
-
-      comptroller: ZkevmAddresses.KEOM_COMPTROLLER,
-      priceOracle: ZkevmAddresses.KEOM_PRICE_ORACLE,
-
-      usdc: ZkevmAddresses.USDC,
-      usdt: ZkevmAddresses.USDT,
-      dai: ZkevmAddresses.DAI,
-      wmatic: ZkevmAddresses.MATIC,
-      weth: ZkevmAddresses.WETH,
-      wbtc: ZkevmAddresses.WBTC,
-
-      kUsdc: ZkevmAddresses.KEOM_USDC,
-      kUsdt: ZkevmAddresses.KEOM_USDT,
-      kDai: "todo",
-      kMatic: ZkevmAddresses.KEOM_MATIC,
-      kWeth: ZkevmAddresses.KEOM_WETH,
-      kWbtc: "todo",
-
-      utils: new KeomUtilsProviderPolygon()
-    }
-  }
 }

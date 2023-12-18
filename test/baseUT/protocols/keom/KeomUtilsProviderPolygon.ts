@@ -1,6 +1,6 @@
 import {IPlatformUtilsProvider} from "../../types/IPlatformUtilsProvider";
-import {PolygonUtils} from "../../chains/polygon/PolygonUtils";
 import {KeomUtilsPolygon} from "./KeomUtilsPolygon";
+import {ZkevmUtils} from "../../chains/zkevm/ZkevmUtils";
 
 export class KeomUtilsProviderPolygon implements IPlatformUtilsProvider {
   getPlatformName() {
@@ -8,7 +8,7 @@ export class KeomUtilsProviderPolygon implements IPlatformUtilsProvider {
   }
 
   getAssetName(asset: string): string {
-    return PolygonUtils.getAssetName(asset);
+    return ZkevmUtils.getAssetName(asset);
   }
   getCToken(asset: string) : string {
     return KeomUtilsPolygon.getCToken(asset);

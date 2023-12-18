@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {HardhatUtils, POLYGON_NETWORK_ID, ZKEVM_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {HardhatUtils, ZKEVM_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {CompoundLibFacade, ICompoundPriceOracle__factory, IERC20Metadata, IERC20Metadata__factory, CompoundAprLibFacade, IKeomToken, IKeomToken__factory} from "../../../typechain";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
@@ -8,7 +8,7 @@ import {expect} from "chai";
 import {ethers} from "hardhat";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {IKeomCore} from "../../baseUT/protocols/keom/IKeomCore";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {ZkevmCore} from "../../baseUT/chains/zkevm/ZkevmCore";
 
 describe("Keom: CompoundLibTest", () => {
 //region Global vars for all tests
@@ -31,8 +31,8 @@ describe("Keom: CompoundLibTest", () => {
   }
   const NETWORKS: IChainInfo[] = [
     {
-      chain: POLYGON_NETWORK_ID,
-      core: MaticCore.getCoreKeom()
+      chain: ZKEVM_NETWORK_ID,
+      core: ZkevmCore.getCoreKeom()
     }
   ]
 //endregion Constants

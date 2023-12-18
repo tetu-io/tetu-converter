@@ -5,7 +5,7 @@ export class KeomUtilsZkevm {
     switch (asset) {
       case ZkevmAddresses.USDC: return ZkevmAddresses.KEOM_USDC;
       case ZkevmAddresses.USDT: return ZkevmAddresses.KEOM_USDT;
-      case ZkevmAddresses.WETH: return ZkevmAddresses.KEOM_WETH;
+      case ZkevmAddresses.WETH: return ZkevmAddresses.KEOM_NATIVE;
       case ZkevmAddresses.MATIC: return ZkevmAddresses.KEOM_MATIC;
     }
     throw Error(`Cannot find zerovix OToken for the asset ${asset}`);
@@ -15,7 +15,7 @@ export class KeomUtilsZkevm {
     return [
       ZkevmAddresses.KEOM_USDC,
       ZkevmAddresses.KEOM_USDT,
-      ZkevmAddresses.KEOM_WETH,
+      ZkevmAddresses.KEOM_NATIVE,
       ZkevmAddresses.KEOM_MATIC,
     ]
   }

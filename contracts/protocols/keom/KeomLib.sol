@@ -17,7 +17,7 @@ library KeomLib {
 
   function getNativeTokens() internal pure returns (address asset, address cToken) {
     // Polygon zkEVM
-    return (0x4F9A0e7FD2Bf6067db6994CF12E4495Df938E6e9, 0xee1727f5074E747716637e1776B7F7C7133f16b1); // WETH, KEOM_WETH
+    return (0x4F9A0e7FD2Bf6067db6994CF12E4495Df938E6e9, 0xee1727f5074E747716637e1776B7F7C7133f16b1); // WETH, KEOM_NATIVE
 
     // AppUtils.getChainId is not able to detect chain correctly when hardhat_reset is used in tests
     // we need different instances of KeomLib for different chains

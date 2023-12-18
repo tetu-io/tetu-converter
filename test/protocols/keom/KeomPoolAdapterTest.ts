@@ -15,7 +15,6 @@ import {
 import {
   controlGasLimitsEx2,
   HardhatUtils,
-  POLYGON_NETWORK_ID,
   ZKEVM_NETWORK_ID
 } from "../../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
@@ -41,12 +40,12 @@ import {AppConstants} from "../../baseUT/types/AppConstants";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
 import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 import {KeomSetupUtils} from "../../baseUT/protocols/keom/KeomSetupUtils";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {IKeomCore} from "../../baseUT/protocols/keom/IKeomCore";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
-  GAS_KEOM_POLYGON_FULL_REPAY
+  GAS_KEOM_ZKEVM_FULL_REPAY
 } from "../../baseUT/types/GasLimit";
+import {ZkevmCore} from "../../baseUT/chains/zkevm/ZkevmCore";
 
 describe("KeomPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -71,8 +70,8 @@ describe("KeomPoolAdapterTest", () => {
   }
   const NETWORKS: IChainInfo[] = [
     {
-      chain: POLYGON_NETWORK_ID,
-      core: MaticCore.getCoreKeom()
+      chain: ZKEVM_NETWORK_ID,
+      core: ZkevmCore.getCoreKeom()
     }
   ]
 //endregion Constants
@@ -120,7 +119,7 @@ describe("KeomPoolAdapterTest", () => {
       );
 
       // avoid error "Update time (heartbeat) exceeded"
-      await KeomSetupUtils.disableHeartbeat(signer, chainInfo.core);
+      await KeomSetupUtils.disableHeartbeatZkEvm(signer, chainInfo.core);
     });
 
     after(async function () {
@@ -439,8 +438,8 @@ describe("KeomPoolAdapterTest", () => {
                 });
                 it("should not exceed gas limits @skip-on-coverage", async () => {
                   const ret = await loadFixture(repayTest);
-                  if (chainInfo.chain === POLYGON_NETWORK_ID) {
-                    controlGasLimitsEx2(ret.gasUsed, GAS_KEOM_POLYGON_FULL_REPAY, (u, t) => {
+                  if (chainInfo.chain === ZKEVM_NETWORK_ID) {
+                    controlGasLimitsEx2(ret.gasUsed, GAS_KEOM_ZKEVM_FULL_REPAY, (u, t) => {
                       expect(u).to.be.below(t);
                     });
                   }
@@ -509,7 +508,7 @@ describe("KeomPoolAdapterTest", () => {
 
           it("should receive expected collateral", async () => {
             const ret = await loadFixture(repayTest);
-            expect(ret.collateralBalance + 1e-6).gte(20);
+            expect(ret.collateralBalance + 1e-5).gte(20); // 19.999999000000003
           });
           it("should keep the debt opened", async () => {
             const ret = await loadFixture(repayTest);

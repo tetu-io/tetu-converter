@@ -1,26 +1,31 @@
 import {IPlatformActor} from "../../types/IPlatformActor";
-import {CompoundAprLibFacade, IERC20Metadata__factory, IKeomComptroller, IMToken} from "../../../../typechain";
+import {
+  CompoundAprLibFacade,
+  IERC20Metadata__factory,
+  IKeomComptroller__factory,
+  IMToken
+} from "../../../../typechain";
 import {BigNumber, BigNumberish} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MocksHelper} from "../../app/MocksHelper";
-import {KeomUtilsPolygon} from "./KeomUtilsPolygon";
+import {IKeomCore} from "./IKeomCore";
 
 export class KeomPlatformActor implements IPlatformActor {
   borrowCToken: IMToken;
   collateralCToken: IMToken;
-  comptroller: IKeomComptroller;
+  core: IKeomCore;
   signer: SignerWithAddress;
   libFacade?: CompoundAprLibFacade;
 
   constructor(
     borrowCToken: IMToken,
     collateralCToken: IMToken,
-    comptroller: IKeomComptroller,
+    core: IKeomCore,
     signer: SignerWithAddress
   ) {
     this.borrowCToken = borrowCToken;
     this.collateralCToken = collateralCToken;
-    this.comptroller = comptroller;
+    this.core = core;
     this.signer = signer;
   }
   async getAvailableLiquidity() : Promise<BigNumber> {
@@ -39,7 +44,7 @@ export class KeomPlatformActor implements IPlatformActor {
     const collateralAsset = await this.collateralCToken.underlying();
     await IERC20Metadata__factory.connect(collateralAsset, this.signer).approve(this.collateralCToken.address, collateralAmount);
     console.log(`Supply collateral ${collateralAsset} amount ${collateralAmount}`);
-    await this.comptroller.enterMarkets([this.collateralCToken.address, this.borrowCToken.address]);
+    await IKeomComptroller__factory.connect(this.core.comptroller, this.signer).enterMarkets([this.collateralCToken.address, this.borrowCToken.address]);
     await this.collateralCToken.mint(collateralAmount);
 
   }
@@ -51,7 +56,7 @@ export class KeomPlatformActor implements IPlatformActor {
     if (! this.libFacade) {
       this.libFacade = await MocksHelper.getCompoundAprLibFacade(this.signer);
     }
-    return this.libFacade.getBorrowRateAfterBorrow(KeomUtilsPolygon.getCToken(borrowAsset), amountToBorrow);
+    return this.libFacade.getBorrowRateAfterBorrow(this.core.utils.getCToken(borrowAsset), amountToBorrow);
   }
 
 }

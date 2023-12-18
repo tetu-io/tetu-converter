@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {controlGasLimitsEx2, HardhatUtils, POLYGON_NETWORK_ID, ZKEVM_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {controlGasLimitsEx2, HardhatUtils, ZKEVM_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {ConverterController, IKeomComptroller, IKeomPriceOracle, KeomPlatformAdapter, CompoundAprLibFacade, CompoundPlatformAdapterLibFacade, KeomPlatformAdapter__factory, IERC20Metadata__factory, BorrowManager__factory, IMToken__factory} from "../../../typechain";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
@@ -19,9 +19,9 @@ import {GAS_LIMIT_MOONWELL_GET_CONVERSION_PLAN} from "../../baseUT/types/GasLimi
 import {generateAssetPairs} from "../../baseUT/utils/AssetPairUtils";
 import {IPredictBrParams, IPredictBrResults, PredictBrUsesCase} from "../../baseUT/uses-cases/shared/PredictBrUsesCase";
 import {KeomPlatformActor} from "../../baseUT/protocols/keom/KeomPlatformActor";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {IKeomCore} from "../../baseUT/protocols/keom/IKeomCore";
 import {KeomSetupUtils} from "../../baseUT/protocols/keom/KeomSetupUtils";
+import {ZkevmCore} from "../../baseUT/chains/zkevm/ZkevmCore";
 
 describe("KeomPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -44,8 +44,8 @@ describe("KeomPlatformAdapterTest", () => {
   }
   const NETWORKS: IChainInfo[] = [
     {
-      chain: POLYGON_NETWORK_ID,
-      core: MaticCore.getCoreKeom()
+      chain: ZKEVM_NETWORK_ID,
+      core: ZkevmCore.getCoreKeom()
     }
   ]
 //endregion Constants
@@ -76,7 +76,7 @@ describe("KeomPlatformAdapterTest", () => {
       ) as KeomPlatformAdapter;
 
       // avoid error "Update time (heartbeat) exceeded"
-      await KeomSetupUtils.disableHeartbeat(signer, chainInfo.core);
+      await KeomSetupUtils.disableHeartbeatZkEvm(signer, chainInfo.core);
     });
 
     after(async function () {
@@ -214,12 +214,12 @@ describe("KeomPlatformAdapterTest", () => {
           }
 
           const BORROWS: IBorrowParams[] = [
-            {collateral: chainInfo.core.usdt, borrow: chainInfo.core.wmatic, amount: "1000"},
             {collateral: chainInfo.core.wmatic, borrow: chainInfo.core.weth, amount: "1000"},
-            {collateral: chainInfo.core.usdt, borrow: chainInfo.core.usdc, amount: "1000"},
-            {collateral: chainInfo.core.usdc, borrow: chainInfo.core.usdt, amount: "10000"},
             {collateral: chainInfo.core.usdc, borrow: chainInfo.core.weth, amount: "5000"},
             {collateral: chainInfo.core.weth, borrow: chainInfo.core.usdt, amount: "1"},
+            {collateral: chainInfo.core.usdt, borrow: chainInfo.core.wmatic, amount: "1000"},
+            {collateral: chainInfo.core.usdt, borrow: chainInfo.core.usdc, amount: "1000"},
+            {collateral: chainInfo.core.usdc, borrow: chainInfo.core.usdt, amount: "10000"},
             {collateral: chainInfo.core.usdt, borrow: chainInfo.core.usdc, amount: "1", entryKind: 1},
             {collateral: chainInfo.core.usdt, borrow: chainInfo.core.usdc, amount: "1", entryKind: 2},
           ];
@@ -636,7 +636,6 @@ describe("KeomPlatformAdapterTest", () => {
 
             expect((await tryGetConversionPlan(
               {
-                cTokenCollateral: chainInfo.core.kWeth,
                 platformAdapter: platformAdapterNoWeth.address
               },
               chainInfo.core.weth
@@ -654,7 +653,6 @@ describe("KeomPlatformAdapterTest", () => {
 
             expect((await tryGetConversionPlan(
               {
-                cTokenBorrow: chainInfo.core.kWeth,
                 platformAdapter: platformAdapterNoWeth.address
               },
               chainInfo.core.usdc,
@@ -906,7 +904,7 @@ describe("KeomPlatformAdapterTest", () => {
         async function makeTest(p: IPredictBrParams): Promise<IPredictBrResults> {
           const collateralToken = IMToken__factory.connect(chainInfo.core.utils.getCToken(p.collateralAsset), signer);
           const borrowToken = IMToken__factory.connect(chainInfo.core.utils.getCToken(p.borrowAsset), signer);
-          const actor = new KeomPlatformActor(borrowToken, collateralToken, comptroller, signer);
+          const actor = new KeomPlatformActor(borrowToken, collateralToken, ZkevmCore.getCoreKeom(), signer);
           return PredictBrUsesCase.predictBrTest(signer, actor, p);
         }
 

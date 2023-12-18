@@ -29,7 +29,7 @@ describe("PriceOracleKeomZkevmTest", () => {
 
     priceOracle = await DeployUtils.deployContract(signer, "PriceOracleKeomZkevm", ZkevmAddresses.KEOM_PRICE_ORACLE) as PriceOracleKeomZkevm;
 
-    const core = ZkevmUtils.getCoreKeom();
+    const core = ZkevmCore.getCoreKeom();
     await KeomSetupUtils.disableHeartbeatZkEvm(signer, core);
   });
 

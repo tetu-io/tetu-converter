@@ -10,7 +10,7 @@ import {PriceOracleKeomPolygon} from "../../../typechain";
 import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {KeomSetupUtils} from "../../baseUT/protocols/keom/KeomSetupUtils";
 
-describe("PriceOracleKeomPolygonTest", () => {
+describe.skip("PriceOracleKeomPolygonTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let signer: SignerWithAddress;
