@@ -57,6 +57,7 @@ library CompoundPlatformAdapterLib {
     address borrowAsset
   );
   event OnRegisterCTokens(address[] cTokens);
+  event OnChangeFrozen(bool frozen);
   //endregion ----------------------------------------------------- Events
 
   //region ----------------------------------------------------- Access
@@ -120,7 +121,7 @@ library CompoundPlatformAdapterLib {
   function setFrozen(State storage state, bool frozen_) internal {
     _onlyGovernance(state);
     state.frozen = frozen_;
-    // todo emit
+    emit OnChangeFrozen(frozen_);
   }
 
   /// @notice Register new CTokens supported by the market

@@ -5,6 +5,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {RunHelper} from "../../../utils/RunHelper";
 import {BigNumber} from "ethers";
 import {
+  Bookkeeper__factory,
   BorrowManager__factory,
   ConverterController,
   ConverterController__factory, DebtMonitor__factory,
@@ -19,6 +20,7 @@ import {CoreContractsHelper} from "../../../../test/baseUT/app/CoreContractsHelp
 import {txParams2} from "../../../utils/DeployHelpers";
 import {ZkevmAddresses} from "../../../addresses/ZkevmAddresses";
 import {parseUnits} from "ethers/lib/utils";
+import {AdaptersHelper} from "../../../../test/baseUT/app/AdaptersHelper";
 
 //region Data types
 export interface IControllerSetupParams {
@@ -118,30 +120,30 @@ export class ZkEvmDeploySolutionUtils {
     const targetHealthFactorsAssets = [
       ZkevmAddresses.USDC,
       ZkevmAddresses.USDT,
-      ZkevmAddresses.DAI,
-      ZkevmAddresses.WETH,
+      // ZkevmAddresses.MATIC,
+      // ZkevmAddresses.WETH,
     ];
     const targetHealthFactorsValues = [
       115, // MaticAddresses.USDC,
       115, // MaticAddresses.USDT,
-      115, // MaticAddresses.DAI,
-      200, // MaticAddresses.WETH,
+      // 200, // MaticAddresses.MATIC,
+      // 200, // MaticAddresses.WETH,
     ];
 
-    // const deployMoonwell = true;
-    // const moonwellComptroller = BaseAddresses.MOONWELL_COMPTROLLER;
-    // const moonwellCTokens = [
-    //   BaseAddresses.MOONWELL_USDC,
-    //   BaseAddresses.MOONWELL_USDBC,
-    //   BaseAddresses.MOONWELL_DAI,
-    //   BaseAddresses.MOONWELL_WETH,
-    // ];
-    // const moonwellPairs = ZkEvmDeploySolutionUtils.generateAssetPairs([
-    //   BaseAddresses.USDC,
-    //   BaseAddresses.USDbC,
-    //   BaseAddresses.DAI,
-    //   BaseAddresses.WETH,
-    // ]);
+    const deployKeom = true;
+    const keomComptroller = ZkevmAddresses.KEOM_COMPTROLLER;
+    const keomCTokens = [
+      ZkevmAddresses.KEOM_USDC,
+      ZkevmAddresses.KEOM_USDT,
+      // ZkevmAddresses.KEOM_MATIC,
+      // ZkevmAddresses.KEOM_WETH,
+    ];
+    const keomPairs = ZkEvmDeploySolutionUtils.generateAssetPairs([
+      ZkevmAddresses.USDC,
+      ZkevmAddresses.USDT,
+      // ZkevmAddresses.MATIC,
+      // ZkevmAddresses.WETH,
+    ]);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -163,23 +165,23 @@ export class ZkEvmDeploySolutionUtils {
     const borrowManager: IBorrowManager = IBorrowManager__factory.connect(deployCoreResults.borrowManager, signer);
     const deployedPlatformAdapters: IPlatformAdapterResult[] = [];
 
-    // // Deploy all Platform adapters and pool adapters
-    // const platformAdapterMoonwell = deployMoonwell
-    //   ? await ZkEvmDeploySolutionUtils.createPlatformAdapterMoonwell(signer,
-    //     deployCoreResults.controller,
-    //     moonwellComptroller,
-    //     moonwellCTokens,
-    //   )
-    //   : undefined;
-    // if (platformAdapterMoonwell) {
-    //   console.log("Register platform adapter Moonwell");
-    //   deployedPlatformAdapters.push(platformAdapterMoonwell);
-    //   await ZkEvmDeploySolutionUtils.registerPlatformAdapter(
-    //     borrowManager,
-    //     platformAdapterMoonwell.platformAdapterAddress,
-    //     moonwellPairs
-    //   );
-    // }
+    // Deploy all Platform adapters and pool adapters
+    const platformAdapterKeom = deployKeom
+      ? await ZkEvmDeploySolutionUtils.createPlatformAdapterKeom(signer,
+        deployCoreResults.controller,
+        keomComptroller,
+        keomCTokens,
+      )
+      : undefined;
+    if (platformAdapterKeom) {
+      console.log("Register platform adapter Keom");
+      deployedPlatformAdapters.push(platformAdapterKeom);
+      await ZkEvmDeploySolutionUtils.registerPlatformAdapter(
+        borrowManager,
+        platformAdapterKeom.platformAdapterAddress,
+        keomPairs
+      );
+    }
 
     console.log("setTargetHealthFactors");
     // set target health factors
@@ -217,7 +219,7 @@ export class ZkEvmDeploySolutionUtils {
     alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
     const priceOracle = alreadyDeployed?.priceOracle
-      || (await CoreContractsHelper.createPriceOracleZerovixZkevm(deployer, ZkevmAddresses.ZEROVIX_PRICE_ORACLE)).address; // todo replace 0vix by keom
+      || (await CoreContractsHelper.createPriceOracleKeomZkevm(deployer, ZkevmAddresses.ZEROVIX_PRICE_ORACLE)).address;
     console.log("Result PriceOracle: ", priceOracle);
 
     const controllerAddress = alreadyDeployed?.controller || await CoreContractsHelper.deployController(deployer);
@@ -260,8 +262,19 @@ export class ZkEvmDeploySolutionUtils {
     {
       const tp = await txParams2();
       await RunHelper.runAndWait(() => controller.setBookkeeper(bookkeeper, {...tp, gasLimit: GAS_DEPLOY_LIMIT}));
-      console.log("bookkeeper was set");
+      console.log("Bookkeeper was set");
     }
+    {
+      const tp = await txParams2();
+      await RunHelper.runAndWait(
+        () => Bookkeeper__factory.connect(bookkeeper, deployer).init(controllerAddress, {
+          ...tp,
+          gasLimit: GAS_DEPLOY_LIMIT
+        })
+      );
+      console.log("Bookkeeper was initialized");
+    }
+
     {
       const tp = await txParams2();
       await RunHelper.runAndWait(() => controller.setMinHealthFactor2(controllerSetupParams.minHealthFactor2, {...tp, gasLimit: GAS_DEPLOY_LIMIT}));
@@ -337,30 +350,30 @@ export class ZkEvmDeploySolutionUtils {
   }
 //endregion Setup core
 
-// //region Platform adapters
-//   static async createPlatformAdapterMoonwell(
-//     deployer: SignerWithAddress,
-//     controller: string,
-//     comptroller: string,
-//     cTokensActive: string[],
-//   ) : Promise<IPlatformAdapterResult> {
-//     const converterNormal = await AdaptersHelper.createMoonwellPoolAdapter(deployer);
-//     const platformAdapter = await AdaptersHelper.createMoonwellPlatformAdapter(
-//       deployer,
-//       controller,
-//       comptroller,
-//       converterNormal.address,
-//       cTokensActive,
-//     );
-//
-//     return {
-//       lendingPlatformTitle: "Moonwell",
-//       converters: [converterNormal.address],
-//       platformAdapterAddress: platformAdapter.address,
-//       cTokensActive,
-//     }
-//   }
-// //endregion Platform adapters
+//region Platform adapters
+  static async createPlatformAdapterKeom(
+    deployer: SignerWithAddress,
+    controller: string,
+    comptroller: string,
+    cTokensActive: string[],
+  ) : Promise<IPlatformAdapterResult> {
+    const converterNormal = await AdaptersHelper.createKeomPoolAdapter(deployer);
+    const platformAdapter = await AdaptersHelper.createKeomPlatformAdapter(
+      deployer,
+      controller,
+      comptroller,
+      converterNormal.address,
+      cTokensActive,
+    );
+
+    return {
+      lendingPlatformTitle: "Keom",
+      converters: [converterNormal.address],
+      platformAdapterAddress: platformAdapter.address,
+      cTokensActive,
+    }
+  }
+//endregion Platform adapters
 
 //region Utils
   static async registerPlatformAdapter(

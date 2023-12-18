@@ -143,7 +143,7 @@ export class TetuConverterApp {
       case BASE_NETWORK_ID:
         return (await CoreContractsHelper.createPriceOracleMoonwell(deployer, BaseAddresses.MOONWELL_CHAINLINK_ORACLE)).address
       case ZKEVM_NETWORK_ID:
-        return (await CoreContractsHelper.createPriceOracleZerovixZkevm(deployer, ZkevmAddresses.ZEROVIX_PRICE_ORACLE)).address
+        return (await CoreContractsHelper.createPriceOracleKeomZkevm(deployer, ZkevmAddresses.KEOM_PRICE_ORACLE)).address
       default:
         throw Error(`Price oracle for network ${networkId} was not found`);
     }

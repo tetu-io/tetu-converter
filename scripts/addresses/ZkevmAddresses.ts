@@ -18,7 +18,7 @@ export class ZkevmAddresses {
   /** https://docs.0vix.com/developers/contract-addresses/mainnet-1 */
   public static ZEROVIX_COMPTROLLER = "0x6EA32f626e3A5c41547235ebBdf861526e11f482"; // impl: "0x91e9e99AC7C39d5c057F83ef44136dFB1e7adD7d";
   public static ZEROVIX_PRICE_ORACLE = "0x65D53619b2BbBb69f8F895Be08758e796952101f"; // "0xBC81104207C160cFE48585cC8D753aD2c7031FF7";
-  public static ZEROVIX_ADMIN = "0x14cc958d41a377d46da4b939c8147bc46426e9af";
+  public static ZEROVIX_PRICE_ORACLE_OWNER = "0x7a10033fb8f474f28c66cab7578f4af9e6dad37d";
 
   public static oNative = "0xee1727f5074e747716637e1776b7f7c7133f16b1"; // native
   public static oUSDC = "0x68d9baA40394dA2e2c1ca05d30BF33F52823ee7B";
@@ -29,7 +29,7 @@ export class ZkevmAddresses {
 //endregion ----------------------------------------------------- 0vix
 
 //region ----------------------------------------------------- Keom
-  public static KEOM_COMPTROLLER = "0x6ea32f626e3a5c41547235ebbdf861526e11f482 ";
+  public static KEOM_COMPTROLLER = "0x6ea32f626e3a5c41547235ebbdf861526e11f482";
   public static KEOM_PRICE_ORACLE = "0x19194261d8f0599bd079c52623c80c5150f010cf";
 
   public static KEOM_WETH = "0xee1727f5074E747716637e1776B7F7C7133f16b1";

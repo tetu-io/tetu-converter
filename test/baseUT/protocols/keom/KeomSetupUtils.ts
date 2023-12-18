@@ -1,6 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
-import {IKeomComptroller__factory, KeomOracleMock} from "../../../../typechain";
+import {IKeomApi3Oracle, IKeomComptroller__factory, IKeomPythOracle, KeomOracleMock} from "../../../../typechain";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {KeomUtilsPolygon} from "./KeomUtilsPolygon";
@@ -8,6 +8,7 @@ import {KeomHelper} from "../../../../scripts/integration/keom/KeomHelper";
 import {IKeomCore} from "./IKeomCore";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
+import {ZkevmAddresses} from "../../../../scripts/addresses/ZkevmAddresses";
 
 export class KeomSetupUtils {
   /** Increase heartbeat significantly to prevent the error "Update time (heartbeat) exceeded" */
@@ -15,7 +16,19 @@ export class KeomSetupUtils {
     const priceOracle = await KeomHelper.getPriceOracle(signer, core.comptroller);
     const admin = await priceOracle.admin();
     for (const kToken of core.utils.getAllCTokens()) {
-      await priceOracle.connect(await Misc.impersonate(admin)).setHeartbeat(kToken, parseUnits("1", 27));
+      if (kToken) {
+        await priceOracle.connect(await Misc.impersonate(admin)).setHeartbeat(kToken, parseUnits("1", 27));
+      }
+    }
+  }
+
+  public static async disableHeartbeatZkEvm(signer: SignerWithAddress, core: IKeomCore) {
+    const priceOracle = await KeomHelper.getPriceOracle(signer, core.comptroller);
+    const owner = ZkevmAddresses.ZEROVIX_PRICE_ORACLE_OWNER;
+    for (const kToken of core.utils.getAllCTokens()) {
+      if (kToken) {
+        await priceOracle.connect(await Misc.impersonate(owner)).setHeartbeat(kToken, parseUnits("1", 27));
+      }
     }
   }
 

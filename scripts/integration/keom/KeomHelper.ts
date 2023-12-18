@@ -66,10 +66,8 @@ export class KeomHelper {
   }
 
   public static async getPriceOracle(signer: SignerWithAddress, comptroller: string) : Promise<IKeomPriceOracle> {
-    return IKeomPriceOracle__factory.connect(
-      await IKeomComptroller__factory.connect(comptroller, signer).oracle(),
-      signer
-    );
+    const oracle = await IKeomComptroller__factory.connect(comptroller, signer).oracle();
+    return IKeomPriceOracle__factory.connect(oracle, signer);
   }
 //endregion Access
 

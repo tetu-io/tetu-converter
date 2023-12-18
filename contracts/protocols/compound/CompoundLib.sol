@@ -9,6 +9,7 @@ import "../../libs/AppDataTypes.sol";
 import "../../integrations/compound/ICTokenBase.sol";
 import "../../integrations/compound/ICompoundInterestRateModel.sol";
 import "../../integrations/compound/ICompoundPriceOracle.sol";
+import "hardhat/console.sol";
 
 library CompoundLib {
 
@@ -43,6 +44,9 @@ library CompoundLib {
   }
 
   function getUnderlying(CompoundLib.ProtocolFeatures memory f_, address cToken) internal view returns (address) {
+    console.log("cToken", cToken);
+    console.log("f_.cTokenNative", f_.cTokenNative);
+    console.log("f_.nativeToken", f_.nativeToken);
     return cToken == f_.cTokenNative
       ? f_.nativeToken
       : ICTokenBase(cToken).underlying();

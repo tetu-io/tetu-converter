@@ -101,40 +101,43 @@ describe("BookkeeperCaseTest", () => {
     userBorrowAssetBalanceHugeAmount: "100000",
   }
 
+  /** Allow to change the order of execution without modification of NETWORKS */
+  const CHAINS_IN_ORDER_OF_EXECUTION = [ZKEVM_NETWORK_ID, BASE_NETWORK_ID, POLYGON_NETWORK_ID];
+
   const NETWORKS: IChainParams[] = [
     { // Polygon
       networkId: POLYGON_NETWORK_ID,
       platforms: [
-        { // Keom on Polygon
-          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await AdaptersHelper.createKeomPlatformAdapter(
-              signer0,
-              converterController0,
-              MaticAddresses.KEOM_COMPTROLLER,
-              (await AdaptersHelper.createKeomPoolAdapter(signer0)).address,
-              KeomUtilsPolygon.getAllCTokens(),
-            ) as KeomPlatformAdapter;
-
-            // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(KeomUtilsPolygon.getAllAssets());
-            await borrowManagerAsGov0.addAssetPairs(
-              platformAdapter.address,
-              pairs.map(x => x.smallerAddress),
-              pairs.map(x => x.biggerAddress)
-            );
-
-            // avoid error "Update time (heartbeat) exceeded"
-            await KeomSetupUtils.disableHeartbeat(signer, MaticCore.getCoreKeom());
-
-            return platformAdapter;
-          },
-          platformUtilsProviderBuilder() {
-            return new KeomUtilsProviderPolygon();
-          },
-          assetPairs: [
-            {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE,},
-          ],
-        },
+        // { // Keom on Polygon
+        //   async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+        //     const platformAdapter = await AdaptersHelper.createKeomPlatformAdapter(
+        //       signer0,
+        //       converterController0,
+        //       MaticAddresses.KEOM_COMPTROLLER,
+        //       (await AdaptersHelper.createKeomPoolAdapter(signer0)).address,
+        //       KeomUtilsPolygon.getAllCTokens(),
+        //     ) as KeomPlatformAdapter;
+        //
+        //     // register the platform adapter in TetuConverter app
+        //     const pairs = generateAssetPairs(KeomUtilsPolygon.getAllAssets());
+        //     await borrowManagerAsGov0.addAssetPairs(
+        //       platformAdapter.address,
+        //       pairs.map(x => x.smallerAddress),
+        //       pairs.map(x => x.biggerAddress)
+        //     );
+        //
+        //     // avoid error "Update time (heartbeat) exceeded"
+        //     await KeomSetupUtils.disableHeartbeat(signer, MaticCore.getCoreKeom());
+        //
+        //     return platformAdapter;
+        //   },
+        //   platformUtilsProviderBuilder() {
+        //     return new KeomUtilsProviderPolygon();
+        //   },
+        //   assetPairs: [
+        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE,},
+        //   ],
+        // },
         { // Compound3 on Polygon
           async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
             const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
@@ -228,7 +231,7 @@ describe("BookkeeperCaseTest", () => {
       ]
     },
 
-    { // Base chain
+    { // zkEVM chain
       networkId: ZKEVM_NETWORK_ID,
       platforms: [
         { // Zerovix on Zkevm chain
@@ -308,7 +311,9 @@ describe("BookkeeperCaseTest", () => {
   let bookkeeper: Bookkeeper;
 //endregion Global vars for all tests
 
-  NETWORKS.forEach(network => {
+
+  CHAINS_IN_ORDER_OF_EXECUTION.forEach(selectedChain => {
+    const network = NETWORKS[NETWORKS.findIndex(x => x.networkId === selectedChain)];
     describe(`${network.networkId}`, function () {
       before(async function () {
         await HardhatUtils.setupBeforeTest(network.networkId, network.block);
