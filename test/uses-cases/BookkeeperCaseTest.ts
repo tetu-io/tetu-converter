@@ -45,13 +45,9 @@ import {Compound3Utils} from "../baseUT/protocols/compound3/Compound3Utils";
 import {Compound3UtilsProvider} from "../baseUT/protocols/compound3/Compound3UtilsProvider";
 import {BigNumber} from "ethers";
 import {ZerovixUtilsProviderZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsProviderZkevm";
-import {ZerovixUtilsZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
 import {ZkevmAddresses} from "../../scripts/addresses/ZkevmAddresses";
-import {ZerovixHelper} from "../../scripts/integration/zerovix/ZerovixHelper";
-import {KeomUtilsPolygon} from "../baseUT/protocols/keom/KeomUtilsPolygon";
-import {KeomUtilsProviderPolygon} from "../baseUT/protocols/keom/KeomUtilsProviderPolygon";
-import {KeomSetupUtils} from "../baseUT/protocols/keom/KeomSetupUtils";
-import {MaticCore} from "../baseUT/chains/polygon/maticCore";
+import {KeomHelper} from "../../scripts/integration/keom/KeomHelper";
+import {KeomUtilsZkevm} from "../baseUT/protocols/keom/KeomUtilsZkevm";
 
 /** Ensure that all repay/borrow operations are correctly registered in the Bookkeeper */
 describe("BookkeeperCaseTest", () => {
@@ -234,21 +230,21 @@ describe("BookkeeperCaseTest", () => {
     { // zkEVM chain
       networkId: ZKEVM_NETWORK_ID,
       platforms: [
-        { // Zerovix on Zkevm chain
+        { // Keom on Zkevm chain
           platformUtilsProviderBuilder() {
             return new ZerovixUtilsProviderZkevm();
           },
           async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
-            const platformAdapter = await AdaptersHelper.createZerovixPlatformAdapter(
+            const platformAdapter = await AdaptersHelper.createKeomPlatformAdapter(
               signer0,
               converterController0,
-              (await ZerovixHelper.getComptroller(signer0, ZkevmAddresses.ZEROVIX_COMPTROLLER)).address,
-              (await AdaptersHelper.createZerovixPoolAdapter(signer0)).address,
-              ZerovixUtilsZkevm.getAllCTokens()
+              (await KeomHelper.getComptroller(signer0, ZkevmAddresses.KEOM_COMPTROLLER)).address,
+              (await AdaptersHelper.createKeomPoolAdapter(signer0)).address,
+              KeomUtilsZkevm.getAllCTokens()
             );
 
             // register the platform adapter in TetuConverter app
-            const pairs = generateAssetPairs(ZerovixUtilsZkevm.getAllAssets());
+            const pairs = generateAssetPairs(KeomUtilsZkevm.getAllAssets());
             await borrowManagerAsGov0.addAssetPairs(
               platformAdapter.address,
               pairs.map(x => x.smallerAddress),

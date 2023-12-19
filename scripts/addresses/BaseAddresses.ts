@@ -31,6 +31,11 @@ export class BaseAddresses {
     /** https://basescan.org/tx/0x65ada47b1e29db97b062d601cc2d3d4ba3b4ce8d35b24efd65fd03dd1ca130f0 */
     public static AAVE_V3_EMERGENCY_ADMIN = "0x9e10C0A1Eb8FF6a0AaA53a62C7a338f35D7D9a2A";
     public static AAVE_V3_RISK_ADMIN = "0x12deb4025b79f2b43f6aef079f9d77c3f9a67bb6";
+
+    public static AAVE_V3_USDbC = "0x0a1d576f3eFeF75b330424287a95A366e8281D54".toLowerCase();
+    public static AAVE_V3_USDbC_HOLDER = "0x0a1d576f3eFeF75b330424287a95A366e8281D54".toLowerCase();
+    public static AAVE_V3_WETH = "0xD4a0e0b9149BCee3C920d2E00b5dE09138fd8bb7".toLowerCase();
+    public static AAVE_V3_WETH_HOLDER = "0x49811020c8f25de1d8d03ef2c9cdbe5be8fb07a1".toLowerCase();
 //endregion ----------------------------------------------------- AAVE3
 
 

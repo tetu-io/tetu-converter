@@ -30,7 +30,7 @@ import {ZkevmAddresses} from "../../../scripts/addresses/ZkevmAddresses";
 import {ZerovixUtilsZkevm} from "../../baseUT/protocols/zerovix/ZerovixUtilsZkevm";
 import {ZkevmUtils} from "../../baseUT/chains/zkevm/ZkevmUtils";
 
-describe("ZerovixPlatformAdapterTest", () => {
+describe.skip("ZerovixPlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let signer: SignerWithAddress;

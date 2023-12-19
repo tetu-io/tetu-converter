@@ -14,7 +14,7 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {ConverterController} from "../../../typechain";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 
 describe("Aave3CollateralBalanceTest", () => {

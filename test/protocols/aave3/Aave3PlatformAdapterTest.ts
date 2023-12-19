@@ -29,7 +29,6 @@ import {ICoreAave3} from "../../baseUT/protocols/aave3/Aave3DataTypes";
 import {IConversionPlan} from "../../baseUT/types/AppDataTypes";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
 import {Aave3PlatformActor} from "../../baseUT/protocols/aave3/Aave3PlatformActor";
 import {
@@ -39,8 +38,9 @@ import {
   ConverterController, CTokenMock,
   IAavePool, IERC20Metadata__factory
 } from "../../../typechain";
-import {BaseCore} from "../../baseUT/chains/base/baseCore";
 import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
+import {BaseCore} from "../../baseUT/chains/base/BaseCore";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Test setup

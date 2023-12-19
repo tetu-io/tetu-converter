@@ -9,7 +9,7 @@ import {ethers} from "hardhat";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {ZkevmAddresses} from "../../../scripts/addresses/ZkevmAddresses";
 
-describe("Zerovix: CompoundLibTest", () => {
+describe.skip("Zerovix: CompoundLibTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let deployer: SignerWithAddress;

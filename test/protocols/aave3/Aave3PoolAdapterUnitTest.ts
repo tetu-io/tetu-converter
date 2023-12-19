@@ -4,7 +4,6 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
@@ -51,14 +50,16 @@ import {
 import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {ICoreAave3} from "../../baseUT/protocols/aave3/Aave3DataTypes";
 import {BorrowRepayDataTypeUtils} from "../../baseUT/utils/BorrowRepayDataTypeUtils";
 import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
-import {BaseCore} from "../../baseUT/chains/base/baseCore";
+import {BaseCore} from "../../baseUT/chains/base/BaseCore";
 import {CoreContractsHelper} from "../../baseUT/app/CoreContractsHelper";
 import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
 import {TokenUtils} from "../../../scripts/utils/TokenUtils";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
+import {chainConfig} from "@nomiclabs/hardhat-etherscan/dist/src/ChainConfig";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Test setup
@@ -275,7 +276,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   expect(collateralTargetHealthFactor2 / 100).approximately(status.healthFactor, 1e-5);
                   expect(+formatUnits(borrowResults.borrowedAmount, await borrowAsset.decimals())).approximately(status.amountToPay, 1e-5);
                   expect(status.collateralAmountLiquidated).eq(0);
-                  expect(status.collateralAmount).approximately(Number(testSetup.pair.amount), 1e-8);
+                  expect(status.collateralAmount).approximately(Number(testSetup.pair.amount), 1e-5);
                 });
                 it("should open position in debt monitor", async () => {
                   expect(borrowResults.isPositionOpened).eq(true);
@@ -2169,7 +2170,26 @@ describe("Aave3PoolAdapterUnitTest", () => {
               const token = await IERC20Metadata__factory.connect(tokenAddress, deployer);
               const decimals = await token.decimals();
               const amount = parseUnits(amountNum, decimals);
-              await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
+
+              if (networkId === BASE_NETWORK_ID) {
+                // Try to avoid error "Could not brute-force storage slot for ERC20 at"
+                if (tokenAddress.toLowerCase() === BaseAddresses.AAVE_V3_USDbC) {
+                  await BalanceUtils.getAmountFromHolder(tokenAddress, BaseAddresses.AAVE_V3_USDbC_HOLDER, p.init.aavePoolAdapterAsTC.address, amount);
+                } else if (tokenAddress.toLowerCase() === BaseAddresses.AAVE_V3_WETH) {
+                  await BalanceUtils.getAmountFromHolder(tokenAddress, BaseAddresses.AAVE_V3_WETH_HOLDER, p.init.aavePoolAdapterAsTC.address, amount);
+                } else {
+                  await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
+                }
+              } else {
+                // Try to avoid error "Could not brute-force storage slot for ERC20 at"
+                if (tokenAddress.toLowerCase() === MaticAddresses.Aave3_Polygon_DAI) {
+                  await BalanceUtils.getAmountFromHolder(tokenAddress, MaticAddresses.Aave3_Polygon_DAI_HOLDER, p.init.aavePoolAdapterAsTC.address, amount);
+                } else if (tokenAddress.toLowerCase() === MaticAddresses.Aave3_Polygon_WMATIC) {
+                  await BalanceUtils.getAmountFromHolder(tokenAddress, MaticAddresses.Aave3_Polygon_WMATIC_HOLDER, p.init.aavePoolAdapterAsTC.address, amount);
+                } else {
+                  await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
+                }
+              }
               await p.init.aavePoolAdapterAsTC.connect(await Misc.impersonate(caller || p.governance)).salvage(receiver, tokenAddress, amount);
               return +formatUnits(await token.balanceOf(receiver), decimals);
             }

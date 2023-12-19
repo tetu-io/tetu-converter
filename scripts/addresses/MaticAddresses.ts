@@ -141,6 +141,7 @@ export class MaticAddresses {
   public static AAVE_V3_PRICE_ORACLE = "0xb023e699F5a33916Ea823A16485e259257cA8Bd1";
 
   public static Aave3_Polygon_DAI = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
+  public static Aave3_Polygon_DAI_HOLDER = "0xD3C39cba6d3Afb3d304703F085Fc7A8249576C18"; // hardhat.deal is not able to find slot
   public static Aave3_Polygon_LINK = "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530";
   public static Aave3_Polygon_USDC = "0x625E7708f30cA75bfd92586e17077590C60eb4cD";
   public static Aave3_Polygon_WBTC = "0x078f358208685046a11C85e8ad32895DED33A249";
@@ -148,6 +149,7 @@ export class MaticAddresses {
   public static Aave3_Polygon_USDT = "0x6ab707Aca953eDAeFBc4fD23bA73294241490620";
   public static Aave3_Polygon_AAVE = "0xf329e36C7bF6E5E86ce2150875a84Ce77f477375";
   public static Aave3_Polygon_WMATIC = "0x6d80113e533a2C0fe82EaBD35f1875DcEA89Ea97";
+  public static Aave3_Polygon_WMATIC_HOLDER = "0x790c9422839FD93a3A4E31e531f96cC87F397c00"; // hardhat.deal is not able to find slot
   public static Aave3_Polygon_CRV = "0x513c7E3a9c69cA3e22550eF58AC1C0088e918FFf";
   public static Aave3_Polygon_SUSHI = "0xc45A479877e1e9Dfe9FcD4056c699575a1045dAA";
   public static Aave3_Polygon_GHST = "0x8Eb270e296023E9D92081fdF967dDd7878724424";

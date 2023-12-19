@@ -7,8 +7,8 @@ import {formatUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {PriceOracleKeomPolygon} from "../../../typechain";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {KeomSetupUtils} from "../../baseUT/protocols/keom/KeomSetupUtils";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
 
 describe.skip("PriceOracleKeomPolygonTest", () => {
 //region Global vars for all tests

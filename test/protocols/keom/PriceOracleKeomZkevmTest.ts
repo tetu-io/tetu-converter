@@ -5,11 +5,10 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {formatUnits} from "ethers/lib/utils";
 import {expect} from "chai";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {KeomSetupUtils} from "../../baseUT/protocols/keom/KeomSetupUtils";
 import {ZkevmAddresses} from "../../../scripts/addresses/ZkevmAddresses";
-import {ZkevmUtils} from "../../baseUT/chains/zkevm/ZkevmUtils";
 import {PriceOracleKeomZkevm} from "../../../typechain";
+import {ZkevmCore} from "../../baseUT/chains/zkevm/ZkevmCore";
 
 describe("PriceOracleKeomZkevmTest", () => {
 //region Global vars for all tests

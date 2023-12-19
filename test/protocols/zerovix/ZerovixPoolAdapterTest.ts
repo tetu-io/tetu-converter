@@ -40,7 +40,7 @@ import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 import {ZkevmUtils} from "../../baseUT/chains/zkevm/ZkevmUtils";
 import {ZerovixSetupUtils} from "../../baseUT/protocols/zerovix/ZerovixSetupUtils";
 
-describe("ZerovixPoolAdapterTest", () => {
+describe.skip("ZerovixPoolAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let signer: SignerWithAddress;

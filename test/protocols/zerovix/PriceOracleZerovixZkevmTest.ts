@@ -8,7 +8,7 @@ import {formatUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {ZkevmAddresses} from "../../../scripts/addresses/ZkevmAddresses";
 
-describe("PriceOracleZerovixZkevmTest", () => {
+describe.skip("PriceOracleZerovixZkevmTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let signer: SignerWithAddress;

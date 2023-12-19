@@ -15,7 +15,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
 import {ConverterController, IERC20Metadata__factory} from "../../../typechain";
 import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 

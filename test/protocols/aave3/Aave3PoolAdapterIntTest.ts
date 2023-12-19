@@ -26,7 +26,7 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {ConverterController, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 import {TokenUtils} from "../../../scripts/utils/TokenUtils";
