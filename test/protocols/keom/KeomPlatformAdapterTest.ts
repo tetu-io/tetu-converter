@@ -916,7 +916,7 @@ describe("KeomPlatformAdapterTest", () => {
               borrowPart10000: 1
             });
 
-            expect(r.br).approximately(r.brPredicted, r.brPredicted.div(10000)); // 755719373 vs 755719325, 1831232354 vs 1831170886
+            expect(r.br).approximately(r.brPredicted, r.brPredicted.div(1e7)); // 755719373 vs 755719325, 1831232354 vs 1831170886, 9150039287 vs 9147337932
           });
         });
 

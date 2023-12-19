@@ -2180,7 +2180,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 } else {
                   await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
                 }
-              } else {
+              } if (networkId == POLYGON_NETWORK_ID) {
                 // Try to avoid error "Could not brute-force storage slot for ERC20 at"
                 if (tokenAddress.toLowerCase() === MaticAddresses.Aave3_Polygon_DAI) {
                   await BalanceUtils.getAmountFromHolder(tokenAddress, MaticAddresses.Aave3_Polygon_DAI_HOLDER, p.init.aavePoolAdapterAsTC.address, amount);
@@ -2189,6 +2189,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 } else {
                   await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
                 }
+              } else {
+                await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
               }
               await p.init.aavePoolAdapterAsTC.connect(await Misc.impersonate(caller || p.governance)).salvage(receiver, tokenAddress, amount);
               return +formatUnits(await token.balanceOf(receiver), decimals);

@@ -128,43 +128,43 @@ export class MaticAddresses {
 
 //region AAVE-v3
   // https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
-  public static AAVE_V3_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
+  public static AAVE_V3_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD".toLowerCase();
   /*
    *  See first event for of ACLManager
    *  https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract
    */
-  public static AAVE_V3_POOL_ADMIN = "0xdf7d0e6454db638881302729f5ba99936eaab233";
-  public static AAVE_V3_POOL_OWNER = "0xDf7d0e6454DB638881302729F5ba99936EaAB233";
-  public static AAVE_V3_RISK_ADMIN = "0xa7b40ed4dfac9255ea9dd218a3874f380d9fbbeb";
+  public static AAVE_V3_POOL_ADMIN = "0xdf7d0e6454db638881302729f5ba99936eaab233".toLowerCase();
+  public static AAVE_V3_POOL_OWNER = "0xDf7d0e6454DB638881302729F5ba99936EaAB233".toLowerCase();
+  public static AAVE_V3_RISK_ADMIN = "0xa7b40ed4dfac9255ea9dd218a3874f380d9fbbeb".toLowerCase();
   /* see https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract */
-  public static AAVE_V3_EMERGENCY_ADMIN = "0x1450F2898D6bA2710C98BE9CAF3041330eD5ae58";
-  public static AAVE_V3_PRICE_ORACLE = "0xb023e699F5a33916Ea823A16485e259257cA8Bd1";
+  public static AAVE_V3_EMERGENCY_ADMIN = "0x1450F2898D6bA2710C98BE9CAF3041330eD5ae58".toLowerCase();
+  public static AAVE_V3_PRICE_ORACLE = "0xb023e699F5a33916Ea823A16485e259257cA8Bd1".toLowerCase();
 
-  public static Aave3_Polygon_DAI = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
-  public static Aave3_Polygon_DAI_HOLDER = "0xD3C39cba6d3Afb3d304703F085Fc7A8249576C18"; // hardhat.deal is not able to find slot
-  public static Aave3_Polygon_LINK = "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530";
-  public static Aave3_Polygon_USDC = "0x625E7708f30cA75bfd92586e17077590C60eb4cD";
-  public static Aave3_Polygon_WBTC = "0x078f358208685046a11C85e8ad32895DED33A249";
-  public static Aave3_Polygon_WETH = "0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8";
-  public static Aave3_Polygon_USDT = "0x6ab707Aca953eDAeFBc4fD23bA73294241490620";
-  public static Aave3_Polygon_AAVE = "0xf329e36C7bF6E5E86ce2150875a84Ce77f477375";
-  public static Aave3_Polygon_WMATIC = "0x6d80113e533a2C0fe82EaBD35f1875DcEA89Ea97";
-  public static Aave3_Polygon_WMATIC_HOLDER = "0x790c9422839FD93a3A4E31e531f96cC87F397c00"; // hardhat.deal is not able to find slot
-  public static Aave3_Polygon_CRV = "0x513c7E3a9c69cA3e22550eF58AC1C0088e918FFf";
-  public static Aave3_Polygon_SUSHI = "0xc45A479877e1e9Dfe9FcD4056c699575a1045dAA";
-  public static Aave3_Polygon_GHST = "0x8Eb270e296023E9D92081fdF967dDd7878724424";
-  public static Aave3_Polygon_BAL = "0x8ffDf2DE812095b1D19CB146E4c004587C0A0692";
-  public static Aave3_Polygon_DPI = "0x724dc807b04555b71ed48a6896b6F41593b8C637";
-  public static Aave3_Polygon_EURS = "0x38d693cE1dF5AaDF7bC62595A37D667aD57922e5";
-  public static Aave3_Polygon_JEUR = "0x6533afac2E7BCCB20dca161449A13A32D391fb00";
-  public static Aave3_Polygon_AGEUR = "0x8437d7C167dFB82ED4Cb79CD44B7a32A1dd95c77";
+  public static Aave3_Polygon_DAI = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE".toLowerCase();
+  public static Aave3_Polygon_DAI_HOLDER = "0xD3C39cba6d3Afb3d304703F085Fc7A8249576C18".toLowerCase(); // hardhat.deal is not able to find slot
+  public static Aave3_Polygon_LINK = "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530".toLowerCase();
+  public static Aave3_Polygon_USDC = "0x625E7708f30cA75bfd92586e17077590C60eb4cD".toLowerCase();
+  public static Aave3_Polygon_WBTC = "0x078f358208685046a11C85e8ad32895DED33A249".toLowerCase();
+  public static Aave3_Polygon_WETH = "0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8".toLowerCase();
+  public static Aave3_Polygon_USDT = "0x6ab707Aca953eDAeFBc4fD23bA73294241490620".toLowerCase();
+  public static Aave3_Polygon_AAVE = "0xf329e36C7bF6E5E86ce2150875a84Ce77f477375".toLowerCase();
+  public static Aave3_Polygon_WMATIC = "0x6d80113e533a2C0fe82EaBD35f1875DcEA89Ea97".toLowerCase();
+  public static Aave3_Polygon_WMATIC_HOLDER = "0x790c9422839FD93a3A4E31e531f96cC87F397c00".toLowerCase(); // hardhat.deal is not able to find slot
+  public static Aave3_Polygon_CRV = "0x513c7E3a9c69cA3e22550eF58AC1C0088e918FFf".toLowerCase();
+  public static Aave3_Polygon_SUSHI = "0xc45A479877e1e9Dfe9FcD4056c699575a1045dAA".toLowerCase();
+  public static Aave3_Polygon_GHST = "0x8Eb270e296023E9D92081fdF967dDd7878724424".toLowerCase();
+  public static Aave3_Polygon_BAL = "0x8ffDf2DE812095b1D19CB146E4c004587C0A0692".toLowerCase();
+  public static Aave3_Polygon_DPI = "0x724dc807b04555b71ed48a6896b6F41593b8C637".toLowerCase();
+  public static Aave3_Polygon_EURS = "0x38d693cE1dF5AaDF7bC62595A37D667aD57922e5".toLowerCase();
+  public static Aave3_Polygon_JEUR = "0x6533afac2E7BCCB20dca161449A13A32D391fb00".toLowerCase();
+  public static Aave3_Polygon_AGEUR = "0x8437d7C167dFB82ED4Cb79CD44B7a32A1dd95c77".toLowerCase();
 
-  public static AAVE3_ATOKEN_USDC = "0x625E7708f30cA75bfd92586e17077590C60eb4cD";
-  public static AAVE3_ATOKEN_USDC_HOLDER = "0xe52f5349153b8eb3b89675af45ac7502c4997e6a";
-  public static AAVE3_ATOKEN_USDT = "0x6ab707Aca953eDAeFBc4fD23bA73294241490620";
-  public static AAVE3_ATOKEN_USDT_HOLDER = "0x3e059f977670eeba3460005f20572f991637614e";
-  public static AAVE3_ATOKEN_DAI_HOLDER = "0xD3C39cba6d3Afb3d304703F085Fc7A8249576C18";
-  public static AAVE3_ATOKEN_WMATIC_HOLDER = "0x7B503004695502299EfB5CfD62C34cC093e0255f";
+  public static AAVE3_ATOKEN_USDC = "0x625E7708f30cA75bfd92586e17077590C60eb4cD".toLowerCase();
+  public static AAVE3_ATOKEN_USDC_HOLDER = "0xe52f5349153b8eb3b89675af45ac7502c4997e6a".toLowerCase();
+  public static AAVE3_ATOKEN_USDT = "0x6ab707Aca953eDAeFBc4fD23bA73294241490620".toLowerCase();
+  public static AAVE3_ATOKEN_USDT_HOLDER = "0x3e059f977670eeba3460005f20572f991637614e".toLowerCase();
+  public static AAVE3_ATOKEN_DAI_HOLDER = "0xD3C39cba6d3Afb3d304703F085Fc7A8249576C18".toLowerCase();
+  public static AAVE3_ATOKEN_WMATIC_HOLDER = "0x7B503004695502299EfB5CfD62C34cC093e0255f".toLowerCase();
 //endregion AAVE-v3
 
 //region AAVE-v3
