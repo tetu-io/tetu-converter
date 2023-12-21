@@ -185,14 +185,7 @@ export class ZkEvmDeploySolutionUtils {
 
     console.log("setTargetHealthFactors");
     // set target health factors
-    const tp = await txParams2();
-    await RunHelper.runAndWait(
-      () =>  borrowManager.setTargetHealthFactors(
-        targetHealthFactorsAssets,
-        targetHealthFactorsValues,
-        {...tp, gasLimit: GAS_DEPLOY_LIMIT}
-      )
-    );
+    await RunHelper.runAndWait2(borrowManager.populateTransaction.setTargetHealthFactors(targetHealthFactorsAssets, targetHealthFactorsValues));
 
     console.log("write results to file");
     // save deploy results to file
@@ -238,99 +231,51 @@ export class ZkEvmDeploySolutionUtils {
     const bookkeeper = alreadyDeployed?.bookkeeper || await CoreContractsHelper.deployBookkeeper(deployer);
     console.log("Result bookeeper", bookkeeper);
 
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(
-        () => ConverterController__factory.connect(controllerAddress, deployer).init(
-          proxyUpdater,
-          deployer.address,
-          tetuConverter,
-          borrowManager,
-          debtMonitor,
-          keeper,
-          swapManager,
-          priceOracle,
-          tetuLiquidator,
-          controllerSetupParams.blocksPerDay,
-          {...tp, gasLimit: GAS_DEPLOY_LIMIT}
-        )
-      );
-      console.log("Controller was initialized");
-    }
+    await RunHelper.runAndWait2(
+      ConverterController__factory.connect(controllerAddress, deployer).populateTransaction.init(
+        proxyUpdater,
+        deployer.address,
+        tetuConverter,
+        borrowManager,
+        debtMonitor,
+        keeper,
+        swapManager,
+        priceOracle,
+        tetuLiquidator,
+        controllerSetupParams.blocksPerDay,
+      )
+    );
+    console.log("Controller was initialized");
 
     const controller: ConverterController = ConverterController__factory.connect(controllerAddress, deployer);
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(() => controller.setBookkeeper(bookkeeper, {...tp, gasLimit: GAS_DEPLOY_LIMIT}));
-      console.log("Bookkeeper was set");
-    }
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(
-        () => Bookkeeper__factory.connect(bookkeeper, deployer).init(controllerAddress, {
-          ...tp,
-          gasLimit: GAS_DEPLOY_LIMIT
-        })
-      );
-      console.log("Bookkeeper was initialized");
-    }
+    await RunHelper.runAndWait2(controller.populateTransaction.setBookkeeper(bookkeeper));
+    console.log("Bookkeeper was set");
 
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(() => controller.setMinHealthFactor2(controllerSetupParams.minHealthFactor2, {...tp, gasLimit: GAS_DEPLOY_LIMIT}));
-      console.log("min health factor was set");
-    }
+    await RunHelper.runAndWait2(Bookkeeper__factory.connect(bookkeeper, deployer).populateTransaction.init(controllerAddress));
+    console.log("Bookkeeper was initialized");
 
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(() => controller.setTargetHealthFactor2(controllerSetupParams.targetHealthFactor2, {...tp, gasLimit: GAS_DEPLOY_LIMIT}));
-      console.log("target health factor was set");
-    }
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(() => controller.setDebtGap(controllerSetupParams.debtGap, {...tp, gasLimit: GAS_DEPLOY_LIMIT}));
-      console.log("setDebtGap was set");
-    }
+    await RunHelper.runAndWait2(controller.populateTransaction.setMinHealthFactor2(controllerSetupParams.minHealthFactor2));
+    console.log("min health factor was set");
 
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(
-        () => BorrowManager__factory.connect(borrowManager, deployer).init(controllerAddress, borrowManagerSetupParams.rewardsFactor, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
-      );
-      console.log("borrowManager was initialized");
-    }
+    await RunHelper.runAndWait2(controller.populateTransaction.setTargetHealthFactor2(controllerSetupParams.targetHealthFactor2));
+    console.log("target health factor was set");
 
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(
-        () => Keeper__factory.connect(keeper, deployer).init(controllerAddress, keeperSetupParams?.blocksPerDayAutoUpdatePeriodSec, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
-      );
-      console.log("keeper was initialized");
-    }
+    await RunHelper.runAndWait2(controller.populateTransaction.setDebtGap(controllerSetupParams.debtGap));
+    console.log("setDebtGap was set");
 
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(
-        () => TetuConverter__factory.connect(tetuConverter, deployer).init(controllerAddress, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
-      );
-      console.log("tetuConverter was initialized");
-    }
+    await RunHelper.runAndWait2(BorrowManager__factory.connect(borrowManager, deployer).populateTransaction.init(controllerAddress, borrowManagerSetupParams.rewardsFactor));
+    console.log("borrowManager was initialized");
 
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(
-        () => DebtMonitor__factory.connect(debtMonitor, deployer).init(controllerAddress, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
-      );
-      console.log("debtMonitor was initialized");
-    }
+    await RunHelper.runAndWait2(Keeper__factory.connect(keeper, deployer).populateTransaction.init(controllerAddress, keeperSetupParams?.blocksPerDayAutoUpdatePeriodSec));
 
-    {
-      const tp = await txParams2();
-      await RunHelper.runAndWait(
-        () => SwapManager__factory.connect(swapManager, deployer).init(controllerAddress, {...tp, gasLimit: GAS_DEPLOY_LIMIT})
-      );
-      console.log("swapManager was initialized");
-    }
+    await RunHelper.runAndWait2(TetuConverter__factory.connect(tetuConverter, deployer).populateTransaction.init(controllerAddress));
+    console.log("tetuConverter was initialized");
+
+    await RunHelper.runAndWait2(DebtMonitor__factory.connect(debtMonitor, deployer).populateTransaction.init(controllerAddress));
+    console.log("debtMonitor was initialized");
+
+    await RunHelper.runAndWait2(SwapManager__factory.connect(swapManager, deployer).populateTransaction.init(controllerAddress));
+    console.log("swapManager was initialized");
 
     return {
       controller: controllerAddress,
@@ -351,12 +296,7 @@ export class ZkEvmDeploySolutionUtils {
 //endregion Setup core
 
 //region Platform adapters
-  static async createPlatformAdapterKeom(
-    deployer: SignerWithAddress,
-    controller: string,
-    comptroller: string,
-    cTokensActive: string[],
-  ) : Promise<IPlatformAdapterResult> {
+  static async createPlatformAdapterKeom(deployer: SignerWithAddress, controller: string, comptroller: string, cTokensActive: string[]) : Promise<IPlatformAdapterResult> {
     const converterNormal = await AdaptersHelper.createKeomPoolAdapter(deployer);
     const platformAdapter = await AdaptersHelper.createKeomPlatformAdapter(
       deployer,
@@ -382,13 +322,11 @@ export class ZkEvmDeploySolutionUtils {
     assetPairs: IPlatformAdapterAssets
   ) {
     console.log("registerPlatformAdapter", platformAdapter, assetPairs);
-    const tp = await txParams2();
-    await RunHelper.runAndWait(
-      () => borrowManager.addAssetPairs(
+    await RunHelper.runAndWait2(
+      borrowManager.populateTransaction.addAssetPairs(
         platformAdapter,
         assetPairs.leftAssets,
         assetPairs.rightAssets,
-        {...tp, gasLimit: GAS_DEPLOY_LIMIT}
       )
     );
   }

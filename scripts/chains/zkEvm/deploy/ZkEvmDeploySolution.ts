@@ -14,8 +14,8 @@ import {ZkevmAddresses} from "../../../addresses/ZkevmAddresses";
  * Set required network in .env, i.e.
  *      APP_HARDHAT_CHAIN_ID=137
  * and run one of the following commands to run the script on stand-alone hardhat:
- *      npx hardhat run scripts/chains/base/deploy/BaseDeploySolution.ts
- *      npx hardhat run --network localhost scripts/chains/base/deploy/BaseDeploySolution.ts
+ *      npx hardhat run scripts/chains/zkevm/deploy/ZkEvmDeploySolution.ts
+ *      npx hardhat run --network localhost scripts/chains/zkevm/deploy/ZkEvmDeploySolution.ts
  */
 async function main() {
   const net = await ethers.provider.getNetwork();

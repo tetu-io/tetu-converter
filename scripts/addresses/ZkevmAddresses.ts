@@ -1,8 +1,8 @@
 export class ZkevmAddresses {
 //region -------------------------------------------------------- Tetu
-  public static TETU_LIQUIDATOR = "TODO";
-  public static TETU_PANCAKE3_SWAPPER = "TODO";
-  public static TETU_CONTROLLER = "TODO";
+  public static TETU_LIQUIDATOR = "0xBcda73B7184D5974F77721db79ff8BA190b342ce";
+  public static TETU_PANCAKE3_SWAPPER = "0xa075F8FF74941Fae5bf9Fd48736E4422474A5A66";
+  public static TETU_CONTROLLER = "0x35B0329118790B8c8FC36262812D92a4923C6795";
 //endregion -------------------------------------------------------- Tetu
 
 //region ----------------------------------------------------- Assets
