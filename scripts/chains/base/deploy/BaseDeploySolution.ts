@@ -3,6 +3,7 @@ import {
 } from "./BaseDeploySolutionUtils";
 import {ethers, network} from "hardhat";
 import {DeployerUtils} from "../../../utils/DeployerUtils";
+import {BaseAddresses} from "../../../addresses/BaseAddresses";
 
 /**
  * Deploy TetuConverter application to blockchain.
@@ -34,7 +35,7 @@ async function main() {
       process?.env.APP_PRIVATE_GOVERNANCE_ACCOUNT_FOR_HARDHAT || (await ethers.getSigners())[0].address)
     : (await ethers.getSigners())[0];
 
-  const proxyUpdater = "0x255707B70BF90aa112006E1b07B9AeA6De021424"; // TetuController-V2
+  const proxyUpdater = BaseAddresses.TETU_CONTROLLER; // TetuController-V2
 
   console.log("signer", signer.address);
 

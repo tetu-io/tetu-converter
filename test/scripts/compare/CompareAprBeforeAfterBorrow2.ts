@@ -17,7 +17,7 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
 
 /**
  * For any landing platform:

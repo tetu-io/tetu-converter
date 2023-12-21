@@ -863,7 +863,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       async function makeTest(
         collateralAsset: string,
         borrowAsset: string,
-        collateralHolders: string[],
         part10000: number
       ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
         const dp = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
@@ -875,8 +874,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           {
             collateralAsset,
             borrowAsset,
-            collateralHolders,
-            part10000
+            borrowPart10000: part10000
           }
         );
       }
@@ -885,17 +883,9 @@ describe("AaveTwoPlatformAdapterTest", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
-          const collateralHolders = [
-            MaticAddresses.HOLDER_DAI,
-            MaticAddresses.HOLDER_DAI_2,
-            MaticAddresses.HOLDER_DAI_3,
-            MaticAddresses.HOLDER_DAI_4,
-            MaticAddresses.HOLDER_DAI_5,
-            MaticAddresses.HOLDER_DAI_6,
-          ];
           const part10000 = 1;
 
-          const r = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
+          const r = await makeTest(collateralAsset, borrowAsset, part10000);
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 5);
           expect(ret).eq(true);
@@ -906,17 +896,9 @@ describe("AaveTwoPlatformAdapterTest", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
-          const collateralHolders = [
-            MaticAddresses.HOLDER_DAI,
-            MaticAddresses.HOLDER_DAI_2,
-            MaticAddresses.HOLDER_DAI_3,
-            MaticAddresses.HOLDER_DAI_4,
-            MaticAddresses.HOLDER_DAI_5,
-            MaticAddresses.HOLDER_DAI_6,
-          ];
           const part10000 = 500;
 
-          const r = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
+          const r = await makeTest(collateralAsset, borrowAsset, part10000);
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 5);
           expect(ret).eq(true);

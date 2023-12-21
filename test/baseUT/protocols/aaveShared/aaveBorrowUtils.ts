@@ -4,12 +4,12 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
 import {ConverterController} from "../../../../typechain";
+import {parseUnits} from "ethers/lib/utils";
 
 type MakeBorrowFixedAmountFunc = (
   converter: ConverterController,
   collateralToken: TokenDataTypes,
-  collateralHolder: string,
-  collateralAmountRequired: BigNumber | undefined,
+  collateralAmountRequired: BigNumber,
   borrowToken: TokenDataTypes,
   borrowAmountRequired: BigNumber | undefined
 ) => Promise<IMakeBorrowTestResults>;
@@ -56,20 +56,19 @@ export class AaveBorrowUtils {
     borrowAmountNum: number | undefined
   ) : Promise<IMakeBorrowTestResults> {
     const collateralAsset = MaticAddresses.DAI;
-    const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
 
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
     const collateralAmount = collateralAmountNum
-      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
-      : undefined;
+      ? parseUnits(collateralAmountNum.toString(), collateralToken.decimals)
+      : parseUnits("10000000", collateralToken.decimals);
     const borrowAmount = borrowAmountNum
-      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      ? parseUnits(borrowAmountNum.toString(), borrowToken.decimals)
       : undefined;
 
-    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
+    return makeBorrowFunc(converter, collateralToken, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async daiUsdc(
@@ -87,13 +86,13 @@ export class AaveBorrowUtils {
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
     const collateralAmount = collateralAmountNum
-      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
-      : undefined;
+      ? parseUnits(collateralAmountNum.toString(), collateralToken.decimals)
+      : parseUnits("10000000", collateralToken.decimals);
     const borrowAmount = borrowAmountNum
-      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      ? parseUnits(borrowAmountNum.toString(), borrowToken.decimals)
       : undefined;
 
-    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
+    return makeBorrowFunc(converter, collateralToken, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async eursTether(
@@ -104,44 +103,19 @@ export class AaveBorrowUtils {
     borrowAmountNum: number | undefined
   ) : Promise<IMakeBorrowTestResults> {
     const collateralAsset = MaticAddresses.EURS;
-    const collateralHolder = MaticAddresses.HOLDER_EURS;
     const borrowAsset = MaticAddresses.USDT;
 
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
     const collateralAmount = collateralAmountNum
-      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
-      : undefined;
+      ? parseUnits(collateralAmountNum.toString(), collateralToken.decimals)
+      : parseUnits("10000000", collateralToken.decimals);
     const borrowAmount = borrowAmountNum
-      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      ? parseUnits(borrowAmountNum.toString(), borrowToken.decimals)
       : undefined;
 
-    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
-  }
-
-  static async usdcDai(
-    deployer: SignerWithAddress,
-    converter: ConverterController,
-    makeBorrowFunc: MakeBorrowFixedAmountFunc,
-    collateralAmountNum: number | undefined,
-    borrowAmountNum: number | undefined
-  ) : Promise<IMakeBorrowTestResults> {
-    const collateralAsset = MaticAddresses.USDC;
-    const collateralHolder = MaticAddresses.HOLDER_USDC;
-    const borrowAsset = MaticAddresses.DAI;
-
-    const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-    const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-    const collateralAmount = collateralAmountNum
-      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
-      : undefined;
-    const borrowAmount = borrowAmountNum
-      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
-      : undefined;
-
-    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
+    return makeBorrowFunc(converter, collateralToken, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async wbtcTether(
@@ -152,19 +126,18 @@ export class AaveBorrowUtils {
     borrowAmountNum: number | undefined
   ) : Promise<IMakeBorrowTestResults> {
     const collateralAsset = MaticAddresses.WBTC;
-    const collateralHolder = MaticAddresses.HOLDER_WBTC;
     const borrowAsset = MaticAddresses.USDT;
 
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
     const collateralAmount = collateralAmountNum
-      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
-      : undefined;
+      ? parseUnits(collateralAmountNum.toString(), collateralToken.decimals)
+      : parseUnits("10000000", collateralToken.decimals);
     const borrowAmount = borrowAmountNum
-      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      ? parseUnits(borrowAmountNum.toString(), borrowToken.decimals)
       : undefined;
 
-    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
+    return makeBorrowFunc(converter, collateralToken, collateralAmount, borrowToken, borrowAmount);
   }
 }

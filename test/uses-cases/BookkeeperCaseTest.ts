@@ -11,11 +11,11 @@ import {
   IERC20Metadata__factory,
   IPlatformAdapter,
   IPoolAdapter__factory,
-  ITetuConverter__factory,
+  ITetuConverter__factory, KeomPlatformAdapter,
   MoonwellPlatformAdapter,
   UserEmulator
 } from "../../typechain";
-import {BASE_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
+import {BASE_NETWORK_ID, HardhatUtils, POLYGON_NETWORK_ID, ZKEVM_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {TetuConverterApp} from "../baseUT/app/TetuConverterApp";
@@ -44,6 +44,10 @@ import {NumberUtils} from "../baseUT/utils/NumberUtils";
 import {Compound3Utils} from "../baseUT/protocols/compound3/Compound3Utils";
 import {Compound3UtilsProvider} from "../baseUT/protocols/compound3/Compound3UtilsProvider";
 import {BigNumber} from "ethers";
+import {ZerovixUtilsProviderZkevm} from "../baseUT/protocols/zerovix/ZerovixUtilsProviderZkevm";
+import {ZkevmAddresses} from "../../scripts/addresses/ZkevmAddresses";
+import {KeomHelper} from "../../scripts/integration/keom/KeomHelper";
+import {KeomUtilsZkevm} from "../baseUT/protocols/keom/KeomUtilsZkevm";
 
 /** Ensure that all repay/borrow operations are correctly registered in the Bookkeeper */
 describe("BookkeeperCaseTest", () => {
@@ -93,10 +97,43 @@ describe("BookkeeperCaseTest", () => {
     userBorrowAssetBalanceHugeAmount: "100000",
   }
 
+  /** Allow to change the order of execution without modification of NETWORKS */
+  const CHAINS_IN_ORDER_OF_EXECUTION = [ZKEVM_NETWORK_ID, BASE_NETWORK_ID, POLYGON_NETWORK_ID];
+
   const NETWORKS: IChainParams[] = [
     { // Polygon
       networkId: POLYGON_NETWORK_ID,
       platforms: [
+        // { // Keom on Polygon
+        //   async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+        //     const platformAdapter = await AdaptersHelper.createKeomPlatformAdapter(
+        //       signer0,
+        //       converterController0,
+        //       MaticAddresses.KEOM_COMPTROLLER,
+        //       (await AdaptersHelper.createKeomPoolAdapter(signer0)).address,
+        //       KeomUtilsPolygon.getAllCTokens(),
+        //     ) as KeomPlatformAdapter;
+        //
+        //     // register the platform adapter in TetuConverter app
+        //     const pairs = generateAssetPairs(KeomUtilsPolygon.getAllAssets());
+        //     await borrowManagerAsGov0.addAssetPairs(
+        //       platformAdapter.address,
+        //       pairs.map(x => x.smallerAddress),
+        //       pairs.map(x => x.biggerAddress)
+        //     );
+        //
+        //     // avoid error "Update time (heartbeat) exceeded"
+        //     await KeomSetupUtils.disableHeartbeat(signer, MaticCore.getCoreKeom());
+        //
+        //     return platformAdapter;
+        //   },
+        //   platformUtilsProviderBuilder() {
+        //     return new KeomUtilsProviderPolygon();
+        //   },
+        //   assetPairs: [
+        //     {collateralAsset: MaticAddresses.USDC, borrowAsset: MaticAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE,},
+        //   ],
+        // },
         { // Compound3 on Polygon
           async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
             const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
@@ -190,6 +227,39 @@ describe("BookkeeperCaseTest", () => {
       ]
     },
 
+    { // zkEVM chain
+      networkId: ZKEVM_NETWORK_ID,
+      platforms: [
+        { // Keom on Zkevm chain
+          platformUtilsProviderBuilder() {
+            return new ZerovixUtilsProviderZkevm();
+          },
+          async platformAdapterBuilder(signer0: SignerWithAddress, converterController0: string, borrowManagerAsGov0: BorrowManager): Promise<IPlatformAdapter> {
+            const platformAdapter = await AdaptersHelper.createKeomPlatformAdapter(
+              signer0,
+              converterController0,
+              (await KeomHelper.getComptroller(signer0, ZkevmAddresses.KEOM_COMPTROLLER)).address,
+              (await AdaptersHelper.createKeomPoolAdapter(signer0)).address,
+              KeomUtilsZkevm.getAllCTokens()
+            );
+
+            // register the platform adapter in TetuConverter app
+            const pairs = generateAssetPairs(KeomUtilsZkevm.getAllAssets());
+            await borrowManagerAsGov0.addAssetPairs(
+              platformAdapter.address,
+              pairs.map(x => x.smallerAddress),
+              pairs.map(x => x.biggerAddress)
+            );
+
+            return platformAdapter;
+          },
+          assetPairs: [
+            {collateralAsset: ZkevmAddresses.USDC, borrowAsset: ZkevmAddresses.USDT, collateralAssetName: "USDC", borrowAssetName: "USDT", singleParams: PARAMS_SINGLE_STABLE},
+          ]
+        },
+      ]
+    },
+
     { // Base chain
       networkId: BASE_NETWORK_ID,
       platforms: [
@@ -237,7 +307,9 @@ describe("BookkeeperCaseTest", () => {
   let bookkeeper: Bookkeeper;
 //endregion Global vars for all tests
 
-  NETWORKS.forEach(network => {
+
+  CHAINS_IN_ORDER_OF_EXECUTION.forEach(selectedChain => {
+    const network = NETWORKS[NETWORKS.findIndex(x => x.networkId === selectedChain)];
     describe(`${network.networkId}`, function () {
       before(async function () {
         await HardhatUtils.setupBeforeTest(network.networkId, network.block);
@@ -493,6 +565,7 @@ describe("BookkeeperCaseTest", () => {
                     });
 
                     async function repayToRebalanceTest(): Promise<IBookkeeperStatusWithResults> {
+                      const collateralDecimals = await IERC20Metadata__factory.connect(assetPair.collateralAsset, signer).decimals();
                       return BorrowRepayCases.borrowRepayToRebalanceBookkeeper(
                         signer,
                         {
@@ -504,8 +577,14 @@ describe("BookkeeperCaseTest", () => {
                         },
                         {
                           isCollateral: true,
-                          amount: (ret1.results.status.collateralAmount / 2).toString(),
-                          userCollateralAssetBalance: (ret1.results.status.collateralAmount / 2).toString(),
+                          amount: NumberUtils.trimDecimals(
+                            (ret1.results.status.collateralAmount / 2).toString(),
+                            collateralDecimals
+                          ),
+                          userCollateralAssetBalance: NumberUtils.trimDecimals(
+                            (ret1.results.status.collateralAmount / 2).toString(),
+                            collateralDecimals
+                          ),
                           targetHealthFactor: Math.round(Number(TARGET_HEALTH_FACTOR) * 2).toString(),
                         },
                         []

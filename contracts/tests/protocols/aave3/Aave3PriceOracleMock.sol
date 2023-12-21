@@ -10,6 +10,7 @@ contract Aave3PriceOracleMock is IAavePriceOracle, IChangePriceForTests {
   address private _baseCurrency;
   uint private _baseCurrencyUnit;
   address private _fallbackOracle;
+  bool private _throwIfZeroPrice;
   mapping(address => address) private _sources;
   mapping(address => uint) private _prices;
 
@@ -32,6 +33,10 @@ contract Aave3PriceOracleMock is IAavePriceOracle, IChangePriceForTests {
     for (uint i = 0; i < assets_.length; ++i) {
       _prices[assets_[i]] = values_[i];
     }
+  }
+
+  function setThrowIfZeroPrice() external {
+    _throwIfZeroPrice = true;
   }
 
   //-----------------------------------------------------//////////
@@ -78,7 +83,9 @@ contract Aave3PriceOracleMock is IAavePriceOracle, IChangePriceForTests {
    **/
   function getAssetPrice(address asset) external view override returns (uint256) {
     // console.log("Mocked getAssetPrice", _prices[asset]);
-    return _prices[asset];
+    uint dest = _prices[asset];
+    require(!_throwIfZeroPrice || dest != 0, "No price found");
+    return dest;
   }
   /**
    * @notice Returns a list of prices from a list of assets addresses

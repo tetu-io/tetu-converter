@@ -10,7 +10,12 @@ import {
   DForcePlatformAdapter,
   DForcePoolAdapter,
   HfPlatformAdapter,
-  HfPoolAdapter, IConverterController__factory, MoonwellPlatformAdapter, MoonwellPoolAdapter
+  HfPoolAdapter,
+  IConverterController__factory, KeomPlatformAdapter, KeomPoolAdapter,
+  MoonwellPlatformAdapter,
+  MoonwellPoolAdapter,
+  ZerovixPlatformAdapter,
+  ZerovixPoolAdapter
 } from "../../../typechain";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
@@ -162,4 +167,50 @@ export class AdaptersHelper {
     return (await DeployUtils.deployContract(signer, "MoonwellPoolAdapter")) as MoonwellPoolAdapter;
   }
 //endregion Moonwell
+
+//region Zerovix
+  public static async createZerovixPlatformAdapter(
+    signer: SignerWithAddress,
+    controller: string,
+    comptroller: string,
+    templateAdapterNormal: string,
+    cTokensActive: string[],
+  ) : Promise<ZerovixPlatformAdapter> {
+    return (await DeployUtils.deployContract(
+      signer,
+      "ZerovixPlatformAdapter",
+      controller,
+      comptroller,
+      templateAdapterNormal,
+      cTokensActive,
+    )) as ZerovixPlatformAdapter;
+  }
+
+  public static async createZerovixPoolAdapter(signer: SignerWithAddress) : Promise<ZerovixPoolAdapter> {
+    return (await DeployUtils.deployContract(signer, "ZerovixPoolAdapter")) as ZerovixPoolAdapter;
+  }
+//endregion Zerovix
+
+//region Keom
+  public static async createKeomPlatformAdapter(
+    signer: SignerWithAddress,
+    controller: string,
+    comptroller: string,
+    templateAdapterNormal: string,
+    cTokensActive: string[],
+  ) : Promise<KeomPlatformAdapter> {
+    return (await DeployUtils.deployContract(
+      signer,
+      "KeomPlatformAdapter",
+      controller,
+      comptroller,
+      templateAdapterNormal,
+      cTokensActive,
+    )) as KeomPlatformAdapter;
+  }
+
+  public static async createKeomPoolAdapter(signer: SignerWithAddress) : Promise<KeomPoolAdapter> {
+    return (await DeployUtils.deployContract(signer, "KeomPoolAdapter")) as KeomPoolAdapter;
+  }
+//endregion Keom
 }

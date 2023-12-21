@@ -29,7 +29,6 @@ import {ICoreAave3} from "../../baseUT/protocols/aave3/Aave3DataTypes";
 import {IConversionPlan} from "../../baseUT/types/AppDataTypes";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
 import {Aave3PlatformActor} from "../../baseUT/protocols/aave3/Aave3PlatformActor";
 import {
@@ -39,8 +38,9 @@ import {
   ConverterController, CTokenMock,
   IAavePool, IERC20Metadata__factory
 } from "../../../typechain";
-import {BaseCore} from "../../baseUT/chains/base/baseCore";
 import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
+import {BaseCore} from "../../baseUT/chains/base/BaseCore";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Test setup
@@ -62,8 +62,9 @@ describe("Aave3PlatformAdapterTest", () => {
     amount: string;
     smallAmount: string;
     hugeAmount: string;
-    collateralHolders: string[];
     tag?: string;
+    /** collateral amount ~ collateralMult * borrow amount */
+    collateralMult?: number; // 3 by default
   }
 
   interface ITestSetup {
@@ -99,11 +100,7 @@ describe("Aave3PlatformAdapterTest", () => {
         smallAmount: "1",
         amount: "100",
         hugeAmount: "100000",
-        collateralHolders: [
-          BaseAddresses.HOLDER_WETH,
-          BaseAddresses.HOLDER_WETH_1,
-          BaseAddresses.HOLDER_WETH_2,
-        ]
+        collateralMult: 3000
       },
       pairStable: {
         collateralAsset: BaseAddresses.WETH,
@@ -113,11 +110,6 @@ describe("Aave3PlatformAdapterTest", () => {
         smallAmount: "0.01",
         amount: "1",
         hugeAmount: "10",
-        collateralHolders: [
-          BaseAddresses.HOLDER_WETH,
-          BaseAddresses.HOLDER_WETH_1,
-          BaseAddresses.HOLDER_WETH_2,
-        ]
       }
     },
     [POLYGON_NETWORK_ID]: {
@@ -150,14 +142,6 @@ describe("Aave3PlatformAdapterTest", () => {
         smallAmount: "1",
         amount: "100",
         hugeAmount: "100000000",
-        collateralHolders: [
-          MaticAddresses.HOLDER_DAI,
-          MaticAddresses.HOLDER_DAI_2,
-          MaticAddresses.HOLDER_DAI_3,
-          MaticAddresses.HOLDER_DAI_4,
-          MaticAddresses.HOLDER_DAI_5,
-          MaticAddresses.HOLDER_DAI_6,
-        ]
       },
       pairStable: {
         collateralAsset: MaticAddresses.USDC,
@@ -167,11 +151,6 @@ describe("Aave3PlatformAdapterTest", () => {
         smallAmount: "1",
         amount: "100",
         hugeAmount: "100000000",
-        collateralHolders: [
-          MaticAddresses.HOLDER_USDC,
-          MaticAddresses.HOLDER_USDC_2,
-          MaticAddresses.HOLDER_USDC_3,
-        ]
       }
     }
   }
@@ -1150,8 +1129,8 @@ describe("Aave3PlatformAdapterTest", () => {
               async function makeGetBorrowRateAfterBorrowTest(
                 collateralAsset: string,
                 borrowAsset: string,
-                collateralHolders: string[],
-                part10000: number
+                part10000: number,
+                collateralMult?: number
               ): Promise<{ br: BigNumber, brPredicted: BigNumber }> {
                 const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer, testSetup.aavePool);
 
@@ -1161,8 +1140,8 @@ describe("Aave3PlatformAdapterTest", () => {
                   {
                     collateralAsset,
                     borrowAsset,
-                    collateralHolders,
-                    part10000
+                    borrowPart10000: part10000,
+                    collateralMult
                   }
                 );
               }
@@ -1174,8 +1153,8 @@ describe("Aave3PlatformAdapterTest", () => {
                   const r = await makeGetBorrowRateAfterBorrowTest(
                     testSetup.pair.collateralAsset,
                     testSetup.pair.borrowAsset,
-                    testSetup.pair.collateralHolders,
-                    part10000
+                    part10000,
+                    testSetup.pair.collateralMult
                   );
 
                   const ret = areAlmostEqual(r.br, r.brPredicted, 5);
@@ -1190,8 +1169,8 @@ describe("Aave3PlatformAdapterTest", () => {
                   const r = await makeGetBorrowRateAfterBorrowTest(
                     testSetup.pair.collateralAsset,
                     testSetup.pair.borrowAsset,
-                    testSetup.pair.collateralHolders,
-                    part10000
+                    part10000,
+                    testSetup.pair.collateralMult
                   );
 
                   const ret = areAlmostEqual(r.br, r.brPredicted, 5);

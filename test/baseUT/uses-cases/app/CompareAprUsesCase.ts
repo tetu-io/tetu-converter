@@ -429,12 +429,13 @@ export class CompareAprUsesCase {
         );
         const strategyToConvert: IStrategyToConvert = {
           converter: converterData.converter,
-          maxTargetAmount: converterData.maxTargetAmount,
           apr18: await swapManager.getApr18(task.collateralAsset.asset,
             task.collateralAmount,
             task.borrowAsset.asset,
             converterData.maxTargetAmount
-          )
+          ),
+          collateralAmountOut: task.collateralAmount,
+          amountToBorrowOut: converterData.maxTargetAmount
         };
 
         if (strategyToConvert.converter === Misc.ZERO_ADDRESS) {
@@ -451,7 +452,7 @@ export class CompareAprUsesCase {
             task.collateralAsset.asset,
             task.collateralAmount,
             task.borrowAsset.asset,
-            strategyToConvert.maxTargetAmount
+            converterData.maxTargetAmount
           );
           const res = await this.makeSingleSwapTest(
             swapManager,

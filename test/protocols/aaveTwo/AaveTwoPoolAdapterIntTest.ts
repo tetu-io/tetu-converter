@@ -25,6 +25,7 @@ import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {ConverterController, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 
 describe("AaveTwoPoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -54,8 +55,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
     async function makeBorrowTest(
       controller: ConverterController,
       collateralToken: TokenDataTypes,
-      collateralHolder: string,
-      collateralAmountRequired: BigNumber | undefined,
+      collateralAmountRequired: BigNumber,
       borrowToken: TokenDataTypes,
       borrowAmountRequired: BigNumber | undefined,
       targetHealthFactor2: number = 202,
@@ -65,7 +65,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         deployer,
         controller,
         collateralToken,
-        collateralHolder,
         collateralAmountRequired,
         borrowToken,
         {
@@ -294,7 +293,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         deployer,
         controllerInstance,
         collateralToken,
-        collateralHolder,
         collateralAmount,
         borrowToken,
         {
@@ -388,10 +386,8 @@ describe("AaveTwoPoolAdapterIntTest", () => {
     });
     async function makeBorrowAndRepay(
       collateralToken: TokenDataTypes,
-      collateralHolder: string,
-      collateralAmountRequired: BigNumber | undefined,
+      collateralAmountRequired: BigNumber,
       borrowToken: TokenDataTypes,
-      borrowHolder: string,
       borrowAmountRequired: BigNumber | undefined,
       amountToRepay?: BigNumber,
       initialBorrowAmountOnUserBalance?: BigNumber,
@@ -401,7 +397,6 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         deployer,
         controllerInstance,
         collateralToken,
-        collateralHolder,
         collateralAmountRequired,
         borrowToken,
       );
@@ -416,9 +411,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
 
       // borrow asset
       if (initialBorrowAmountOnUserBalance) {
-        await borrowToken.token
-          .connect(await DeployerUtils.startImpersonate(borrowHolder))
-          .transfer(d.userContract.address, initialBorrowAmountOnUserBalance);
+        await TokenUtils.getToken(borrowToken.address, d.userContract.address, initialBorrowAmountOnUserBalance);
       }
 
       const beforeBorrow: IUserBalances = {
@@ -553,7 +546,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         describe("Full repay of borrowed amount", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
-              const initialBorrowAmountOnUserBalance = 50_000;
+              const initialBorrowAmountOnUserBalance = 500_000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
@@ -566,7 +559,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           });
           describe("WMATIC => DAI", () => {
             it("should return expected balances", async () => {
-              const initialBorrowAmountOnUserBalance = 50_000;
+              const initialBorrowAmountOnUserBalance = 500_000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,

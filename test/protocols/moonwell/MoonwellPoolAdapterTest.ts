@@ -37,6 +37,7 @@ import {BigNumber} from "ethers";
 import {AppConstants} from "../../baseUT/types/AppConstants";
 import {InjectUtils} from "../../baseUT/chains/base/InjectUtils";
 import {BaseUtils} from "../../baseUT/chains/base/BaseUtils";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 
 describe("MoonwellPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -153,7 +154,6 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = await BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -165,7 +165,7 @@ describe("MoonwellPoolAdapterTest", () => {
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
       const collateralAmountApproved = parseUnits(p.collateralAmountApproved || p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -286,8 +286,6 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
-      const borrowHolder = BaseUtils.getHolder(p.borrowAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -299,7 +297,7 @@ describe("MoonwellPoolAdapterTest", () => {
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
       const collateralAmountApproved = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -321,7 +319,7 @@ describe("MoonwellPoolAdapterTest", () => {
 
       // prepare to repay
       const amountToRepay = statusAfterBorrow.amountToPay.mul(p.repayPart ?? 100_000).div(100_000);
-      await BalanceUtils.getAmountFromHolder(p.borrowAsset, borrowHolder, tetuConverterSigner.address, amountToRepay.mul(2));
+      await TokenUtils.getToken(p.borrowAsset, tetuConverterSigner.address, amountToRepay.mul(2));
       await IERC20__factory.connect(p.borrowAsset, tetuConverterSigner).approve(poolAdapterInstance.address, amountToRepay.mul(2));
 
       if (p.countBlocksBetweenBorrowAndRepay) {
@@ -547,8 +545,6 @@ describe("MoonwellPoolAdapterTest", () => {
       borrowAsset: IERC20Metadata;
       decimalsCollateral: number;
       decimalsBorrow: number;
-      collateralHolder: string;
-      borrowHolder: string;
       plan: IConversionPlanNum;
       collateralAmount: BigNumber;
       collateralAmountApproved: BigNumber;
@@ -565,8 +561,6 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
-      const borrowHolder = BaseUtils.getHolder(p.borrowAsset);
 
       // set up initial health factor
       await converterController.connect(converterGovernance).setTargetHealthFactor2(parseUnits(p.targetHealthFactorBeforeBorrow, 2));
@@ -581,7 +575,7 @@ describe("MoonwellPoolAdapterTest", () => {
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
       const collateralAmountApproved = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -612,14 +606,12 @@ describe("MoonwellPoolAdapterTest", () => {
       return {
         receiver,
         borrowAsset,
-        borrowHolder,
         tetuConverterSigner,
         collateralAmountApproved,
         collateralAmount,
         decimalsBorrow,
         plan,
         collateralAsset,
-        collateralHolder,
         poolAdapterInstance,
         statusAfterBorrow,
         decimalsCollateral
@@ -632,10 +624,10 @@ describe("MoonwellPoolAdapterTest", () => {
         ? pr.statusAfterBorrow.collateralAmount.mul(p.repayPart ?? 100_000).div(100_000)
         : pr.statusAfterBorrow.amountToPay.mul(p.repayPart ?? 100_000).div(100_000);
       if (p.isCollateral) {
-        await BalanceUtils.getAmountFromHolder(pr.collateralAsset.address, pr.collateralHolder, pr.tetuConverterSigner.address, amountIn.mul(2));
+        await TokenUtils.getToken(pr.collateralAsset.address, pr.tetuConverterSigner.address, amountIn.mul(2));
         await IERC20__factory.connect(pr.collateralAsset.address, pr.tetuConverterSigner).approve(pr.poolAdapterInstance.address, amountIn.mul(2));
       } else {
-        await BalanceUtils.getAmountFromHolder(pr.borrowAsset.address, pr.borrowHolder, pr.tetuConverterSigner.address, amountIn.mul(2));
+        await TokenUtils.getToken(pr.borrowAsset.address, pr.tetuConverterSigner.address, amountIn.mul(2));
         await IERC20__factory.connect(pr.borrowAsset.address, pr.tetuConverterSigner).approve(pr.poolAdapterInstance.address, amountIn.mul(2));
       }
 
@@ -854,7 +846,6 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -865,7 +856,7 @@ describe("MoonwellPoolAdapterTest", () => {
 
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -952,7 +943,6 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -963,7 +953,7 @@ describe("MoonwellPoolAdapterTest", () => {
 
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);
@@ -1052,7 +1042,6 @@ describe("MoonwellPoolAdapterTest", () => {
       const borrowAsset = IERC20Metadata__factory.connect(p.borrowAsset, signer);
       const decimalsCollateral = await collateralAsset.decimals();
       const decimalsBorrow = await borrowAsset.decimals();
-      const collateralHolder = BaseUtils.getHolder(p.collateralAsset);
 
       // prepare conversion plan
       const plan = await getConversionPlan({
@@ -1064,7 +1053,7 @@ describe("MoonwellPoolAdapterTest", () => {
 
       // put collateral amount on TetuConverter balance
       const collateralAmount = parseUnits(p.collateralAmount, decimalsCollateral);
-      await BalanceUtils.getAmountFromHolder(p.collateralAsset, collateralHolder, tetuConverterSigner.address, collateralAmount);
+      await TokenUtils.getToken(p.collateralAsset, tetuConverterSigner.address, collateralAmount);
 
       // initialize the pool adapter
       await borrowManagerAsGov.connect(tetuConverterSigner).registerPoolAdapter(poolAdapter.address, receiver, p.collateralAsset, p.borrowAsset);

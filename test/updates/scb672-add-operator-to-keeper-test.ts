@@ -11,7 +11,7 @@ import {PriceOracleManagerUtils} from "../baseUT/protocols/aave3/PriceOracleMana
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../scripts/utils/HardhatUtils";
-import {MaticCore} from "../baseUT/chains/polygon/maticCore";
+import {MaticCore} from "../baseUT/chains/polygon/MaticCore";
 import {MocksHelper} from "../baseUT/app/MocksHelper";
 
 describe.skip("study, SCB672 - update keeper, check fixHealth", () => {

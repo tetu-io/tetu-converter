@@ -25,4 +25,8 @@ contract AppUtilsFacade {
     destIndices = new uint[](items_.length);
     AppUtils._sortAsc(startIndex_, length_, items_, destIndices);
   }
+
+  function getBalance(address nativeToken, address asset) external view returns (uint) {
+    return AppUtils.getBalance(nativeToken, asset);
+  }
 }

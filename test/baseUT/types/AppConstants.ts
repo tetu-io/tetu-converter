@@ -13,6 +13,8 @@ export class AppConstants {
   public static readonly LENDING_PLATFORM_KIND_HUNDRED_FINANCE_4 = 4;
   public static readonly LENDING_PLATFORM_KIND_COMPOUND3_5 = 5;
   public static readonly LENDING_PLATFORM_KIND_MOONWELL_6 = 6;
+  public static readonly LENDING_PLATFORM_KIND_ZEROVIX_7 = 7;
+  public static readonly LENDING_PLATFORM_KIND_KEOM_8 = 8;
 
   public static readonly COMPOUND_STORAGE_V1 = 1;
   public static readonly COMPOUND_STORAGE_V2 = 2;

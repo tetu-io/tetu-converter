@@ -26,9 +26,10 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {GAS_LIMIT} from "../../baseUT/types/GasLimit";
 import {HardhatUtils, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {ConverterController, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
 
 describe("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -57,8 +58,7 @@ describe("Aave3PoolAdapterIntTest", () => {
     async function makeBorrowTest(
       converter: ConverterController,
       collateralToken: TokenDataTypes,
-      collateralHolder: string,
-      collateralAmountRequired: BigNumber | undefined,
+      collateralAmountRequired: BigNumber,
       borrowToken: TokenDataTypes,
       borrowAmountRequired: BigNumber | undefined
     ): Promise<IMakeBorrowTestResults> {
@@ -67,7 +67,6 @@ describe("Aave3PoolAdapterIntTest", () => {
         MaticCore.getCoreAave3(),
         converter,
         collateralToken.address,
-        [collateralHolder],
         collateralAmountRequired,
         borrowToken.address,
         false
@@ -370,7 +369,6 @@ describe("Aave3PoolAdapterIntTest", () => {
 
     async function makeTestBorrowMaxAmount(
       collateralToken: TokenDataTypes,
-      collateralHolder: string,
       collateralAmount: BigNumber,
       borrowToken: TokenDataTypes,
     ): Promise<{userAccountData: IAave3UserAccountDataResults, collateralData: IAave3ReserveInfo}> {
@@ -381,7 +379,6 @@ describe("Aave3PoolAdapterIntTest", () => {
         MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken.address,
-        [collateralHolder],
         collateralAmount,
         borrowToken.address,
         false,
@@ -434,7 +431,6 @@ describe("Aave3PoolAdapterIntTest", () => {
     describe("Good paths", () => {
       it("should move user account in the pool to expected state", async () => {
         const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
         const borrowAsset = MaticAddresses.WMATIC;
 
         const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
@@ -442,12 +438,7 @@ describe("Aave3PoolAdapterIntTest", () => {
 
         const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
 
-        const r = await makeTestBorrowMaxAmount(
-          collateralToken,
-          collateralHolder,
-          collateralAmount,
-          borrowToken,
-        );
+        const r = await makeTestBorrowMaxAmount(collateralToken, collateralAmount, borrowToken);
 
         const resultLtv = r.userAccountData.totalDebtBase
           .add(r.userAccountData.availableBorrowsBase)
@@ -502,10 +493,8 @@ describe("Aave3PoolAdapterIntTest", () => {
      */
     async function borrowMaxAmountInIsolationMode (
       collateralToken: TokenDataTypes,
-      collateralHolders: string[],
-      collateralAmountRequired: BigNumber | undefined,
+      collateralAmountRequired: BigNumber,
       borrowToken: TokenDataTypes,
-      borrowHolders: string[],
       emode: boolean,
       badPathsParams?: IBorrowMaxAmountInIsolationModeBadPaths
     ) : Promise<IBorrowMaxAmountInIsolationModeResults>{
@@ -514,11 +503,9 @@ describe("Aave3PoolAdapterIntTest", () => {
         MaticCore.getCoreAave3(),
         converterInstance,
         collateralToken.address,
-        collateralHolders,
         collateralAmountRequired,
         borrowToken.address,
         emode,
-        {borrowHolders}
       );
       console.log("Plan", d.plan);
 
@@ -572,20 +559,6 @@ describe("Aave3PoolAdapterIntTest", () => {
 //region Constants
         const collateralAsset = MaticAddresses.USDT;
         const borrowAsset = MaticAddresses.DAI;
-        const collateralHolders = [
-          MaticAddresses.HOLDER_USDT,
-          MaticAddresses.HOLDER_USDT_1,
-          MaticAddresses.HOLDER_USDT_2,
-          MaticAddresses.HOLDER_USDT_3
-        ];
-        const borrowHolders = [
-          MaticAddresses.HOLDER_DAI,
-          MaticAddresses.HOLDER_DAI_2,
-          MaticAddresses.HOLDER_DAI_3,
-          MaticAddresses.HOLDER_DAI_4,
-          MaticAddresses.HOLDER_DAI_5,
-          MaticAddresses.HOLDER_DAI_6
-        ];
 //endregion Constants
         describe("Try to borrow max amount allowed by debt ceiling", () => {
           it("should return expected values", async () => {
@@ -594,10 +567,8 @@ describe("Aave3PoolAdapterIntTest", () => {
 
             const ret = await borrowMaxAmountInIsolationMode(
               collateralToken,
-              collateralHolders,
-              undefined,
+              parseUnits("100000000", 6), // huge amount
               borrowToken,
-              borrowHolders,
               true // emode
             );
 
@@ -617,18 +588,6 @@ describe("Aave3PoolAdapterIntTest", () => {
       describe.skip("EURS : DAI", () => {
         const collateralAsset = MaticAddresses.EURS;
         const borrowAsset = MaticAddresses.DAI;
-        const collateralHolders = [
-          MaticAddresses.HOLDER_EURS,
-          MaticAddresses.HOLDER_EURS_2,
-          MaticAddresses.HOLDER_EURS_3,
-          MaticAddresses.HOLDER_EURS_4,
-          MaticAddresses.HOLDER_EURS_5,
-          MaticAddresses.HOLDER_EURS_6,
-          MaticAddresses.HOLDER_EURS_7,
-          MaticAddresses.HOLDER_EURS_8,
-          MaticAddresses.HOLDER_EURS_9,
-        ];
-        const borrowHolders = [MaticAddresses.HOLDER_DAI];
 
         describe("Try to borrow max amount allowed by debt ceiling", () => {
           it("should return expected values", async () => {
@@ -637,10 +596,8 @@ describe("Aave3PoolAdapterIntTest", () => {
 
             const ret = await borrowMaxAmountInIsolationMode(
               collateralToken,
-              collateralHolders,
-              undefined,
+              parseUnits("100000000", 2), // huge amount
               borrowToken,
-              borrowHolders,
               true // emode
             );
 
@@ -660,18 +617,6 @@ describe("Aave3PoolAdapterIntTest", () => {
       describe.skip("EURS : USDT @skip-on-coverage", () => {
         const collateralAsset = MaticAddresses.EURS;
         const borrowAsset = MaticAddresses.USDT;
-        const collateralHolders = [
-          MaticAddresses.HOLDER_EURS,
-          MaticAddresses.HOLDER_EURS_2,
-          MaticAddresses.HOLDER_EURS_3,
-          MaticAddresses.HOLDER_EURS_4,
-          MaticAddresses.HOLDER_EURS_5,
-          MaticAddresses.HOLDER_EURS_6,
-          MaticAddresses.HOLDER_EURS_7,
-          MaticAddresses.HOLDER_EURS_8,
-          MaticAddresses.HOLDER_EURS_9,
-        ];
-        const borrowHolders = [MaticAddresses.HOLDER_USDT];
 
         describe("Try to borrow max amount allowed by debt ceiling", () => {
           /**
@@ -683,10 +628,8 @@ describe("Aave3PoolAdapterIntTest", () => {
 
             const ret = await borrowMaxAmountInIsolationMode(
               collateralToken,
-              collateralHolders,
-              undefined,
+              parseUnits("1000000000", 2),
               borrowToken,
-              borrowHolders,
               true // emode
             );
 
@@ -706,20 +649,6 @@ describe("Aave3PoolAdapterIntTest", () => {
 //region Constants
           const collateralAsset = MaticAddresses.USDT;
           const borrowAsset = MaticAddresses.DAI;
-          const collateralHolders = [
-            MaticAddresses.HOLDER_USDT,
-            MaticAddresses.HOLDER_USDT_1,
-            MaticAddresses.HOLDER_USDT_2,
-            MaticAddresses.HOLDER_USDT_3
-          ];
-          const borrowHolders = [
-            MaticAddresses.HOLDER_DAI,
-            MaticAddresses.HOLDER_DAI_2,
-            MaticAddresses.HOLDER_DAI_3,
-            MaticAddresses.HOLDER_DAI_4,
-            MaticAddresses.HOLDER_DAI_5,
-            MaticAddresses.HOLDER_DAI_6
-          ];
 //endregion Constants
           describe("Try to borrow max amount allowed by debt ceiling", () => {
             it("should return expected values", async () => {
@@ -729,10 +658,8 @@ describe("Aave3PoolAdapterIntTest", () => {
               await expect(
                 borrowMaxAmountInIsolationMode(
                   collateralToken,
-                  collateralHolders,
-                  undefined,
+                  parseUnits("100000000", 6), // huge amount
                   borrowToken,
-                  borrowHolders,
                   true, // emode
                   {deltaToMaxAmount: Misc.WEI} // 1 DAI
                 )
@@ -748,11 +675,6 @@ describe("Aave3PoolAdapterIntTest", () => {
 //region Constants
           const collateralAsset = MaticAddresses.EURS;
           const borrowAsset = MaticAddresses.USDC;
-          const collateralHolders = [MaticAddresses.HOLDER_EURS
-            , MaticAddresses.HOLDER_EURS_2
-            , MaticAddresses.HOLDER_EURS_3
-          ];
-          const borrowHolders = [MaticAddresses.HOLDER_USDC];
 //endregion Constants
 
           describe("Try to borrow max amount allowed by debt ceiling", () => {
@@ -763,10 +685,8 @@ describe("Aave3PoolAdapterIntTest", () => {
               await expect(
                 borrowMaxAmountInIsolationMode(
                   collateralToken,
-                  collateralHolders,
-                  undefined,
+                  parseUnits("100000000", 2), // huge amount
                   borrowToken,
-                  borrowHolders,
                   true, // emode
                   {deltaToMaxAmount: parseUnits("1", 6)} // 1 USDC
                 )
@@ -780,15 +700,6 @@ describe("Aave3PoolAdapterIntTest", () => {
 //region Constants
           const collateralAsset = MaticAddresses.USDT;
           const borrowAsset = MaticAddresses.WETH;
-          const collateralHolders = [
-            MaticAddresses.HOLDER_USDT,
-            MaticAddresses.HOLDER_USDT_1,
-            MaticAddresses.HOLDER_USDT_2,
-            MaticAddresses.HOLDER_USDT_3
-          ];
-          const borrowHolders = [
-            MaticAddresses.HOLDER_WETH,
-          ];
 //endregion Constants
           describe("Try to borrow not zero amount", () => {
             it("should return expected values", async () => {
@@ -798,10 +709,8 @@ describe("Aave3PoolAdapterIntTest", () => {
               await expect(
                 borrowMaxAmountInIsolationMode(
                   collateralToken,
-                  collateralHolders,
-                  undefined,
+                  parseUnits("100000000", 6), // huge amount
                   borrowToken,
-                  borrowHolders,
                   true, // emode
                   {
                     customAmountToBorrow: parseUnits("20", borrowToken.decimals),
@@ -829,10 +738,8 @@ describe("Aave3PoolAdapterIntTest", () => {
     /* Make full or partial repay. Set amountToRepay for partial repay, leave it undefined to full repay */
     async function makeBorrowAndRepay(
       collateralToken: TokenDataTypes,
-      collateralHolder: string,
-      collateralAmountRequired: BigNumber | undefined,
+      collateralAmountRequired: BigNumber,
       borrowToken: TokenDataTypes,
-      borrowHolder: string,
       borrowAmountRequired: BigNumber | undefined,
       amountToRepay?: BigNumber,
       initialBorrowAmountOnUserBalance?: BigNumber,
@@ -843,7 +750,6 @@ describe("Aave3PoolAdapterIntTest", () => {
         MaticCore.getCoreAave3(), // todo
         converterInstance,
         collateralToken.address,
-        [collateralHolder],
         collateralAmountRequired,
         borrowToken.address,
         false
@@ -859,9 +765,7 @@ describe("Aave3PoolAdapterIntTest", () => {
 
       // borrow asset
       if (initialBorrowAmountOnUserBalance) {
-        await borrowToken.token
-          .connect(await DeployerUtils.startImpersonate(borrowHolder))
-          .transfer(d.userContract.address, initialBorrowAmountOnUserBalance);
+        await TokenUtils.getToken(borrowToken.token.address, d.userContract.address, initialBorrowAmountOnUserBalance);
       }
 
       const beforeBorrow: IUserBalances = {

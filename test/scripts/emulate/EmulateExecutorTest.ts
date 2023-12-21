@@ -10,7 +10,7 @@ import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {Aave3PlatformFabric} from "../../baseUT/logic/fabrics/Aave3PlatformFabric";
 import {AaveTwoPlatformFabric} from "../../baseUT/logic/fabrics/AaveTwoPlatformFabric";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
 
 describe.skip("Run real work emulator @skip-on-coverage", () => {
   before(async function () {

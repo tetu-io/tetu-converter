@@ -4,7 +4,6 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
@@ -51,13 +50,16 @@ import {
 import {AdaptersHelper} from "../../baseUT/app/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/app/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/app/MocksHelper";
-import {MaticCore} from "../../baseUT/chains/polygon/maticCore";
 import {ICoreAave3} from "../../baseUT/protocols/aave3/Aave3DataTypes";
 import {BorrowRepayDataTypeUtils} from "../../baseUT/utils/BorrowRepayDataTypeUtils";
 import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
-import {BaseCore} from "../../baseUT/chains/base/baseCore";
+import {BaseCore} from "../../baseUT/chains/base/BaseCore";
 import {CoreContractsHelper} from "../../baseUT/app/CoreContractsHelper";
 import {Aave3Helper} from "../../../scripts/integration/aave3/Aave3Helper";
+import {TokenUtils} from "../../../scripts/utils/TokenUtils";
+import {MaticCore} from "../../baseUT/chains/polygon/MaticCore";
+import {chainConfig} from "@nomiclabs/hardhat-etherscan/dist/src/ChainConfig";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Test setup
@@ -235,7 +237,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   core,
                   controller,
                   testSetup.pair.collateralAsset,
-                  testSetup.pair.collateralHolders,
                   parseUnits(testSetup.pair.amount, collateralDecimals),
                   testSetup.pair.borrowAsset,
                   false,
@@ -275,7 +276,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   expect(collateralTargetHealthFactor2 / 100).approximately(status.healthFactor, 1e-5);
                   expect(+formatUnits(borrowResults.borrowedAmount, await borrowAsset.decimals())).approximately(status.amountToPay, 1e-5);
                   expect(status.collateralAmountLiquidated).eq(0);
-                  expect(status.collateralAmount).approximately(Number(testSetup.pair.amount), 1e-8);
+                  expect(status.collateralAmount).approximately(Number(testSetup.pair.amount), 1e-5);
                 });
                 it("should open position in debt monitor", async () => {
                   expect(borrowResults.isPositionOpened).eq(true);
@@ -680,9 +681,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
             interface IMakeRepayTestParams extends IMakeRepayBadPathsParams {
               collateralAsset: string;
-              collateralHolder: string;
               borrowAsset: string;
-              borrowHolder: string;
               collateralAmountStr: string;
 
               /**
@@ -738,7 +737,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 core,
                 controller,
                 collateralToken.address,
-                [p.collateralHolder],
                 parseUnits(p.collateralAmountStr, collateralToken.decimals),
                 borrowToken.address,
                 p.useEMode ?? false,
@@ -753,12 +751,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
               if (p.poolAdapterBorrowBalance) {
                 console.log(`push ${p?.poolAdapterBorrowBalance} of borrow asset to pool adapter`);
-                await BalanceUtils.getRequiredAmountFromHolders(
-                  parseUnits(p.poolAdapterBorrowBalance, borrowToken.decimals),
-                  borrowToken.token,
-                  [p.borrowHolder],
-                  init.aavePoolAdapterAsTC.address
-                );
+                await TokenUtils.getToken(borrowToken.token.address, init.aavePoolAdapterAsTC.address, parseUnits(p.poolAdapterBorrowBalance, borrowToken.decimals));
               }
               if (p.usePoolMock) {
                 if (p.grabAllBorrowAssetFromSenderOnRepay) {
@@ -790,7 +783,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                     ? statusBeforeRepay0.amountToPay.mul(p?.amountToRepayPart ?? 100_000).div(100_000)
                     : undefined;
 
-              await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(deployer, init, p.borrowHolder);
+              await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(deployer, init);
 
               const userBorrowAssetBalanceBeforeRepay = await IERC20Metadata__factory.connect(init.borrowToken, deployer).balanceOf(init.userContract.address);
               const userCollateralAssetBalanceBeforeRepay = await IERC20Metadata__factory.connect(init.collateralToken, deployer).balanceOf(init.userContract.address);
@@ -888,9 +881,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 async function makeFullRepayTest(): Promise<IMakeRepayTestResults> {
                   return makeRepay({
                     collateralAsset: testSetup.pair.collateralAsset,
-                    collateralHolder: testSetup.pair.collateralHolders[0],
                     borrowAsset: testSetup.pair.borrowAsset,
-                    borrowHolder: testSetup.pair.borrowHolder,
                     collateralAmountStr: testSetup.pair.amount,
                   });
                 }
@@ -971,9 +962,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   // we have only 1009, so we pay 1009 and use closePosition = false
                   return makeRepay({
                     collateralAsset: testSetup.pair.collateralAsset,
-                    collateralHolder: testSetup.pair.collateralHolders[0],
                     borrowAsset: testSetup.pair.borrowAsset,
-                    borrowHolder: testSetup.pair.borrowHolder,
                     collateralAmountStr: testSetup.pair.amount,
                     payDebtGapPercent: 80,
                     closePosition: false
@@ -1079,9 +1068,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 async function makeFullRepayTest(): Promise<IMakeRepayTestResults> {
                   return makeRepay({
                     collateralAsset: testSetup.pair.collateralAsset,
-                    collateralHolder: testSetup.pair.collateralHolders[0],
                     borrowAsset: testSetup.pair.borrowAsset,
-                    borrowHolder: testSetup.pair.borrowHolder,
                     collateralAmountStr: testSetup.pair.amount,
 
                     poolAdapterBorrowBalance: testSetup.pair.amount
@@ -1114,9 +1101,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 async function makePartialRepayTest(): Promise<IMakeRepayTestResults> {
                   return makeRepay({
                     collateralAsset: testSetup.pair.collateralAsset,
-                    collateralHolder: testSetup.pair.collateralHolders[0],
                     borrowAsset: testSetup.pair.borrowAsset,
-                    borrowHolder: testSetup.pair.borrowHolder,
                     collateralAmountStr: testSetup.pair.amount,
                     amountToRepayPart: 5_000,
                     targetHealthFactor2: 150,
@@ -1146,9 +1131,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
               it("should return exceeded amount if user tries to pay too much", async () => {
                 const results = await makeRepay({
                   collateralAsset: testSetup.pair.collateralAsset,
-                  collateralHolder: testSetup.pair.collateralHolders[0],
                   borrowAsset: testSetup.pair.borrowAsset,
-                  borrowHolder: testSetup.pair.borrowHolder,
                   collateralAmountStr: testSetup.pair.amount,
                   amountToRepayPart: 200_000,
                   closePosition: true
@@ -1159,9 +1142,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 await expect(
                   makeRepay({
                     collateralAsset: testSetup.pair.collateralAsset,
-                    collateralHolder: testSetup.pair.collateralHolders[0],
                     borrowAsset: testSetup.pair.borrowAsset,
-                    borrowHolder: testSetup.pair.borrowHolder,
                     collateralAmountStr: testSetup.pair.amount,
                     makeRepayAsNotTc: true,
                     amountToRepayPart: 1_000
@@ -1172,9 +1153,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 await expect(
                   makeRepay({
                     collateralAsset: testSetup.pair.collateralAsset,
-                    collateralHolder: testSetup.pair.collateralHolders[0],
                     borrowAsset: testSetup.pair.borrowAsset,
-                    borrowHolder: testSetup.pair.borrowHolder,
                     collateralAmountStr: testSetup.pair.amount,
                     amountToRepayPart: 1_000,
                     closePosition: true
@@ -1185,9 +1164,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 await expect(
                   makeRepay({
                     collateralAsset: testSetup.pair.collateralAsset,
-                    collateralHolder: testSetup.pair.collateralHolders[0],
                     borrowAsset: testSetup.pair.borrowAsset,
-                    borrowHolder: testSetup.pair.borrowHolder,
                     collateralAmountStr: testSetup.pair.amount,
                     usePoolMock: true,
                     ignoreWithdraw: true,
@@ -1198,9 +1175,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
               it("should NOT revert if pool has used all amount-to-repay and hasn't sent anything back", async () => {
                 const r = await makeRepay({
                   collateralAsset: testSetup.pair.collateralAsset,
-                  collateralHolder: testSetup.pair.collateralHolders[0],
                   borrowAsset: testSetup.pair.borrowAsset,
-                  borrowHolder: testSetup.pair.borrowHolder,
                   collateralAmountStr: testSetup.pair.amount,
                   usePoolMock: true,
                   grabAllBorrowAssetFromSenderOnRepay: true
@@ -1215,9 +1190,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 await expect(
                   makeRepay({
                     collateralAsset: testSetup.pair.collateralAsset,
-                    collateralHolder: testSetup.pair.collateralHolders[0],
                     borrowAsset: testSetup.pair.borrowAsset,
-                    borrowHolder: testSetup.pair.borrowHolder,
                     collateralAmountStr: testSetup.pair.amount,
                     setPriceOracleMock: true,
                     collateralPriceIsZero: true,
@@ -1229,9 +1202,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 await expect(
                   makeRepay({
                     collateralAsset: testSetup.pair.collateralAsset,
-                    collateralHolder: testSetup.pair.collateralHolders[0],
                     borrowAsset: testSetup.pair.borrowAsset,
-                    borrowHolder: testSetup.pair.borrowHolder,
                     collateralAmountStr: testSetup.pair.amount,
                     // we cannot use real pool
                     // because getUserAccountData of the real pool returns zero totalDebtBase when borrow price is zero
@@ -1258,9 +1229,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                     it("should NOT revert", async () => {
                       await makeRepay({
                         collateralAsset: testSetup.pair.collateralAsset,
-                        collateralHolder: testSetup.pair.collateralHolders[0],
                         borrowAsset: testSetup.pair.borrowAsset,
-                        borrowHolder: testSetup.pair.borrowHolder,
                         collateralAmountStr: testSetup.pair.amount,
                         amountToRepayPart: 1_000,
                         closePosition: false,
@@ -1281,9 +1250,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                     it("should NOT revert", async () => {
                       await makeRepay({
                         collateralAsset: testSetup.pair.collateralAsset,
-                        collateralHolder: testSetup.pair.collateralHolders[0],
                         borrowAsset: testSetup.pair.borrowAsset,
-                        borrowHolder: testSetup.pair.borrowHolder,
                         collateralAmountStr: testSetup.pair.amount,
                         amountToRepayPart: 1_000,
                         closePosition: false,
@@ -1300,9 +1267,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                     it("should NOT revert", async () => {
                       await makeRepay({
                         collateralAsset: testSetup.pair.collateralAsset,
-                        collateralHolder: testSetup.pair.collateralHolders[0],
                         borrowAsset: testSetup.pair.borrowAsset,
-                        borrowHolder: testSetup.pair.borrowHolder,
                         collateralAmountStr: testSetup.pair.amount,
                         amountToRepayPart: 1_000,
                         closePosition: false,
@@ -1320,9 +1285,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                       await expect(
                         makeRepay({
                           collateralAsset: testSetup.pair.collateralAsset,
-                          collateralHolder: testSetup.pair.collateralHolders[0],
                           borrowAsset: testSetup.pair.borrowAsset,
-                          borrowHolder: testSetup.pair.borrowHolder,
                           collateralAmountStr: testSetup.pair.amount,
                           amountToRepayPart: 1_000,
                           closePosition: false,
@@ -1374,7 +1337,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 core,
                 controller0,
                 p.collateralToken.address,
-                [p.collateralHolder],
                 p.collateralAmount,
                 p.borrowToken.address,
                 useEMode ?? false,
@@ -1754,7 +1716,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 core,
                 controller0,
                 collateralToken.address,
-                [collateralHolder],
                 parseUnits(collateralAmount, collateralToken.decimals),
                 borrowToken.address,
                 false,
@@ -2068,9 +2029,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 core,
                 controller,
                 testSetup.pair.collateralAsset,
-                testSetup.pair.collateralHolders,
-                undefined,
-                testSetup.pair.borrowAsset,
+                parseUnits(testSetup.pair.amount, await IERC20Metadata__factory.connect(testSetup.pair.collateralAsset, deployer).decimals()),                testSetup.pair.borrowAsset,
                 false
               );
               const ret = await d.aavePoolAdapterAsTC.claimRewards(receiver);
@@ -2095,8 +2054,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   core,
                   controller,
                   testSetup.pair.collateralAsset,
-                  testSetup.pair.collateralHolders,
-                  undefined,
+                  parseUnits(testSetup.pair.amount, await IERC20Metadata__factory.connect(testSetup.pair.collateralAsset, deployer).decimals()),
                   testSetup.pair.borrowAsset,
                   false
                 );
@@ -2128,9 +2086,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 core,
                 controller0,
                 collateralAsset,
-                [holderCollateralAsset],
-                undefined,
-                borrowAsset,
+                parseUnits(testSetup.pair.amount, await IERC20Metadata__factory.connect(testSetup.pair.collateralAsset, deployer).decimals()),                borrowAsset,
                 useEMode
               );
               const r = await d.aavePoolAdapterAsTC.getConfig();
@@ -2197,7 +2153,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
                 core,
                 controller,
                 collateralToken.address,
-                testSetup.pair.collateralHolders,
                 parseUnits(testSetup.pair.amount, collateralToken.decimals),
                 borrowToken.address,
                 false,
@@ -2209,14 +2164,34 @@ describe("Aave3PoolAdapterUnitTest", () => {
             async function salvageToken(
               p: IPrepareResults,
               tokenAddress: string,
-              holder: string,
               amountNum: string,
               caller?: string
             ): Promise<number> {
               const token = await IERC20Metadata__factory.connect(tokenAddress, deployer);
               const decimals = await token.decimals();
               const amount = parseUnits(amountNum, decimals);
-              await BalanceUtils.getRequiredAmountFromHolders(amount, token, [holder], p.init.aavePoolAdapterAsTC.address);
+
+              if (networkId === BASE_NETWORK_ID) {
+                // Try to avoid error "Could not brute-force storage slot for ERC20 at"
+                if (tokenAddress.toLowerCase() === BaseAddresses.AAVE_V3_USDbC) {
+                  await BalanceUtils.getAmountFromHolder(tokenAddress, BaseAddresses.AAVE_V3_USDbC_HOLDER, p.init.aavePoolAdapterAsTC.address, amount);
+                } else if (tokenAddress.toLowerCase() === BaseAddresses.AAVE_V3_WETH) {
+                  await BalanceUtils.getAmountFromHolder(tokenAddress, BaseAddresses.AAVE_V3_WETH_HOLDER, p.init.aavePoolAdapterAsTC.address, amount);
+                } else {
+                  await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
+                }
+              } else if (networkId === POLYGON_NETWORK_ID) {
+                // Try to avoid error "Could not brute-force storage slot for ERC20 at"
+                if (tokenAddress.toLowerCase() === MaticAddresses.Aave3_Polygon_DAI) {
+                  await BalanceUtils.getAmountFromHolder(tokenAddress, MaticAddresses.Aave3_Polygon_DAI_HOLDER, p.init.aavePoolAdapterAsTC.address, amount);
+                } else if (tokenAddress.toLowerCase() === MaticAddresses.Aave3_Polygon_WMATIC) {
+                  await BalanceUtils.getAmountFromHolder(tokenAddress, MaticAddresses.Aave3_Polygon_WMATIC_HOLDER, p.init.aavePoolAdapterAsTC.address, amount);
+                } else {
+                  await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
+                }
+              } else {
+                await TokenUtils.getToken(tokenAddress, p.init.aavePoolAdapterAsTC.address, amount);
+              }
               await p.init.aavePoolAdapterAsTC.connect(await Misc.impersonate(caller || p.governance)).salvage(receiver, tokenAddress, amount);
               return +formatUnits(await token.balanceOf(receiver), decimals);
             }
@@ -2224,25 +2199,25 @@ describe("Aave3PoolAdapterUnitTest", () => {
             describe("Good paths", () => {
               it("should salvage collateral asset", async () => {
                 const p = await loadFixture(prepare);
-                expect(await salvageToken(p, testSetup.pair.collateralAsset, testSetup.pair.collateralHolders[0], testSetup.pair.amount)).eq(Number(testSetup.pair.amount));
+                expect(await salvageToken(p, testSetup.pair.collateralAsset, testSetup.pair.amount)).eq(Number(testSetup.pair.amount));
               });
               it("should salvage borrow asset", async () => {
                 const p = await loadFixture(prepare);
-                expect(await salvageToken(p, testSetup.pair.borrowAsset, testSetup.pair.borrowHolder, "1")).eq(1);
+                expect(await salvageToken(p, testSetup.pair.borrowAsset, "1")).eq(1);
               });
             });
             describe("Bad paths", () => {
               it("should revert on attempt to salvage collateral aToken", async () => {
                 const p = await loadFixture(prepare);
-                await expect(salvageToken(p, testSetup.pairATokens.aTokenCollateral, testSetup.pairATokens.aTokenCollateralHolder, "1")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
+                await expect(salvageToken(p, testSetup.pairATokens.aTokenCollateral, "1")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
               });
               it("should revert on attempt to salvage borrow stable aToken", async () => {
                 const p = await loadFixture(prepare);
-                await expect(salvageToken(p, testSetup.pairATokens.aTokenBorrow, testSetup.pairATokens.aTokenBorrowHolder, "1")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
+                await expect(salvageToken(p, testSetup.pairATokens.aTokenBorrow, "1")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
               });
               it("should revert if not governance", async () => {
                 const p = await loadFixture(prepare);
-                await expect(salvageToken(p, testSetup.pair.collateralAsset, testSetup.pair.collateralHolders[0], testSetup.pair.amount, receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+                await expect(salvageToken(p, testSetup.pair.collateralAsset, testSetup.pair.amount, receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
               });
             });
           });

@@ -3,13 +3,16 @@ import {IERC20Metadata__factory} from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {IPlatformActor} from "../../types/IPlatformActor";
+import {TokenUtils} from "../../../../scripts/utils/TokenUtils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {BalanceUtils} from "../../utils/BalanceUtils";
+import {NumberUtils} from "../../utils/NumberUtils";
 
 export interface IPredictBrParams {
   collateralAsset: string;
   borrowAsset: string;
-  collateralHolders: string[];
-  part10000: number;
-  collateralAmount?: string; // by default - all amount available on the holder balances
+  borrowPart10000: number; // borrow amount = available liquidity * borrowPart10000 / 10000
+  collateralMult?: number; // collateral amount = borrow amount * collateralMult, 2 by default
 }
 
 export interface IPredictBrResults {
@@ -29,17 +32,17 @@ export interface IPredictBrResults {
  */
 export class PredictBrUsesCase {
   static async predictBrTest(signer: SignerWithAddress, actor: IPlatformActor, p: IPredictBrParams) : Promise<IPredictBrResults> {
+    const decimalsBorrow = await IERC20Metadata__factory.connect(p.borrowAsset, signer).decimals();
+    const decimalsCollateral = await IERC20Metadata__factory.connect(p.collateralAsset, signer).decimals();
+
     // get available liquidity, we are going to borrow given part of the liquidity
     //                 [available liquidity] * percent100 / 100
-    const availableLiquidity = await actor.getAvailableLiquidity();
-    const amountToBorrow = availableLiquidity.mul(p.part10000).div(10000);
+    const availableLiquidity = +formatUnits(await actor.getAvailableLiquidity(), decimalsBorrow);
+    const amountToBorrowNum = availableLiquidity * p.borrowPart10000 / 10_000;
+    const amountToBorrow = parseUnits(NumberUtils.trimDecimals(amountToBorrowNum.toString(), decimalsBorrow), decimalsBorrow);
 
-    // we assume, that total amount of collateral on holders accounts should be enough to borrow required amount
-    for (const h of p.collateralHolders) {
-      const cAsH = IERC20Metadata__factory.connect(p.collateralAsset, await DeployerUtils.startImpersonate(h));
-      await cAsH.transfer(signer.address, await cAsH.balanceOf(h));
-    }
-    const collateralAmount = await IERC20Metadata__factory.connect(p.collateralAsset, signer).balanceOf(signer.address);
+    const collateralAmount = parseUnits(NumberUtils.trimDecimals((amountToBorrowNum * (p.collateralMult ?? 3)).toString(), decimalsCollateral), decimalsCollateral);
+    await TokenUtils.getToken(p.collateralAsset, signer.address, collateralAmount);
 
     // before borrow
     const brBefore = await actor.getCurrentBR();

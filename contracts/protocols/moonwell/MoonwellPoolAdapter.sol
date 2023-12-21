@@ -17,7 +17,7 @@ import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/IWmatic.sol";
 import "../../integrations/moonwell/IMoonwellComptroller.sol";
 
-/// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
+/// @notice Implementation of IPoolAdapter for Moonwell-protocol, see https://docs.moonwell.fi/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract MoonwellPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
   using SafeERC20 for IERC20;
