@@ -17,7 +17,6 @@ import {ethers, network} from "hardhat";
 import {Misc} from "../../../utils/Misc";
 import {writeFileSyncRestoreFolder} from "../../../../test/baseUT/utils/FileUtils";
 import {CoreContractsHelper} from "../../../../test/baseUT/app/CoreContractsHelper";
-import {txParams2} from "../../../utils/DeployHelpers";
 import {ZkevmAddresses} from "../../../addresses/ZkevmAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {AdaptersHelper} from "../../../../test/baseUT/app/AdaptersHelper";

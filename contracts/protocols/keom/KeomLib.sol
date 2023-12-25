@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 import "../compound/CompoundLib.sol";
 import "../../libs/AppDataTypes.sol";
 import "../../integrations/tetu/ITetuLiquidator.sol";
-import "hardhat/console.sol";
 
 library KeomLib {
   /// @notice For any assets
