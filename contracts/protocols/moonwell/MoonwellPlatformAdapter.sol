@@ -16,7 +16,7 @@ import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/moonwell/IMoonwellComptroller.sol";
 
-/// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
+/// @notice Adapter to read current pools info from Moonwell-protocol, see https://docs.moonwell.fi/
 contract MoonwellPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;

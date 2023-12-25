@@ -73,16 +73,16 @@ describe("Compound3PlatformAdapterTest", () => {
     collateralAsset: string,
     cometAddress: string,
     cometRewards: string,
-    collateralHolders: string[],
-    part10000: number
+    part10000: number,
+    collateralMult?: number
   ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
     const comet = IComet__factory.connect(cometAddress, deployer)
     const actor = new Compound3PlatformActor(deployer, comet, collateralAsset);
     return PredictBrUsesCase.predictBrTest(deployer, actor,{
       collateralAsset,
       borrowAsset: await comet.baseToken(),
-      collateralHolders,
-      part10000
+      borrowPart10000: part10000,
+      collateralMult
     });
   }
 //endregion Test predict-br impl
@@ -152,7 +152,7 @@ describe("Compound3PlatformAdapterTest", () => {
 
     try {
       collateralAssetInfo = await comet.getAssetInfoByAddress(collateralAsset)
-    } catch {}
+    } catch { /* empty */ }
     if (collateralAssetInfo) {
       const collateralAssetPriceFeed = IPriceFeed__factory.connect(collateralAssetInfo.priceFeed, deployer)
       priceBorrow = (await borrowAssetPriceFeed.latestRoundData()).answer
@@ -732,12 +732,6 @@ describe("Compound3PlatformAdapterTest", () => {
             MaticAddresses.WETH,
             MaticAddresses.COMPOUND3_COMET_USDC,
             MaticAddresses.COMPOUND3_COMET_REWARDS,
-            [
-              MaticAddresses.HOLDER_WETH,
-              MaticAddresses.HOLDER_WETH_2,
-              MaticAddresses.HOLDER_WETH_3,
-              MaticAddresses.HOLDER_WETH_4,
-            ],
 
             // Compound III implements a minimum borrow position size which can be found as baseBorrowMin in the protocol configuration.
             // A withdraw transaction to borrow that results in the account’s borrow size being less than the baseBorrowMin will revert.
@@ -752,17 +746,20 @@ describe("Compound3PlatformAdapterTest", () => {
       })
       describe("huge amount WETH => USDC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          const comet = await IComet__factory.connect(MaticAddresses.COMPOUND3_COMET_USDC, deployer);
+          const collateralAssetInfo = await comet.getAssetInfoByAddress(MaticAddresses.WETH);
+          console.log(collateralAssetInfo.supplyCap);
+          const totalSupply = await comet.totalSupply();
+          const maxSupplyAmount = collateralAssetInfo.supplyCap.sub(totalSupply);
+          console.log("maxSupplyAmount", maxSupplyAmount);
+
+          // todo Supplied amount cannot exceed maxSupplyAmount
           const r = await makePredictBrTest(
             MaticAddresses.WETH,
             MaticAddresses.COMPOUND3_COMET_USDC,
             MaticAddresses.COMPOUND3_COMET_REWARDS,
-            [
-              MaticAddresses.HOLDER_WETH,
-              MaticAddresses.HOLDER_WETH_2,
-              MaticAddresses.HOLDER_WETH_3,
-              MaticAddresses.HOLDER_WETH_4,
-            ],
-            500
+            500,
+            0.1
           )
 
           expect(areAlmostEqual(r.br, r.brPredicted, 4)).eq(true)

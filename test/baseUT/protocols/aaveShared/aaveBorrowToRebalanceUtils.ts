@@ -6,6 +6,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {toStringWithRound} from "../../utils/CommonUtils";
 import {ConverterController} from "../../../../typechain";
+import {parseUnits} from "ethers/lib/utils";
 
 export interface IMakeBorrowToRebalanceResults {
   afterBorrow: IUserAccountDataResults;
@@ -26,10 +27,8 @@ export interface IMakeBorrowToRebalanceBadPathParams {
 type MakeBorrowToRebalanceFunc = (
   controller: ConverterController,
   collateralToken: TokenDataTypes,
-  collateralHolder: string,
   collateralAmount: BigNumber,
   borrowToken: TokenDataTypes,
-  borrowHolder: string,
   badPathsParams?: IMakeBorrowToRebalanceBadPathParams
 ) => Promise<IMakeBorrowToRebalanceResults>;
 
@@ -43,9 +42,7 @@ export class AaveBorrowToRebalanceUtils {
     badPathParams?: IMakeBorrowToRebalanceBadPathParams
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.DAI;
-    const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
-    const borrowHolder = MaticAddresses.HOLDER_WMATIC;
 
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
@@ -58,17 +55,15 @@ export class AaveBorrowToRebalanceUtils {
     const r = await makeBorrowToRebalanceFunc(
       controller,
       collateralToken,
-      collateralHolder,
       collateralAmount,
       borrowToken,
-      borrowHolder,
       badPathParams,
     );
 
     console.log(r);
     const ret = [
-      Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-      Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+      Math.round(r.afterBorrow.healthFactor.div(parseUnits("1", 15)).toNumber() / 10),
+      Math.round(r.afterBorrowToRebalance.healthFactor.div(parseUnits("1", 15)).toNumber() / 10),
       toStringWithRound(r.userBalanceAfterBorrow, 18),
       toStringWithRound(r.userBalanceAfterBorrowToRebalance, 18),
     ].join();

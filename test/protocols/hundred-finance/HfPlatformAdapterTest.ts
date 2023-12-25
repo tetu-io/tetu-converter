@@ -337,7 +337,7 @@ describe.skip("Hundred finance, platform adapter", () => {
         const ret = [
           await r.platformAdapter.controller(),
           await r.platformAdapter.comptroller(),
-          await r.platformAdapter.converter(),
+          (await r.platformAdapter.converters())[0],
           (await r.platformAdapter.converters()).join(),
           await r.platformAdapter.activeAssets(MaticAddresses.DAI),
           await r.platformAdapter.activeAssets(MaticAddresses.USDC)
@@ -898,23 +898,10 @@ describe.skip("Hundred finance, platform adapter", () => {
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          const collateralAsset = MaticAddresses.DAI;
-          const borrowAsset = MaticAddresses.USDC;
-          const collateralHolders = [
-            MaticAddresses.HOLDER_DAI,
-            MaticAddresses.HOLDER_DAI_2,
-            MaticAddresses.HOLDER_DAI_3,
-            MaticAddresses.HOLDER_DAI_4,
-            MaticAddresses.HOLDER_DAI_5,
-            MaticAddresses.HOLDER_DAI_6,
-          ];
-          const part10000 = 1;
-
           const r = await makeTest({
-            collateralAsset,
-            borrowAsset,
-            collateralHolders,
-            part10000
+            collateralAsset: MaticAddresses.DAI,
+            borrowAsset: MaticAddresses.USDC,
+            borrowPart10000: 1
           });
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 3);
@@ -924,24 +911,10 @@ describe.skip("Hundred finance, platform adapter", () => {
 
       describe("Huge amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
-          const collateralAsset = MaticAddresses.DAI;
-          const borrowAsset = MaticAddresses.USDC;
-
-          const collateralHolders = [
-            MaticAddresses.HOLDER_DAI,
-            MaticAddresses.HOLDER_DAI_2,
-            MaticAddresses.HOLDER_DAI_3,
-            MaticAddresses.HOLDER_DAI_4,
-            MaticAddresses.HOLDER_DAI_5,
-            MaticAddresses.HOLDER_DAI_6,
-          ];
-          const part10000 = 500;
-
           const r = await makeTest({
-            collateralAsset,
-            borrowAsset,
-            collateralHolders,
-            part10000
+            collateralAsset: MaticAddresses.DAI,
+            borrowAsset: MaticAddresses.USDC,
+            borrowPart10000: 500
           });
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 3);

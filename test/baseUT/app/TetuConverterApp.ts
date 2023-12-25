@@ -9,8 +9,14 @@ import {MocksHelper} from "./MocksHelper";
 import {ethers} from "hardhat";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "../logic/fabrics/ILendingPlatformFabric";
-import {BASE_NETWORK_ID, HARDHAT_NETWORK_ID, POLYGON_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {
+  BASE_NETWORK_ID,
+  HARDHAT_NETWORK_ID,
+  POLYGON_NETWORK_ID,
+  ZKEVM_NETWORK_ID
+} from "../../../scripts/utils/HardhatUtils";
 import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
+import {ZkevmAddresses} from "../../../scripts/addresses/ZkevmAddresses";
 
 export interface IDeployInitFabricsSet {
   deploy: () => Promise<string>,
@@ -136,6 +142,8 @@ export class TetuConverterApp {
         return (await CoreContractsHelper.createPriceOracle(deployer, MaticAddresses.AAVE_V3_PRICE_ORACLE)).address;
       case BASE_NETWORK_ID:
         return (await CoreContractsHelper.createPriceOracleMoonwell(deployer, BaseAddresses.MOONWELL_CHAINLINK_ORACLE)).address
+      case ZKEVM_NETWORK_ID:
+        return (await CoreContractsHelper.createPriceOracleKeomZkevm(deployer, ZkevmAddresses.KEOM_PRICE_ORACLE)).address
       default:
         throw Error(`Price oracle for network ${networkId} was not found`);
     }

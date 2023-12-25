@@ -10,6 +10,7 @@ import {
 import {writeFileSync} from "fs";
 import {formatUnits} from "ethers/lib/utils";
 import {getCurrentTimestamp} from "hardhat/internal/hardhat-network/provider/utils/getCurrentTimestamp";
+import {BASE_NETWORK_ID, HardhatUtils} from "../utils/HardhatUtils";
 
 interface IPositionInfo {
   block: number;
@@ -59,16 +60,18 @@ function getPlatformAdapterName(platformKind: number): string {
  *      npx hardhat run scripts/analyse/save-active-positions-to-csv.ts
  */
 async function main() {
-  const INITIAL_BLOCK = undefined;
+  await HardhatUtils.setupBeforeTest(BASE_NETWORK_ID);
+  const INITIAL_BLOCK = -1;
   const HISTORY_LEN = 0;
   const HISTORY_INTERVAL = 4000; // 1 hour ~ 60-70 blocks
 
-  const converterController = "0x2df21e2a115fcB3d850Fbc67237571bBfB566e99";
-  const pathOut = "./tmp/active-positions.csv";
+  // const converterController = "0x2df21e2a115fcB3d850Fbc67237571bBfB566e99";
+  const converterController = "0x1AC16b6aBeEE14487DE6CF946d05A0dE5169a917";
 
   const net = await ethers.provider.getNetwork();
   console.log(net, `network name="${network.name}"`);
 
+  const pathOut = `./tmp/${net.chainId}-active-positions.csv`;
   const signer = (await ethers.getSigners())[0];
 
   const controller = ConverterController__factory.connect(converterController, signer);
@@ -82,19 +85,7 @@ async function main() {
   const currentTimestamp = getCurrentTimestamp();
 
   while (historyCounter <= HISTORY_LEN) {
-    await network.provider.request({
-      method: "hardhat_reset",
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: process.env.TETU_MATIC_RPC_URL,
-            blockNumber: currentBlock === 0
-              ? INITIAL_BLOCK
-              : currentBlock
-          },
-        },
-      ],
-    });
+    await HardhatUtils.switchToBlock(currentBlock === 0 ? INITIAL_BLOCK : currentBlock, net.chainId)
 
     const countPositions = (await debtMonitor.getCountPositions()).toNumber();
 

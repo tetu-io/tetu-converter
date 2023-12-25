@@ -103,6 +103,7 @@ describe("PriceOracleTest", () => {
     describe("Bad paths", () => {
       it("should return 0 if the asset is unknown", async () => {
         const priceOracle = await CoreContractsHelper.createPriceOracle(deployer, priceOracleMocked.address);
+        await priceOracleMocked.setThrowIfZeroPrice();
         const ret = await priceOracle.getAssetPrice(weth.address);
         expect(ret.eq(0)).eq(true);
       });

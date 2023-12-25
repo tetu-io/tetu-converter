@@ -181,10 +181,6 @@ contract CompoundPoolAdapterLibFacade {
     return CompoundPoolAdapterLib._validateHealthFactor(controller_, healthFactorAfter, healthFactorBefore);
   }
 
-  function _getBalance(address asset) external view returns (uint) {
-    return CompoundPoolAdapterLib._getBalance(_f, asset);
-  }
-
   function _getBaseAmounts(
     CompoundPoolAdapterLib.AccountData memory data,
     CompoundPoolAdapterLib.PricesData memory prices

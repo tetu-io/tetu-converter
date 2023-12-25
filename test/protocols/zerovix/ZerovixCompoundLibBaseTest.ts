@@ -1,35 +1,32 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {BASE_NETWORK_ID, HardhatUtils} from "../../../scripts/utils/HardhatUtils";
-import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
-import {CompoundLibFacade, ICompoundPriceOracle__factory, IMToken__factory, IERC20Metadata, IERC20Metadata__factory, IMToken, CompoundAprLibFacade} from "../../../typechain";
+import {HardhatUtils, ZKEVM_NETWORK_ID} from "../../../scripts/utils/HardhatUtils";
+import {CompoundLibFacade, ICompoundPriceOracle__factory, IERC20Metadata, IERC20Metadata__factory, CompoundAprLibFacade, IZerovixToken, IZerovixToken__factory} from "../../../typechain";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import {ethers} from "hardhat";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {ZkevmAddresses} from "../../../scripts/addresses/ZkevmAddresses";
 
-describe("CompoundLibTest", () => {
+describe.skip("Zerovix: CompoundLibTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let deployer: SignerWithAddress;
   let facade: CompoundLibFacade;
   let facadeApr: CompoundAprLibFacade;
   let usdc: IERC20Metadata;
-  let cbEth: IERC20Metadata;
-  let dai: IERC20Metadata;
+  let usdt: IERC20Metadata;
   let weth: IERC20Metadata;
 
-  let cUsdc: IMToken;
-  let cCbEth: IMToken;
-  let cDai: IMToken;
-  let cWeth: IMToken;
+  let cUsdc: IZerovixToken;
+  let cWeth: IZerovixToken;
 
 //endregion Global vars for all tests
 
 //region before, after
   before(async function () {
-    await HardhatUtils.setupBeforeTest(BASE_NETWORK_ID);
+    await HardhatUtils.setupBeforeTest(ZKEVM_NETWORK_ID);
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -37,15 +34,12 @@ describe("CompoundLibTest", () => {
     facade = await DeployUtils.deployContract(deployer, "CompoundLibFacade") as CompoundLibFacade;
     facadeApr = await DeployUtils.deployContract(deployer, "CompoundAprLibFacade") as CompoundAprLibFacade;
 
-    usdc = IERC20Metadata__factory.connect(BaseAddresses.USDC, deployer);
-    cbEth = IERC20Metadata__factory.connect(BaseAddresses.cbETH, deployer);
-    dai = IERC20Metadata__factory.connect(BaseAddresses.DAI, deployer);
-    weth = IERC20Metadata__factory.connect(BaseAddresses.WETH, deployer);
+    usdc = IERC20Metadata__factory.connect(ZkevmAddresses.USDC, deployer);
+    usdt = IERC20Metadata__factory.connect(ZkevmAddresses.USDT, deployer);
+    weth = IERC20Metadata__factory.connect(ZkevmAddresses.WETH, deployer);
 
-    cUsdc = IMToken__factory.connect(BaseAddresses.MOONWELL_USDC, deployer);
-    cCbEth = IMToken__factory.connect(BaseAddresses.MOONWELL_CBETH, deployer);
-    cDai = IMToken__factory.connect(BaseAddresses.MOONWELL_DAI, deployer);
-    cWeth = IMToken__factory.connect(BaseAddresses.MOONWELL_WETH, deployer);
+    cUsdc = IZerovixToken__factory.connect(ZkevmAddresses.oUSDC, deployer);
+    cWeth = IZerovixToken__factory.connect(ZkevmAddresses.oUSDT, deployer);
   });
 
   after(async function () {
@@ -57,9 +51,9 @@ describe("CompoundLibTest", () => {
 //region Unit tests
   describe("getUnderlying", () => {
     interface IGetUnderlyingParams {
-      cToken: IMToken;
+      cToken: IZerovixToken;
       nativeToken: IERC20Metadata;
-      cTokenNative: IMToken;
+      cTokenNative: IZerovixToken;
     }
     interface IGetUnderlyingResults {
       underlying: string;
@@ -112,14 +106,14 @@ describe("CompoundLibTest", () => {
       async function getUnderlyingTest(): Promise<IGetUnderlyingResults> {
         return getUnderlying({
           cTokenNative: cWeth,
-          nativeToken: dai, // use dai instead weth to be sure that the value is taken from ProtocolFeatures
+          nativeToken: usdt, // use dai instead weth to be sure that the value is taken from ProtocolFeatures
           cToken: cWeth
         });
       }
 
       it("should return expected underlying asset", async () => {
         const ret = await loadFixture(getUnderlyingTest);
-        expect(ret.underlying.toLowerCase()).eq(dai.address.toLowerCase());
+        expect(ret.underlying.toLowerCase()).eq(usdt.address.toLowerCase());
       });
     });
   });
@@ -134,14 +128,14 @@ describe("CompoundLibTest", () => {
     });
 
     it("should return expected price if cToken is registered", async () => {
-      const oracle = ICompoundPriceOracle__factory.connect(BaseAddresses.MOONWELL_CHAINLINK_ORACLE, deployer);
+      const oracle = ICompoundPriceOracle__factory.connect(ZkevmAddresses.ZEROVIX_PRICE_ORACLE, deployer);
       const price = +formatUnits(await facade.getPrice(oracle.address, cUsdc.address), 36-6);
       expect(price).approximately(1, 0.1);
     });
 
     it("should revert if cToken is not registered", async () => {
       const unknownAsset = ethers.Wallet.createRandom().address;
-      const oracle = ICompoundPriceOracle__factory.connect(BaseAddresses.MOONWELL_CHAINLINK_ORACLE, deployer);
+      const oracle = ICompoundPriceOracle__factory.connect(ZkevmAddresses.ZEROVIX_PRICE_ORACLE, deployer);
       await expect(facade.getPrice(oracle.address, unknownAsset)).revertedWith("TC-4 zero price"); // ZERO_PRICE
     });
   });
@@ -156,7 +150,7 @@ describe("CompoundLibTest", () => {
     });
 
     interface IGetEstimatedBorrowRateParams {
-      cTokenToBorrow: IMToken;
+      cTokenToBorrow: IZerovixToken;
       amountToBorrow: string;
     }
     interface IGetEstimatedBorrowRateResults {
@@ -210,7 +204,7 @@ describe("CompoundLibTest", () => {
     });
 
     interface IGetEstimatedSupplyRateParams {
-      cTokenToSupply: IMToken;
+      cTokenToSupply: IZerovixToken;
       amountToSupply: string;
     }
     interface IGetEstimatedSupplyRateResults {

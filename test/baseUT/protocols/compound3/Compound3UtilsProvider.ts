@@ -1,5 +1,6 @@
 import {IPlatformUtilsProvider} from "../../types/IPlatformUtilsProvider";
 import {PolygonUtils} from "../../chains/polygon/PolygonUtils";
+import {Compound3Utils} from "./Compound3Utils";
 
 export class Compound3UtilsProvider implements  IPlatformUtilsProvider {
   getPlatformName() {
@@ -9,10 +10,13 @@ export class Compound3UtilsProvider implements  IPlatformUtilsProvider {
   getAssetName(asset: string): string {
     return PolygonUtils.getAssetName(asset);
   }
-  getAssetHolder(asset: string): string {
-    return PolygonUtils.getHolder(asset);
+  getCToken(asset: string) : string {
+    throw Error("not implemented");
   }
-  getAdditionalAssetHolders(asset: string): string[] {
-    return PolygonUtils.getAdditionalAssetHolders(asset);
+  getAllCTokens(): string[] {
+    throw Error("not implemented");
+  }
+  getAllAssets(): string[] {
+    return Compound3Utils.getAllAssets();
   }
 }

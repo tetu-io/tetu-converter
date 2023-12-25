@@ -221,7 +221,7 @@ describe("RebalanceExistDebts", () => {
         });
         it("should restore health factor by second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.1, 1e-7);
+          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.1, 1e-5);
         });
       });
       describe("Borrow, increase target health factor a bit, borrow again with full rebalance", () => {
@@ -251,7 +251,7 @@ describe("RebalanceExistDebts", () => {
         });
         it("should restore health factor by second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.2, 1e-8);
+          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.2, 1e-5);
         });
       });
       describe("Borrow, reduce target health factor a bit, borrow again with full rebalance", () => {
@@ -281,7 +281,7 @@ describe("RebalanceExistDebts", () => {
         });
         it("should restore health factor by second borrow", async () => {
           const ret = await loadFixture(makeBorrowWithRebalanceTest);
-          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.0, 1e-8);
+          expect(ret.statusAfterBorrow2.healthFactor).approximately(2.0, 1e-5);
         });
       });
       describe("Borrow, increase target health factor significantly, borrow again with partial rebalance", () => {

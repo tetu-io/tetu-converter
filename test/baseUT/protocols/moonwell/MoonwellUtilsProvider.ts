@@ -11,11 +11,13 @@ export class MoonwellUtilsProvider implements  IPlatformUtilsProvider {
   getAssetName(asset: string): string {
     return BaseUtils.getAssetName(asset);
   }
-  getAssetHolder(asset: string): string {
-    return BaseUtils.getHolder(asset);
+  getCToken(asset: string) : string {
+    return MoonwellUtils.getCToken(asset);
   }
-  getAdditionalAssetHolders(asset: string): string[] {
-    return BaseUtils.getAdditionalAssetHolders(asset);
+  getAllCTokens(): string[] {
+    return MoonwellUtils.getAllCTokens();
   }
-
+  getAllAssets(): string[] {
+    return MoonwellUtils.getAllAssets();
+  }
 }

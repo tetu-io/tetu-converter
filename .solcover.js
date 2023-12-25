@@ -1,5 +1,9 @@
 module.exports = {
-  skipFiles: ['test', 'openzeppelin', 'lib', 'integration', 'interfaces', 'protocols/hundred-finance'],
+  skipFiles: [
+'test', 'openzeppelin', 'lib', 'integration', 'interfaces', 
+'protocols/hundred-finance', 'protocols/zerovix', 'protocols/dforce',
+'oracles/PriceOracleKeomPolygon.sol', 'oracles/PriceOracleZerovixZkevm.sol'
+],
   configureYulOptimizer: true,
   mocha: {
     grep: "@skip-on-coverage", // Find everything with this tag

@@ -47,7 +47,6 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
       deployer,
       converterController,
       collateralAsset,
-      collateralHolder,
       collateralAmountNum,
       borrowAsset,
       CHANGE_PRICE_FACTOR
@@ -75,7 +74,7 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
     });
 
     it("liquidator receives all collateral", async () => {
-      const r = await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+      const r = await AaveTwoTestUtils.makeLiquidation(deployer, init.d);
       const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
         r.collateralAmountReceivedByLiquidator,
         init.collateralToken.decimals
@@ -101,7 +100,7 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
     });
 
     it("Try to make new borrow after liquidation", async () => {
-      await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder)
+      await AaveTwoTestUtils.makeLiquidation(deployer, init.d)
 
       // put collateral amount on user's balance
       await BalanceUtils.getRequiredAmountFromHolders(

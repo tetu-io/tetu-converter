@@ -26,6 +26,7 @@ import {GAS_LIMIT} from "../../types/GasLimit";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../app/MocksHelper";
 import {AdaptersHelper} from "../../app/AdaptersHelper";
+import {TokenUtils} from "../../../../scripts/utils/TokenUtils";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -121,8 +122,7 @@ export class AaveTwoTestUtils {
     deployer: SignerWithAddress,
     controller: ConverterController,
     collateralToken: TokenDataTypes,
-    collateralHolder: string,
-    collateralAmountRequired: BigNumber | undefined,
+    collateralAmountRequired: BigNumber,
     borrowToken: TokenDataTypes,
     additionalParams?: IPrepareToBorrowOptionalSetup
   ) : Promise<IPrepareToBorrowResults> {
@@ -182,24 +182,14 @@ export class AaveTwoTestUtils {
     );
 
     // put collateral amount on user's balance
-    const holderBalance = await collateralToken.token.balanceOf(collateralHolder);
-    const collateralAmount = collateralAmountRequired && holderBalance.gt(collateralAmountRequired)
-      ? collateralAmountRequired
-      : holderBalance;
+    const collateralAmount = collateralAmountRequired;
 
-    await collateralToken.token
-      .connect(await DeployerUtils.startImpersonate(collateralHolder))
-      .transfer(userContract.address, collateralAmount);
+    await TokenUtils.getToken(collateralToken.token.address, userContract.address, collateralAmount);
 
     if (additionalParams?.useAaveTwoPoolMock) {
       // see AaveTwoPoolMock.supply for explanation
       // we need to put additional amount to mock to be able to split a-tokens on two parts
-      await BalanceUtils.getRequiredAmountFromHolders(
-        collateralAmount,
-        collateralToken.token,
-        [collateralHolder],
-        aavePool.address
-      );
+      await TokenUtils.getToken(collateralToken.token.address, aavePool.address, collateralAmount);
     }
 
     // calculate max allowed amount to borrow
@@ -355,7 +345,6 @@ export class AaveTwoTestUtils {
     deployer: SignerWithAddress,
     controller: ConverterController,
     collateralAsset: string,
-    collateralHolder: string,
     collateralAmountNum: number,
     borrowAsset: string,
     changePriceFactor: number = 10
@@ -369,7 +358,6 @@ export class AaveTwoTestUtils {
       deployer,
       controller,
       collateralToken,
-      collateralHolder,
       collateralAmount,
       borrowToken,
       {targetHealthFactor2: 200}
@@ -397,14 +385,13 @@ export class AaveTwoTestUtils {
   public static async makeLiquidation(
     deployer: SignerWithAddress,
     d: IPrepareToBorrowResults,
-    borrowHolder: string
   ) : Promise<ILiquidationResults> {
     const liquidatorAddress = ethers.Wallet.createRandom().address;
 
     const liquidator = await DeployerUtils.startImpersonate(liquidatorAddress);
     const liquidatorBorrowAmountToPay = d.amountToBorrow;
     const borrowerAddress = d.aavePoolAdapterAsTC.address;
-    await BalanceUtils.getAmountFromHolder(d.borrowToken.address, borrowHolder, liquidatorAddress, liquidatorBorrowAmountToPay);
+    await TokenUtils.getToken(d.borrowToken.address, liquidatorAddress, liquidatorBorrowAmountToPay);
     await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, Misc.MAX_UINT);
 
     const aavePoolAsLiquidator = IAaveTwoPool__factory.connect(d.aavePool.address, liquidator);
@@ -439,20 +426,10 @@ export class AaveTwoTestUtils {
     return {status, collateralBalanceATokens, accountState, balanceATokensForCollateral};
   }
 
-  public static async putCollateralAmountOnUserBalance(init: IInitialBorrowResults, collateralHolder: string) {
-    await BalanceUtils.getRequiredAmountFromHolders(
-      init.collateralAmount,
-      init.collateralToken.token,
-      [collateralHolder],
-      init.d.userContract.address
-    );
+  public static async putCollateralAmountOnUserBalance(init: IInitialBorrowResults) {
+    await TokenUtils.getToken(init.collateralToken.address, init.d.userContract.address, init.collateralAmount);
   }
-  public static async putDoubleBorrowAmountOnUserBalance(init: IPrepareToBorrowResults, borrowHolder: string) {
-    await BalanceUtils.getRequiredAmountFromHolders(
-      init.amountToBorrow.mul(2),
-      init.borrowToken.token,
-      [borrowHolder],
-      init.userContract.address
-    );
+  public static async putDoubleBorrowAmountOnUserBalance(init: IPrepareToBorrowResults) {
+    await TokenUtils.getToken(init.borrowToken.address, init.userContract.address, init.amountToBorrow);
   }
 }

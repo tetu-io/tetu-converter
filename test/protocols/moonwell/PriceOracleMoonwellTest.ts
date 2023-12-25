@@ -8,7 +8,7 @@ import {BaseAddresses} from "../../../scripts/addresses/BaseAddresses";
 import {formatUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 
-describe("PriceOracleCompoundTest", () => {
+describe("PriceOracleMoonwellTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let signer: SignerWithAddress;
