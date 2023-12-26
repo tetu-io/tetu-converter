@@ -63,7 +63,7 @@ Twitter: https://twitter.com/tetu_io
 |    DebtMonitor                  | [0x0e980E1c89c751961F6E8529e38d4002B4D8Bf3e](https://zkevm.polygonscan.com/address/0x0e980E1c89c751961F6E8529e38d4002B4D8Bf3e#readProxyContract) |
 |    SwapManager                  | [0xa4B13FDCA08ae6cE9D2b20aC3ceD7c5Df267e205](https://zkevm.polygonscan.com/address/0xa4B13FDCA08ae6cE9D2b20aC3ceD7c5Df267e205#readProxyContract) |
 |    Keeper                       | [0x848A49De3f59C62A337463f1D856Ad30FE85675e](https://zkevm.polygonscan.com/address/0x848A49De3f59C62A337463f1D856Ad30FE85675e#readProxyContract) |
-|    PriceOracle                  | [0xF21ABFC5D68819EA0044fdB256d0AA854DC3034b](https://zkevm.polygonscan.com/address/0xF21ABFC5D68819EA0044fdB256d0AA854DC3034b#readProxyContract) |
+|    PriceOracle                  | [0x085d0c27Ae84F91915E13E61C3453b1e974404f3](https://zkevm.polygonscan.com/address/0x085d0c27Ae84F91915E13E61C3453b1e974404f3#readProxyContract) |
 |    Bookkeeper                   | [0x80a9956ea226aE5ae78b9F708fA127c15EF74F86](https://zkevm.polygonscan.com/address/0x80a9956ea226aE5ae78b9F708fA127c15EF74F86#readProxyContract) |
 |    Platform adapter Keom        | [0xC7A63e3b7f6420EeE99d73da50D368384d7bdC8A](https://zkevm.polygonscan.com/address/0xC7A63e3b7f6420EeE99d73da50D368384d7bdC8A#readProxyContract) |
 |    Pool adapter template Keom   | [0x57920CDE372a8E9634fb1c096fdAf3aEF892131b](https://zkevm.polygonscan.com/address/0x57920CDE372a8E9634fb1c096fdAf3aEF892131b#readProxyContract) |
