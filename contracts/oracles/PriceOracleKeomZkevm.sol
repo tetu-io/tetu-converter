@@ -5,7 +5,6 @@ import "../libs/AppErrors.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../integrations/compound/ICompoundPriceOracle.sol";
 import "../openzeppelin/IERC20Metadata.sol";
-import "hardhat/console.sol";
 
 /// @notice Trivial implementation of a price oracle as a wrapper of Keom price oracle on zkEVM.
 ///         Key difference: it returns prices with decimals 18
@@ -32,13 +31,10 @@ contract PriceOracleKeomZkevm is IPriceOracle {
     }
 
     if (kToken != address(0)) {
-      console.log("kToken", kToken);
       // Compound price oracle returns price with decimals (36 - assetDecimals), we need decimals 18
       try priceOracle.getUnderlyingPrice(kToken) returns (uint value) {
         return value * 10 ** IERC20Metadata(asset).decimals() / 1e18;
-      } catch {
-        console.log("error");
-      }
+      } catch {}
     }
 
     return 0; // unknown asset or unknown price

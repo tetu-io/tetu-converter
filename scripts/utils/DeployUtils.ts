@@ -32,7 +32,7 @@ export class DeployUtils {
   public static async deployProxy(signer: SignerWithAddress, contract: string) {
     const logic = await DeployUtils.deployContract(signer, contract);
     const proxy = await DeployUtils.deployContract(signer, 'ProxyControlled') as ProxyControlled;
-    await RunHelper.runAndWait2(proxy.populateTransaction.initProxy(logic.address));
+    await RunHelper.runAndWait2ExplicitSigner(signer, proxy.populateTransaction.initProxy(logic.address));
     return proxy.address;
   }
 }

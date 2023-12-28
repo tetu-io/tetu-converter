@@ -211,7 +211,7 @@ export class ZkEvmDeploySolutionUtils {
     alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
     const priceOracle = alreadyDeployed?.priceOracle
-      || (await CoreContractsHelper.createPriceOracleKeomZkevm(deployer, ZkevmAddresses.ZEROVIX_PRICE_ORACLE)).address;
+      || (await CoreContractsHelper.createPriceOracleKeomZkevm(deployer, ZkevmAddresses.KEOM_PRICE_ORACLE)).address;
     console.log("Result PriceOracle: ", priceOracle);
 
     const controllerAddress = alreadyDeployed?.controller || await CoreContractsHelper.deployController(deployer);

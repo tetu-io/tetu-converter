@@ -435,7 +435,10 @@ describe("Aave3PoolAdapterUnitTest", () => {
                   });
                   it("should return initial collateral amount", async () => {
                     const r = await loadFixture(setupUserHasBorrowTest);
-                    expect(r.status.collateralAmount).approximately(init.collateralAmount, 1000);
+                    const decimals = await IERC20Metadata__factory.connect(init.collateralToken, deployer).decimals();
+                    const amountAfter = +formatUnits(r.status.collateralAmount, decimals);
+                    const amountInitial = +formatUnits(init.collateralAmount, decimals);
+                    expect(amountAfter).approximately(amountInitial, 1e-5);
                   });
                   it("shouldn't be liquidated", async () => {
                     const r = await loadFixture(setupUserHasBorrowTest);

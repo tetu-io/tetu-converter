@@ -11,7 +11,7 @@ import {
   IERC20Metadata__factory,
   IPlatformAdapter,
   IPoolAdapter__factory,
-  ITetuConverter__factory, KeomPlatformAdapter,
+  ITetuConverter__factory,
   MoonwellPlatformAdapter,
   UserEmulator
 } from "../../typechain";
