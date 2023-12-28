@@ -50,15 +50,15 @@ export class EnvSetup {
 
         maticForkBlock: {
           type: 'number',
-          default: 50792773, // 49968469, // 49480727, // 42618407,
+          default: 51649296, // 49968469, // 49480727, // 42618407,
         },
         baseForkBlock: {
           type: 'number',
-          default: 7519718, // 6625978, // 6100252, // 5939287, // 5725340,
+          default: 7924153, // 6625978, // 6100252, // 5939287, // 5725340,
         },
         zkevmForkBlock: {
           type: 'number',
-          default: 8635715,
+          default: 8832921,
         },
 
         /////// NETWORK EXPLORERS

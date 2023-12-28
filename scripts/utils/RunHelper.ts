@@ -31,7 +31,7 @@ export class RunHelper {
     let receipt;
     while (true) {
       receipt = await ethers.provider.getTransactionReceipt(tr.hash);
-      if (!!receipt) {
+      if (receipt) {
         break;
       }
       log.info('not yet complete', tr.hash);
@@ -46,7 +46,7 @@ export class RunHelper {
   }
 
   public static async runAndWait2(txPopulated: Promise<PopulatedTransaction>, stopOnError = true, wait = true) {
-    console.log('prepare run and wait2')
+    console.log('runAndWait2')
     const tx = await txPopulated;
     const signer = (await ethers.getSigners())[0];
     const gas = (await signer.estimateGas(tx)).toNumber()
@@ -64,7 +64,7 @@ export class RunHelper {
   }
 
   public static async runAndWait2ExplicitSigner(signer: SignerWithAddress, txPopulated: Promise<PopulatedTransaction>, stopOnError = true, wait = true) {
-    console.log('prepare run and wait2')
+    console.log('runAndWait2ExplicitSigner')
     const tx = await txPopulated;
     const gas = (await signer.estimateGas(tx)).toNumber()
 
