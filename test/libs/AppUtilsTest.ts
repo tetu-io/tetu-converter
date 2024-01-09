@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {AppUtilsFacade, MockERC20} from "../../typechain";
+import {AppUtilsFacade, IERC20Metadata__factory, MockERC20} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {parseUnits} from "ethers/lib/utils";
@@ -198,6 +198,27 @@ describe("AppUtils", () => {
         length: 3
       });
       expect(indices.join()).eq([0, 3, 2, 1, 0].join());
+    });
+  });
+
+  describe("setAllowance", () => {
+    const SPENDER = ethers.Wallet.createRandom().address;
+    it("should set initial approve", async () => {
+       await facade.setAllowance(usdc.address, SPENDER, parseUnits("1.2", 6));
+       const allowance = await usdc.allowance(facade.address, SPENDER);
+       expect(allowance).eq(parseUnits("1.2", 6));
+    });
+    it("should increase approve", async () => {
+      await facade.setAllowance(usdc.address, SPENDER, parseUnits("1.2", 6));
+      await facade.setAllowance(usdc.address, SPENDER, parseUnits("2.3", 6));
+      const allowance = await usdc.allowance(facade.address, SPENDER);
+      expect(allowance).eq(parseUnits("2.3", 6));
+    });
+    it("should decrease approve", async () => {
+      await facade.setAllowance(usdc.address, SPENDER, parseUnits("1.2", 6));
+      await facade.setAllowance(usdc.address, SPENDER, parseUnits("0.1", 6));
+      const allowance = await usdc.allowance(facade.address, SPENDER);
+      expect(allowance).eq(parseUnits("0.1", 6));
     });
   });
 //endregion Unit tests

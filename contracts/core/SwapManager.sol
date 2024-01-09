@@ -16,6 +16,7 @@ import "../interfaces/ISwapSimulator.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../integrations/tetu/ITetuLiquidator.sol";
 import "../proxy/ControllableV3.sol";
+import "../libs/AppUtils.sol";
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
@@ -24,7 +25,7 @@ contract SwapManager is ControllableV3, ISwapManager, ISwapConverter, ISimulateP
   using SafeERC20 for IERC20;
 
   //region ----------------------------------------------------- Constants
-  string public constant SWAP_MANAGER_VERSION = "1.0.0";
+  string public constant SWAP_MANAGER_VERSION = "1.0.1";
   int public constant APR_NUMERATOR = 10 ** 18;
 
   uint public constant PRICE_IMPACT_NUMERATOR = SwapLib.PRICE_IMPACT_NUMERATOR;
@@ -126,7 +127,7 @@ contract SwapManager is ControllableV3, ISwapManager, ISwapConverter, ISimulateP
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(_controller.tetuLiquidator());
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
-    IERC20(sourceToken_).safeApprove(address(tetuLiquidator), amountIn_);
+    AppUtils.setAllowance(sourceToken_, address(tetuLiquidator), amountIn_);
 
     // If price impact is too big, getConverter will return high APR
     // So TetuConverter will select borrow, not swap.
@@ -179,7 +180,8 @@ contract SwapManager is ControllableV3, ISwapManager, ISwapConverter, ISimulateP
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(_controller.tetuLiquidator());
-    IERC20(sourceToken_).safeApprove(address(tetuLiquidator), sourceAmount_);
+    AppUtils.setAllowance(sourceToken_, address(tetuLiquidator), sourceAmount_);
+
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, _getPriceImpactTolerance(sourceToken_));
     return IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
   }

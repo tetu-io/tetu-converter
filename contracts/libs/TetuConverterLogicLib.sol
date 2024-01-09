@@ -356,7 +356,7 @@ library TetuConverterLogicLib {
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller_.tetuLiquidator());
     uint targetTokenBalanceBefore = IERC20(assetOut_).balanceOf(address(this));
 
-    IERC20(assetIn_).safeApprove(address(tetuLiquidator), amountIn_);
+    AppUtils.setAllowance(assetIn_, address(tetuLiquidator), amountIn_);
     tetuLiquidator.liquidate(assetIn_, assetOut_, amountIn_, priceImpactToleranceSource_);
 
     amountOut = IERC20(assetOut_).balanceOf(address(this)) - targetTokenBalanceBefore;
