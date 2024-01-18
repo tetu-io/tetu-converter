@@ -29,4 +29,8 @@ contract AppUtilsFacade {
   function getBalance(address nativeToken, address asset) external view returns (uint) {
     return AppUtils.getBalance(nativeToken, asset);
   }
+
+  function setAllowance(address token, address spender, uint amount) external {
+    AppUtils.setAllowance(token, spender, amount);
+  }
 }

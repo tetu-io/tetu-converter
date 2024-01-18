@@ -3,9 +3,12 @@ pragma solidity 0.8.17;
 
 import "./AppErrors.sol";
 import "../openzeppelin/IERC20.sol";
+import "../openzeppelin/SafeERC20.sol";
 
 /// @notice Common utils
 library AppUtils {
+  using SafeERC20 for IERC20;
+
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
   function toMantissa(uint amount, uint8 sourceDecimals, uint8 targetDecimals) internal pure returns (uint) {
     return sourceDecimals == targetDecimals
@@ -124,5 +127,17 @@ library AppUtils {
     return nativeToken == asset
       ? address(this).balance
       : IERC20(asset).balanceOf(address(this));
+  }
+
+  /// @notice Set approve of {token} to {spender} to the given {amount}
+  function setAllowance(address token, address spender, uint amount) internal {
+//    uint allowance = IERC20(token).allowance(address(this), spender);
+//    if (allowance < amount) {
+//      IERC20(token).safeIncreaseAllowance(spender, amount - allowance);
+//    } else if (allowance > amount) {
+//      IERC20(token).safeDecreaseAllowance(spender, allowance - amount);
+//    }
+
+    IERC20(token).approve(spender, amount);
   }
 }
