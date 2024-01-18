@@ -369,7 +369,7 @@ library BookkeeperLib {
     uint suppliedAmount,
     uint borrowedAmount
   ) {
-    Action[] memory actions = state.actions[poolAdapter];
+    Action[] storage actions = state.actions[poolAdapter];
     uint countActions = actions.length;
     if (countActions != 0) {
       // get last stored supplied and borrowed amount

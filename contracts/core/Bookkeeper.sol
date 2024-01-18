@@ -30,7 +30,7 @@ contract Bookkeeper is IBookkeeper, ControllableV3 {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   //region ----------------------------------------------------- Constants
-  string public constant BOOKKEEPER_VERSION = "1.0.0";
+  string public constant BOOKKEEPER_VERSION = "1.0.1";
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Variables

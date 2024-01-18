@@ -131,11 +131,13 @@ library AppUtils {
 
   /// @notice Set approve of {token} to {spender} to the given {amount}
   function setAllowance(address token, address spender, uint amount) internal {
-    uint allowance = IERC20(token).allowance(address(this), spender);
-    if (allowance < amount) {
-      IERC20(token).safeIncreaseAllowance(spender, amount - allowance);
-    } else if (allowance > amount) {
-      IERC20(token).safeDecreaseAllowance(spender, allowance - amount);
-    }
+//    uint allowance = IERC20(token).allowance(address(this), spender);
+//    if (allowance < amount) {
+//      IERC20(token).safeIncreaseAllowance(spender, amount - allowance);
+//    } else if (allowance > amount) {
+//      IERC20(token).safeDecreaseAllowance(spender, allowance - amount);
+//    }
+
+    IERC20(token).approve(spender, amount);
   }
 }
